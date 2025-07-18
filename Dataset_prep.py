@@ -4,8 +4,8 @@ from dateutil.parser import parse
 
 # --- Configuration ---
 INPUT_FILE = 'Data/UHRI_2006_2024.xlsx'   # Path to input Excel file
-OUTPUT_FILE = 'Data/UHRI_Internet.json'   # Path to output JSON file
-KEYWORDS = ['internet', 'online', 'digital']
+OUTPUT_FILE = 'UHRI_2006_2024_goodpr.json'   # Path to output JSON file
+KEYWORDS = ['promising practice', 'good practice', 'best practice']
 
 def contains_keywords(text, keywords):
     """Return True if 'text' contains any of the 'keywords' (case-insensitive)."""

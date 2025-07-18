@@ -6,7 +6,7 @@ import math
 from dateutil.parser import parse
 
 # Load data (excluding UPR)
-with open('../Data/UHRI_Internet.json', 'r', encoding='utf-8') as f:
+with open('/Users/lszoszk/PycharmProjects/InternetAccess/Filtered_IA.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 data = [r for r in data if r.get("Reccomending Body", "") != "- UPR"]
 

@@ -10,10 +10,10 @@ import nltk
 import pandas as pd
 from nltk.tokenize import word_tokenize
 import json
-from matplotlib.lines import Line2D  # <-- Added this import
+from matplotlib.lines import Line2D
 
 # Load JSON data
-with open('../Data/UHRI_Internet.json', 'r', encoding='utf-8') as f:
+with open('../UHRI_2006_2024_goodpr.json', 'r', encoding='utf-8') as f:
     data_records = json.load(f)
 
 # Minimal processing: normalize "Reccomending Body" for special procedures and map specific bodies to "Other"
@@ -23,16 +23,15 @@ def process_record(item):
         item['Reccomending Body'] = '- Special Procedures'
     elif comm in ["- CMW", "- ", "- SPT", "- CED", "- CAT"]:
         item['Reccomending Body'] = "- Other"
-#    elif comm.startswith("- CRC"):
-#        item['Reccomending Body'] = "- CRC (incl. OP-AC & OP-SC)"
     return item
 
 data_records = [process_record(r) for r in data_records]
-# Filter out UPR
-data_records_small = [r for r in data_records if r.get("Reccomending Body", "") != "- UPR"]
+# Filter out UPR (optional - set to False to include UPR)
+FILTER_UPR = True
+data_records_small = [r for r in data_records if not FILTER_UPR or r.get("Reccomending Body", "") != "- UPR"]
 
 # ----------------------------------------------------------------------
-# Count frequency of concerned groups per year
+# Count frequency of concerned groups per year in practice recommendations
 # ----------------------------------------------------------------------
 related_words = [
     ("child","children","adolescent","adolescents","juvenile","juveniles"),
@@ -68,13 +67,13 @@ short_labels = {
 
 # Broken-axis plot setup
 fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(15, 8))
-break_point = 200
+break_point = 50  # Adjusted for practice data
 upper_limit = max((max(val) for val in plot_data.values()), default=0)
 
 # First (upper) subplot
 for grp, counts in plot_data.items():
     ax1.plot(years_2006_2024, counts, marker='o', linestyle='', label=short_labels[grp])
-ax1.set_ylim(break_point, upper_limit + 200)
+ax1.set_ylim(break_point, upper_limit + 50)
 ax1.spines['bottom'].set_visible(False)
 ax1.xaxis.tick_top()
 ax1.tick_params(labeltop=False)
@@ -105,7 +104,8 @@ ax1.set_xticklabels(xticks_)
 ax2.set_xticklabels(xticks_)
 
 ax1.legend(loc='upper left', bbox_to_anchor=(0,1))
-fig.suptitle('Frequency of Concerned Groups Mentions (2006–2024)', fontsize=16)
+filter_note = " (UPR excluded)" if FILTER_UPR else " (including UPR)"
+fig.suptitle(f'Frequency of Concerned Groups in Practice Recommendations (2006–2024){filter_note}', fontsize=16)
 plt.xlabel('Year')
 plt.ylabel('Number of mentions')
 plt.show()
@@ -128,103 +128,37 @@ for r in data_records_small:
 yearly_counts = [sum(vals) for vals in zip(*doc_counts_by_body.values())]
 
 # ----------------------------------------------------------------------
-# Scatterplot: each recommending body vs. total
+# Enhanced scatterplot: each recommending body vs. total practice recommendations
 # ----------------------------------------------------------------------
 
-fig, ax1 = plt.subplots(figsize=(10, 6))
+fig, ax1 = plt.subplots(figsize=(12, 8))
 ax2 = ax1.twinx()
 
-# 1) Gather all points we'll plot (count >= 10)
-all_points = []
-for body, counts in doc_counts_by_body.items():
-    if body != "UPR":
-        for i, c in enumerate(counts):
-            if c >= 10:
-                x_val = years_2007_2024[i]
-                all_points.append((body, x_val, c))
-
-# 2) Create a colormap with as many distinct colors as there are points
-cmap = cm.get_cmap("nipy_spectral", len(all_points))
-
-# 3) For the legend, we'll track the first time each body is plotted
-legend_assigned = set()
-
-for idx, (body, x_val, count_val) in enumerate(all_points):
-    # Small y-jitter
-    y_jitter = count_val + random.uniform(-0.5, 0.5)
-    # Label for legend only once per body
-    label_ = body if body not in legend_assigned else None
-    if label_:
-        legend_assigned.add(body)
-    # Plot each point with a unique color from the colormap
-    ax1.scatter(
-        x_val,
-        y_jitter,
-        color=cmap(idx),  # each point gets a different color
-        marker="o",
-        alpha=0.7,
-        label=label_
-    )
-
-# 4) Secondary axis: total counts
-ax2.plot(years_2007_2024, yearly_counts, color="black", linewidth=2, label="Total Recs")
-ax2.tick_params(axis="y", labelcolor="black")
-ax2.set_ylabel("Total number of Internet-related Recommendations (excl. UPR)", fontsize=11)
-
-# 5) Configure axes
-ax1.set_xlim(2006, 2025)
-x_ticks = range(2006, 2026, 2)
-ax1.set_xticks(x_ticks)
-ax1.set_xticklabels(x_ticks, fontsize=10)
-ax1.set_xlabel("Year", fontsize=12)
-ax1.set_ylabel("Internet-related recommendation (TBs and SPs only)", fontsize=11)
-ax1.set_title("The Most Active UN Mechanisms in Adopting Internet-related Recommendations  (2007–2024)", fontsize=14)
-
-# 6) Combine legend handles from both axes
-handles1, labels1 = ax1.get_legend_handles_labels()
-handles2, labels2 = ax2.get_legend_handles_labels()
-# Only keep unique legend entries (in case of duplicates)
-combined = dict(zip(labels1, handles1))
-combined.update(dict(zip(labels2, handles2)))
-ax1.legend(combined.values(), combined.keys(), loc="upper left", fontsize=9)
-
-plt.tight_layout()
-plt.show()
-
-
-#-----------------------------------------------------------------------
-# Alternative scatterplot with enhanced features
-# ----------------------------------------------------------------------
-
-# Now the enhanced scatterplot code:
-fig, ax1 = plt.subplots(figsize=(10, 6))
-ax2 = ax1.twinx()
-
-# Sort the bodies alphabetically, excluding "UPR" (as you filter that out in the plot)
+# Sort the bodies alphabetically, excluding "UPR" (if filtered)
 sorted_bodies = sorted(body for body in doc_counts_by_body if body != "- UPR")
 
 # Assign a distinct color to each body using a qualitative palette
 num_bodies = len(sorted_bodies)
-palette = sns.color_palette("tab20", num_bodies)  # or "tab20", etc.
+palette = sns.color_palette("tab20", num_bodies)
 body_color_map = dict(zip(sorted_bodies, palette))
 
-# 1) Gather all points (count >= 10)
+# 1) Gather all points (count >= 3 for practice data - lower threshold)
 all_points = []
 for body, counts in doc_counts_by_body.items():
     if body != "- UPR":
         for i, c in enumerate(counts):
-            if c >= 10:
+            if c >= 3:  # Lower threshold for practice recommendations
                 x_val = years_2007_2024[i]
                 all_points.append((body, x_val, c))
 
 # 2) Scatter plot, coloring by Recommending Body
 for body, x_val, count_val in all_points:
     # small y-jitter
-    y_jitter = count_val + random.uniform(-0.5, 0.5)
+    y_jitter = count_val + random.uniform(-0.2, 0.2)
     ax1.scatter(
         x_val,
         y_jitter,
-        color=body_color_map.get(body, 'gray'),  # fallback color
+        color=body_color_map.get(body, 'gray'),
         marker="o",
         alpha=0.7,
         edgecolor='white',
@@ -237,12 +171,12 @@ line_total, = ax2.plot(
     years_2007_2024,
     yearly_counts,
     color="black",
-    linewidth=1,       # Reduced linewidth from 2 to 1
-    linestyle='--',    # Changed line to dashed
-    label="Total Recs"
+    linewidth=1,
+    linestyle='--',
+    label="Total Practice Recs"
 )
 ax2.tick_params(axis="y", labelcolor="black")
-ax2.set_ylabel("Total number of Internet-related Recommendations (excl. UPR)", fontsize=11)
+ax2.set_ylabel("Total Practice Recommendations" + (" (excl. UPR)" if FILTER_UPR else ""), fontsize=11)
 
 # 4) Configure axes
 ax1.set_xlim(2006, 2025)
@@ -250,12 +184,12 @@ x_ticks = range(2006, 2026, 2)
 ax1.set_xticks(x_ticks)
 ax1.set_xticklabels(x_ticks, fontsize=10)
 ax1.set_xlabel("Year", fontsize=12)
-ax1.set_ylabel("Internet-related recommendations (TBs and SPs only)", fontsize=11)
-ax1.set_title("The Most Active UN Mechanisms in Adopting Internet-related Recommendations (2007–2024)",
+ax1.set_ylabel("Practice Recommendations by Mechanism", fontsize=11)
+filter_note = " (UPR excluded)" if FILTER_UPR else ""
+ax1.set_title(f"UN Mechanisms Adopting Practice Recommendations (2007–2024){filter_note}",
               fontsize=14, fontweight="bold")
 
 # 5) Build a custom legend in alphabetical order
-#    First create legend entries for each body:
 legend_elements = [
     Line2D([0], [0], marker='o', color='w',
            markerfacecolor=body_color_map[body],
@@ -266,7 +200,7 @@ legend_elements = [
 ]
 
 # Add the "Total Recs" line at the end of the legend with updated style
-legend_elements.append(Line2D([0], [0], color="black", linestyle='--', linewidth=1, label="Total Recs"))
+legend_elements.append(Line2D([0], [0], color="black", linestyle='--', linewidth=1, label="Total Practice Recs"))
 
 ax1.legend(handles=legend_elements, loc="upper left", fontsize=9, title="Recommending Body")
 
@@ -274,18 +208,18 @@ plt.tight_layout()
 plt.show()
 
 # ----------------------------------------------------------------------
-# Bigram Analysis by Concerned Group
+# Bigram Analysis by Concerned Group for Practice Recommendations
 # ----------------------------------------------------------------------
-target_keywords = ["internet","digital","online"]
-custom_stop = ['including','exclusively']
+practice_keywords = ["promising", "good", "best", "practice", "practices"]
+custom_stop = ['including','exclusively', 'state', 'party', 'committee', 'recommends']
 stop_words = set(stopwords.words('english'))
 stop_words.update(custom_stop)
 
 def clean_and_tokenize(text):
     return [t for t in nltk.word_tokenize(text.lower())
-            if t not in stop_words and t not in string.punctuation]
+            if t not in stop_words and t not in string.punctuation and len(t) > 2]
 
-group_target_bigrams = {g: Counter() for g in related_words}
+group_practice_bigrams = {g: Counter() for g in related_words}
 for r in data_records_small:
     txt = r.get("Text","")
     if not txt: continue
@@ -294,14 +228,16 @@ for r in data_records_small:
     for grp in related_words:
         if any(w in txt.lower() for w in grp):
             for bg in bgs:
-                if any(k in bg for k in target_keywords):
-                    group_target_bigrams[grp][bg] += 1
+                if any(k in bg for k in practice_keywords):
+                    group_practice_bigrams[grp][bg] += 1
 
-for grp, ctr in group_target_bigrams.items():
-    print(f"Group '{'/'.join(grp)}': {ctr.most_common(10)}")
+print("=== PRACTICE-RELATED BIGRAMS BY CONCERNED GROUP ===")
+for grp, ctr in group_practice_bigrams.items():
+    if ctr:  # Only show groups with data
+        print(f"\nGroup '{'/'.join(grp[:2])}...': {ctr.most_common(10)}")
 
 # ----------------------------------------------------------------------
-# Color-coded Grid Plots of Bigrams by (Group, Committee)
+# Color-coded Grid Plots of Practice Bigrams by (Group, Committee)
 # ----------------------------------------------------------------------
 grp_map = {
     ("child","children","adolescent","adolescents","juvenile","juveniles"): "Children",
@@ -320,10 +256,10 @@ def determine_group(text):
             return gname
     return "Other"
 
-def relevant_bigrams(txt):
-    wds = [w for w in word_tokenize(txt.lower()) if w.isalpha() and w not in stop_words]
+def relevant_practice_bigrams(txt):
+    wds = [w for w in word_tokenize(txt.lower()) if w.isalpha() and w not in stop_words and len(w) > 2]
     bg = list(bigrams(wds))
-    return [b for b in bg if any(k in b for k in target_keywords)]
+    return [b for b in bg if any(k in b for k in practice_keywords)]
 
 group_committee_bigrams = {}
 for r in data_records_small:
@@ -333,17 +269,17 @@ for r in data_records_small:
         c = 'Special Procedures'
     g = determine_group(t)
     if t:
-        bgs = relevant_bigrams(t)
+        bgs = relevant_practice_bigrams(t)
         group_committee_bigrams.setdefault((g,c), Counter()).update(bgs)
 
-top_bigrams_gc = {gc: ctr.most_common(10) for gc, ctr in group_committee_bigrams.items()}
+top_bigrams_gc = {gc: ctr.most_common(8) for gc, ctr in group_committee_bigrams.items()}
 df_list = []
 for (g,c), bgctr in top_bigrams_gc.items():
     for bg, cnt in bgctr:
         df_list.append({'Group': g, 'Committee': c, 'Bigram': ' '.join(bg), 'Count': cnt})
 df = pd.DataFrame(df_list)
 
-def plot_bigrams_by_group(df, grp_map, top_n=7):
+def plot_practice_bigrams_by_group(df, grp_map, top_n=6):
     if df.empty:
         print("No data available for plotting.")
         return
@@ -356,8 +292,11 @@ def plot_bigrams_by_group(df, grp_map, top_n=7):
     cpal = sns.color_palette("husl", num_g)
     grp_colors = {g: cpal[i] for i,g in enumerate(groups)}
 
-    fig, axs = plt.subplots(rows, cols, figsize=(20,6*rows), constrained_layout=True)
-    axs = axs.flatten()
+    fig, axs = plt.subplots(rows, cols, figsize=(18,5*rows), constrained_layout=True)
+    if rows == 1:
+        axs = [axs] if cols == 1 else axs
+    else:
+        axs = axs.flatten()
 
     for i,g in enumerate(groups):
         ax = axs[i]
@@ -377,45 +316,49 @@ def plot_bigrams_by_group(df, grp_map, top_n=7):
             ax.axis("off")
 
     for j in range(num_g,len(axs)): axs[j].axis("off")
-    plt.suptitle("Top Bigrams by Concerned Group", fontsize=18, fontweight="bold", y=1.02)
+    plt.suptitle("Top Practice-Related Bigrams by Concerned Group", fontsize=18, fontweight="bold", y=1.02)
     plt.show()
 
-plot_bigrams_by_group(df, grp_map, top_n=7)
+plot_practice_bigrams_by_group(df, grp_map, top_n=6)
 
 # ----------------------------------------------------------------------
-#  Plot of Bigrams by Mechanism
+# Plot of Practice Bigrams by Mechanism
 # ----------------------------------------------------------------------
-treaty_bodies = ["- CCPR","- CESCR","- CEDAW","- CRC","- CRPD","- CERD","- CRC-OP-AC","- CRC-OP-SC","- Special Procedures","- UPR"]
+treaty_bodies = ["- CCPR","- CESCR","- CEDAW","- CRC","- CRPD","- CERD","- CRC-OP-AC","- CRC-OP-SC","- Special Procedures"]
+if not FILTER_UPR:
+    treaty_bodies.append("- UPR")
+
 bigrams_to_ignore = [
     ("state","party"), ("committee","concerned"), ("also","concerned"), ("concluding","observations"),
-    ("true","table"), ("committee","recommends"), ("recommends","state"), ("false","true"), ("true","true"),
-    ("notes","concern"), ("art","committee"), ("article","convention"), ("concerned","reports"),
-    ("committee","also"), ("table","colorful"), ("accent","w"), ("colorful","accent"), ("true","list"),
-    ("w","lsdexception"), ("committe","notes"), ("children","including"), ("order","generate"), ("widely","available"),
-    ("per","cent"), ("nbsp","nbsp"), ("including","internet"), ("grid","table"), ("expression","including"),
-    ("report","written"), ("written","replies"), ("article","covenant"), ("list","table"), ("groups","children"),
-    ("list","table"), ("state","submitted"), ("lsdexception","false"), ("false","grid"), ("false", "list")
+    ("committee","recommends"), ("recommends","state"), ("notes","concern"), ("committee","also"),
+    ("article","convention"), ("concerned","reports"), ("children","including"), ("widely","available"),
+    ("per","cent"), ("nbsp","nbsp"), ("including","internet"), ("expression","including"),
+    ("report","written"), ("written","replies"), ("article","covenant"), ("groups","children"),
+    ("state","submitted"), ("human","rights"), ("united","nations"), ("general","comment"),
+    ("good","practice"), ("best","practice"), ("promising","practice")  # Remove standalone practice terms
 ]
 
-def filter_bigrams(txt):
-    wds = [w for w in word_tokenize(txt.lower()) if w.isalpha() and w not in stop_words]
-    return [b for b in bigrams(wds) if b not in bigrams_to_ignore]
+def filter_practice_bigrams(txt):
+    wds = [w for w in word_tokenize(txt.lower()) if w.isalpha() and w not in stop_words and len(w) > 2]
+    return [b for b in bigrams(wds) if b not in bigrams_to_ignore and any(k in b for k in practice_keywords)]
 
 tb_bigrams = {tb: Counter() for tb in treaty_bodies}
 for r in data_records:
+    if FILTER_UPR and r.get("Reccomending Body", "") == "- UPR":
+        continue
     t = r.get("Text","").strip()
     b = r.get("Reccomending Body","").strip()
     if b in treaty_bodies and t:
-        tb_bigrams[b].update(filter_bigrams(t))
+        tb_bigrams[b].update(filter_practice_bigrams(t))
 
-# Build DataFrame of top bigrams per treaty body
+# Build DataFrame of top practice bigrams per treaty body
 rows = []
 for tb, ctr in tb_bigrams.items():
-    for bg, cnt in ctr.most_common(10):
+    for bg, cnt in ctr.most_common(8):
         rows.append({"Treaty Body": tb, "Bigram": " ".join(bg), "Count": cnt})
-df = pd.DataFrame(rows)
+df_mechanisms = pd.DataFrame(rows)
 
-def plot_treaty_body_bigrams(df, top_n=10):
+def plot_practice_bigrams_by_mechanism(df, top_n=8):
     if df.empty:
         print("No data available for plotting.")
         return
@@ -447,7 +390,7 @@ def plot_treaty_body_bigrams(df, top_n=10):
     handles = [plt.Line2D([0],[0],color=body_colors[b],lw=4) for b in body_colors]
     fig.legend(handles, body_colors.keys(), title="Treaty Body", loc="lower center",
                bbox_to_anchor=(0.5,-0.05), ncol=cols, fancybox=True, shadow=True)
-    plt.suptitle("Top Bigrams by Treaty Body", fontsize=18, fontweight="bold", y=1.02)
+    plt.suptitle("Top Practice-Related Bigrams by Mechanism", fontsize=18, fontweight="bold", y=1.02)
     plt.show()
 
-plot_treaty_body_bigrams(df, top_n=10)
+plot_practice_bigrams_by_mechanism(df_mechanisms, top_n=8)
