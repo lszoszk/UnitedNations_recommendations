@@ -1919,6 +1919,7 @@
         let overviewBootstrapMode = false;
         let fullDatasetBackgroundReady = false;
         let fullDatasetBackgroundPromise = null;
+        let preferredActiveTab = 'overview';
 
         function readSearchParam(name) {
             try {
@@ -2568,14 +2569,14 @@
         }
 
         function activateTab(tabName = 'overview') {
+            preferredActiveTab = tabName;
             if (overviewBootstrapMode && tabName !== 'overview' && !fullDatasetBackgroundReady) {
                 setStatusBanner({
                     visible: true,
                     title: 'Overview Snapshot Ready',
-                    message: 'The first tab is loaded from a small JSON snapshot. The full dataset from the VM is still loading in the background; other tabs unlock automatically when it finishes.',
+                    message: 'The first tab is loaded from a small JSON snapshot. The full dataset from the VM is still loading in the background; the other tabs are visible now and fill in automatically when that download finishes.',
                     showAnalysisButton: false
                 });
-                return;
             }
             const target = document.getElementById(`tab-${tabName}`);
             if (!target) return;
@@ -2598,6 +2599,9 @@
         }
 
         function renderTabContent(tabName = 'overview') {
+            if (overviewBootstrapMode && !fullDatasetBackgroundReady && tabName !== 'overview') {
+                return;
+            }
             if (tabName === 'overview') {
                 updateOverviewWorldMap();
                 updateYearlyTrendChart();
@@ -2863,7 +2867,7 @@
             document.getElementById('statsSection').classList.add('active');
             document.getElementById('tabsSection').classList.remove('hidden');
             document.getElementById('emptyState').classList.add('hidden');
-            activateTab('overview');
+            activateTab(preferredActiveTab || 'overview');
             updateSelectedCountInfo();
         }
 
@@ -3156,17 +3160,18 @@
                         throw new Error('Dataset API returned unexpected JSON. Expected an array of records.');
                     }
 
-                    fullDatasetBackgroundReady = true;
-                    overviewBootstrapMode = false;
                     await applyLoadedRecords(records, {
                         fileName: (datasetHealth?.dataset_path || '').split('/').pop() || 'uhri-export.json (VM API)',
                         fileFormat: 'API JSON',
                         source: 'vm_api',
                         datasetMetadata: datasetHealth || {}
                     });
+                    fullDatasetBackgroundReady = true;
+                    overviewBootstrapMode = false;
                 } catch (err) {
                     console.error('Remote dataset load failed:', err);
                     if (background) {
+                        fullDatasetBackgroundReady = false;
                         setStatusBanner({
                             visible: true,
                             title: 'Overview Snapshot Ready',
@@ -3468,7 +3473,7 @@
             document.getElementById('kpiSection').classList.remove('hidden');
             document.getElementById('statsSection').classList.add('active');
             document.getElementById('tabsSection').classList.remove('hidden');
-            activateTab('overview');
+            activateTab(preferredActiveTab || 'overview');
 
             // Load backend status and saved models
             checkSetFitBackend(false);
@@ -3496,6 +3501,7 @@
             overviewBootstrapMode = false;
             fullDatasetBackgroundReady = false;
             fullDatasetBackgroundPromise = null;
+            preferredActiveTab = 'overview';
             rawData = [];
             filteredData = [];
             chartData = [];
