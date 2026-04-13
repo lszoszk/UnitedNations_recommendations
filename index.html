@@ -2355,7 +2355,7 @@
         if (shouldAutoLoadDemoData()) {
             loadBundledSampleData(false);
         } else if (shouldAutoLoadRemoteData()) {
-            loadOverviewBootstrapThenFullDataset(false);
+            loadOverviewBootstrapThenServerBrowse(false);
         }
 
         // Debounced table search
@@ -2385,7 +2385,7 @@
                 return;
             }
             const sourceLabel = VM_BASE_URL ? ` via ${VM_BASE_URL}` : '';
-            hint.innerHTML = ` Fast overview bootstrap plus full VM dataset loading is configured${escapeHtml(sourceLabel)}. Use <code>?source=upload</code> to skip autoload or the VM button to force a full download.`;
+            hint.innerHTML = ` Fast overview bootstrap plus lightweight VM browse mode is configured${escapeHtml(sourceLabel)}. Use <code>?source=upload</code> to skip autoload or the VM button to force a full download only when you really need it.`;
         }
 
         function shouldAutoLoadRemoteData() {
@@ -2511,7 +2511,7 @@
             setStatusBanner({
                 visible: true,
                 title: 'Overview Snapshot Ready',
-                message: 'The first tab is loaded from a small JSON snapshot for speed. The full dataset from the VM is loading in the background.',
+                message: 'The first tab is loaded from a small JSON snapshot for speed. Interactive VM browse mode is loading in the background now.',
                 showAnalysisButton: false
             });
             activateTab('overview');
@@ -2532,15 +2532,15 @@
             }
         }
 
-        async function loadOverviewBootstrapThenFullDataset(showErrors = true) {
+        async function loadOverviewBootstrapThenServerBrowse(showErrors = true) {
             const loadedBootstrap = await loadOverviewBootstrap(false);
             if (loadedBootstrap) {
-                loadRemoteDataset(false, { background: true }).catch(err => {
-                    console.error('Background full dataset load failed:', err);
+                loadRemoteDatasetServerMode(false, { background: true, preserveBootstrapOnFailure: true }).catch(err => {
+                    console.error('Background server browse init failed:', err);
                 });
                 return;
             }
-            loadRemoteDataset(showErrors);
+            loadRemoteDatasetServerMode(showErrors);
         }
 
         function resetServerState() {
@@ -2581,7 +2581,7 @@
                 setStatusBanner({
                     visible: true,
                     title: 'Overview Snapshot Ready',
-                    message: 'The first tab is loaded from a small JSON snapshot. The full dataset from the VM is still loading in the background; the other tabs are visible now and fill in automatically when that download finishes.',
+                    message: 'The first tab is loaded from a small JSON snapshot. Lightweight VM browse mode is still loading in the background; the other tabs will fill in automatically when that finishes.',
                     showAnalysisButton: false
                 });
             }
@@ -2704,7 +2704,7 @@
                 tab.classList.remove('hidden');
             });
             if (serverBrowseMode) {
-                activateTab('overview');
+                activateTab(preferredActiveTab || 'overview');
             }
             if (!serverBrowseMode) {
                 resetServerState();
@@ -2878,15 +2878,20 @@
             updateSelectedCountInfo();
         }
 
-        async function refreshServerBrowseData(page = 1, showErrors = true) {
+        async function refreshServerBrowseData(page = 1, showErrors = true, options = {}) {
             if (!DATASET_SUMMARY_URL || !DATASET_RECORDS_URL) {
                 if (showErrors) alert('VM browse API URLs are not configured yet.');
                 return;
             }
 
-            document.getElementById('loadingIndicator').classList.remove('hidden');
-            uploadSection.classList.add('hidden');
-            setProgress(14, 'Loading filtered records from VM...');
+            const background = !!options.background;
+            const activateServerBrowse = !!options.activateServerBrowse;
+
+            if (!background) {
+                document.getElementById('loadingIndicator').classList.remove('hidden');
+                uploadSection.classList.add('hidden');
+                setProgress(14, 'Loading filtered records from VM...');
+            }
 
             try {
                 const baseParams = buildServerQueryParams({ page, includePagination: false });
@@ -2913,6 +2918,10 @@
                 serverState.records = normalizedRecords;
                 serverState.mapCountryCounts = Array.isArray(mapPayload?.country_counts) ? mapPayload.country_counts : [];
 
+                if (activateServerBrowse) {
+                    setServerBrowseMode(true);
+                }
+
                 currentPage = serverState.page;
                 filteredData = normalizedRecords;
                 chartData = normalizedRecords;
@@ -2929,30 +2938,47 @@
                 buildDataTable();
             } catch (err) {
                 console.error('Server browse load failed:', err);
-                if (showErrors) {
+                if (background) {
+                    setStatusBanner({
+                        visible: true,
+                        title: 'Overview Snapshot Ready',
+                        message: 'The fast overview snapshot loaded, but VM browse mode could not finish starting automatically. You can still use the VM controls to retry.',
+                        showAnalysisButton: false
+                    });
+                } else if (showErrors) {
                     alert('Failed to browse the VM dataset.\n\n' + (err?.message || err));
                 }
-                uploadSection.classList.remove('hidden');
+                if (!background) {
+                    uploadSection.classList.remove('hidden');
+                }
             } finally {
-                document.getElementById('loadingIndicator').classList.add('hidden');
+                if (!background) {
+                    document.getElementById('loadingIndicator').classList.add('hidden');
+                }
             }
         }
 
-        async function loadRemoteDatasetServerMode(showErrors = true) {
+        async function loadRemoteDatasetServerMode(showErrors = true, options = {}) {
             if (!DATASET_RECORDS_URL || !DATASET_SUMMARY_URL || !DATASET_FACETS_URL) {
                 if (showErrors) alert('VM browse API URLs are not configured yet.');
                 return;
             }
 
-            setServerBrowseMode(true);
-            activeDataSource = 'vm_server';
-            fileName = 'UHRI dataset (server browse)';
-            fileFormat = 'Server API';
-            resetDatasetMetadata();
+            const background = !!options.background;
+            const preserveBootstrapOnFailure = !!options.preserveBootstrapOnFailure;
 
-            document.getElementById('loadingIndicator').classList.remove('hidden');
-            uploadSection.classList.add('hidden');
-            setProgress(8, 'Connecting to VM browse API...');
+            if (!background) {
+                document.getElementById('loadingIndicator').classList.remove('hidden');
+                uploadSection.classList.add('hidden');
+                setProgress(8, 'Connecting to VM browse API...');
+            } else {
+                setStatusBanner({
+                    visible: true,
+                    title: 'Overview Snapshot Ready',
+                    message: 'The first tab is ready. Lightweight VM browse mode is loading now so the other tabs become interactive without downloading the full dataset.',
+                    showAnalysisButton: false
+                });
+            }
 
             try {
                 const [datasetHealth, facets] = await Promise.all([
@@ -2969,16 +2995,25 @@
                     serverState.analysisLimit = datasetHealth.analysis_export_limit;
                 }
                 populateServerFacets();
-                initializeServerBrowseDashboard();
-                await refreshServerBrowseData(1, showErrors);
+                activeDataSource = 'vm_server';
+                fileName = 'UHRI dataset (server browse)';
+                fileFormat = 'Server API';
+                await refreshServerBrowseData(1, showErrors, {
+                    background,
+                    activateServerBrowse: true
+                });
             } catch (err) {
                 console.error('Remote browse init failed:', err);
-                setServerBrowseMode(false);
-                if (showErrors) {
+                if (!background || !preserveBootstrapOnFailure) {
+                    setServerBrowseMode(false);
+                }
+                if (!background && showErrors) {
                     alert('Failed to initialize server browse mode.\n\n' + (err?.message || err));
                 }
-                uploadSection.classList.remove('hidden');
-                document.getElementById('loadingIndicator').classList.add('hidden');
+                if (!background || !preserveBootstrapOnFailure) {
+                    uploadSection.classList.remove('hidden');
+                    document.getElementById('loadingIndicator').classList.add('hidden');
+                }
             }
         }
 
