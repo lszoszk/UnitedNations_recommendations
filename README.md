@@ -7,8 +7,10 @@ Static dashboard build prepared for GitHub Pages deployment.
 - `sample-data/search-4_2_2026_739_labelled.xlsx`: bundled labelled sample dataset
 
 ## Use online
+- VM mode: when the site is opened from GitHub Pages, it auto-loads the full dataset from `https://150.254.115.204/echr-api/unhr-api/api/data/full` by default.
 - Standard mode: open the site and upload your own Excel/JSON file.
 - Demo mode (auto-load sample): open the site URL with `?demo=1`.
+- Upload-only mode: add `?source=upload` to skip VM autoload.
 
 Example:
 - `https://<your-username>.github.io/<repo-name>/?demo=1`
@@ -22,4 +24,10 @@ Example:
 
 ## Notes
 - The dashboard is fully client-side.
-- SetFit backend features target `http://127.0.0.1:8765` and will remain unavailable on GitHub Pages unless that API is hosted separately.
+- The GitHub Pages build can auto-load from a VM-hosted API. By default it uses:
+  - Dataset: `https://150.254.115.204/echr-api/unhr-api/api/data/full`
+  - Dataset metadata: `https://150.254.115.204/echr-api/unhr-api/api/data/health`
+  - SetFit API: `https://150.254.115.204/echr-api/unhr-api/api/setfit`
+- You can override the VM base URL later with `?vm_base=https://your-host`.
+- When the VM exposes `downloaded_at` metadata, the dashboard shows that date as the dataset cutoff for users.
+- SetFit backend features still work from GitHub Pages as long as the VM hosts the API and allows CORS for the Pages origin.

@@ -131,6 +131,13 @@
         .upload-btn.secondary:hover {
             background: #185a35;
         }
+        .upload-btn.vm {
+            background: #0f5c7a;
+            margin-left: 10px;
+        }
+        .upload-btn.vm:hover {
+            background: #0b455c;
+        }
         .upload-hint {
             margin-top: 12px;
             font-size: 12px;
@@ -1240,7 +1247,7 @@
     <div class="dashboard">
         <header>
             <h1>UN Human Rights Analytics Dashboard</h1>
-            <p>Upload Excel (.xlsx) or JSON files to analyze recommendations with descriptive statistics and interactive visualizations</p>
+            <p>Analyze UN recommendations from uploaded files or auto-load the full dataset from a VM API.</p>
             <div class="view-toggle-wrap" role="tablist" aria-label="Interface mode">
                 <button class="view-toggle-btn" id="modeGuidedBtn" onclick="setUIMode('guided')" role="tab">Guided (HR Expert)</button>
                 <button class="view-toggle-btn" id="modeExpertBtn" onclick="setUIMode('expert')" role="tab">Expert (Current)</button>
@@ -1266,8 +1273,12 @@
             <button class="upload-btn secondary" id="sampleLoadBtn" onclick="loadBundledSampleData()">
                 🚀 Load Rule of Law Sample Data
             </button>
+            <button class="upload-btn vm hidden" id="vmLoadBtn" onclick="loadRemoteDataset()">
+                ☁️ Load Full Dataset from VM
+            </button>
             <div class="upload-hint">
                 For online demo links, add <code>?demo=1</code> to auto-load bundled sample data.
+                <span id="uploadHintDetail"></span>
             </div>
             <div class="file-types">
                 <span class="file-type-badge excel">📊 Excel (.xlsx, .xls, .csv)</span>
@@ -1296,6 +1307,10 @@
                 <div class="data-info-item">
                     <span class="data-info-label">Total Records:</span>
                     <span class="data-info-value" id="infoRecords">-</span>
+                </div>
+                <div class="data-info-item hidden" id="infoDatasetCutoffWrap">
+                    <span class="data-info-label" id="infoDatasetCutoffLabel">Dataset Downloaded:</span>
+                    <span class="data-info-value" id="infoDatasetCutoff">-</span>
                 </div>
             </div>
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -1836,12 +1851,13 @@
         const MAX_CHART_RECORDS = 50000;
         const MAX_BIGRAM_RECORDS = 20000;
         const EXCLUDED_LABEL = 'excluded';
+        const DEFAULT_VM_BASE_URL = 'https://150.254.115.204/echr-api/unhr-api';
+        const VM_BASE_STORAGE_KEY = 'un_hr_dashboard_vm_base';
         let fileFormat = '';
         let fileName = '';
         let searchDebounceTimer = null;
         let recordMap = new Map();
         let modalTextCache = '';
-        const SETFIT_API_BASE = 'http://127.0.0.1:8765/api/setfit';
         const UI_MODE_STORAGE_KEY = 'un_hr_dashboard_ui_mode';
         let uiMode = 'expert';
         const CUSTOM_WIDGETS_STORAGE_KEY = 'un_hr_dashboard_custom_widgets_v1';
@@ -1850,6 +1866,73 @@
         let customWidgetOrder = [];
         let customDragIndex = null;
         let lastRenderedPageData = [];
+        let activeDataSource = 'upload';
+        let datasetMetadata = {
+            downloadedAt: '',
+            modifiedAt: '',
+            datasetPath: ''
+        };
+
+        function readSearchParam(name) {
+            try {
+                const url = new URL(window.location.href);
+                const value = url.searchParams.get(name);
+                return value ? String(value).trim() : '';
+            } catch {
+                return '';
+            }
+        }
+
+        function normalizeBaseUrl(value) {
+            const str = String(value || '').trim();
+            if (!str) return '';
+            return str.replace(/\/+$/, '');
+        }
+
+        function isGithubPagesHost() {
+            return /\.github\.io$/i.test(String(window.location.hostname || ''));
+        }
+
+        function buildApiUrl(baseUrl, path) {
+            const normalizedBase = normalizeBaseUrl(baseUrl);
+            if (!normalizedBase) return '';
+            return `${normalizedBase}${path.startsWith('/') ? path : `/${path}`}`;
+        }
+
+        function resolveVmBaseUrl() {
+            const queryBase = normalizeBaseUrl(readSearchParam('vm_base'));
+            if (queryBase) return queryBase;
+
+            const configuredBase = normalizeBaseUrl(window.UNHR_DASHBOARD_CONFIG?.vmBaseUrl);
+            if (configuredBase) return configuredBase;
+
+            try {
+                const stored = normalizeBaseUrl(localStorage.getItem(VM_BASE_STORAGE_KEY));
+                if (stored) return stored;
+            } catch {
+                // Ignore storage access errors.
+            }
+
+            return isGithubPagesHost() ? DEFAULT_VM_BASE_URL : '';
+        }
+
+        function resolveDatasetApiUrl(vmBaseUrl) {
+            const explicitUrl = String(readSearchParam('dataset_api') || window.UNHR_DASHBOARD_CONFIG?.datasetApiUrl || '').trim();
+            if (explicitUrl) return explicitUrl;
+            return buildApiUrl(vmBaseUrl, '/api/data/full');
+        }
+
+        function resolveSetFitApiBase(vmBaseUrl) {
+            const explicitUrl = String(readSearchParam('setfit_api') || window.UNHR_DASHBOARD_CONFIG?.setfitApiBase || '').trim();
+            if (explicitUrl) return explicitUrl.replace(/\/+$/, '');
+            if (vmBaseUrl) return buildApiUrl(vmBaseUrl, '/api/setfit');
+            return 'http://127.0.0.1:8765/api/setfit';
+        }
+
+        const VM_BASE_URL = resolveVmBaseUrl();
+        const DATASET_API_URL = resolveDatasetApiUrl(VM_BASE_URL);
+        const DATASET_HEALTH_URL = buildApiUrl(VM_BASE_URL, '/api/data/health');
+        const SETFIT_API_BASE = resolveSetFitApiBase(VM_BASE_URL);
 
         const invalidCountryTokens = new Set([
             '', 'all', 'all countries', 'global', 'international', 'multiple countries',
@@ -2187,24 +2270,28 @@
         // ========== FILE UPLOAD ==========
         const uploadSection = document.getElementById('uploadSection');
         const fileInput = document.getElementById('fileInput');
+        const vmLoadBtn = document.getElementById('vmLoadBtn');
         const BUNDLED_SAMPLE_PATH = './sample-data/search-4_2_2026_739_labelled.xlsx';
         const BUNDLED_SAMPLE_NAME = 'search-4_2_2026_739_labelled.xlsx';
         loadSavedUIMode();
         loadCustomWidgetsFromStorage();
         updateTaskTypeUI();
+        updateRemoteDatasetUI();
 
         uploadSection.addEventListener('dragover', (e) => { e.preventDefault(); uploadSection.classList.add('dragover'); });
         uploadSection.addEventListener('dragleave', () => uploadSection.classList.remove('dragover'));
         uploadSection.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadSection.classList.remove('dragover');
-            if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+            if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], 'upload');
         });
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files[0]) processFile(e.target.files[0]);
+            if (e.target.files[0]) processFile(e.target.files[0], 'upload');
         });
         if (shouldAutoLoadDemoData()) {
             loadBundledSampleData(false);
+        } else if (shouldAutoLoadRemoteData()) {
+            loadRemoteDataset(false);
         }
 
         // Debounced table search
@@ -2221,9 +2308,130 @@
             if (text) document.getElementById('loadingText').textContent = text;
         }
 
-        async function processFile(file) {
+        function updateRemoteDatasetUI() {
+            const configured = !!DATASET_API_URL;
+            if (vmLoadBtn) {
+                vmLoadBtn.classList.toggle('hidden', !configured);
+                vmLoadBtn.disabled = !configured;
+            }
+            const hint = document.getElementById('uploadHintDetail');
+            if (!hint) return;
+            if (!configured) {
+                hint.textContent = ' No VM dataset API configured yet.';
+                return;
+            }
+            const sourceLabel = VM_BASE_URL ? ` via ${VM_BASE_URL}` : '';
+            hint.innerHTML = ` Full dataset autoload is configured${escapeHtml(sourceLabel)}. Use <code>?source=upload</code> to skip autoload.`;
+        }
+
+        function shouldAutoLoadRemoteData() {
+            if (!DATASET_API_URL) return false;
+            try {
+                const url = new URL(window.location.href);
+                const source = String(url.searchParams.get('source') || '').toLowerCase();
+                const autoload = String(url.searchParams.get('autoload') || '').toLowerCase();
+                if (source === 'upload' || autoload === '0' || autoload === 'false') return false;
+                if (source === 'vm' || autoload === '1' || autoload === 'true' || autoload === 'vm') return true;
+            } catch {
+                // Fall back to host-based default below.
+            }
+            return isGithubPagesHost();
+        }
+
+        function resetDatasetMetadata() {
+            datasetMetadata = {
+                downloadedAt: '',
+                modifiedAt: '',
+                datasetPath: ''
+            };
+        }
+
+        function setDatasetMetadata(meta = {}) {
+            datasetMetadata = {
+                downloadedAt: String(meta.downloaded_at || meta.downloadedAt || '').trim(),
+                modifiedAt: String(meta.modified_at || meta.modifiedAt || '').trim(),
+                datasetPath: String(meta.dataset_path || meta.datasetPath || '').trim()
+            };
+        }
+
+        function formatDatasetDate(value, includeTime = false) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            const parsed = new Date(raw);
+            if (!Number.isNaN(parsed.getTime())) {
+                return includeTime
+                    ? parsed.toLocaleString()
+                    : parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+            return raw;
+        }
+
+        function updateDatasetMetadataUI() {
+            const wrap = document.getElementById('infoDatasetCutoffWrap');
+            const label = document.getElementById('infoDatasetCutoffLabel');
+            const value = document.getElementById('infoDatasetCutoff');
+            if (!wrap || !label || !value) return;
+
+            if (datasetMetadata.downloadedAt) {
+                wrap.classList.remove('hidden');
+                label.textContent = 'Dataset Downloaded:';
+                value.textContent = `${formatDatasetDate(datasetMetadata.downloadedAt)} (analysis cutoff)`;
+                return;
+            }
+
+            if (activeDataSource === 'vm_api' && datasetMetadata.modifiedAt) {
+                wrap.classList.remove('hidden');
+                label.textContent = 'Dataset File Updated:';
+                value.textContent = formatDatasetDate(datasetMetadata.modifiedAt, true);
+                return;
+            }
+
+            wrap.classList.add('hidden');
+            label.textContent = 'Dataset Downloaded:';
+            value.textContent = '-';
+        }
+
+        async function fetchRemoteDatasetHealth() {
+            if (!DATASET_HEALTH_URL) return null;
+            try {
+                const response = await fetch(DATASET_HEALTH_URL, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`Unable to fetch dataset metadata (${response.status})`);
+                }
+                return await response.json();
+            } catch (err) {
+                console.warn('Remote dataset health check failed:', err);
+                return null;
+            }
+        }
+
+        async function applyLoadedRecords(records, options = {}) {
+            const sourceRecords = Array.isArray(records) ? records : [];
+            fileName = String(options.fileName || fileName || 'dataset.json');
+            fileFormat = String(options.fileFormat || fileFormat || 'JSON');
+            activeDataSource = String(options.source || activeDataSource || 'upload');
+            if (options.datasetMetadata) {
+                setDatasetMetadata(options.datasetMetadata);
+            } else if (activeDataSource !== 'vm_api') {
+                resetDatasetMetadata();
+            }
+
+            setProgress(55, 'Normalizing ' + sourceRecords.length.toLocaleString() + ' records...');
+            await delay(20);
+
+            rawData = sourceRecords.map((row, idx) => normalizeRecord(row, idx));
+
+            setProgress(82, 'Building dashboard...');
+            await delay(20);
+
+            initializeDashboard();
+            document.getElementById('loadingIndicator').classList.add('hidden');
+        }
+
+        async function processFile(file, source = 'upload') {
             fileName = file.name;
             const ext = file.name.split('.').pop().toLowerCase();
+            activeDataSource = source;
 
             // Reset file input for re-upload
             fileInput.value = '';
@@ -2265,16 +2473,11 @@
                             throw new Error('JSON must be an array of records');
                         }
 
-                        setProgress(50, 'Normalizing ' + jsonData.length.toLocaleString() + ' records...');
-                        await delay(20);
-
-                        rawData = jsonData.map((row, idx) => normalizeRecord(row, idx));
-
-                        setProgress(80, 'Building dashboard...');
-                        await delay(20);
-
-                        initializeDashboard();
-                        document.getElementById('loadingIndicator').classList.add('hidden');
+                        await applyLoadedRecords(jsonData, {
+                            fileName: file.name,
+                            fileFormat: 'JSON',
+                            source: 'upload'
+                        });
                         resolve();
                     } catch (err) {
                         reject(err);
@@ -2289,15 +2492,68 @@
             try {
                 const url = new URL(window.location.href);
                 const demo = String(url.searchParams.get('demo') || '').toLowerCase();
-                return demo === '1' || demo === 'true' || demo === 'yes';
+                const source = String(url.searchParams.get('source') || '').toLowerCase();
+                return source === 'demo' || demo === '1' || demo === 'true' || demo === 'yes';
             } catch {
                 return false;
+            }
+        }
+
+        async function loadRemoteDataset(showErrors = true) {
+            if (!DATASET_API_URL) {
+                if (showErrors) alert('VM dataset API URL is not configured yet.');
+                return;
+            }
+
+            if (vmLoadBtn) vmLoadBtn.disabled = true;
+            activeDataSource = 'vm_api';
+            fileName = 'UHRI full dataset (VM API)';
+            fileFormat = 'API JSON';
+
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            uploadSection.classList.add('hidden');
+            setProgress(8, 'Connecting to VM dataset API...');
+
+            try {
+                const datasetHealth = await fetchRemoteDatasetHealth();
+                if (datasetHealth && datasetHealth.dataset_ready === false) {
+                    throw new Error(datasetHealth.message || 'VM dataset API reports that the dataset is unavailable.');
+                }
+
+                const response = await fetch(DATASET_API_URL, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`Unable to fetch VM dataset (${response.status})`);
+                }
+
+                setProgress(32, 'Downloading full dataset from VM...');
+                const body = await response.json();
+                const records = Array.isArray(body) ? body : (Array.isArray(body?.records) ? body.records : null);
+                if (!Array.isArray(records)) {
+                    throw new Error('Dataset API returned unexpected JSON. Expected an array of records.');
+                }
+
+                await applyLoadedRecords(records, {
+                    fileName: (datasetHealth?.dataset_path || '').split('/').pop() || 'uhri-export.json (VM API)',
+                    fileFormat: 'API JSON',
+                    source: 'vm_api',
+                    datasetMetadata: datasetHealth || {}
+                });
+            } catch (err) {
+                console.error('Remote dataset load failed:', err);
+                if (showErrors) {
+                    alert('Failed to load the VM dataset automatically. You can still upload a file manually.\n\n' + (err?.message || err));
+                }
+                uploadSection.classList.remove('hidden');
+                document.getElementById('loadingIndicator').classList.add('hidden');
+            } finally {
+                if (vmLoadBtn) vmLoadBtn.disabled = false;
             }
         }
 
         async function loadBundledSampleData(showErrors = true) {
             const btn = document.getElementById('sampleLoadBtn');
             if (btn) btn.disabled = true;
+            activeDataSource = 'sample';
 
             try {
                 const response = await fetch(BUNDLED_SAMPLE_PATH, { cache: 'no-store' });
@@ -2310,7 +2566,7 @@
                     BUNDLED_SAMPLE_NAME,
                     { type: blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
                 );
-                await processFile(file);
+                await processFile(file, 'sample');
             } catch (err) {
                 console.error('Bundled sample load failed:', err);
                 if (showErrors) {
@@ -2332,16 +2588,11 @@
                         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
 
-                        setProgress(50, 'Normalizing ' + jsonData.length.toLocaleString() + ' records...');
-                        await delay(20);
-
-                        rawData = jsonData.map((row, idx) => normalizeRecord(row, idx));
-
-                        setProgress(80, 'Building dashboard...');
-                        await delay(20);
-
-                        initializeDashboard();
-                        document.getElementById('loadingIndicator').classList.add('hidden');
+                        await applyLoadedRecords(jsonData, {
+                            fileName: file.name,
+                            fileFormat: 'Excel',
+                            source: activeDataSource || 'upload'
+                        });
                         resolve();
                     } catch (err) {
                         reject(err);
@@ -2525,6 +2776,7 @@
             document.getElementById('infoFileName').textContent = fileName;
             document.getElementById('infoFormat').textContent = fileFormat;
             document.getElementById('infoRecords').textContent = rawData.length.toLocaleString();
+            updateDatasetMetadataUI();
 
             if (rawData.length > MAX_CHART_RECORDS) {
                 document.getElementById('sampleNotice').classList.remove('hidden');
@@ -2588,6 +2840,10 @@
             filteredData = [];
             chartData = [];
             recordMap = new Map();
+            fileName = '';
+            fileFormat = '';
+            activeDataSource = 'upload';
+            resetDatasetMetadata();
             Object.values(charts).forEach(c => c.destroy());
             charts = {};
 
@@ -2614,6 +2870,7 @@
             document.getElementById('uploadSection').classList.remove('hidden');
             document.getElementById('dataInfo').classList.add('hidden');
             document.getElementById('sampleNotice').classList.add('hidden');
+            updateDatasetMetadataUI();
             document.getElementById('filtersSection').classList.remove('active');
             document.getElementById('kpiSection').classList.add('hidden');
             document.getElementById('statsSection').classList.remove('active');
