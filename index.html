@@ -360,6 +360,12 @@
             font-size: 12px;
             color: #4f6278;
         }
+        .chart-note {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #4f6278;
+            line-height: 1.45;
+        }
         .rights-controls {
             display: flex;
             gap: 12px;
@@ -1533,6 +1539,7 @@
                 <div class="chart-card">
                     <h3>Year-over-Year Change (%)</h3>
                     <div class="chart-container"><canvas id="chartYoY"></canvas></div>
+                    <div class="chart-note" id="chartYoYNote">Bars compare each year to the previous full year.</div>
                 </div>
             </div>
         </div>
@@ -3444,6 +3451,75 @@
             return null;
         }
 
+        function parseRecordDate(dateVal) {
+            if (!dateVal) return null;
+            if (dateVal instanceof Date && !Number.isNaN(dateVal.getTime())) return dateVal;
+            if (typeof dateVal === 'number') {
+                const parsedExcel = new Date((dateVal - 25569) * 86400 * 1000);
+                return Number.isNaN(parsedExcel.getTime()) ? null : parsedExcel;
+            }
+            const parsed = new Date(String(dateVal));
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+
+        function buildYoYSeries(records = [], boundaryRecords = records) {
+            const yearlyCounts = {};
+            records.forEach(record => {
+                if (Number.isFinite(record?._year)) {
+                    yearlyCounts[record._year] = (yearlyCounts[record._year] || 0) + 1;
+                }
+            });
+
+            const datedRecords = [];
+            boundaryRecords.forEach(record => {
+                const parsedDate = parseRecordDate(record?._pubDate);
+                if (parsedDate) datedRecords.push(parsedDate);
+            });
+
+            const years = Object.keys(yearlyCounts)
+                .map(year => Number(year))
+                .filter(Number.isFinite)
+                .sort((a, b) => a - b);
+
+            const excludedYears = new Set();
+            const noteParts = [];
+
+            if (datedRecords.length) {
+                datedRecords.sort((a, b) => a - b);
+                const firstDate = datedRecords[0];
+                const lastDate = datedRecords[datedRecords.length - 1];
+                const firstYear = firstDate.getFullYear();
+                const lastYear = lastDate.getFullYear();
+
+                if (firstDate.getMonth() !== 0 || firstDate.getDate() !== 1) {
+                    excludedYears.add(firstYear);
+                    noteParts.push(`${firstYear} starts on ${formatDatasetDate(firstDate.toISOString())}`);
+                }
+                if (lastDate.getMonth() !== 11 || lastDate.getDate() !== 31) {
+                    excludedYears.add(lastYear);
+                    noteParts.push(`${lastYear} ends on ${formatDatasetDate(lastDate.toISOString())}`);
+                }
+            }
+
+            const labels = [];
+            const values = [];
+            years.slice(1).forEach((year, index) => {
+                const previousYear = years[index];
+                if (excludedYears.has(previousYear) || excludedYears.has(year)) return;
+                const previousCount = yearlyCounts[previousYear];
+                if (!previousCount) return;
+                labels.push(String(year));
+                values.push(Number((((yearlyCounts[year] - previousCount) / previousCount) * 100).toFixed(1)));
+            });
+
+            let note = 'Bars compare each year to the previous full year.';
+            if (noteParts.length) {
+                note += ` Edge-year comparisons tied to partial years are excluded: ${noteParts.join('; ')}.`;
+            }
+
+            return { labels, values, note };
+        }
+
         // ========== DASHBOARD INIT ==========
         function initializeDashboard() {
             setServerBrowseMode(false);
@@ -4326,13 +4402,12 @@
 
         function updateYoYChart() {
             destroyChart('yoy');
-            const yc = {};
-            chartData.forEach(r => { if (r._year) yc[r._year] = (yc[r._year]||0) + 1; });
-            const yrs = Object.keys(yc).sort();
-            const data = yrs.slice(1).map((y, i) => { const prev = yc[yrs[i]]||1; return ((yc[y]-prev)/prev*100).toFixed(1); });
+            const { labels, values, note } = buildYoYSeries(chartData, Array.isArray(rawData) && rawData.length ? rawData : chartData);
+            const noteEl = document.getElementById('chartYoYNote');
+            if (noteEl) noteEl.textContent = note;
             charts.yoy = new Chart(document.getElementById('chartYoY'), {
                 type: 'bar',
-                data: { labels: yrs.slice(1), datasets: [{ label: 'YoY %', data, backgroundColor: data.map(v => parseFloat(v) >= 0 ? colors.primary[1] : colors.primary[2]), borderRadius: 4 }] },
+                data: { labels, datasets: [{ label: 'YoY %', data: values, backgroundColor: values.map(v => v >= 0 ? colors.primary[1] : colors.primary[2]), borderRadius: 4 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
             });
         }
