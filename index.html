@@ -739,6 +739,33 @@
             flex-wrap: wrap;
             align-items: center;
         }
+        .vm-loading-notice {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: #fff7db;
+            border: 1px solid #f1d27a;
+            color: #8a6400;
+            font-weight: 600;
+            max-width: 100%;
+        }
+        .vm-loading-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #f0ab00;
+            animation: pulse 1.2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        .vm-loading-text {
+            line-height: 1.35;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(0.9); opacity: 0.75; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -1366,6 +1393,10 @@
                 <div class="server-mode-status" id="serverModeStatus">Browse and map run on the VM. You can train from a server sample, then apply the classifier to the full matching dataset when needed.</div>
             </div>
             <div class="server-mode-actions">
+                <div class="vm-loading-notice hidden" id="vmLoadingNotice" role="status" aria-live="polite">
+                    <span class="vm-loading-dot" aria-hidden="true"></span>
+                    <span class="vm-loading-text" id="vmLoadingNoticeText">VM data is still loading. Please wait until this notice disappears before expecting complete charts in every tab.</span>
+                </div>
                 <button class="btn btn-purple" id="serverAnalysisBtn" onclick="loadCurrentFilterForAnalytics()">📊 Load Current Filter for Full Analytics</button>
             </div>
         </div>
@@ -2514,6 +2545,7 @@
                 message: 'The first tab is loaded from a small JSON snapshot for speed. Interactive VM browse mode is loading in the background now.',
                 showAnalysisButton: false
             });
+            setVmLoadingNotice(true, 'VM data is loading in the background. Please wait before expecting complete trends, themes, and text plots.');
             activateTab('overview');
             updateSelectedCountInfo();
         }
@@ -2575,6 +2607,14 @@
             }
         }
 
+        function setVmLoadingNotice(active = false, message = '') {
+            const notice = document.getElementById('vmLoadingNotice');
+            const textEl = document.getElementById('vmLoadingNoticeText');
+            if (!notice || !textEl) return;
+            notice.classList.toggle('hidden', !active);
+            textEl.textContent = message || 'VM data is still loading. Please wait until this notice disappears before expecting complete charts in every tab.';
+        }
+
         function activateTab(tabName = 'overview') {
             preferredActiveTab = tabName;
             if (overviewBootstrapMode && tabName !== 'overview' && !fullDatasetBackgroundReady) {
@@ -2584,6 +2624,7 @@
                     message: 'The first tab is loaded from a small JSON snapshot. Lightweight VM browse mode is still loading in the background; the other tabs will fill in automatically when that finishes.',
                     showAnalysisButton: false
                 });
+                setVmLoadingNotice(true, 'VM data is still loading. Please wait until this notice disappears before expecting complete charts in every tab.');
             }
             const target = document.getElementById(`tab-${tabName}`);
             if (!target) return;
@@ -2891,6 +2932,7 @@
                 document.getElementById('loadingIndicator').classList.remove('hidden');
                 uploadSection.classList.add('hidden');
                 setProgress(14, 'Loading filtered records from VM...');
+                setVmLoadingNotice(true, 'VM data is loading now. Please wait until this notice disappears before using all plots.');
             }
 
             try {
@@ -2936,9 +2978,11 @@
                 updateOverviewWorldMap();
                 updateAllCharts();
                 buildDataTable();
+                setVmLoadingNotice(false);
             } catch (err) {
                 console.error('Server browse load failed:', err);
                 if (background) {
+                    setVmLoadingNotice(false);
                     setStatusBanner({
                         visible: true,
                         title: 'Overview Snapshot Ready',
@@ -2946,6 +2990,7 @@
                         showAnalysisButton: false
                     });
                 } else if (showErrors) {
+                    setVmLoadingNotice(false);
                     alert('Failed to browse the VM dataset.\n\n' + (err?.message || err));
                 }
                 if (!background) {
@@ -2971,6 +3016,7 @@
                 document.getElementById('loadingIndicator').classList.remove('hidden');
                 uploadSection.classList.add('hidden');
                 setProgress(8, 'Connecting to VM browse API...');
+                setVmLoadingNotice(true, 'Connecting to the VM and loading data. Please wait until this notice disappears before using all tabs.');
             } else {
                 setStatusBanner({
                     visible: true,
@@ -2978,6 +3024,7 @@
                     message: 'The first tab is ready. Lightweight VM browse mode is loading now so the other tabs become interactive without downloading the full dataset.',
                     showAnalysisButton: false
                 });
+                setVmLoadingNotice(true, 'VM browse mode is still loading in the background. Please wait before expecting complete plots outside Overview.');
             }
 
             try {
@@ -3007,6 +3054,7 @@
                 if (!background || !preserveBootstrapOnFailure) {
                     setServerBrowseMode(false);
                 }
+                setVmLoadingNotice(false);
                 if (!background && showErrors) {
                     alert('Failed to initialize server browse mode.\n\n' + (err?.message || err));
                 }
@@ -3173,6 +3221,7 @@
                     document.getElementById('loadingIndicator').classList.remove('hidden');
                     uploadSection.classList.add('hidden');
                     setProgress(8, 'Connecting to VM dataset API...');
+                    setVmLoadingNotice(true, 'Full VM dataset is loading. Please wait until this notice disappears before using the dashboard.');
                 } else {
                     setStatusBanner({
                         visible: true,
@@ -3180,6 +3229,7 @@
                         message: 'Overview snapshot is ready. The full dataset is now downloading from the VM in the background.',
                         showAnalysisButton: false
                     });
+                    setVmLoadingNotice(true, 'The full VM dataset is still downloading in the background. Please wait before expecting complete charts in every tab.');
                 }
 
                 try {
@@ -3210,10 +3260,12 @@
                     });
                     fullDatasetBackgroundReady = true;
                     overviewBootstrapMode = false;
+                    setVmLoadingNotice(false);
                 } catch (err) {
                     console.error('Remote dataset load failed:', err);
                     if (background) {
                         fullDatasetBackgroundReady = false;
+                        setVmLoadingNotice(false);
                         setStatusBanner({
                             visible: true,
                             title: 'Overview Snapshot Ready',
@@ -3221,6 +3273,7 @@
                             showAnalysisButton: false
                         });
                     } else {
+                        setVmLoadingNotice(false);
                         if (showErrors) {
                             alert('Failed to load the VM dataset automatically. You can still upload a file manually.\n\n' + (err?.message || err));
                         }
@@ -3613,6 +3666,7 @@
             fullDatasetBackgroundReady = false;
             fullDatasetBackgroundPromise = null;
             preferredActiveTab = 'overview';
+            setVmLoadingNotice(false);
             rawData = [];
             filteredData = [];
             chartData = [];
