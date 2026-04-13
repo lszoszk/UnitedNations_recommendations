@@ -701,6 +701,38 @@
             font-size: 13px;
             color: #856404;
         }
+        .server-mode-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            background: #eef7ff;
+            border: 1px solid #bfd9f6;
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #1f4f7f;
+            font-size: 13px;
+        }
+        .server-mode-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .server-mode-title {
+            font-weight: 700;
+            color: #173d67;
+        }
+        .server-mode-status {
+            color: #4d6783;
+        }
+        .server-mode-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -1314,10 +1346,20 @@
                 </div>
             </div>
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <button class="btn btn-purple" onclick="openTrainingPane()">
+                <button class="btn btn-purple" id="trainClassifierBtn" onclick="openTrainingPane()">
                     🤖 Train Classifier
                 </button>
-                <button class="btn btn-secondary" onclick="resetDashboard()">📁 Upload Different File</button>
+                <button class="btn btn-secondary" id="switchDatasetBtn" onclick="resetDashboard()">📁 Upload Different File</button>
+            </div>
+        </div>
+
+        <div class="server-mode-banner hidden" id="serverModeBanner">
+            <div class="server-mode-copy">
+                <div class="server-mode-title">Server browse mode is active</div>
+                <div class="server-mode-status" id="serverModeStatus">Filters and pagination run on the VM. Load a narrowed subset when you want full charts and classifier tools.</div>
+            </div>
+            <div class="server-mode-actions">
+                <button class="btn btn-purple" id="serverAnalysisBtn" onclick="loadCurrentFilterForAnalytics()">📊 Load Current Filter for Full Analytics</button>
             </div>
         </div>
 
@@ -1599,7 +1641,7 @@
                     <button class="btn btn-secondary" style="padding: 8px 12px;" onclick="selectVisibleRows()">Select visible</button>
                     <button class="btn btn-secondary" style="padding: 8px 12px;" onclick="clearSelectedRows()">Clear selected</button>
                     <button class="btn btn-primary" style="padding: 8px 12px;" onclick="exportSelectedToExcel()">⬇ Export selected XLSX</button>
-                    <button class="btn btn-primary" style="padding: 8px 12px;" onclick="exportAllToExcel()">⬇ Export all XLSX</button>
+                    <button class="btn btn-primary" id="exportAllBtn" style="padding: 8px 12px;" onclick="exportAllToExcel()">⬇ Export all XLSX</button>
                 </div>
             </div>
             <div class="table-wrapper">
@@ -1850,6 +1892,7 @@
         const ROWS_PER_PAGE = 100;
         const MAX_CHART_RECORDS = 50000;
         const MAX_BIGRAM_RECORDS = 20000;
+        const SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT = 50000;
         const EXCLUDED_LABEL = 'excluded';
         const DEFAULT_VM_BASE_URL = 'https://150.254.115.204/echr-api/unhr-api';
         const VM_BASE_STORAGE_KEY = 'un_hr_dashboard_vm_base';
@@ -1860,6 +1903,18 @@
         let modalTextCache = '';
         const UI_MODE_STORAGE_KEY = 'un_hr_dashboard_ui_mode';
         let uiMode = 'expert';
+        let serverBrowseMode = false;
+        let serverState = {
+            loaded: false,
+            page: 1,
+            pageSize: ROWS_PER_PAGE,
+            totalPages: 1,
+            totalRecords: 0,
+            records: [],
+            facets: null,
+            summary: null,
+            analysisLimit: SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT
+        };
         const CUSTOM_WIDGETS_STORAGE_KEY = 'un_hr_dashboard_custom_widgets_v1';
         const selectedRowIds = new Set();
         const customCharts = {};
@@ -1932,6 +1987,10 @@
         const VM_BASE_URL = resolveVmBaseUrl();
         const DATASET_API_URL = resolveDatasetApiUrl(VM_BASE_URL);
         const DATASET_HEALTH_URL = buildApiUrl(VM_BASE_URL, '/api/data/health');
+        const DATASET_FACETS_URL = buildApiUrl(VM_BASE_URL, '/api/data/facets');
+        const DATASET_SUMMARY_URL = buildApiUrl(VM_BASE_URL, '/api/data/summary');
+        const DATASET_RECORDS_URL = buildApiUrl(VM_BASE_URL, '/api/data/records');
+        const DATASET_EXPORT_URL = buildApiUrl(VM_BASE_URL, '/api/data/export');
         const SETFIT_API_BASE = resolveSetFitApiBase(VM_BASE_URL);
 
         const invalidCountryTokens = new Set([
@@ -2291,7 +2350,7 @@
         if (shouldAutoLoadDemoData()) {
             loadBundledSampleData(false);
         } else if (shouldAutoLoadRemoteData()) {
-            loadRemoteDataset(false);
+            loadRemoteDatasetServerMode(false);
         }
 
         // Debounced table search
@@ -2309,7 +2368,7 @@
         }
 
         function updateRemoteDatasetUI() {
-            const configured = !!DATASET_API_URL;
+            const configured = !!(DATASET_API_URL && DATASET_FACETS_URL && DATASET_SUMMARY_URL && DATASET_RECORDS_URL);
             if (vmLoadBtn) {
                 vmLoadBtn.classList.toggle('hidden', !configured);
                 vmLoadBtn.disabled = !configured;
@@ -2321,7 +2380,7 @@
                 return;
             }
             const sourceLabel = VM_BASE_URL ? ` via ${VM_BASE_URL}` : '';
-            hint.innerHTML = ` Full dataset autoload is configured${escapeHtml(sourceLabel)}. Use <code>?source=upload</code> to skip autoload.`;
+            hint.innerHTML = ` Server browse mode is configured${escapeHtml(sourceLabel)}. Use <code>?source=upload</code> to skip autoload or the VM button to force a full download.`;
         }
 
         function shouldAutoLoadRemoteData() {
@@ -2405,11 +2464,376 @@
             }
         }
 
+        function resetServerState() {
+            serverState = {
+                loaded: false,
+                page: 1,
+                pageSize: ROWS_PER_PAGE,
+                totalPages: 1,
+                totalRecords: 0,
+                records: [],
+                facets: null,
+                summary: null,
+                analysisLimit: SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT
+            };
+        }
+
+        function setServerModeStatus(message) {
+            const statusEl = document.getElementById('serverModeStatus');
+            if (statusEl) {
+                statusEl.textContent = message || 'Filters and pagination run on the VM. Load a narrowed subset when you want full charts and classifier tools.';
+            }
+        }
+
+        function setServerBrowseMode(active) {
+            serverBrowseMode = !!active;
+            const banner = document.getElementById('serverModeBanner');
+            const trainBtn = document.getElementById('trainClassifierBtn');
+            const exportAllBtn = document.getElementById('exportAllBtn');
+            const analysisBtn = document.getElementById('serverAnalysisBtn');
+            const tableSearch = document.getElementById('tableSearch');
+            const searchHint = document.querySelector('.search-hint');
+
+            if (banner) banner.classList.toggle('hidden', !serverBrowseMode);
+            if (trainBtn) {
+                trainBtn.disabled = serverBrowseMode;
+                trainBtn.textContent = serverBrowseMode
+                    ? '🤖 Train Classifier (load subset first)'
+                    : '🤖 Train Classifier';
+            }
+            if (analysisBtn) {
+                analysisBtn.disabled = false;
+            }
+            if (exportAllBtn) {
+                exportAllBtn.textContent = serverBrowseMode ? '⬇ Export current page XLSX' : '⬇ Export all XLSX';
+            }
+            if (tableSearch) {
+                tableSearch.placeholder = serverBrowseMode
+                    ? '🔍 Search current page only (global search uses the filter above)...'
+                    : '🔍 Search table (plain or /regex/i)...';
+            }
+            if (searchHint) {
+                searchHint.innerHTML = serverBrowseMode
+                    ? 'Server mode: this search filters the <strong>currently loaded page</strong>. Use <strong>Search Text</strong> above for dataset-wide filtering.'
+                    : 'Regex is supported: use <code>/pattern/i</code> or <code>re:pattern</code> (case-insensitive by default).';
+            }
+            if (!serverBrowseMode) {
+                resetServerState();
+                setServerModeStatus('');
+            }
+        }
+
+        function populateServerFacets() {
+            const facets = serverState.facets || {};
+            populateSelect('filterCountry', facets.countries || []);
+            populateSelect('filterBody', facets.bodies || []);
+            populateSelect('filterRegion', facets.regions || []);
+            populateSelect('filterType', ['All', ...(facets.types || [])]);
+            if (Number.isFinite(facets.min_year)) {
+                document.getElementById('filterYearStart').value = facets.min_year;
+            }
+            if (Number.isFinite(facets.max_year)) {
+                document.getElementById('filterYearEnd').value = facets.max_year;
+            }
+        }
+
+        function getServerFilterState() {
+            return {
+                countries: getSelectedValues('filterCountry'),
+                bodies: getSelectedValues('filterBody'),
+                regions: getSelectedValues('filterRegion'),
+                annotationType: (() => {
+                    const value = document.getElementById('filterType').value;
+                    return value && value !== 'All' ? [value] : [];
+                })(),
+                yearStart: parseInt(document.getElementById('filterYearStart').value, 10) || null,
+                yearEnd: parseInt(document.getElementById('filterYearEnd').value, 10) || null,
+                textQuery: String(document.getElementById('filterText').value || '').trim()
+            };
+        }
+
+        function appendCsvQueryParam(params, key, values) {
+            if (Array.isArray(values) && values.length) {
+                params.set(key, values.join(','));
+            }
+        }
+
+        function buildServerQueryParams(options = {}) {
+            const filters = getServerFilterState();
+            const params = new URLSearchParams();
+            appendCsvQueryParam(params, 'countries', filters.countries);
+            appendCsvQueryParam(params, 'bodies', filters.bodies);
+            appendCsvQueryParam(params, 'regions', filters.regions);
+            appendCsvQueryParam(params, 'annotation_type', filters.annotationType);
+            if (filters.yearStart) params.set('year_start', String(filters.yearStart));
+            if (filters.yearEnd) params.set('year_end', String(filters.yearEnd));
+            if (filters.textQuery) params.set('text_query', filters.textQuery);
+
+            if (options.includePagination !== false) {
+                params.set('page', String(options.page || currentPage || 1));
+                params.set('page_size', String(serverState.pageSize || ROWS_PER_PAGE));
+            }
+            if (options.includeSort !== false && currentSort.column) {
+                params.set('sort_by', currentSort.column);
+                params.set('sort_dir', currentSort.direction || 'asc');
+            }
+            if (options.limit) {
+                params.set('limit', String(options.limit));
+            }
+            return params;
+        }
+
+        async function fetchServerJson(url, errorPrefix) {
+            const response = await fetch(url, { cache: 'no-store' });
+            let body = null;
+            try {
+                body = await response.json();
+            } catch {
+                body = null;
+            }
+            if (!response.ok) {
+                const detail = body?.detail || body?.message || `${errorPrefix} (${response.status})`;
+                throw new Error(detail);
+            }
+            return body;
+        }
+
+        function renderStatsFromSummary(summary = {}) {
+            const grid = document.getElementById('statsGrid');
+            if (!grid) return;
+            const total = Number(summary.total_records || 0) || 1;
+            const statsSource = (summary.yearly_counts || [])
+                .map(row => [Number(row.year), Number(row.count)])
+                .filter(([year, count]) => Number.isFinite(year) && Number.isFinite(count) && count > 0)
+                .sort((a, b) => a[0] - b[0]);
+
+            if (!statsSource.length) {
+                grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#666;">No meaningful yearly data available for statistics.</p>';
+                return;
+            }
+
+            const vals = statsSource.map(([, c]) => c);
+            const n = vals.length;
+            const sum = vals.reduce((a, b) => a + b, 0);
+            const mean = sum / n;
+            const sorted = [...vals].sort((a, b) => a - b);
+            const med = n % 2 ? sorted[Math.floor(n / 2)] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+            const peak = statsSource.slice().sort((a, b) => b[1] - a[1])[0];
+            const variance = vals.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / n;
+            const std = Math.sqrt(variance);
+            const yoy = [];
+            for (let i = 1; i < statsSource.length; i++) {
+                const prev = statsSource[i - 1][1];
+                const curr = statsSource[i][1];
+                if (prev > 0) yoy.push(((curr - prev) / prev) * 100);
+            }
+            const yoyMedian = yoy.length
+                ? [...yoy].sort((a, b) => a - b)[Math.floor(yoy.length / 2)]
+                : 0;
+
+            grid.innerHTML = `
+                <div class="stat-item"><div class="stat-value">${mean.toFixed(1)}</div><div class="stat-label">Mean/Year</div></div>
+                <div class="stat-item"><div class="stat-value">${med.toLocaleString()}</div><div class="stat-label">Median/Year</div></div>
+                <div class="stat-item"><div class="stat-value">${peak ? peak[0] : '-'}</div><div class="stat-label">Peak Year</div></div>
+                <div class="stat-item"><div class="stat-value">${peak ? peak[1].toLocaleString() : 0}</div><div class="stat-label">Peak Count</div></div>
+                <div class="stat-item"><div class="stat-value">${std.toFixed(1)}</div><div class="stat-label">Yearly Volatility (Std)</div></div>
+                <div class="stat-item"><div class="stat-value">${yoyMedian.toFixed(1)}%</div><div class="stat-label">Median YoY Change</div></div>
+                <div class="stat-item"><div class="stat-value">${Number(summary.countries_count || 0).toLocaleString()}</div><div class="stat-label">Countries</div></div>
+                <div class="stat-item"><div class="stat-value">${Number(summary.bodies_count || 0).toLocaleString()}</div><div class="stat-label">Bodies</div></div>
+                <div class="stat-item"><div class="stat-value">${Number(summary.themes_count || 0).toLocaleString()}</div><div class="stat-label">Themes</div></div>
+                <div class="stat-item"><div class="stat-value">${Number(summary.total_records || 0).toLocaleString()}</div><div class="stat-label">Matching Records</div></div>
+                <div class="stat-item" style="grid-column:1/-1;"><div class="stat-value" style="font-size:14px;">Server-computed statistics for the current filter.</div><div class="stat-label">Statistical Base</div></div>
+            `;
+            document.getElementById('statsSection').classList.add('active');
+        }
+
+        function updateServerSummaryUI(summary = {}) {
+            document.getElementById('infoFileName').textContent = datasetMetadata.datasetPath
+                ? datasetMetadata.datasetPath.split('/').pop()
+                : 'uhri-export.json';
+            document.getElementById('infoFormat').textContent = 'Server API';
+            document.getElementById('infoRecords').textContent = Number(summary.total_records || 0).toLocaleString();
+            document.getElementById('filterCount').textContent = `${Number(summary.total_records || 0).toLocaleString()} matching records on the VM`;
+            document.getElementById('kpiTotal').textContent = Number(summary.total_records || 0).toLocaleString();
+            document.getElementById('kpiCountries').textContent = Number(summary.countries_count || 0).toLocaleString();
+            document.getElementById('kpiBodies').textContent = Number(summary.bodies_count || 0).toLocaleString();
+            document.getElementById('kpiThemes').textContent = Number(summary.themes_count || 0).toLocaleString();
+            document.getElementById('kpiYearSpan').textContent = summary.min_year && summary.max_year
+                ? `${summary.min_year}-${summary.max_year}`
+                : '-';
+            document.getElementById('kpiAvgPerYear').textContent = Number(summary.avg_per_year || 0).toLocaleString();
+            renderStatsFromSummary(summary);
+
+            const ready = !!summary.analysis_ready;
+            const limit = Number(summary.analysis_limit || serverState.analysisLimit || SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT);
+            serverState.analysisLimit = limit;
+            setServerModeStatus(
+                ready
+                    ? `Current filter matches ${Number(summary.total_records || 0).toLocaleString()} records. You can load full analytics now.`
+                    : `Current filter matches ${Number(summary.total_records || 0).toLocaleString()} records. Narrow to ${limit.toLocaleString()} or fewer to load full charts and classifier tools.`
+            );
+            const analysisBtn = document.getElementById('serverAnalysisBtn');
+            if (analysisBtn) analysisBtn.disabled = !ready;
+        }
+
+        function initializeServerBrowseDashboard() {
+            document.getElementById('dataInfo').classList.remove('hidden');
+            updateDatasetMetadataUI();
+            document.getElementById('sampleNotice').classList.add('hidden');
+            document.getElementById('filtersSection').classList.add('active');
+            document.getElementById('kpiSection').classList.remove('hidden');
+            document.getElementById('tabsSection').classList.add('hidden');
+            document.getElementById('tab-data').classList.add('active');
+            document.querySelectorAll('.charts-section').forEach(section => section.classList.remove('active'));
+            document.getElementById('emptyState').classList.add('hidden');
+            updateSelectedCountInfo();
+        }
+
+        async function refreshServerBrowseData(page = 1, showErrors = true) {
+            if (!DATASET_SUMMARY_URL || !DATASET_RECORDS_URL) {
+                if (showErrors) alert('VM browse API URLs are not configured yet.');
+                return;
+            }
+
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            uploadSection.classList.add('hidden');
+            setProgress(14, 'Loading filtered records from VM...');
+
+            try {
+                const baseParams = buildServerQueryParams({ page, includePagination: false });
+                const summaryUrl = `${DATASET_SUMMARY_URL}?${baseParams.toString()}`;
+                const recordParams = buildServerQueryParams({ page, includePagination: true });
+                const recordsUrl = `${DATASET_RECORDS_URL}?${recordParams.toString()}`;
+
+                const [summary, recordPayload] = await Promise.all([
+                    fetchServerJson(summaryUrl, 'Unable to load server summary'),
+                    fetchServerJson(recordsUrl, 'Unable to load server records')
+                ]);
+
+                const normalizedRecords = (recordPayload.records || []).map((row, idx) =>
+                    normalizeRecord(row, idx + ((recordPayload.page - 1) * (recordPayload.page_size || ROWS_PER_PAGE)))
+                );
+
+                serverState.loaded = true;
+                serverState.summary = summary;
+                serverState.page = recordPayload.page || page;
+                serverState.pageSize = recordPayload.page_size || ROWS_PER_PAGE;
+                serverState.totalPages = recordPayload.total_pages || 1;
+                serverState.totalRecords = recordPayload.total_records || 0;
+                serverState.records = normalizedRecords;
+
+                currentPage = serverState.page;
+                filteredData = normalizedRecords;
+                chartData = [];
+                rawData = [];
+                recordMap = new Map(normalizedRecords.map(r => [String(r._id), r]));
+                selectedRowIds.clear();
+
+                initializeServerBrowseDashboard();
+                updateServerSummaryUI(summary);
+                buildDataTable();
+            } catch (err) {
+                console.error('Server browse load failed:', err);
+                if (showErrors) {
+                    alert('Failed to browse the VM dataset.\n\n' + (err?.message || err));
+                }
+                uploadSection.classList.remove('hidden');
+            } finally {
+                document.getElementById('loadingIndicator').classList.add('hidden');
+            }
+        }
+
+        async function loadRemoteDatasetServerMode(showErrors = true) {
+            if (!DATASET_RECORDS_URL || !DATASET_SUMMARY_URL || !DATASET_FACETS_URL) {
+                if (showErrors) alert('VM browse API URLs are not configured yet.');
+                return;
+            }
+
+            setServerBrowseMode(true);
+            activeDataSource = 'vm_server';
+            fileName = 'UHRI dataset (server browse)';
+            fileFormat = 'Server API';
+            resetDatasetMetadata();
+
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            uploadSection.classList.add('hidden');
+            setProgress(8, 'Connecting to VM browse API...');
+
+            try {
+                const [datasetHealth, facets] = await Promise.all([
+                    fetchRemoteDatasetHealth(),
+                    fetchServerJson(DATASET_FACETS_URL, 'Unable to fetch dataset facets')
+                ]);
+                if (datasetHealth && datasetHealth.dataset_ready === false) {
+                    throw new Error(datasetHealth.message || 'VM dataset API reports that the dataset is unavailable.');
+                }
+
+                setDatasetMetadata(datasetHealth || {});
+                serverState.facets = facets;
+                if (datasetHealth?.analysis_export_limit) {
+                    serverState.analysisLimit = datasetHealth.analysis_export_limit;
+                }
+                populateServerFacets();
+                initializeServerBrowseDashboard();
+                await refreshServerBrowseData(1, showErrors);
+            } catch (err) {
+                console.error('Remote browse init failed:', err);
+                setServerBrowseMode(false);
+                if (showErrors) {
+                    alert('Failed to initialize server browse mode.\n\n' + (err?.message || err));
+                }
+                uploadSection.classList.remove('hidden');
+                document.getElementById('loadingIndicator').classList.add('hidden');
+            }
+        }
+
+        async function loadCurrentFilterForAnalytics(showErrors = true) {
+            if (!DATASET_EXPORT_URL) {
+                if (showErrors) alert('VM subset export API URL is not configured yet.');
+                return;
+            }
+            const analysisBtn = document.getElementById('serverAnalysisBtn');
+            if (analysisBtn) analysisBtn.disabled = true;
+
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            uploadSection.classList.add('hidden');
+            setProgress(18, 'Loading filtered subset for full analytics...');
+
+            try {
+                const params = buildServerQueryParams({
+                    includePagination: false,
+                    includeSort: false,
+                    limit: serverState.analysisLimit || SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT
+                });
+                const exportPayload = await fetchServerJson(
+                    `${DATASET_EXPORT_URL}?${params.toString()}`,
+                    'Unable to load filtered subset'
+                );
+                await applyLoadedRecords(exportPayload.records || [], {
+                    fileName: 'UHRI filtered subset (VM API)',
+                    fileFormat: 'API JSON',
+                    source: 'vm_api',
+                    datasetMetadata: datasetMetadata
+                });
+            } catch (err) {
+                console.error('Subset analytics load failed:', err);
+                if (showErrors) {
+                    alert('Failed to load the filtered subset for full analytics.\n\n' + (err?.message || err));
+                }
+                document.getElementById('loadingIndicator').classList.add('hidden');
+            } finally {
+                if (analysisBtn) analysisBtn.disabled = !(serverState.summary?.analysis_ready);
+            }
+        }
+
         async function applyLoadedRecords(records, options = {}) {
             const sourceRecords = Array.isArray(records) ? records : [];
             fileName = String(options.fileName || fileName || 'dataset.json');
             fileFormat = String(options.fileFormat || fileFormat || 'JSON');
             activeDataSource = String(options.source || activeDataSource || 'upload');
+            if (activeDataSource !== 'vm_server') {
+                setServerBrowseMode(false);
+            }
             if (options.datasetMetadata) {
                 setDatasetMetadata(options.datasetMetadata);
             } else if (activeDataSource !== 'vm_api') {
@@ -2767,6 +3191,7 @@
 
         // ========== DASHBOARD INIT ==========
         function initializeDashboard() {
+            setServerBrowseMode(false);
             filteredData = [...rawData];
             chartData = rawData.length > MAX_CHART_RECORDS ? sampleData(rawData, MAX_CHART_RECORDS) : rawData;
             recordMap = new Map(rawData.map(r => [String(r._id), r]));
@@ -2836,6 +3261,7 @@
         }
 
         function resetDashboard() {
+            setServerBrowseMode(false);
             rawData = [];
             filteredData = [];
             chartData = [];
@@ -2907,10 +3333,16 @@
                 customGrid.innerHTML = '';
             }
             selectedRowIds.clear();
+            currentSort = { column: null, direction: 'asc' };
+            currentPage = 1;
         }
 
         // ========== FILTERS ==========
         function populateFilters() {
+            if (serverBrowseMode && serverState.facets) {
+                populateServerFacets();
+                return;
+            }
             const countries = [...new Set(rawData.flatMap(r => r._countriesArray))].filter(Boolean).sort();
             const bodies = [...new Set(rawData.map(r => r._body).filter(Boolean))].sort();
             const regions = [...new Set(rawData.flatMap(r => r._regionsArray))].filter(Boolean).sort();
@@ -2942,6 +3374,16 @@
             const btn = document.getElementById('applyFiltersBtn');
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-small"></span> Applying...';
+
+            if (serverBrowseMode) {
+                currentPage = 1;
+                refreshServerBrowseData(1, true)
+                    .finally(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>Apply Filters</span>';
+                    });
+                return;
+            }
 
             setTimeout(() => {
                 const countries = getSelectedValues('filterCountry');
@@ -2984,6 +3426,20 @@
             document.getElementById('filterType').selectedIndex = 0;
             document.getElementById('filterText').value = '';
 
+            if (serverBrowseMode) {
+                if (serverState.facets) {
+                    if (Number.isFinite(serverState.facets.min_year)) {
+                        document.getElementById('filterYearStart').value = serverState.facets.min_year;
+                    }
+                    if (Number.isFinite(serverState.facets.max_year)) {
+                        document.getElementById('filterYearEnd').value = serverState.facets.max_year;
+                    }
+                }
+                currentPage = 1;
+                refreshServerBrowseData(1, true);
+                return;
+            }
+
             const years = rawData.map(r => r._year).filter(y => y && y > 1990 && y < 2100);
             if (years.length) {
                 document.getElementById('filterYearStart').value = Math.min(...years);
@@ -3002,6 +3458,17 @@
 
         // ========== DASHBOARD UPDATE ==========
         function updateDashboard() {
+            if (serverBrowseMode) {
+                const hasData = serverState.totalRecords > 0;
+                if (!hasData) {
+                    document.getElementById('emptyState').classList.remove('hidden');
+                } else {
+                    document.getElementById('emptyState').classList.add('hidden');
+                }
+                updateServerSummaryUI(serverState.summary || {});
+                buildDataTable();
+                return;
+            }
             const hasData = filteredData.length > 0;
 
             document.getElementById('filterCount').textContent = filteredData.length === rawData.length
@@ -3024,6 +3491,10 @@
         }
 
         function updateKPIs() {
+            if (serverBrowseMode) {
+                updateServerSummaryUI(serverState.summary || {});
+                return;
+            }
             const total = filteredData.length;
             const countries = new Set(filteredData.flatMap(r => r._countriesArray).filter(Boolean)).size;
             const bodies = new Set(filteredData.map(r => r._body).filter(Boolean)).size;
@@ -3043,6 +3514,10 @@
         }
 
         function updateStats() {
+            if (serverBrowseMode) {
+                renderStatsFromSummary(serverState.summary || {});
+                return;
+            }
             const grid = document.getElementById('statsGrid');
             const total = filteredData.length || 1;
             const validYearRecords = filteredData.filter(r => r._year && r._year > 1990 && r._year < 2100);
@@ -4718,12 +5193,13 @@
                 return;
             }
 
-            let data = filteredData;
+            const sourceData = serverBrowseMode ? serverState.records : filteredData;
+            let data = sourceData;
             if (searchState.type !== 'none') {
                 data = data.filter(r => recordMatchesSearch(r, cols, searchState));
             }
 
-            if (currentSort.column) {
+            if (!serverBrowseMode && currentSort.column) {
                 data = [...data].sort((a, b) => {
                     const cmp = getCellValue(a, currentSort.column).localeCompare(
                         getCellValue(b, currentSort.column),
@@ -4734,10 +5210,10 @@
                 });
             }
 
-            const totalPages = Math.ceil(data.length / ROWS_PER_PAGE);
-            if (totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
-            const start = (currentPage - 1) * ROWS_PER_PAGE;
-            const pageData = data.slice(start, start + ROWS_PER_PAGE);
+            const totalPages = serverBrowseMode ? (serverState.totalPages || 1) : Math.ceil(data.length / ROWS_PER_PAGE);
+            if (!serverBrowseMode && totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
+            const start = serverBrowseMode ? ((serverState.page - 1) * serverState.pageSize) : ((currentPage - 1) * ROWS_PER_PAGE);
+            const pageData = serverBrowseMode ? data : data.slice(start, start + ROWS_PER_PAGE);
             lastRenderedPageData = pageData;
 
             tbody.innerHTML = pageData.map(r => {
@@ -4775,9 +5251,19 @@
             }
 
             const modeSuffix = searchState.type === 'regex' ? ' | regex mode' : '';
-            document.getElementById('tableInfo').textContent = data.length
-                ? `Showing ${start + 1}-${Math.min(start + ROWS_PER_PAGE, data.length)} of ${data.length.toLocaleString()}${modeSuffix}`
-                : `Showing 0 records${modeSuffix}`;
+            if (serverBrowseMode) {
+                const pageStart = serverState.totalRecords ? start + 1 : 0;
+                const pageEnd = serverState.totalRecords ? start + serverState.records.length : 0;
+                document.getElementById('tableInfo').textContent = searchState.type === 'none'
+                    ? (serverState.totalRecords
+                        ? `Showing ${pageStart}-${pageEnd} of ${serverState.totalRecords.toLocaleString()} | server page ${serverState.page} of ${serverState.totalPages}${modeSuffix}`
+                        : `Showing 0 records${modeSuffix}`)
+                    : `${data.length.toLocaleString()} rows on this page match the local table search | ${serverState.totalRecords.toLocaleString()} total VM matches${modeSuffix}`;
+            } else {
+                document.getElementById('tableInfo').textContent = data.length
+                    ? `Showing ${start + 1}-${Math.min(start + ROWS_PER_PAGE, data.length)} of ${data.length.toLocaleString()}${modeSuffix}`
+                    : `Showing 0 records${modeSuffix}`;
+            }
             const selectAllVisible = document.getElementById('selectAllVisible');
             if (selectAllVisible) {
                 const pageIds = pageData.map(r => String(r._id));
@@ -4809,6 +5295,10 @@
 
         function goToPage(p) {
             currentPage = p;
+            if (serverBrowseMode) {
+                refreshServerBrowseData(p, true);
+                return;
+            }
             renderTableBody();
         }
 
@@ -4857,6 +5347,10 @@
             });
 
             currentPage = 1;
+            if (serverBrowseMode) {
+                refreshServerBrowseData(1, true);
+                return;
+            }
             renderTableBody();
         }
 
@@ -4922,7 +5416,44 @@
         }
 
         // ========== EXPORTS ==========
-        function exportFilteredData() {
+        async function exportFilteredData() {
+            if (serverBrowseMode) {
+                try {
+                    const params = buildServerQueryParams({
+                        includePagination: false,
+                        includeSort: false,
+                        limit: serverState.analysisLimit || SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT
+                    });
+                    const payload = await fetchServerJson(
+                        `${DATASET_EXPORT_URL}?${params.toString()}`,
+                        'Unable to export the current server filter'
+                    );
+                    const rows = (payload.records || []).map((row, idx) => normalizeRecord(row, idx));
+                    const exp = rows.map(r => ({
+                        Countries: r._countries,
+                        Body: r._body,
+                        Year: r._year,
+                        Type: r._type,
+                        Themes: r._themes,
+                        'Affected Persons': r._affectedPersons,
+                        Regions: r._regions,
+                        SDGs: r._sdgs,
+                        'Predicted Labels': (r._predictedLabels || []).join(', '),
+                        Symbol: r._symbol,
+                        DocumentId: r._documentId,
+                        Citation: r._citation,
+                        Text: r._text
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(exp);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Filtered');
+                    XLSX.writeFile(wb, 'filtered_server_subset.xlsx');
+                } catch (err) {
+                    alert(err?.message || String(err));
+                }
+                return;
+            }
+
             const exp = filteredData.map(r => ({
                 Countries: r._countries,
                 Body: r._body,
@@ -4971,7 +5502,8 @@
         }
 
         function exportSelectedToExcel() {
-            const selectedRecords = filteredData.filter(r => selectedRowIds.has(String(r._id)));
+            const selectedRecords = (serverBrowseMode ? serverState.records : filteredData)
+                .filter(r => selectedRowIds.has(String(r._id)));
             if (!selectedRecords.length) {
                 alert('No selected rows to export.');
                 return;
@@ -5000,11 +5532,11 @@
                 throw new Error(`Invalid regex: ${searchState.error || ''}`);
             }
             const cols = getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
-            let data = filteredData;
+            let data = serverBrowseMode ? serverState.records : filteredData;
             if (searchState.type !== 'none') {
                 data = data.filter(r => recordMatchesSearch(r, cols, searchState));
             }
-            if (currentSort.column) {
+            if (!serverBrowseMode && currentSort.column) {
                 data = [...data].sort((a, b) => {
                     const cmp = getCellValue(a, currentSort.column).localeCompare(
                         getCellValue(b, currentSort.column),
