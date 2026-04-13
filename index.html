@@ -1251,6 +1251,7 @@
             font-size: 11px;
         }
         .model-actions .apply-model { background: var(--success); color: white; }
+        .model-actions .download-model { background: var(--secondary); color: white; }
         .model-actions .delete-model { background: var(--danger); color: white; }
 
         /* Prediction Column Badge */
@@ -1869,14 +1870,17 @@
 
             <!-- Step 5: Saved Models -->
             <div class="training-section">
-                <h3><span class="step-number">5</span> Saved Models</h3>
+                <h3><span class="step-number">5</span> Saved Models & Packages</h3>
                 <div class="model-list" id="modelList">
                     <p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No saved models yet</p>
                 </div>
-                <div style="margin-top: 12px;">
-                    <input type="text" id="modelNameInput" placeholder="Model name..." style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; width: calc(100% - 90px); margin-right: 8px;">
-                    <button class="btn btn-secondary" onclick="saveCurrentModel()" style="padding: 10px 16px;">💾 Save</button>
+                <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <input type="text" id="modelNameInput" placeholder="Model/package name..." style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; flex: 1; min-width: 220px;">
+                    <button class="btn btn-secondary" id="modelSaveBtn" onclick="saveCurrentModel()" style="padding: 10px 16px;">Save</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('setfitPackageInput').click()" style="padding: 10px 16px;">Upload SetFit ZIP</button>
+                    <input type="file" id="setfitPackageInput" accept=".zip,application/zip" style="display: none;" onchange="handleSetFitPackageSelected(event)">
                 </div>
+                <div id="modelStorageHint" style="font-size: 11px; color: #666; margin-top: 8px;">Local TF-IDF and keyword models are saved only in this browser. SetFit models train on the VM and download as ZIP packages to the user's computer.</div>
             </div>
         </div>
     </div>
@@ -2056,6 +2060,7 @@
             setfitHealth: { checked: false, online: false, setfitReady: false, device: 'cpu', message: '' },
             setfitBenchmarkContext: null
         };
+        let setfitSessionModels = [];
 
         const classifierMethodMeta = {
             tfidf_centroid: {
@@ -3292,6 +3297,7 @@
             setThresholdUI(0.15);
             setClassifierMethodUI('tfidf_centroid');
             updateSetFitBackendStatus(trainingState.setfitHealth || { checked: false, online: false, setfitReady: false, device: 'cpu', message: '' });
+            updateModelStorageControls();
 
             document.getElementById('uploadSection').classList.remove('hidden');
             document.getElementById('dataInfo').classList.add('hidden');
@@ -3311,6 +3317,7 @@
             setThresholdUI(0.15);
             setClassifierMethodUI('tfidf_centroid');
             updateSetFitBackendStatus(trainingState.setfitHealth || { checked: false, online: false, setfitReady: false, device: 'cpu', message: '' });
+            updateModelStorageControls();
             const radarGrid = document.getElementById('themeRadarGrid');
             if (radarGrid) radarGrid.innerHTML = '';
             const radarMeta = document.getElementById('rightsMetaInfo');
@@ -5614,7 +5621,7 @@
             statusEl.classList.remove('online', 'offline');
             if (available) {
                 statusEl.classList.add('online');
-                statusEl.textContent = `SetFit backend online (${(health.device || 'cpu').toUpperCase()}).`;
+                statusEl.textContent = `SetFit backend online (${(health.device || 'cpu').toUpperCase()}). Models download as ZIP packages and only stay temporarily on the VM.`;
                 if (trainingState.model?.engine === 'setfit_backend') {
                     document.getElementById('applyBtn').disabled = false;
                     document.getElementById('applyCurrentBtn').disabled = false;
@@ -5689,6 +5696,148 @@
             return body;
         }
 
+        function sanitizeFilename(name) {
+            const normalized = String(name || 'setfit-model')
+                .trim()
+                .replace(/[^A-Za-z0-9._-]+/g, '-')
+                .replace(/-{2,}/g, '-')
+                .replace(/^[-._]+|[-._]+$/g, '');
+            return normalized || 'setfit-model';
+        }
+
+        function parseDownloadFilename(headerValue) {
+            if (!headerValue) return '';
+            const utf8Match = headerValue.match(/filename\*=UTF-8''([^;]+)/i);
+            if (utf8Match && utf8Match[1]) {
+                return decodeURIComponent(utf8Match[1]).trim();
+            }
+            const basicMatch = headerValue.match(/filename="?([^";]+)"?/i);
+            return basicMatch && basicMatch[1] ? basicMatch[1].trim() : '';
+        }
+
+        function buildSetFitSessionModel(apiModel, override = {}) {
+            const createdAt = apiModel.training_summary?.created_at || apiModel.created_at || new Date().toISOString();
+            const displayName = String(apiModel.display_name || override.name || apiModel.model_id || 'SetFit Model');
+            return {
+                id: String(apiModel.model_id),
+                name: displayName,
+                displayName,
+                engine: 'setfit_backend',
+                method: 'setfit_backend',
+                categories: Array.isArray(apiModel.categories) ? [...apiModel.categories] : [],
+                threshold: Number.isFinite(Number(apiModel.threshold))
+                    ? Number(apiModel.threshold)
+                    : (classifierMethodMeta.setfit_backend.defaultThreshold || 0.35),
+                createdAt,
+                sampleCount: Number(apiModel.training_summary?.train_size || apiModel.train_size || 0),
+                benchmark: apiModel.benchmark || null,
+                backendModelId: String(apiModel.model_id),
+                downloadPath: apiModel.download_path || `/api/setfit/models/${encodeURIComponent(String(apiModel.model_id))}/download`,
+                downloadFilename: apiModel.download_filename || `${sanitizeFilename(displayName)}.zip`,
+                backendMeta: {
+                    model_id_used: apiModel.training_summary?.model_id_used || apiModel.model_id_used || 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+                    device: apiModel.training_summary?.device || apiModel.device || 'cpu',
+                    trained_at: createdAt,
+                    expires_at: apiModel.model_expires_at || apiModel.expires_at || null,
+                    source: override.source || apiModel.source || 'session'
+                }
+            };
+        }
+
+        function upsertSetFitSessionModel(model) {
+            setfitSessionModels = [
+                ...setfitSessionModels.filter(existing => String(existing.id) !== String(model.id)),
+                { ...model }
+            ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        }
+
+        function findSetFitSessionModel(modelId) {
+            return setfitSessionModels.find(model => String(model.id) === String(modelId)) || null;
+        }
+
+        function removeSetFitSessionModel(modelId) {
+            setfitSessionModels = setfitSessionModels.filter(model => String(model.id) !== String(modelId));
+        }
+
+        async function startSetFitTrainingJob(payload) {
+            return setfitApiRequest('/train', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }, 15000);
+        }
+
+        async function waitForSetFitTrainingJob(jobId, onProgress) {
+            const started = Date.now();
+            while (true) {
+                const status = await setfitApiRequest(`/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' }, 10000);
+                if (typeof onProgress === 'function') onProgress(status);
+                if (status.status === 'completed') {
+                    return status;
+                }
+                if (status.status === 'failed') {
+                    throw new Error(status.error || status.message || 'SetFit training failed.');
+                }
+                if (Date.now() - started > 30 * 60 * 1000) {
+                    throw new Error('Timed out while waiting for SetFit training on the VM.');
+                }
+                await delay(2500);
+            }
+        }
+
+        async function downloadSetFitPackage(modelId, preferredName = '') {
+            const response = await fetchWithTimeout(
+                `${SETFIT_API_BASE}/models/${encodeURIComponent(modelId)}/download`,
+                { method: 'GET' },
+                60000
+            );
+            const raw = await response.blob();
+            if (!response.ok) {
+                const detail = await raw.text().catch(() => '');
+                throw new Error(detail || `Download failed (${response.status})`);
+            }
+            const headerFilename = parseDownloadFilename(response.headers.get('content-disposition'));
+            const sessionModel = findSetFitSessionModel(modelId);
+            const downloadName = headerFilename
+                || (preferredName ? `${sanitizeFilename(preferredName)}.zip` : '')
+                || sessionModel?.downloadFilename
+                || `${sanitizeFilename(sessionModel?.name || modelId)}.zip`;
+            const objectUrl = URL.createObjectURL(raw);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = downloadName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            return { filename: downloadName };
+        }
+
+        async function uploadSetFitPackage(file) {
+            const formData = new FormData();
+            formData.append('model_file', file, file.name || 'setfit-model.zip');
+            return setfitApiRequest('/upload', {
+                method: 'POST',
+                body: formData
+            }, 300000);
+        }
+
+        function updateModelStorageControls() {
+            const saveBtn = document.getElementById('modelSaveBtn');
+            const storageHint = document.getElementById('modelStorageHint');
+            if (!saveBtn || !storageHint) return;
+
+            const currentMethod = trainingState.model?.method || trainingState.method || getClassifierMethodFromUI();
+            const currentEngine = trainingState.model?.engine || null;
+            if (currentMethod === 'setfit_backend' || currentEngine === 'setfit_backend') {
+                saveBtn.textContent = currentEngine === 'setfit_backend' ? 'Download ZIP' : 'Save / Download';
+                storageHint.textContent = 'SetFit models are trained on the VM, downloaded as ZIP packages to the user computer, and can later be reloaded with Upload SetFit ZIP.';
+            } else {
+                saveBtn.textContent = 'Save';
+                storageHint.textContent = 'Local TF-IDF and keyword models are saved only in this browser.';
+            }
+        }
+
         function setStepTitle(id, stepNum, text) {
             const el = document.getElementById(id);
             if (!el) return;
@@ -5738,6 +5887,8 @@
             renderCategories();
             updateLabelingUI();
             renderBenchmark(trainingState.benchmark);
+            updateModelStorageControls();
+            loadSavedModels();
         }
 
         function closeTrainingPane() {
@@ -5761,6 +5912,7 @@
             const hint = document.getElementById('classifierMethodHint');
             if (hint) hint.textContent = classifierMethodMeta[normalized].hint;
             updateSetFitBackendStatus(trainingState.setfitHealth || { checked: false });
+            updateModelStorageControls();
         }
 
         function getClassifierMethodFromUI() {
@@ -5789,6 +5941,7 @@
             } else if (!trainingState.model) {
                 setThresholdUI(classifierMethodMeta[method]?.defaultThreshold || 0.15);
             }
+            updateModelStorageControls();
         }
 
         function getSampleKey(sampleOrId) {
@@ -6548,29 +6701,36 @@
                 };
 
                 if (method === 'setfit_backend') {
-                    setTrainingProgress(42, 'Sending labeled examples to SetFit backend...');
+                    const modelNameInput = document.getElementById('modelNameInput');
+                    const desiredName = modelNameInput?.value.trim() || `SetFit ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`;
+                    setTrainingProgress(28, 'Queueing SetFit training on the VM...');
                     await delay(80);
-                    const trainRes = await setfitApiRequest('/train', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            categories: trainingState.categories,
-                            train_examples: trainExamples.map(ex => ({ id: String(ex.id), text: ex.text || '', labels: ex.labels || [] })),
-                            test_examples: testExamples.map(ex => ({ id: String(ex.id), text: ex.text || '', labels: ex.labels || [] })),
-                            threshold,
-                            model_config: {
-                                model_id: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
-                                multi_target_strategy: 'one-vs-rest'
-                            }
-                        })
-                    }, 120000);
+                    const trainJob = await startSetFitTrainingJob({
+                        categories: trainingState.categories,
+                        train_examples: trainExamples.map(ex => ({ id: String(ex.id), text: ex.text || '', labels: ex.labels || [] })),
+                        test_examples: testExamples.map(ex => ({ id: String(ex.id), text: ex.text || '', labels: ex.labels || [] })),
+                        threshold,
+                        training_config: {
+                            model_id: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+                            multi_target_strategy: 'one-vs-rest'
+                        },
+                        display_name: desiredName
+                    });
+                    const trainRes = await waitForSetFitTrainingJob(trainJob.job_id, status => {
+                        const pct = Number.isFinite(Number(status.progress_pct)) ? Number(status.progress_pct) : 60;
+                        setTrainingProgress(Math.max(28, Math.min(98, pct)), status.message || 'Training SetFit on the VM...');
+                    });
 
-                    model.backendModelId = trainRes.model_id;
-                    model.backendMeta = {
-                        device: trainRes.training_summary?.device || 'cpu',
-                        model_id_used: trainRes.training_summary?.model_id_used || 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
-                        trained_at: trainRes.training_summary?.created_at || new Date().toISOString()
-                    };
+                    const sessionModel = buildSetFitSessionModel(trainRes, { name: desiredName, source: 'train' });
+                    upsertSetFitSessionModel(sessionModel);
+
+                    model.backendModelId = sessionModel.backendModelId;
+                    model.name = sessionModel.name;
+                    model.displayName = sessionModel.displayName;
+                    model.downloadPath = sessionModel.downloadPath;
+                    model.downloadFilename = sessionModel.downloadFilename;
+                    model.backendMeta = { ...sessionModel.backendMeta };
+
                     trainingState.setfitBenchmarkContext = {
                         testExamples: testExamples,
                         trainSize: trainExamples.length
@@ -6590,6 +6750,19 @@
                             : null;
                     }
                     renderBenchmark(trainingState.benchmark);
+                    loadSavedModels();
+
+                    setTrainingProgress(96, 'Downloading SetFit ZIP package to your computer...');
+                    try {
+                        const downloadResult = await downloadSetFitPackage(sessionModel.id, desiredName);
+                        sessionModel.downloadFilename = downloadResult.filename || sessionModel.downloadFilename;
+                        upsertSetFitSessionModel(sessionModel);
+                        trainingState.model.downloadFilename = sessionModel.downloadFilename;
+                        loadSavedModels();
+                    } catch (downloadErr) {
+                        console.warn('Automatic SetFit ZIP download failed:', downloadErr);
+                        alert('SetFit training finished, but the ZIP package could not be downloaded automatically. Use "Download ZIP" in Saved Models to save it to your computer.');
+                    }
                 } else if (method === 'keyword_overlap') {
                     setTrainingProgress(48, 'Building keyword profiles...');
                     await delay(80);
@@ -6638,6 +6811,7 @@
                 document.getElementById('applyBtn').disabled = false;
                 document.getElementById('applyCurrentBtn').disabled = false;
                 loadSavedModels();
+                updateModelStorageControls();
 
                 setTimeout(() => {
                     document.getElementById('trainingProgress').classList.add('hidden');
@@ -6787,26 +6961,45 @@
         }
 
         // ========== MODEL PERSISTENCE ==========
-        function saveCurrentModel() {
+        async function saveCurrentModel() {
             if (!trainingState.model) {
                 alert('No trained model to save');
                 return;
             }
 
+            const nameInput = document.getElementById('modelNameInput');
+            const preferredName = nameInput.value.trim() || trainingState.model.displayName || trainingState.model.name || `Model ${Date.now()}`;
+            const saveBtn = document.getElementById('modelSaveBtn');
+
             if (trainingState.model.engine === 'setfit_backend') {
-                alert('SetFit models are already saved server-side. They appear in Saved Models automatically.');
-                loadSavedModels();
+                if (!trainingState.model.backendModelId) {
+                    alert('Current SetFit model is not ready for download yet.');
+                    return;
+                }
+                saveBtn.disabled = true;
+                try {
+                    const downloadResult = await downloadSetFitPackage(trainingState.model.backendModelId, preferredName);
+                    const sessionModel = findSetFitSessionModel(trainingState.model.backendModelId);
+                    if (sessionModel) {
+                        sessionModel.downloadFilename = downloadResult.filename || sessionModel.downloadFilename;
+                        upsertSetFitSessionModel(sessionModel);
+                    }
+                    trainingState.model.downloadFilename = downloadResult.filename || trainingState.model.downloadFilename;
+                    loadSavedModels();
+                    alert('SetFit ZIP downloaded to your computer.');
+                } catch (err) {
+                    alert('Failed to download SetFit ZIP: ' + (err?.message || err));
+                } finally {
+                    saveBtn.disabled = false;
+                    updateModelStorageControls();
+                }
                 return;
             }
 
-            const nameInput = document.getElementById('modelNameInput');
-            const name = nameInput.value.trim() || `Model ${Date.now()}`;
-
             const savedModels = JSON.parse(localStorage.getItem('trainedModels') || '[]');
-
             savedModels.push({
                 id: Date.now(),
-                name,
+                name: preferredName,
                 engine: 'local',
                 categories: trainingState.model.categories,
                 method: trainingState.model.method || trainingState.method || 'tfidf_centroid',
@@ -6822,67 +7015,71 @@
             localStorage.setItem('trainedModels', JSON.stringify(savedModels));
             nameInput.value = '';
             loadSavedModels();
+            updateModelStorageControls();
             alert('Model saved successfully!');
         }
 
-        async function fetchSetFitModelsSafe() {
+        async function downloadSessionSetFitPackage(modelId) {
+            const model = findSetFitSessionModel(modelId);
+            if (!model) {
+                alert('SetFit session model not found.');
+                return;
+            }
             try {
-                const health = await checkSetFitBackend(false);
-                if (!(health.online && health.setfitReady)) return [];
-                const res = await setfitApiRequest('/models', { method: 'GET' }, 8000);
-                return Array.isArray(res.models) ? res.models : [];
+                const downloadResult = await downloadSetFitPackage(modelId, model.name);
+                model.downloadFilename = downloadResult.filename || model.downloadFilename;
+                upsertSetFitSessionModel(model);
+                if (trainingState.model?.backendModelId === model.backendModelId) {
+                    trainingState.model.downloadFilename = model.downloadFilename;
+                }
+                loadSavedModels();
             } catch (err) {
-                console.warn('Unable to load backend SetFit models:', err);
-                return [];
+                alert('Failed to download SetFit ZIP: ' + (err?.message || err));
             }
         }
 
-        async function loadSavedModels() {
+        function loadSavedModels() {
             const savedModels = JSON.parse(localStorage.getItem('trainedModels') || '[]')
                 .map(m => ({ ...m, engine: m.engine || 'local' }));
-            const backendModels = await fetchSetFitModelsSafe();
             const list = document.getElementById('modelList');
             const combined = [
                 ...savedModels.map(m => ({ ...m, _origin: 'local' })),
-                ...backendModels.map(m => ({
-                    id: m.model_id,
-                    name: m.model_id,
-                    engine: 'setfit_backend',
-                    method: 'setfit_backend',
-                    categories: m.categories || [],
-                    threshold: m.threshold,
-                    createdAt: m.created_at,
-                    sampleCount: m.train_size,
-                    backendMeta: {
-                        model_id_used: m.model_id_used,
-                        device: m.device,
-                        train_size: m.train_size
-                    },
-                    _origin: 'backend'
-                }))
+                ...setfitSessionModels.map(m => ({ ...m, _origin: 'setfit_session' }))
             ];
 
             if (combined.length === 0) {
-                list.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No saved models yet</p>';
+                list.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No saved models yet. Local browser models and current-session SetFit ZIP packages will appear here.</p>';
+                updateModelStorageControls();
                 return;
             }
 
-            list.innerHTML = combined.map(m => `
-                <div class="model-item">
-                    <div class="model-info">
-                        <div class="model-name">${escapeHtml(m.name)}</div>
-                        <div class="model-meta">${(m.categories || []).length} categories • ${(classifierMethodMeta[m.method || 'tfidf_centroid']?.label || (m.method || 'tfidf_centroid'))} • ${new Date(m.createdAt).toLocaleDateString()} • ${m._origin === 'backend' ? 'backend' : 'local'}</div>
+            list.innerHTML = combined.map(m => {
+                const createdAt = m.createdAt ? new Date(m.createdAt) : null;
+                const createdLabel = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleDateString() : 'n/a';
+                const methodLabel = classifierMethodMeta[m.method || 'tfidf_centroid']?.label || (m.method || 'tfidf_centroid');
+                const originLabel = m._origin === 'setfit_session' ? 'session temp on VM' : 'local browser';
+                const expiryLabel = m._origin === 'setfit_session' && m.backendMeta?.expires_at
+                    ? ` • expires ${new Date(m.backendMeta.expires_at).toLocaleString()}`
+                    : '';
+                return `
+                    <div class="model-item">
+                        <div class="model-info">
+                            <div class="model-name">${escapeHtml(m.name)}</div>
+                            <div class="model-meta">${(m.categories || []).length} categories • ${escapeHtml(methodLabel)} • ${createdLabel} • ${originLabel}${escapeHtml(expiryLabel)}</div>
+                        </div>
+                        <div class="model-actions">
+                            ${m._origin === 'setfit_session'
+                                ? `<button class="apply-model" onclick="applySessionSetFitModel('${escapeJs(String(m.id))}')">Apply</button>
+                                   <button class="download-model" onclick="downloadSessionSetFitPackage('${escapeJs(String(m.id))}')">Download</button>
+                                   <button class="delete-model" onclick="deleteSessionSetFitModel('${escapeJs(String(m.id))}')">Remove</button>`
+                                : `<button class="apply-model" onclick="applyStoredModel(${m.id})">Apply</button>
+                                   <button class="delete-model" onclick="deleteModel(${m.id})">Delete</button>`
+                            }
+                        </div>
                     </div>
-                    <div class="model-actions">
-                        ${m._origin === 'backend'
-                            ? `<button class="apply-model" onclick="applyBackendModel('${escapeJs(String(m.id))}')">Apply</button>
-                               <button class="delete-model" onclick="deleteBackendModel('${escapeJs(String(m.id))}')">Delete</button>`
-                            : `<button class="apply-model" onclick="applyStoredModel(${m.id})">Apply</button>
-                               <button class="delete-model" onclick="deleteModel(${m.id})">Delete</button>`
-                        }
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
+            updateModelStorageControls();
         }
 
         function applyStoredModel(modelId) {
@@ -6916,43 +7113,77 @@
             renderBenchmark(trainingState.benchmark);
             document.getElementById('applyBtn').disabled = false;
             document.getElementById('applyCurrentBtn').disabled = false;
+            updateModelStorageControls();
             alert('Model loaded! Click "Apply to All Data" to run predictions.');
         }
 
-        async function applyBackendModel(modelId) {
-            const backendModels = await fetchSetFitModelsSafe();
-            const model = backendModels.find(m => String(m.model_id) === String(modelId));
+        function applySessionSetFitModel(modelId) {
+            const model = findSetFitSessionModel(modelId);
             if (!model) {
-                alert('Backend model not found or backend is unavailable.');
+                alert('SetFit session model not found.');
                 return;
             }
 
             trainingState.model = {
                 method: 'setfit_backend',
                 engine: 'setfit_backend',
-                categories: Array.isArray(model.categories) ? model.categories : [],
+                categories: Array.isArray(model.categories) ? [...model.categories] : [],
                 threshold: Number.isFinite(Number(model.threshold)) ? Number(model.threshold) : (classifierMethodMeta.setfit_backend.defaultThreshold || 0.35),
-                backendModelId: model.model_id,
-                backendMeta: {
-                    model_id_used: model.model_id_used,
-                    device: model.device,
-                    trained_at: model.created_at
-                }
+                backendModelId: model.backendModelId || model.id,
+                name: model.name,
+                displayName: model.displayName || model.name,
+                downloadPath: model.downloadPath,
+                downloadFilename: model.downloadFilename,
+                backendMeta: { ...(model.backendMeta || {}) }
             };
             trainingState.categories = [...trainingState.model.categories];
             ensureExcludedCategory();
             trainingState.model.categories = [...trainingState.categories];
             trainingState.method = 'setfit_backend';
-            trainingState.benchmark = null;
+            trainingState.benchmark = model.benchmark || null;
             trainingState.setfitBenchmarkContext = null;
 
             setClassifierMethodUI('setfit_backend');
             setThresholdUI(trainingState.model.threshold);
             renderCategories();
-            renderBenchmark(null);
+            renderBenchmark(trainingState.benchmark);
             document.getElementById('applyBtn').disabled = false;
             document.getElementById('applyCurrentBtn').disabled = false;
-            alert('Backend SetFit model loaded. Click "Apply to All Data" to run predictions.');
+            updateModelStorageControls();
+            alert('SetFit package loaded for this session. Click "Apply to All Data" to run predictions.');
+        }
+
+        async function handleSetFitPackageSelected(event) {
+            const file = event?.target?.files?.[0];
+            if (event?.target) event.target.value = '';
+            if (!file) return;
+
+            try {
+                const health = await checkSetFitBackend(true);
+                if (!(health.online && health.setfitReady)) return;
+
+                document.getElementById('trainingProgress').classList.remove('hidden');
+                setTrainingProgress(18, `Uploading ${file.name} to the VM...`);
+                const uploadRes = await uploadSetFitPackage(file);
+                setTrainingProgress(82, 'Preparing uploaded SetFit package for this session...');
+
+                const sessionModel = buildSetFitSessionModel(uploadRes, { name: file.name.replace(/\.zip$/i, ''), source: 'upload' });
+                upsertSetFitSessionModel(sessionModel);
+                loadSavedModels();
+                applySessionSetFitModel(sessionModel.id);
+                const nameInput = document.getElementById('modelNameInput');
+                if (nameInput) nameInput.value = sessionModel.name;
+                setTrainingProgress(100, 'SetFit package uploaded and ready to use.');
+                setTimeout(() => {
+                    document.getElementById('trainingProgress').classList.add('hidden');
+                }, 1200);
+            } catch (err) {
+                console.error('SetFit ZIP upload error:', err);
+                document.getElementById('trainingProgress').classList.add('hidden');
+                alert('Failed to upload SetFit ZIP: ' + (err?.message || err));
+            } finally {
+                updateModelStorageControls();
+            }
         }
 
         function deleteModel(modelId) {
@@ -6962,16 +7193,28 @@
             savedModels = savedModels.filter(m => m.id !== modelId);
             localStorage.setItem('trainedModels', JSON.stringify(savedModels));
             loadSavedModels();
+            updateModelStorageControls();
         }
 
-        async function deleteBackendModel(modelId) {
-            if (!confirm('Delete this backend SetFit model?')) return;
+        async function deleteSessionSetFitModel(modelId) {
+            if (!confirm('Remove this temporary SetFit model from the VM session?')) return;
             try {
                 await setfitApiRequest(`/models/${encodeURIComponent(modelId)}`, { method: 'DELETE' }, 10000);
             } catch (err) {
-                alert('Failed to delete backend model: ' + (err?.message || err));
+                alert('Failed to remove temporary SetFit model: ' + (err?.message || err));
+                return;
+            }
+            removeSetFitSessionModel(modelId);
+            if (trainingState.model?.backendModelId === modelId) {
+                trainingState.model = null;
+                trainingState.benchmark = null;
+                trainingState.setfitBenchmarkContext = null;
+                renderBenchmark(null);
+                document.getElementById('applyBtn').disabled = true;
+                document.getElementById('applyCurrentBtn').disabled = true;
             }
             loadSavedModels();
+            updateModelStorageControls();
         }
     </script>
 </body>

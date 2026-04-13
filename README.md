@@ -35,4 +35,8 @@ Example:
 - You can override the VM base URL later with `?vm_base=https://your-host`.
 - When the VM exposes `downloaded_at` metadata, the dashboard shows that date as the dataset cutoff for users.
 - Server browse mode keeps the dashboard responsive for the full 266k+ record dataset. Full charts/classifier tools are loaded only for narrowed subsets.
-- SetFit backend features still work from GitHub Pages as long as the VM hosts the API and allows CORS for the Pages origin.
+- SetFit now runs as a VM-backed training service with client-owned model packages:
+  - training starts as an async job on the VM,
+  - the resulting SetFit package is downloaded as a small ZIP to the user computer,
+  - later the user can upload that ZIP again to create a temporary prediction session on the VM,
+  - the package is no longer meant to be stored permanently on the server.
