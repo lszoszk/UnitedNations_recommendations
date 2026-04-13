@@ -2489,17 +2489,70 @@
                 section.classList.remove('active');
             });
             target.classList.add('active');
-            if (tabName === 'overview') {
-                requestAnimationFrame(() => {
-                    resizeOverviewWorldMap();
-                });
-            }
+            requestAnimationFrame(() => {
+                renderTabContent(tabName);
+            });
         }
 
         function bindTabSwitching() {
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.onclick = () => activateTab(tab.dataset.tab);
             });
+        }
+
+        function renderTabContent(tabName = 'overview') {
+            if (tabName === 'overview') {
+                updateOverviewWorldMap();
+                updateYearlyTrendChart();
+                updateBodyDistributionChart();
+                updateRegionDistributionChart();
+                resizeOverviewWorldMap();
+                return;
+            }
+            if (tabName === 'trends') {
+                updateStackedChart();
+                updateCumulativeChart();
+                updateYoYChart();
+                return;
+            }
+            if (tabName === 'themes') {
+                updateThemeRadarChart();
+                updateTopThemesChart();
+                updateThemeTrendsChart();
+                updateEscCcprTrendChart();
+                updateRightsScatterChart();
+                return;
+            }
+            if (tabName === 'bodies') {
+                updateBodyScatterChart();
+                updateBodyHeatmapChart();
+                updateRegionComparisonChart();
+                return;
+            }
+            if (tabName === 'text') {
+                updateAffectedPersonsChart();
+                updateSDGsChart();
+                updateBigramsChart();
+                updateTextLengthChart();
+                return;
+            }
+            if (tabName === 'labels') {
+                updateLabelCoverageChart();
+                updateLabelDistributionChart();
+                updateLabelTrendsChart();
+                updateLabelPairsChart();
+                updateLabelBigramsChart();
+                updateLabelStatsGrid();
+                updateLabelYearlyChart();
+                updateLabelBodiesChart();
+                updateLabelThemeTrendsChart();
+                updateLabelEscCcprChart();
+                updateLabelBodyScatterChart();
+                return;
+            }
+            if (tabName === 'data') {
+                buildDataTable();
+            }
         }
 
         function setServerBrowseMode(active) {
