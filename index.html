@@ -1940,7 +1940,14 @@
             facets: null,
             summary: null,
             mapCountryCounts: [],
-            analysisLimit: SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT
+            analysisLimit: SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT,
+            analytics: {
+                trends: null,
+                themes: null,
+                text: null
+            },
+            analyticsLoading: {},
+            analyticsFilterKey: ''
         };
         const CUSTOM_WIDGETS_STORAGE_KEY = 'un_hr_dashboard_custom_widgets_v1';
         const selectedRowIds = new Set();
@@ -2024,6 +2031,7 @@
         const DATASET_SUMMARY_URL = buildApiUrl(VM_BASE_URL, '/api/data/summary');
         const DATASET_RECORDS_URL = buildApiUrl(VM_BASE_URL, '/api/data/records');
         const DATASET_EXPORT_URL = buildApiUrl(VM_BASE_URL, '/api/data/export');
+        const DATASET_ANALYTICS_URL = buildApiUrl(VM_BASE_URL, '/api/data/analytics');
         const SETFIT_API_BASE = resolveSetFitApiBase(VM_BASE_URL);
 
         const invalidCountryTokens = new Set([
@@ -2586,7 +2594,14 @@
                 facets: null,
                 summary: null,
                 mapCountryCounts: [],
-                analysisLimit: SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT
+                analysisLimit: SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT,
+                analytics: {
+                    trends: null,
+                    themes: null,
+                    text: null
+                },
+                analyticsLoading: {},
+                analyticsFilterKey: ''
             };
         }
 
@@ -2649,6 +2664,22 @@
         function renderTabContent(tabName = 'overview') {
             if (overviewBootstrapMode && !fullDatasetBackgroundReady && tabName !== 'overview') {
                 return;
+            }
+            if (serverBrowseMode) {
+                const requiredSections = getServerAnalyticsSectionsForTab(tabName);
+                if (requiredSections.length && !areServerAnalyticsSectionsReady(requiredSections)) {
+                    ensureServerAnalyticsSections(requiredSections, false)
+                        .then(() => {
+                            const target = document.getElementById(`tab-${tabName}`);
+                            if (target && target.classList.contains('active')) {
+                                renderTabContent(tabName);
+                            }
+                        })
+                        .catch(err => {
+                            console.error(`Failed to hydrate ${tabName} analytics from VM:`, err);
+                        });
+                    return;
+                }
             }
             if (tabName === 'overview') {
                 updateOverviewWorldMap();
@@ -2782,6 +2813,10 @@
             };
         }
 
+        function buildServerFilterCacheKey() {
+            return JSON.stringify(getServerFilterState());
+        }
+
         function appendCsvQueryParam(params, key, values) {
             if (Array.isArray(values) && values.length) {
                 params.set(key, values.join(','));
@@ -2826,6 +2861,68 @@
                 throw new Error(detail);
             }
             return body;
+        }
+
+        function getServerAnalyticsSectionsForTab(tabName = 'overview') {
+            if (!serverBrowseMode) return [];
+            if (tabName === 'trends' || tabName === 'bodies') return ['trends'];
+            if (tabName === 'themes') return ['themes'];
+            if (tabName === 'text') return ['text'];
+            return [];
+        }
+
+        function areServerAnalyticsSectionsReady(sections = []) {
+            return sections.every(section => Boolean(serverState.analytics?.[section]));
+        }
+
+        function hasPendingServerAnalyticsLoads() {
+            return Object.values(serverState.analyticsLoading || {}).some(Boolean);
+        }
+
+        async function ensureServerAnalyticsSections(sections = [], showErrors = false) {
+            const requiredSections = [...new Set((sections || []).filter(Boolean))];
+            if (!requiredSections.length || !DATASET_ANALYTICS_URL) return null;
+
+            const sectionsToRequest = requiredSections.filter(section => (
+                !serverState.analytics?.[section] && !serverState.analyticsLoading?.[section]
+            ));
+
+            if (!sectionsToRequest.length) return null;
+
+            sectionsToRequest.forEach(section => {
+                serverState.analyticsLoading[section] = true;
+            });
+
+            setVmLoadingNotice(true, `Loading full-filter ${sectionsToRequest.join(', ')} analytics from the VM. Please wait until this notice disappears before reading those charts.`);
+
+            try {
+                const params = buildServerQueryParams({ includePagination: false, includeSort: false });
+                params.set('sections', sectionsToRequest.join(','));
+                const payload = await fetchServerJson(
+                    `${DATASET_ANALYTICS_URL}?${params.toString()}`,
+                    'Unable to load full-filter VM analytics'
+                );
+                sectionsToRequest.forEach(section => {
+                    serverState.analytics[section] = payload?.[section] || null;
+                    serverState.analyticsLoading[section] = false;
+                });
+                if (!hasPendingServerAnalyticsLoads() && !overviewBootstrapMode) {
+                    setVmLoadingNotice(false);
+                }
+                return payload;
+            } catch (err) {
+                console.error('Server analytics load failed:', err);
+                sectionsToRequest.forEach(section => {
+                    serverState.analyticsLoading[section] = false;
+                });
+                if (!hasPendingServerAnalyticsLoads() && !overviewBootstrapMode) {
+                    setVmLoadingNotice(false);
+                }
+                if (showErrors) {
+                    alert('Failed to load full-filter VM analytics.\n\n' + (err?.message || err));
+                }
+                throw err;
+            }
         }
 
         function renderStatsFromSummary(summary = {}) {
@@ -2927,6 +3024,8 @@
 
             const background = !!options.background;
             const activateServerBrowse = !!options.activateServerBrowse;
+            const analyticsFilterKey = buildServerFilterCacheKey();
+            const filterChanged = serverState.analyticsFilterKey !== analyticsFilterKey;
 
             if (!background) {
                 document.getElementById('loadingIndicator').classList.remove('hidden');
@@ -2959,6 +3058,15 @@
                 serverState.totalRecords = recordPayload.total_records || 0;
                 serverState.records = normalizedRecords;
                 serverState.mapCountryCounts = Array.isArray(mapPayload?.country_counts) ? mapPayload.country_counts : [];
+                if (filterChanged) {
+                    serverState.analytics = {
+                        trends: null,
+                        themes: null,
+                        text: null
+                    };
+                    serverState.analyticsLoading = {};
+                }
+                serverState.analyticsFilterKey = analyticsFilterKey;
 
                 if (activateServerBrowse) {
                     setServerBrowseMode(true);
@@ -2979,6 +3087,16 @@
                 updateAllCharts();
                 buildDataTable();
                 setVmLoadingNotice(false);
+                if (filterChanged || !areServerAnalyticsSectionsReady(['trends', 'themes', 'text'])) {
+                    ensureServerAnalyticsSections(['trends', 'themes', 'text'], false)
+                        .then(() => {
+                            const activeTab = document.querySelector('#tabsSection .tab.active')?.dataset?.tab || 'overview';
+                            renderTabContent(activeTab);
+                        })
+                        .catch(err => {
+                            console.error('Background full-filter analytics prefetch failed:', err);
+                        });
+                }
             } catch (err) {
                 console.error('Server browse load failed:', err);
                 if (background) {
@@ -3606,6 +3724,103 @@
             }
 
             return { labels, values, note };
+        }
+
+        function buildYoYSeriesFromYearRows(yearRows = [], options = {}) {
+            const yearlyCounts = {};
+            (yearRows || []).forEach(row => {
+                const year = Number(row?.year);
+                const count = Number(row?.count || 0);
+                if (!Number.isFinite(year) || !Number.isFinite(count) || count <= 0) return;
+                yearlyCounts[year] = count;
+            });
+
+            const years = Object.keys(yearlyCounts)
+                .map(Number)
+                .filter(Number.isFinite)
+                .sort((a, b) => a - b);
+
+            const excludedYears = new Set();
+            const noteParts = [];
+            const firstDate = parseRecordDate(options.datasetFirstPublicationDate);
+            const lastDate = parseRecordDate(options.datasetLastPublicationDate);
+
+            if (firstDate && years.includes(firstDate.getFullYear()) && (firstDate.getMonth() !== 0 || firstDate.getDate() !== 1)) {
+                excludedYears.add(firstDate.getFullYear());
+                noteParts.push(`${firstDate.getFullYear()} starts on ${formatDatasetDate(firstDate.toISOString())}`);
+            }
+            if (lastDate && years.includes(lastDate.getFullYear()) && (lastDate.getMonth() !== 11 || lastDate.getDate() !== 31)) {
+                excludedYears.add(lastDate.getFullYear());
+                noteParts.push(`${lastDate.getFullYear()} ends on ${formatDatasetDate(lastDate.toISOString())}`);
+            }
+
+            const labels = [];
+            const values = [];
+            years.slice(1).forEach((year, index) => {
+                const previousYear = years[index];
+                if (excludedYears.has(previousYear) || excludedYears.has(year)) return;
+                const previousCount = yearlyCounts[previousYear];
+                if (!previousCount) return;
+                labels.push(String(year));
+                values.push(Number((((yearlyCounts[year] - previousCount) / previousCount) * 100).toFixed(1)));
+            });
+
+            let note = 'Bars compare each year to the previous full year.';
+            if (noteParts.length) {
+                note += ` Edge-year comparisons tied to partial years are excluded: ${noteParts.join('; ')}.`;
+            }
+
+            return { labels, values, note };
+        }
+
+        function getTopRightsConfigurationFromThemeCounts(themeCountRows = [], topN = 10) {
+            const counts = {};
+            (themeCountRows || []).forEach(row => {
+                const key = toThemeKey(row?.theme || '');
+                const count = Number(row?.count || 0);
+                if (!key || !rightsThemeLookup[key] || !Number.isFinite(count) || count <= 0) return;
+                counts[key] = (counts[key] || 0) + count;
+            });
+            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            const topKeys = sorted.slice(0, topN).map(([key]) => key);
+            const dimensions = topKeys.map(key => ({
+                key,
+                label: rightsThemeLookup[key]?.label || key,
+                family: rightsThemeLookup[key]?.family || 'CCPR',
+                total: counts[key] || 0
+            }));
+            return {
+                dimensions,
+                topKeySet: new Set(topKeys),
+                totalCounts: counts
+            };
+        }
+
+        function getRightsYearlyDataFromThemeRows(themeRows = [], topKeySet = null) {
+            const yearly = {};
+            (themeRows || []).forEach(row => {
+                const year = Number(row?.year);
+                const key = toThemeKey(row?.theme || '');
+                const count = Number(row?.count || 0);
+                const meta = rightsThemeLookup[key];
+                if (!Number.isFinite(year) || !meta || !Number.isFinite(count) || count <= 0) return;
+                if (!yearly[year]) {
+                    yearly[year] = { esc: 0, ccpr: 0, top: {}, otherEsc: 0, otherCcpr: 0 };
+                }
+                if (meta.family === 'ESCR') yearly[year].esc += count;
+                else yearly[year].ccpr += count;
+
+                if (topKeySet) {
+                    if (topKeySet.has(key)) {
+                        yearly[year].top[key] = (yearly[year].top[key] || 0) + count;
+                    } else if (meta.family === 'ESCR') {
+                        yearly[year].otherEsc += count;
+                    } else {
+                        yearly[year].otherCcpr += count;
+                    }
+                }
+            });
+            return yearly;
         }
 
         // ========== DASHBOARD INIT ==========
@@ -4453,6 +4668,41 @@
         function updateStackedChart() {
             destroyChart('stackedTrend');
             const by = document.getElementById('stackBySelector')?.value || 'body';
+            if (serverBrowseMode) {
+                const trends = serverState.analytics?.trends;
+                if (!trends) return;
+                const sourceRows = by === 'body'
+                    ? (trends.yearly_body_counts || [])
+                    : by === 'region'
+                        ? (trends.yearly_region_counts || [])
+                        : (trends.yearly_type_counts || []);
+                const valueKey = by === 'body' ? 'body' : by === 'region' ? 'region' : 'annotation_type';
+                const yd = {};
+                const totals = {};
+                sourceRows.forEach(row => {
+                    const year = Number(row?.year);
+                    const value = String(row?.[valueKey] || '').trim();
+                    const count = Number(row?.count || 0);
+                    if (!Number.isFinite(year) || !value || !Number.isFinite(count) || count <= 0) return;
+                    const yearKey = String(year);
+                    if (!yd[yearKey]) yd[yearKey] = {};
+                    yd[yearKey][value] = count;
+                    totals[value] = (totals[value] || 0) + count;
+                });
+                const yrs = Object.keys(yd).sort((a, b) => Number(a) - Number(b));
+                const catArr = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([value]) => value);
+                const datasets = catArr.map((value, i) => ({
+                    label: value.replace('- ', '').slice(0, 25),
+                    data: yrs.map(year => yd[year]?.[value] || 0),
+                    backgroundColor: colors.bodies[i % colors.bodies.length]
+                }));
+                charts.stackedTrend = new Chart(document.getElementById('chartStackedTrend'), {
+                    type: 'bar',
+                    data: { labels: yrs, datasets },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }, tooltip: defaultTooltip }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+                });
+                return;
+            }
             const yd = {};
             const cats = new Set();
             chartData.forEach(r => {
@@ -4477,6 +4727,23 @@
 
         function updateCumulativeChart() {
             destroyChart('cumulative');
+            if (serverBrowseMode) {
+                const yearRows = serverState.analytics?.trends?.yearly_counts || serverState.summary?.yearly_counts || [];
+                const rows = yearRows
+                    .map(row => [String(row.year), Number(row.count || 0)])
+                    .filter(([, count]) => Number.isFinite(count) && count > 0);
+                let cum = 0;
+                const data = rows.map(([, count]) => {
+                    cum += count;
+                    return cum;
+                });
+                charts.cumulative = new Chart(document.getElementById('chartCumulative'), {
+                    type: 'line',
+                    data: { labels: rows.map(([year]) => year), datasets: [{ label: 'Cumulative', data, borderColor: colors.primary[0], backgroundColor: colors.primary[0]+'33', fill: true, tension: 0.3 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
             const yc = {};
             chartData.forEach(r => { if (r._year) yc[r._year] = (yc[r._year]||0) + 1; });
             const yrs = Object.keys(yc).sort();
@@ -4491,8 +4758,29 @@
 
         function updateYoYChart() {
             destroyChart('yoy');
-            const { labels, values, note } = buildYoYSeries(chartData, Array.isArray(rawData) && rawData.length ? rawData : chartData);
             const noteEl = document.getElementById('chartYoYNote');
+            if (serverBrowseMode) {
+                const trends = serverState.analytics?.trends;
+                if (!trends) {
+                    if (noteEl) noteEl.textContent = 'Full-filter VM analytics are still loading for this chart.';
+                    return;
+                }
+                const { labels, values, note } = buildYoYSeriesFromYearRows(
+                    trends.yearly_counts || serverState.summary?.yearly_counts || [],
+                    {
+                        datasetFirstPublicationDate: trends.dataset_first_publication_date,
+                        datasetLastPublicationDate: trends.dataset_last_publication_date
+                    }
+                );
+                if (noteEl) noteEl.textContent = note;
+                charts.yoy = new Chart(document.getElementById('chartYoY'), {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: 'YoY %', data: values, backgroundColor: values.map(v => v >= 0 ? colors.primary[1] : colors.primary[2]), borderRadius: 4 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
+            const { labels, values, note } = buildYoYSeries(chartData, Array.isArray(rawData) && rawData.length ? rawData : chartData);
             if (noteEl) noteEl.textContent = note;
             charts.yoy = new Chart(document.getElementById('chartYoY'), {
                 type: 'bar',
@@ -4603,6 +4891,96 @@
             const meta = document.getElementById('rightsMetaInfo');
             if (!container || !meta) return;
 
+            if (serverBrowseMode) {
+                const themeAnalytics = serverState.analytics?.themes;
+                if (!themeAnalytics) {
+                    container.innerHTML = '<div style="font-size:12px;color:#6b7f98;">Loading full-filter rights analytics from the VM...</div>';
+                    meta.textContent = 'VM analytics are loading for this chart.';
+                    return;
+                }
+
+                const topN = getRightsTopNFromUI();
+                const yearsPerWindow = getRightsWindowFromUI();
+                const topConfig = getTopRightsConfigurationFromThemeCounts(themeAnalytics.theme_counts || [], topN);
+                const topDimensions = topConfig.dimensions;
+
+                if (!topDimensions.length) {
+                    container.innerHTML = '<div style="font-size:12px;color:#6b7f98;">No rights-theme dimensions found in the current VM filter.</div>';
+                    meta.textContent = 'Top rights categories could not be derived from the current VM filter.';
+                    return;
+                }
+
+                const dimensions = [
+                    ...topDimensions,
+                    { key: '__other_escr__', label: 'Other ESCR rights', family: 'ESCR' },
+                    { key: '__other_ccpr__', label: 'Other CCPR rights', family: 'CCPR' }
+                ];
+                const yearly = getRightsYearlyDataFromThemeRows(themeAnalytics.yearly_theme_counts || [], topConfig.topKeySet);
+                const syntheticRecords = Object.keys(yearly).map(year => ({ _year: Number(year) }));
+                const windows = getRightsPeriodWindows(syntheticRecords, yearsPerWindow);
+                const topLabels = topDimensions.map(d => d.label).join(' • ');
+                meta.textContent = `Top ${topDimensions.length} rights dimensions + grouped other ESCR/CCPR rights. Window mode: ${yearsPerWindow ? `${yearsPerWindow}-year` : 'Overall'}. Dimensions: ${topLabels}`;
+
+                container.innerHTML = windows.map((win, idx) => `
+                    <div class="mini-radar-card">
+                        <div class="mini-radar-title">${escapeHtml(win.label)} (${win.records.length.toLocaleString()} years)</div>
+                        <div class="mini-radar-wrap"><canvas id="chartThemeRadarWindow_${idx}"></canvas></div>
+                    </div>
+                `).join('');
+
+                windows.forEach((win, idx) => {
+                    const windowYears = new Set(win.records.map(record => Number(record._year)).filter(Number.isFinite));
+                    const agg = { topCounts: {}, otherEsc: 0, otherCcpr: 0 };
+                    Object.entries(yearly).forEach(([yearKey, bucket]) => {
+                        const year = Number(yearKey);
+                        if (!windowYears.has(year)) return;
+                        Object.entries(bucket.top || {}).forEach(([key, count]) => {
+                            agg.topCounts[key] = (agg.topCounts[key] || 0) + count;
+                        });
+                        agg.otherEsc += Number(bucket.otherEsc || 0);
+                        agg.otherCcpr += Number(bucket.otherCcpr || 0);
+                    });
+                    const labels = dimensions.map(d => d.label.length > 30 ? `${d.label.slice(0, 30)}…` : d.label);
+                    const values = dimensions.map(d => {
+                        if (d.key === '__other_escr__') return agg.otherEsc;
+                        if (d.key === '__other_ccpr__') return agg.otherCcpr;
+                        return agg.topCounts[d.key] || 0;
+                    });
+                    const chartId = `themeRadarWindow_${idx}`;
+                    const accent = colors.primary[idx % colors.primary.length];
+
+                    charts[chartId] = new Chart(document.getElementById(`chartThemeRadarWindow_${idx}`), {
+                        type: 'radar',
+                        data: {
+                            labels,
+                            datasets: [{
+                                label: `Theme mentions (${win.label})`,
+                                data: values,
+                                backgroundColor: accent + '2f',
+                                borderColor: accent,
+                                borderWidth: 2,
+                                pointRadius: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    ...defaultTooltip,
+                                    callbacks: {
+                                        title: (ctx) => dimensions[ctx[0].dataIndex]?.label || ctx[0].label
+                                    }
+                                }
+                            },
+                            scales: { r: { beginAtZero: true, pointLabels: { font: { size: 9 } } } }
+                        }
+                    });
+                });
+                return;
+            }
+
             const rightsRecords = chartData.filter(r => (r._rightThemeKeys || []).length > 0);
             if (!rightsRecords.length) {
                 container.innerHTML = '<div style="font-size:12px;color:#6b7f98;">No rights-theme matches in current filter.</div>';
@@ -4681,6 +5059,20 @@
 
         function updateTopThemesChart() {
             destroyChart('topThemes');
+            if (serverBrowseMode) {
+                const themeAnalytics = serverState.analytics?.themes;
+                if (!themeAnalytics) return;
+                const sorted = (themeAnalytics.theme_counts || [])
+                    .map(row => [String(row.theme || ''), Number(row.count || 0)])
+                    .filter(([theme, count]) => theme && Number.isFinite(count) && count > 0)
+                    .slice(0, 15);
+                charts.topThemes = new Chart(document.getElementById('chartTopThemes'), {
+                    type: 'bar',
+                    data: { labels: sorted.map(s => s[0].replace('- ','').slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[4], borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
             const tc = {};
             chartData.forEach(r => r._themesArray.forEach(t => { if (t) tc[t] = (tc[t]||0) + 1; }));
             const sorted = Object.entries(tc).sort((a,b) => b[1]-a[1]).slice(0, 15);
@@ -4693,6 +5085,33 @@
 
         function updateThemeTrendsChart() {
             destroyChart('themeTrends');
+            if (serverBrowseMode) {
+                const themeAnalytics = serverState.analytics?.themes;
+                if (!themeAnalytics) return;
+                const top5 = (themeAnalytics.theme_counts || [])
+                    .map(row => [String(row.theme || ''), Number(row.count || 0)])
+                    .filter(([theme, count]) => theme && Number.isFinite(count) && count > 0)
+                    .slice(0, 5)
+                    .map(([theme]) => theme);
+                const ytd = {};
+                (themeAnalytics.yearly_theme_counts || []).forEach(row => {
+                    const year = Number(row?.year);
+                    const theme = String(row?.theme || '');
+                    const count = Number(row?.count || 0);
+                    if (!Number.isFinite(year) || !top5.includes(theme) || !Number.isFinite(count) || count <= 0) return;
+                    const yearKey = String(year);
+                    if (!ytd[yearKey]) ytd[yearKey] = {};
+                    ytd[yearKey][theme] = count;
+                });
+                const yrs = Object.keys(ytd).sort((a, b) => Number(a) - Number(b));
+                const datasets = top5.map((t, i) => ({ label: t.replace('- ','').slice(0,30), data: yrs.map(y => ytd[y]?.[t]||0), borderColor: colors.primary[i], backgroundColor: colors.primary[i], tension: 0.3, fill: false }));
+                charts.themeTrends = new Chart(document.getElementById('chartThemeTrends'), {
+                    type: 'line',
+                    data: { labels: yrs, datasets },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
             const tt = {};
             chartData.forEach(r => r._themesArray.forEach(t => { if (t) tt[t] = (tt[t]||0) + 1; }));
             const top5 = Object.entries(tt).sort((a,b) => b[1]-a[1]).slice(0, 5).map(t => t[0]);
@@ -4744,6 +5163,56 @@
 
         function updateEscCcprTrendChart() {
             destroyChart('escCcprTrend');
+            if (serverBrowseMode) {
+                const themeAnalytics = serverState.analytics?.themes;
+                if (!themeAnalytics) return;
+                const yearly = getRightsYearlyDataFromThemeRows(themeAnalytics.yearly_theme_counts || []);
+                const years = Object.keys(yearly).filter(y => ((yearly[y].esc || 0) + (yearly[y].ccpr || 0)) > 0).sort((a, b) => Number(a) - Number(b));
+                const escValues = years.map(y => yearly[y].esc || 0);
+                const ccprValues = years.map(y => yearly[y].ccpr || 0);
+                const escPct = years.map((y, i) => {
+                    const t = escValues[i] + ccprValues[i];
+                    return t ? (escValues[i] * 100 / t).toFixed(1) : '0.0';
+                });
+                const ccprPct = years.map((y, i) => {
+                    const t = escValues[i] + ccprValues[i];
+                    return t ? (ccprValues[i] * 100 / t).toFixed(1) : '0.0';
+                });
+
+                charts.escCcprTrend = new Chart(document.getElementById('chartEscCcprTrend'), {
+                    type: 'bar',
+                    data: {
+                        labels: years,
+                        datasets: [
+                            { label: 'ESC Rights', data: escValues, backgroundColor: '#d64545', stack: 'rights' },
+                            { label: 'CCPR Rights', data: ccprValues, backgroundColor: '#2146db', stack: 'rights' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            tooltip: {
+                                ...defaultTooltip,
+                                callbacks: {
+                                    label: (ctx) => {
+                                        const i = ctx.dataIndex;
+                                        const isEsc = ctx.datasetIndex === 0;
+                                        const pct = isEsc ? escPct[i] : ccprPct[i];
+                                        return `${ctx.dataset.label}: ${ctx.raw} (${pct}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Theme mentions' } }
+                        }
+                    }
+                });
+                return;
+            }
             const yearly = getRightsYearlyData(chartData);
             const years = Object.keys(yearly).filter(y => ((yearly[y].esc || 0) + (yearly[y].ccpr || 0)) > 0).sort();
             const escValues = years.map(y => yearly[y].esc || 0);
@@ -4794,6 +5263,92 @@
         function updateRightsScatterChart() {
             destroyChart('rightsScatter');
             const info = document.getElementById('rightsScatterInfo');
+            if (serverBrowseMode) {
+                const themeAnalytics = serverState.analytics?.themes;
+                if (!themeAnalytics) {
+                    if (info) info.textContent = 'VM analytics are loading for this chart.';
+                    return;
+                }
+                const topConfig = getTopRightsConfigurationFromThemeCounts(themeAnalytics.theme_counts || [], getRightsTopNFromUI());
+                const dimensions = [
+                    ...topConfig.dimensions,
+                    { key: '__other_escr__', label: 'Other ESCR rights', family: 'ESCR' },
+                    { key: '__other_ccpr__', label: 'Other CCPR rights', family: 'CCPR' }
+                ];
+                const yearly = getRightsYearlyDataFromThemeRows(themeAnalytics.yearly_theme_counts || [], topConfig.topKeySet);
+                const years = Object.keys(yearly).map(Number).sort((a, b) => a - b);
+
+                if (info) {
+                    info.textContent = `Uses top ${topConfig.dimensions.length} rights categories plus grouped Other ESCR/CCPR rights.`;
+                }
+
+                const datasets = dimensions.map((dim, idx) => {
+                    const color = dim.family === 'ESCR' ? '#d64545' : '#2146db';
+                    const points = years.flatMap(y => {
+                        const bucket = yearly[y] || {};
+                        const base = dim.key === '__other_escr__'
+                            ? (bucket.otherEsc || 0)
+                            : dim.key === '__other_ccpr__'
+                                ? (bucket.otherCcpr || 0)
+                                : (bucket.top?.[dim.key] || 0);
+                        if (base <= 0) return [];
+                        const jitter = (((idx * 37 + y * 13) % 100) / 100 - 0.5) * 0.36;
+                        return [{ x: y + jitter, y: base }];
+                    });
+                    return {
+                        label: `${idx + 1}. ${dim.label}`,
+                        _numberLabel: idx + 1,
+                        data: points,
+                        showLine: false,
+                        pointRadius: 4,
+                        pointHoverRadius: 5,
+                        borderColor: color,
+                        backgroundColor: color + 'aa'
+                    };
+                });
+
+                charts.rightsScatter = new Chart(document.getElementById('chartRightsScatter'), {
+                    type: 'scatter',
+                    plugins: [rightsPointNumberPlugin],
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+                            tooltip: {
+                                ...defaultTooltip,
+                                callbacks: {
+                                    title: (items) => {
+                                        const ds = items?.[0]?.dataset;
+                                        return ds?.label || 'Right';
+                                    },
+                                    label: (ctx) => {
+                                        const x = Number(ctx.parsed?.x);
+                                        const y = Number(ctx.parsed?.y);
+                                        const year = Number.isFinite(x) ? Math.round(x) : '-';
+                                        return `Year: ${year}, Mentions: ${Number.isFinite(y) ? y : 0}`;
+                                    }
+                                }
+                            },
+                            rightsPointNumberPlugin: { enabled: true }
+                        },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                min: years.length ? years[0] - 0.6 : 2006,
+                                max: years.length ? years[years.length - 1] + 0.6 : 2024,
+                                ticks: {
+                                    callback: (val) => Number.isInteger(Number(val)) ? val : ''
+                                },
+                                title: { display: true, text: 'Year' }
+                            },
+                            y: { beginAtZero: true, title: { display: true, text: 'Mentions' } }
+                        }
+                    }
+                });
+                return;
+            }
             const rightsRecords = chartData.filter(r => (r._rightThemeKeys || []).length > 0);
             if (!rightsRecords.length) {
                 if (info) info.textContent = 'No rights-theme matches in current filter.';
@@ -4888,6 +5443,35 @@
 
         function updateBodyScatterChart() {
             destroyChart('bodyScatter');
+            if (serverBrowseMode) {
+                const trends = serverState.analytics?.trends;
+                if (!trends) return;
+                const rows = trends.yearly_body_counts || [];
+                const totals = {};
+                rows.forEach(row => {
+                    const body = String(row?.body || '').trim();
+                    const count = Number(row?.count || 0);
+                    if (!body || !Number.isFinite(count) || count <= 0) return;
+                    totals[body] = (totals[body] || 0) + count;
+                });
+                const bodies = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([body]) => body);
+                const datasets = bodies.map((body, i) => ({
+                    label: body.replace('- ', ''),
+                    data: rows
+                        .filter(row => String(row?.body || '').trim() === body)
+                        .map(row => ({ x: Number(row.year), y: Number(row.count || 0) }))
+                        .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y) && point.y > 0),
+                    backgroundColor: colors.bodies[i],
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }));
+                charts.bodyScatter = new Chart(document.getElementById('chartBodyScatter'), {
+                    type: 'scatter',
+                    data: { datasets },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }, tooltip: defaultTooltip }, scales: { x: { title: { display: true, text: 'Year' } }, y: { beginAtZero: true, title: { display: true, text: 'Records' } } } }
+                });
+                return;
+            }
             const byd = {};
             chartData.forEach(r => {
                 if (r._year && r._body) {
@@ -4913,6 +5497,32 @@
 
         function updateBodyHeatmapChart() {
             destroyChart('bodyHeatmap');
+            if (serverBrowseMode) {
+                const trends = serverState.analytics?.trends;
+                if (!trends) return;
+                const rows = trends.yearly_body_counts || [];
+                const bodyTotals = {};
+                const byc = {};
+                rows.forEach(row => {
+                    const year = Number(row?.year);
+                    const body = String(row?.body || '').trim();
+                    const count = Number(row?.count || 0);
+                    if (!Number.isFinite(year) || !body || !Number.isFinite(count) || count <= 0) return;
+                    const yearKey = String(year);
+                    if (!byc[yearKey]) byc[yearKey] = {};
+                    byc[yearKey][body] = count;
+                    bodyTotals[body] = (bodyTotals[body] || 0) + count;
+                });
+                const yrs = Object.keys(byc).sort((a, b) => Number(a) - Number(b));
+                const bArr = Object.entries(bodyTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([body]) => body);
+                const datasets = bArr.map((body, i) => ({ label: body.replace('- ',''), data: yrs.map(y => byc[y]?.[body]||0), backgroundColor: colors.bodies[i] }));
+                charts.bodyHeatmap = new Chart(document.getElementById('chartBodyHeatmap'), {
+                    type: 'bar',
+                    data: { labels: yrs, datasets },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }, tooltip: defaultTooltip }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+                });
+                return;
+            }
             const byc = {};
             const bodies = new Set();
             chartData.forEach(r => {
@@ -4934,6 +5544,28 @@
 
         function updateRegionComparisonChart() {
             destroyChart('regionComparison');
+            if (serverBrowseMode) {
+                const trends = serverState.analytics?.trends;
+                if (!trends) return;
+                const ryc = {};
+                (trends.yearly_region_counts || []).forEach(row => {
+                    const year = Number(row?.year);
+                    const region = String(row?.region || '').trim();
+                    const count = Number(row?.count || 0);
+                    if (!Number.isFinite(year) || !region || !Number.isFinite(count) || count <= 0) return;
+                    if (!ryc[region]) ryc[region] = {};
+                    ryc[region][year] = count;
+                });
+                const regions = Object.keys(ryc);
+                const yrs = [...new Set((trends.yearly_region_counts || []).map(row => Number(row?.year)).filter(Number.isFinite))].sort((a, b) => a - b);
+                const datasets = regions.map((reg, i) => ({ label: reg.replace('- ',''), data: yrs.map(y => ryc[reg]?.[y]||0), borderColor: colors.regions[i % colors.regions.length], backgroundColor: colors.regions[i % colors.regions.length], tension: 0.3, fill: false }));
+                charts.regionComparison = new Chart(document.getElementById('chartRegionComparison'), {
+                    type: 'line',
+                    data: { labels: yrs, datasets },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
             const ryc = {};
             chartData.forEach(r => {
                 if (r._year) {
@@ -4957,6 +5589,20 @@
 
         function updateAffectedPersonsChart() {
             destroyChart('affectedPersons');
+            if (serverBrowseMode) {
+                const textAnalytics = serverState.analytics?.text;
+                if (!textAnalytics) return;
+                const sorted = (textAnalytics.affected_person_counts || [])
+                    .map(row => [String(row.affected_person || ''), Number(row.count || 0)])
+                    .filter(([value, count]) => value && Number.isFinite(count) && count > 0)
+                    .slice(0, 12);
+                charts.affectedPersons = new Chart(document.getElementById('chartAffectedPersons'), {
+                    type: 'bar',
+                    data: { labels: sorted.map(s => s[0].replace('- ','').slice(0,35)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[5], borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
             const pc = {};
             chartData.forEach(r => r._affectedPersonsArray.forEach(p => { if (p) pc[p] = (pc[p]||0) + 1; }));
             const sorted = Object.entries(pc).sort((a,b) => b[1]-a[1]).slice(0, 12);
@@ -4969,6 +5615,20 @@
 
         function updateSDGsChart() {
             destroyChart('sdgs');
+            if (serverBrowseMode) {
+                const textAnalytics = serverState.analytics?.text;
+                if (!textAnalytics) return;
+                const sorted = (textAnalytics.sdg_counts || [])
+                    .map(row => [String(row.sdg || ''), Number(row.count || 0)])
+                    .filter(([value, count]) => value && Number.isFinite(count) && count > 0)
+                    .slice(0, 12);
+                charts.sdgs = new Chart(document.getElementById('chartSDGs'), {
+                    type: 'bar',
+                    data: { labels: sorted.map(s => s[0].replace('- ','').slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[3], borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
             const sc = {};
             chartData.forEach(r => r._sdgsArray.forEach(s => { if (s) sc[s] = (sc[s]||0) + 1; }));
             const sorted = Object.entries(sc).sort((a,b) => b[1]-a[1]).slice(0, 12);
@@ -4986,6 +5646,34 @@
 
         function updateBigramsChart() {
             destroyChart('bigrams');
+            if (serverBrowseMode) {
+                const textAnalytics = serverState.analytics?.text;
+                if (!textAnalytics) return;
+                const sorted = (textAnalytics.bigram_counts || [])
+                    .map(row => [String(row.bigram || ''), Number(row.count || 0)])
+                    .filter(([value, count]) => value && Number.isFinite(count) && count > 0);
+                charts.bigrams = new Chart(document.getElementById('chartBigrams'), {
+                    type: 'bar',
+                    data: {
+                        labels: sorted.map(s => s[0]),
+                        datasets: [{
+                            data: sorted.map(s => s[1]),
+                            backgroundColor: colors.primary.slice(0, Math.max(1, sorted.length)),
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: defaultTooltip
+                        }
+                    }
+                });
+                return;
+            }
             const bgCounts = {};
             const records = chartData.length > MAX_BIGRAM_RECORDS ? sampleData(chartData, MAX_BIGRAM_RECORDS) : chartData;
 
@@ -5027,6 +5715,20 @@
 
         function updateTextLengthChart() {
             destroyChart('textLength');
+            if (serverBrowseMode) {
+                const textAnalytics = serverState.analytics?.text;
+                if (!textAnalytics) return;
+                const avgL = (textAnalytics.body_avg_text_length || [])
+                    .map(row => ({ body: String(row.body || '').replace('- ', ''), avg: Number(row.avg_length || 0) }))
+                    .filter(row => row.body && Number.isFinite(row.avg) && row.avg > 0)
+                    .slice(0, 10);
+                charts.textLength = new Chart(document.getElementById('chartTextLength'), {
+                    type: 'bar',
+                    data: { labels: avgL.map(b => b.body), datasets: [{ data: avgL.map(b => b.avg), backgroundColor: colors.bodies.slice(0, 10), borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
             const bl = {};
             const bc = {};
             chartData.forEach(r => {
