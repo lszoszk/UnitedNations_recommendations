@@ -1357,7 +1357,7 @@
         <div class="server-mode-banner hidden" id="serverModeBanner">
             <div class="server-mode-copy">
                 <div class="server-mode-title">Server browse mode is active</div>
-                <div class="server-mode-status" id="serverModeStatus">Filters and pagination run on the VM. Load a narrowed subset when you want full charts and classifier tools.</div>
+                <div class="server-mode-status" id="serverModeStatus">Browse and map run on the VM. You can train from a server sample, then apply the classifier to the full matching dataset when needed.</div>
             </div>
             <div class="server-mode-actions">
                 <button class="btn btn-purple" id="serverAnalysisBtn" onclick="loadCurrentFilterForAnalytics()">📊 Load Current Filter for Full Analytics</button>
@@ -1475,7 +1475,6 @@
             <button class="tab" data-tab="text">📝 Text</button>
             <button class="tab" data-tab="data">📋 Data</button>
             <button class="tab" data-tab="labels">🏷️ My Labels</button>
-            <button class="tab" data-tab="custom">🧩 Custom</button>
         </div>
 
         <div class="empty-state hidden" id="emptyState">
@@ -1490,7 +1489,7 @@
                 <div class="chart-card full-width">
                     <h3>World Map: Recommendation Frequency by Country</h3>
                     <div id="overviewWorldMap" class="world-map-container"></div>
-                    <div class="world-map-note">Zoom with mouse wheel and drag to pan. Colors represent recommendation frequency in the current filter.</div>
+                    <div class="world-map-note" id="overviewWorldMapNote">Zoom with mouse wheel and drag to pan. Colors represent recommendation frequency in the current filter.</div>
                 </div>
             </div>
             <div class="chart-row">
@@ -1716,21 +1715,6 @@
             </div>
         </div>
 
-        <!-- Custom Tab -->
-        <div class="charts-section" id="tab-custom">
-            <div class="chart-row">
-                <div class="chart-card full-width">
-                    <h3>Custom Dashboard Builder</h3>
-                    <div class="custom-builder">
-                        <select id="customWidgetSelect"></select>
-                        <button class="btn btn-primary" style="padding: 8px 12px;" onclick="addCustomWidget()">Add Chart</button>
-                        <button class="btn btn-secondary" style="padding: 8px 12px;" onclick="clearCustomWidgets()">Clear All</button>
-                        <span style="font-size:12px;color:#50647e;">Drag cards by header to reorder.</span>
-                    </div>
-                    <div id="customDashboardGrid" class="custom-dashboard-grid"></div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Text Preview Modal -->
@@ -1880,7 +1864,7 @@
                     <button class="btn btn-secondary" onclick="document.getElementById('setfitPackageInput').click()" style="padding: 10px 16px;">Upload SetFit ZIP</button>
                     <input type="file" id="setfitPackageInput" accept=".zip,application/zip" style="display: none;" onchange="handleSetFitPackageSelected(event)">
                 </div>
-                <div id="modelStorageHint" style="font-size: 11px; color: #666; margin-top: 8px;">Local TF-IDF and keyword models are saved only in this browser. SetFit models train on the VM and download as ZIP packages to the user's computer.</div>
+                <div id="modelStorageHint" style="font-size: 11px; color: #666; margin-top: 8px;">SetFit: model zapisany lokalnie jako ZIP na komputerze użytkownika, serwerowa kopia tymczasowa na VM służy tylko do bieżącej sesji. Lokalne TF-IDF i keyword models zapisują się wyłącznie w tej przeglądarce.</div>
             </div>
         </div>
     </div>
@@ -1917,6 +1901,7 @@
             records: [],
             facets: null,
             summary: null,
+            mapCountryCounts: [],
             analysisLimit: SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT
         };
         const CUSTOM_WIDGETS_STORAGE_KEY = 'un_hr_dashboard_custom_widgets_v1';
@@ -1992,6 +1977,8 @@
         const DATASET_API_URL = resolveDatasetApiUrl(VM_BASE_URL);
         const DATASET_HEALTH_URL = buildApiUrl(VM_BASE_URL, '/api/data/health');
         const DATASET_FACETS_URL = buildApiUrl(VM_BASE_URL, '/api/data/facets');
+        const DATASET_MAP_URL = buildApiUrl(VM_BASE_URL, '/api/data/map');
+        const DATASET_SAMPLE_URL = buildApiUrl(VM_BASE_URL, '/api/data/sample');
         const DATASET_SUMMARY_URL = buildApiUrl(VM_BASE_URL, '/api/data/summary');
         const DATASET_RECORDS_URL = buildApiUrl(VM_BASE_URL, '/api/data/records');
         const DATASET_EXPORT_URL = buildApiUrl(VM_BASE_URL, '/api/data/export');
@@ -2341,6 +2328,7 @@
         loadCustomWidgetsFromStorage();
         updateTaskTypeUI();
         updateRemoteDatasetUI();
+        bindTabSwitching();
 
         uploadSection.addEventListener('dragover', (e) => { e.preventDefault(); uploadSection.classList.add('dragover'); });
         uploadSection.addEventListener('dragleave', () => uploadSection.classList.remove('dragover'));
@@ -2479,6 +2467,7 @@
                 records: [],
                 facets: null,
                 summary: null,
+                mapCountryCounts: [],
                 analysisLimit: SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT
             };
         }
@@ -2486,8 +2475,31 @@
         function setServerModeStatus(message) {
             const statusEl = document.getElementById('serverModeStatus');
             if (statusEl) {
-                statusEl.textContent = message || 'Filters and pagination run on the VM. Load a narrowed subset when you want full charts and classifier tools.';
+                statusEl.textContent = message || 'Browse and map run on the VM. You can train from a server sample, then apply the classifier to the full matching dataset when needed.';
             }
+        }
+
+        function activateTab(tabName = 'overview') {
+            const target = document.getElementById(`tab-${tabName}`);
+            if (!target) return;
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.tab === tabName);
+            });
+            document.querySelectorAll('.charts-section, .data-table-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            target.classList.add('active');
+            if (tabName === 'overview') {
+                requestAnimationFrame(() => {
+                    resizeOverviewWorldMap();
+                });
+            }
+        }
+
+        function bindTabSwitching() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.onclick = () => activateTab(tab.dataset.tab);
+            });
         }
 
         function setServerBrowseMode(active) {
@@ -2498,13 +2510,12 @@
             const analysisBtn = document.getElementById('serverAnalysisBtn');
             const tableSearch = document.getElementById('tableSearch');
             const searchHint = document.querySelector('.search-hint');
+            const mapNote = document.getElementById('overviewWorldMapNote');
 
             if (banner) banner.classList.toggle('hidden', !serverBrowseMode);
             if (trainBtn) {
-                trainBtn.disabled = serverBrowseMode;
-                trainBtn.textContent = serverBrowseMode
-                    ? '🤖 Train Classifier (load subset first)'
-                    : '🤖 Train Classifier';
+                trainBtn.disabled = false;
+                trainBtn.textContent = '🤖 Train Classifier';
             }
             if (analysisBtn) {
                 analysisBtn.disabled = false;
@@ -2521,6 +2532,18 @@
                 searchHint.innerHTML = serverBrowseMode
                     ? 'Server mode: this search filters the <strong>currently loaded page</strong>. Use <strong>Search Text</strong> above for dataset-wide filtering.'
                     : 'Regex is supported: use <code>/pattern/i</code> or <code>re:pattern</code> (case-insensitive by default).';
+            }
+            if (mapNote) {
+                mapNote.textContent = serverBrowseMode
+                    ? 'Zoom with mouse wheel and drag to pan. Colors represent recommendation frequency across the full current VM filter.'
+                    : 'Zoom with mouse wheel and drag to pan. Colors represent recommendation frequency in the current filter.';
+            }
+            document.querySelectorAll('#tabsSection .tab').forEach(tab => {
+                const showInServerMode = tab.dataset.tab === 'overview' || tab.dataset.tab === 'data';
+                tab.classList.toggle('hidden', serverBrowseMode && !showInServerMode);
+            });
+            if (serverBrowseMode) {
+                activateTab('overview');
             }
             if (!serverBrowseMode) {
                 resetServerState();
@@ -2576,7 +2599,7 @@
 
             if (options.includePagination !== false) {
                 params.set('page', String(options.page || currentPage || 1));
-                params.set('page_size', String(serverState.pageSize || ROWS_PER_PAGE));
+                params.set('page_size', String(options.pageSize || serverState.pageSize || ROWS_PER_PAGE));
             }
             if (options.includeSort !== false && currentSort.column) {
                 params.set('sort_by', currentSort.column);
@@ -2674,8 +2697,8 @@
             serverState.analysisLimit = limit;
             setServerModeStatus(
                 ready
-                    ? `Current filter matches ${Number(summary.total_records || 0).toLocaleString()} records. You can load full analytics now.`
-                    : `Current filter matches ${Number(summary.total_records || 0).toLocaleString()} records. Narrow to ${limit.toLocaleString()} or fewer to load full charts and classifier tools.`
+                    ? `Current filter matches ${Number(summary.total_records || 0).toLocaleString()} records. You can load full analytics now or classify the full filter directly.`
+                    : `Current filter matches ${Number(summary.total_records || 0).toLocaleString()} records. Narrow to ${limit.toLocaleString()} or fewer for full charts, or keep browsing and classify the full filter directly from the VM view.`
             );
             const analysisBtn = document.getElementById('serverAnalysisBtn');
             if (analysisBtn) analysisBtn.disabled = !ready;
@@ -2687,10 +2710,10 @@
             document.getElementById('sampleNotice').classList.add('hidden');
             document.getElementById('filtersSection').classList.add('active');
             document.getElementById('kpiSection').classList.remove('hidden');
-            document.getElementById('tabsSection').classList.add('hidden');
-            document.getElementById('tab-data').classList.add('active');
-            document.querySelectorAll('.charts-section').forEach(section => section.classList.remove('active'));
+            document.getElementById('statsSection').classList.add('active');
+            document.getElementById('tabsSection').classList.remove('hidden');
             document.getElementById('emptyState').classList.add('hidden');
+            activateTab('overview');
             updateSelectedCountInfo();
         }
 
@@ -2710,9 +2733,10 @@
                 const recordParams = buildServerQueryParams({ page, includePagination: true });
                 const recordsUrl = `${DATASET_RECORDS_URL}?${recordParams.toString()}`;
 
-                const [summary, recordPayload] = await Promise.all([
+                const [summary, recordPayload, mapPayload] = await Promise.all([
                     fetchServerJson(summaryUrl, 'Unable to load server summary'),
-                    fetchServerJson(recordsUrl, 'Unable to load server records')
+                    fetchServerJson(recordsUrl, 'Unable to load server records'),
+                    fetchServerJson(`${DATASET_MAP_URL}?${baseParams.toString()}`, 'Unable to load server map data')
                 ]);
 
                 const normalizedRecords = (recordPayload.records || []).map((row, idx) =>
@@ -2726,16 +2750,20 @@
                 serverState.totalPages = recordPayload.total_pages || 1;
                 serverState.totalRecords = recordPayload.total_records || 0;
                 serverState.records = normalizedRecords;
+                serverState.mapCountryCounts = Array.isArray(mapPayload?.country_counts) ? mapPayload.country_counts : [];
 
                 currentPage = serverState.page;
                 filteredData = normalizedRecords;
                 chartData = [];
                 rawData = [];
-                recordMap = new Map(normalizedRecords.map(r => [String(r._id), r]));
+                recordMap = new Map();
+                registerRecords(normalizedRecords);
+                refreshTrainingSampleReferences();
                 selectedRowIds.clear();
 
                 initializeServerBrowseDashboard();
                 updateServerSummaryUI(summary);
+                updateOverviewWorldMap();
                 buildDataTable();
             } catch (err) {
                 console.error('Server browse load failed:', err);
@@ -3035,6 +3063,31 @@
         function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
         // ========== DATA NORMALIZATION ==========
+        function getRecordStableKey(record) {
+            if (!record || typeof record !== 'object') return '';
+            const stable = record._sourceId || record._annotationId || record._documentId || record.AnnotationId || record.DocumentId || record.id || record._id;
+            return stable === null || stable === undefined ? '' : String(stable);
+        }
+
+        function registerRecords(records = []) {
+            records.forEach(record => {
+                if (!record) return;
+                recordMap.set(String(record._id), record);
+                const stableKey = getRecordStableKey(record);
+                if (stableKey) {
+                    recordMap.set(stableKey, record);
+                }
+            });
+        }
+
+        function refreshTrainingSampleReferences() {
+            if (!Array.isArray(trainingState.samples) || !trainingState.samples.length) return;
+            trainingState.samples = trainingState.samples.map(sample => recordMap.get(getSampleKey(sample)) || sample);
+            if (trainingState.currentSampleIndex >= trainingState.samples.length) {
+                trainingState.currentSampleIndex = Math.max(0, trainingState.samples.length - 1);
+            }
+        }
+
         function normalizeRecord(row, idx) {
             const n = {};
             for (let key in row) n[key] = row[key];
@@ -3199,7 +3252,9 @@
             setServerBrowseMode(false);
             filteredData = [...rawData];
             chartData = rawData.length > MAX_CHART_RECORDS ? sampleData(rawData, MAX_CHART_RECORDS) : rawData;
-            recordMap = new Map(rawData.map(r => [String(r._id), r]));
+            recordMap = new Map();
+            registerRecords(rawData);
+            refreshTrainingSampleReferences();
             selectedRowIds.clear();
 
             document.getElementById('dataInfo').classList.remove('hidden');
@@ -3221,32 +3276,11 @@
             document.getElementById('kpiSection').classList.remove('hidden');
             document.getElementById('statsSection').classList.add('active');
             document.getElementById('tabsSection').classList.remove('hidden');
-            document.getElementById('tab-overview').classList.add('active');
-
-            // Tab switching
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.onclick = () => {
-                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                    document.querySelectorAll('.charts-section, .data-table-section').forEach(s => s.classList.remove('active'));
-                    tab.classList.add('active');
-                    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-                    if (tab.dataset.tab === 'overview') {
-                        requestAnimationFrame(() => {
-                            resizeOverviewWorldMap();
-                        });
-                    } else if (tab.dataset.tab === 'custom') {
-                        requestAnimationFrame(() => {
-                            syncCustomDashboardCharts();
-                        });
-                    }
-                };
-            });
+            activateTab('overview');
 
             // Load backend status and saved models
             checkSetFitBackend(false);
             loadSavedModels();
-            populateCustomWidgetSelector();
-            renderCustomDashboard();
             updateDashboard();
             requestAnimationFrame(() => {
                 resizeOverviewWorldMap();
@@ -3473,6 +3507,7 @@
                     document.getElementById('emptyState').classList.add('hidden');
                 }
                 updateServerSummaryUI(serverState.summary || {});
+                updateOverviewWorldMap();
                 buildDataTable();
                 return;
             }
@@ -3494,7 +3529,6 @@
             updateStats();
             if (hasData) updateAllCharts();
             buildDataTable();
-            syncCustomDashboardCharts();
         }
 
         function updateKPIs() {
@@ -3618,8 +3652,25 @@
             return counts;
         }
 
-        function getWorldMapFigure(records = filteredData, options = {}) {
-            const counts = collectCountryFrequencyForMap(records);
+        function buildCountryFrequencyFromCountRows(countRows = []) {
+            const counts = {};
+            countRows.forEach(row => {
+                const normalized = normalizeCountryForMap(row?.country || row?.value || '');
+                const count = Number(row?.count || 0);
+                if (!normalized || !Number.isFinite(count) || count <= 0) return;
+                counts[normalized] = (counts[normalized] || 0) + count;
+            });
+            return counts;
+        }
+
+        function getWorldMapFigure(source = filteredData, options = {}) {
+            const looksLikeCountRows = Array.isArray(source)
+                && source.length > 0
+                && !('_countriesArray' in source[0])
+                && (('country' in source[0]) || ('value' in source[0]) || ('count' in source[0]));
+            const counts = looksLikeCountRows
+                ? buildCountryFrequencyFromCountRows(source)
+                : collectCountryFrequencyForMap(source);
             const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             const locations = sorted.map(([country]) => country);
             const values = sorted.map(([, count]) => count);
@@ -3672,14 +3723,14 @@
             return { trace, layout };
         }
 
-        function renderWorldMap(container, records = filteredData, options = {}) {
+        function renderWorldMap(container, source = filteredData, options = {}) {
             if (!container) return;
             if (typeof Plotly === 'undefined') {
                 container.innerHTML = '<div style="padding:16px;color:#6b7f98;">World map library is unavailable in this browser session.</div>';
                 return;
             }
 
-            const fig = getWorldMapFigure(records, options);
+            const fig = getWorldMapFigure(source, options);
             const render = Plotly.react(container, [fig.trace], fig.layout, {
                 responsive: true,
                 scrollZoom: true,
@@ -3706,6 +3757,13 @@
 
         function updateOverviewWorldMap() {
             const mapContainer = document.getElementById('overviewWorldMap');
+            if (serverBrowseMode) {
+                const source = Array.isArray(serverState.mapCountryCounts) && serverState.mapCountryCounts.length
+                    ? serverState.mapCountryCounts
+                    : serverState.records;
+                renderWorldMap(mapContainer, source, { hideColorbarTitle: true, fitbounds: false });
+                return;
+            }
             renderWorldMap(mapContainer, filteredData, { hideColorbarTitle: true, fitbounds: false });
         }
 
@@ -5621,7 +5679,7 @@
             statusEl.classList.remove('online', 'offline');
             if (available) {
                 statusEl.classList.add('online');
-                statusEl.textContent = `SetFit backend online (${(health.device || 'cpu').toUpperCase()}). Models download as ZIP packages and only stay temporarily on the VM.`;
+                statusEl.textContent = `SetFit backend online (${(health.device || 'cpu').toUpperCase()}). Model zapisany lokalnie, serwerowa kopia tymczasowa na VM.`;
                 if (trainingState.model?.engine === 'setfit_backend') {
                     document.getElementById('applyBtn').disabled = false;
                     document.getElementById('applyCurrentBtn').disabled = false;
@@ -5831,7 +5889,7 @@
             const currentEngine = trainingState.model?.engine || null;
             if (currentMethod === 'setfit_backend' || currentEngine === 'setfit_backend') {
                 saveBtn.textContent = currentEngine === 'setfit_backend' ? 'Download ZIP' : 'Save / Download';
-                storageHint.textContent = 'SetFit models are trained on the VM, downloaded as ZIP packages to the user computer, and can later be reloaded with Upload SetFit ZIP.';
+                storageHint.textContent = 'SetFit: model zapisany lokalnie jako ZIP na komputerze użytkownika, serwerowa kopia tymczasowa na VM służy tylko do bieżącej sesji.';
             } else {
                 saveBtn.textContent = 'Save';
                 storageHint.textContent = 'Local TF-IDF and keyword models are saved only in this browser.';
@@ -5876,8 +5934,10 @@
 
         async function openTrainingPane() {
             document.getElementById('trainingPane').classList.add('open');
-            if (trainingState.samples.length === 0) {
-                getRandomSamples();
+            if (serverBrowseMode && !rawData.length) {
+                await getRandomSamples();
+            } else if (trainingState.samples.length === 0) {
+                await getRandomSamples();
             }
             ensureExcludedCategory();
             updateTaskTypeUI();
@@ -5946,7 +6006,7 @@
 
         function getSampleKey(sampleOrId) {
             if (sampleOrId && typeof sampleOrId === 'object') {
-                return String(sampleOrId._id);
+                return getRecordStableKey(sampleOrId) || String(sampleOrId._id);
             }
             return String(sampleOrId);
         }
@@ -6029,13 +6089,48 @@
         }
 
         // Sample Management
-        function getRandomSamples() {
-            const sampleSize = Math.min(20, rawData.length);
+        async function loadServerTrainingSamples(sampleSize = 20) {
+            if (!DATASET_SAMPLE_URL) {
+                throw new Error('VM training sample API is not configured.');
+            }
+            const params = buildServerQueryParams({ includePagination: false, includeSort: false });
+            params.set('sample_size', String(sampleSize));
+            const payload = await fetchServerJson(
+                `${DATASET_SAMPLE_URL}?${params.toString()}`,
+                'Unable to load training samples from the VM'
+            );
+            const sampleRecords = (payload.records || []).map((row, idx) => normalizeRecord(row, idx));
+            registerRecords(sampleRecords);
+            trainingState.samples = sampleRecords;
+            trainingState.currentSampleIndex = 0;
+            updateLabelingUI();
+        }
+
+        async function getRandomSamples() {
+            if (serverBrowseMode && !rawData.length) {
+                try {
+                    await loadServerTrainingSamples(20);
+                    return;
+                } catch (err) {
+                    console.error('Server training sample load failed:', err);
+                    alert('Failed to load a random training sample from the VM.\n\n' + (err?.message || err));
+                    return;
+                }
+            }
+
+            const pool = rawData.length ? rawData : serverState.records;
+            if (!pool.length) {
+                trainingState.samples = [];
+                trainingState.currentSampleIndex = 0;
+                updateLabelingUI();
+                return;
+            }
+            const sampleSize = Math.min(20, pool.length);
             const indices = new Set();
             while (indices.size < sampleSize) {
-                indices.add(Math.floor(Math.random() * rawData.length));
+                indices.add(Math.floor(Math.random() * pool.length));
             }
-            trainingState.samples = [...indices].map(i => rawData[i]);
+            trainingState.samples = [...indices].map(i => pool[i]);
             trainingState.currentSampleIndex = 0;
             updateLabelingUI();
         }
@@ -6079,7 +6174,7 @@
             const sample = getCurrentSample();
             const label = trainingState.categories[categoryIndex];
             if (!sample || !label) return;
-            toggleLabel(sample._id, label);
+            toggleLabel(sample, label);
         }
 
         function clearCurrentSampleLabels() {
@@ -6457,7 +6552,8 @@
             trainingState.labeledSamples.forEach((labels, sampleId) => {
                 const cleaned = sanitizeSampleLabels(labels);
                 if (!cleaned.length) return;
-                const sample = recordMap.get(String(sampleId));
+                const sample = recordMap.get(String(sampleId))
+                    || trainingState.samples.find(candidate => getSampleKey(candidate) === String(sampleId));
                 if (!sample) return;
                 examples.push({
                     id: sampleId,
@@ -6832,6 +6928,78 @@
             document.getElementById('trainingStatusText').textContent = text;
         }
 
+        async function applyPredictionsToServerDataset() {
+            const total = Number(serverState.summary?.total_records || serverState.totalRecords || 0);
+            if (!total) {
+                throw new Error('No records match the current VM filter.');
+            }
+
+            const fetchPageSize = 1000;
+            const totalPages = Math.max(1, Math.ceil(total / fetchPageSize));
+            const sourceRows = [];
+            let normalizedOffset = 0;
+
+            for (let page = 1; page <= totalPages; page++) {
+                const fetchPct = Math.max(5, Math.round(((page - 1) / totalPages) * 80));
+                setTrainingProgress(fetchPct, `Loading records from VM... page ${page.toLocaleString()} / ${totalPages.toLocaleString()}`);
+
+                const params = buildServerQueryParams({
+                    page,
+                    pageSize: fetchPageSize,
+                    includePagination: true,
+                    includeSort: true
+                });
+                const payload = await fetchServerJson(
+                    `${DATASET_RECORDS_URL}?${params.toString()}`,
+                    'Unable to load records for full-dataset classification'
+                );
+                const pageSourceRows = Array.isArray(payload.records) ? payload.records : [];
+                const batchRecords = pageSourceRows.map((row, idx) => normalizeRecord(row, normalizedOffset + idx));
+
+                if (trainingState.model.engine === 'setfit_backend') {
+                    const predictionBatchSize = 200;
+                    const predMap = new Map();
+                    for (let i = 0; i < batchRecords.length; i += predictionBatchSize) {
+                        const predictionChunk = batchRecords.slice(i, i + predictionBatchSize);
+                        const predictions = await predictSetFitBatch(
+                            trainingState.model.backendModelId,
+                            predictionChunk.map(record => ({ id: getRecordStableKey(record) || record._id, text: record._text || '' })),
+                            trainingState.model.threshold,
+                            3
+                        );
+                        predictions.forEach(prediction => {
+                            predMap.set(String(prediction.id), Array.isArray(prediction.labels) ? prediction.labels : []);
+                        });
+                    }
+                    batchRecords.forEach((record, idx) => {
+                        pageSourceRows[idx]._predictedLabels = predMap.get(String(getRecordStableKey(record) || record._id)) || [];
+                    });
+                } else {
+                    batchRecords.forEach((record, idx) => {
+                        pageSourceRows[idx]._predictedLabels = predictLabelsForRecord(record);
+                    });
+                }
+
+                sourceRows.push(...pageSourceRows);
+                normalizedOffset += batchRecords.length;
+
+                const pct = Math.round((sourceRows.length / total) * 100);
+                setTrainingProgress(
+                    Math.min(98, Math.max(fetchPct, pct)),
+                    `Predicting over full dataset... ${Math.min(sourceRows.length, total).toLocaleString()} / ${total.toLocaleString()}`
+                );
+                await delay(5);
+            }
+
+            setTrainingProgress(99, 'Building full in-browser dataset with predictions...');
+            await applyLoadedRecords(sourceRows, {
+                fileName: 'UHRI full classified dataset (VM API)',
+                fileFormat: 'API JSON',
+                source: 'vm_api',
+                datasetMetadata: datasetMetadata
+            });
+        }
+
         async function applyPredictions() {
             if (!trainingState.model) {
                 alert('Please train a model first');
@@ -6850,7 +7018,10 @@
                 `Macro F1: ${(Number(benchmark.macroF1 || 0) * 100).toFixed(1)}%`,
                 `Exact Match: ${(Number(benchmark.exactMatch || 0) * 100).toFixed(1)}%`
             ].join('\n');
-            const proceed = confirm(`Review benchmark before applying:\n\n${summary}\n\nProceed to apply this model to all records?`);
+            const serverModeNote = serverBrowseMode
+                ? '\n\nThis will download the full current VM filter into the browser so the classifier can label the whole dataset.'
+                : '';
+            const proceed = confirm(`Review benchmark before applying:\n\n${summary}${serverModeNote}\n\nProceed to apply this model to all records?`);
             if (!proceed) return;
 
             const applyBtn = document.getElementById('applyBtn');
@@ -6862,6 +7033,16 @@
             document.getElementById('trainingProgress').classList.remove('hidden');
 
             try {
+                if (serverBrowseMode && !rawData.length) {
+                    await applyPredictionsToServerDataset();
+                    setTrainingProgress(100, 'Predictions complete! Full dataset loaded into the browser.');
+                    setTimeout(() => {
+                        document.getElementById('trainingProgress').classList.add('hidden');
+                        closeTrainingPane();
+                    }, 1000);
+                    return;
+                }
+
                 const total = rawData.length;
                 const batchSize = trainingState.model.engine === 'setfit_backend' ? 200 : 500;
 
@@ -6871,13 +7052,13 @@
                     if (trainingState.model.engine === 'setfit_backend') {
                         const predictions = await predictSetFitBatch(
                             trainingState.model.backendModelId,
-                            batch.map(record => ({ id: record._id, text: record._text || '' })),
+                            batch.map(record => ({ id: getRecordStableKey(record) || record._id, text: record._text || '' })),
                             trainingState.model.threshold,
                             3
                         );
                         const predMap = new Map(predictions.map(p => [String(p.id), Array.isArray(p.labels) ? p.labels : []]));
                         batch.forEach(record => {
-                            record._predictedLabels = predMap.get(String(record._id)) || [];
+                            record._predictedLabels = predMap.get(String(getRecordStableKey(record) || record._id)) || [];
                         });
                     } else {
                         batch.forEach(record => {
@@ -6894,7 +7075,7 @@
 
                 // Update filtered data
                 filteredData = filteredData.map(fd => {
-                    const original = rawData.find(r => r._id === fd._id);
+                    const original = recordMap.get(String(fd._id)) || recordMap.get(getSampleKey(fd));
                     return original ? { ...fd, _predictedLabels: original._predictedLabels } : fd;
                 });
 
@@ -6933,7 +7114,7 @@
                     return;
                 }
 
-                const record = rawData.find(r => r._id === sample._id);
+                const record = recordMap.get(getSampleKey(sample)) || sample;
                 if (!record) {
                     alert('Current sample not found in data');
                     return;
@@ -6942,7 +7123,7 @@
                 if (trainingState.model.engine === 'setfit_backend') {
                     const preds = await predictSetFitBatch(
                         trainingState.model.backendModelId,
-                        [{ id: record._id, text: record._text || '' }],
+                        [{ id: getRecordStableKey(record) || record._id, text: record._text || '' }],
                         trainingState.model.threshold,
                         3
                     );
@@ -6950,7 +7131,12 @@
                 } else {
                     record._predictedLabels = predictLabelsForRecord(record);
                 }
-                filteredData = filteredData.map(fd => fd._id === record._id ? { ...fd, _predictedLabels: record._predictedLabels } : fd);
+                filteredData = filteredData.map(fd => getSampleKey(fd) === getSampleKey(record) ? { ...fd, _predictedLabels: record._predictedLabels } : fd);
+                trainingState.samples = trainingState.samples.map(existing => (
+                    getSampleKey(existing) === getSampleKey(record)
+                        ? { ...existing, _predictedLabels: record._predictedLabels }
+                        : existing
+                ));
                 updateLabelingUI();
                 updateAllCharts();
                 buildDataTable();
@@ -7057,7 +7243,7 @@
                 const createdAt = m.createdAt ? new Date(m.createdAt) : null;
                 const createdLabel = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleDateString() : 'n/a';
                 const methodLabel = classifierMethodMeta[m.method || 'tfidf_centroid']?.label || (m.method || 'tfidf_centroid');
-                const originLabel = m._origin === 'setfit_session' ? 'session temp on VM' : 'local browser';
+                const originLabel = m._origin === 'setfit_session' ? 'tymczasowo na VM' : 'lokalnie w przeglądarce';
                 const expiryLabel = m._origin === 'setfit_session' && m.backendMeta?.expires_at
                     ? ` • expires ${new Date(m.backendMeta.expires_at).toLocaleString()}`
                     : '';
