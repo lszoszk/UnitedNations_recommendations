@@ -1356,7 +1356,7 @@
 
         <div class="server-mode-banner hidden" id="serverModeBanner">
             <div class="server-mode-copy">
-                <div class="server-mode-title">Server browse mode is active</div>
+                <div class="server-mode-title" id="serverModeTitle">Server browse mode is active</div>
                 <div class="server-mode-status" id="serverModeStatus">Browse and map run on the VM. You can train from a server sample, then apply the classifier to the full matching dataset when needed.</div>
             </div>
             <div class="server-mode-actions">
@@ -1916,6 +1916,9 @@
             modifiedAt: '',
             datasetPath: ''
         };
+        let overviewBootstrapMode = false;
+        let fullDatasetBackgroundReady = false;
+        let fullDatasetBackgroundPromise = null;
 
         function readSearchParam(name) {
             try {
@@ -2324,6 +2327,7 @@
         const vmLoadBtn = document.getElementById('vmLoadBtn');
         const BUNDLED_SAMPLE_PATH = './sample-data/search-4_2_2026_739_labelled.xlsx';
         const BUNDLED_SAMPLE_NAME = 'search-4_2_2026_739_labelled.xlsx';
+        const OVERVIEW_BOOTSTRAP_PATH = './sample-data/overview-bootstrap.json';
         loadSavedUIMode();
         loadCustomWidgetsFromStorage();
         updateTaskTypeUI();
@@ -2343,7 +2347,7 @@
         if (shouldAutoLoadDemoData()) {
             loadBundledSampleData(false);
         } else if (shouldAutoLoadRemoteData()) {
-            loadRemoteDatasetServerMode(false);
+            loadOverviewBootstrapThenFullDataset(false);
         }
 
         // Debounced table search
@@ -2373,7 +2377,7 @@
                 return;
             }
             const sourceLabel = VM_BASE_URL ? ` via ${VM_BASE_URL}` : '';
-            hint.innerHTML = ` Server browse mode is configured${escapeHtml(sourceLabel)}. Use <code>?source=upload</code> to skip autoload or the VM button to force a full download.`;
+            hint.innerHTML = ` Fast overview bootstrap plus full VM dataset loading is configured${escapeHtml(sourceLabel)}. Use <code>?source=upload</code> to skip autoload or the VM button to force a full download.`;
         }
 
         function shouldAutoLoadRemoteData() {
@@ -2457,6 +2461,80 @@
             }
         }
 
+        async function fetchOverviewBootstrap() {
+            const response = await fetch(OVERVIEW_BOOTSTRAP_PATH, { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error(`Unable to fetch overview bootstrap JSON (${response.status})`);
+            }
+            return await response.json();
+        }
+
+        function applyOverviewBootstrap(payload = {}) {
+            const summary = payload.summary || {};
+            const mapCountryCounts = Array.isArray(payload.map_country_counts) ? payload.map_country_counts : [];
+            overviewBootstrapMode = true;
+            fullDatasetBackgroundReady = false;
+            activeDataSource = 'overview_bootstrap';
+            fileName = payload.file_name || 'overview-bootstrap.json';
+            fileFormat = 'Bootstrap JSON';
+            setDatasetMetadata(payload.dataset_metadata || {});
+            resetServerState();
+            serverState.summary = summary;
+            serverState.totalRecords = Number(summary.total_records || 0);
+            serverState.mapCountryCounts = mapCountryCounts;
+            rawData = [];
+            filteredData = [];
+            chartData = [];
+            recordMap = new Map();
+            selectedRowIds.clear();
+
+            document.getElementById('loadingIndicator').classList.add('hidden');
+            uploadSection.classList.add('hidden');
+            document.getElementById('dataInfo').classList.remove('hidden');
+            updateDatasetMetadataUI();
+            document.getElementById('sampleNotice').classList.add('hidden');
+            document.getElementById('filtersSection').classList.remove('active');
+            document.getElementById('kpiSection').classList.remove('hidden');
+            document.getElementById('statsSection').classList.add('active');
+            document.getElementById('tabsSection').classList.remove('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+
+            updateServerSummaryUI(summary);
+            setStatusBanner({
+                visible: true,
+                title: 'Overview Snapshot Ready',
+                message: 'The first tab is loaded from a small JSON snapshot for speed. The full dataset from the VM is loading in the background.',
+                showAnalysisButton: false
+            });
+            activateTab('overview');
+            updateSelectedCountInfo();
+        }
+
+        async function loadOverviewBootstrap(showErrors = true) {
+            try {
+                const payload = await fetchOverviewBootstrap();
+                applyOverviewBootstrap(payload);
+                return true;
+            } catch (err) {
+                console.error('Overview bootstrap load failed:', err);
+                if (showErrors) {
+                    alert('Failed to load the overview snapshot.\n\n' + (err?.message || err));
+                }
+                return false;
+            }
+        }
+
+        async function loadOverviewBootstrapThenFullDataset(showErrors = true) {
+            const loadedBootstrap = await loadOverviewBootstrap(false);
+            if (loadedBootstrap) {
+                loadRemoteDataset(false, { background: true }).catch(err => {
+                    console.error('Background full dataset load failed:', err);
+                });
+                return;
+            }
+            loadRemoteDataset(showErrors);
+        }
+
         function resetServerState() {
             serverState = {
                 loaded: false,
@@ -2472,6 +2550,16 @@
             };
         }
 
+        function setStatusBanner({ visible = false, title = 'Server browse mode is active', message = '', showAnalysisButton = false } = {}) {
+            const banner = document.getElementById('serverModeBanner');
+            const titleEl = document.getElementById('serverModeTitle');
+            const analysisBtn = document.getElementById('serverAnalysisBtn');
+            if (banner) banner.classList.toggle('hidden', !visible);
+            if (titleEl) titleEl.textContent = title;
+            if (analysisBtn) analysisBtn.classList.toggle('hidden', !showAnalysisButton);
+            setServerModeStatus(message);
+        }
+
         function setServerModeStatus(message) {
             const statusEl = document.getElementById('serverModeStatus');
             if (statusEl) {
@@ -2480,6 +2568,15 @@
         }
 
         function activateTab(tabName = 'overview') {
+            if (overviewBootstrapMode && tabName !== 'overview' && !fullDatasetBackgroundReady) {
+                setStatusBanner({
+                    visible: true,
+                    title: 'Overview Snapshot Ready',
+                    message: 'The first tab is loaded from a small JSON snapshot. The full dataset from the VM is still loading in the background; other tabs unlock automatically when it finishes.',
+                    showAnalysisButton: false
+                });
+                return;
+            }
             const target = document.getElementById(`tab-${tabName}`);
             if (!target) return;
             document.querySelectorAll('.tab').forEach(tab => {
@@ -2557,6 +2654,7 @@
 
         function setServerBrowseMode(active) {
             serverBrowseMode = !!active;
+            overviewBootstrapMode = false;
             const banner = document.getElementById('serverModeBanner');
             const trainBtn = document.getElementById('trainClassifierBtn');
             const exportAllBtn = document.getElementById('exportAllBtn');
@@ -3009,55 +3107,96 @@
             }
         }
 
-        async function loadRemoteDataset(showErrors = true) {
+        async function loadRemoteDataset(showErrors = true, options = {}) {
             if (!DATASET_API_URL) {
                 if (showErrors) alert('VM dataset API URL is not configured yet.');
                 return;
             }
-
-            if (vmLoadBtn) vmLoadBtn.disabled = true;
-            activeDataSource = 'vm_api';
-            fileName = 'UHRI full dataset (VM API)';
-            fileFormat = 'API JSON';
-
-            document.getElementById('loadingIndicator').classList.remove('hidden');
-            uploadSection.classList.add('hidden');
-            setProgress(8, 'Connecting to VM dataset API...');
-
-            try {
-                const datasetHealth = await fetchRemoteDatasetHealth();
-                if (datasetHealth && datasetHealth.dataset_ready === false) {
-                    throw new Error(datasetHealth.message || 'VM dataset API reports that the dataset is unavailable.');
-                }
-
-                const response = await fetch(DATASET_API_URL, { cache: 'no-store' });
-                if (!response.ok) {
-                    throw new Error(`Unable to fetch VM dataset (${response.status})`);
-                }
-
-                setProgress(32, 'Downloading full dataset from VM...');
-                const body = await response.json();
-                const records = Array.isArray(body) ? body : (Array.isArray(body?.records) ? body.records : null);
-                if (!Array.isArray(records)) {
-                    throw new Error('Dataset API returned unexpected JSON. Expected an array of records.');
-                }
-
-                await applyLoadedRecords(records, {
-                    fileName: (datasetHealth?.dataset_path || '').split('/').pop() || 'uhri-export.json (VM API)',
-                    fileFormat: 'API JSON',
-                    source: 'vm_api',
-                    datasetMetadata: datasetHealth || {}
-                });
-            } catch (err) {
-                console.error('Remote dataset load failed:', err);
-                if (showErrors) {
-                    alert('Failed to load the VM dataset automatically. You can still upload a file manually.\n\n' + (err?.message || err));
-                }
-                uploadSection.classList.remove('hidden');
-                document.getElementById('loadingIndicator').classList.add('hidden');
-            } finally {
-                if (vmLoadBtn) vmLoadBtn.disabled = false;
+            const background = !!options.background;
+            if (background && fullDatasetBackgroundPromise) {
+                return fullDatasetBackgroundPromise;
             }
+
+            const runner = async () => {
+                if (vmLoadBtn) vmLoadBtn.disabled = true;
+                if (!background) {
+                    activeDataSource = 'vm_api';
+                    fileName = 'UHRI full dataset (VM API)';
+                    fileFormat = 'API JSON';
+
+                    document.getElementById('loadingIndicator').classList.remove('hidden');
+                    uploadSection.classList.add('hidden');
+                    setProgress(8, 'Connecting to VM dataset API...');
+                } else {
+                    setStatusBanner({
+                        visible: true,
+                        title: 'Loading Full Dataset',
+                        message: 'Overview snapshot is ready. The full dataset is now downloading from the VM in the background.',
+                        showAnalysisButton: false
+                    });
+                }
+
+                try {
+                    const datasetHealth = await fetchRemoteDatasetHealth();
+                    if (datasetHealth && datasetHealth.dataset_ready === false) {
+                        throw new Error(datasetHealth.message || 'VM dataset API reports that the dataset is unavailable.');
+                    }
+
+                    const response = await fetch(DATASET_API_URL, { cache: 'no-store' });
+                    if (!response.ok) {
+                        throw new Error(`Unable to fetch VM dataset (${response.status})`);
+                    }
+
+                    if (!background) {
+                        setProgress(32, 'Downloading full dataset from VM...');
+                    }
+                    const body = await response.json();
+                    const records = Array.isArray(body) ? body : (Array.isArray(body?.records) ? body.records : null);
+                    if (!Array.isArray(records)) {
+                        throw new Error('Dataset API returned unexpected JSON. Expected an array of records.');
+                    }
+
+                    fullDatasetBackgroundReady = true;
+                    overviewBootstrapMode = false;
+                    await applyLoadedRecords(records, {
+                        fileName: (datasetHealth?.dataset_path || '').split('/').pop() || 'uhri-export.json (VM API)',
+                        fileFormat: 'API JSON',
+                        source: 'vm_api',
+                        datasetMetadata: datasetHealth || {}
+                    });
+                } catch (err) {
+                    console.error('Remote dataset load failed:', err);
+                    if (background) {
+                        setStatusBanner({
+                            visible: true,
+                            title: 'Overview Snapshot Ready',
+                            message: 'The overview snapshot is loaded, but the full dataset from the VM could not be downloaded automatically. Use "Load Full Dataset from VM" to retry.',
+                            showAnalysisButton: false
+                        });
+                    } else {
+                        if (showErrors) {
+                            alert('Failed to load the VM dataset automatically. You can still upload a file manually.\n\n' + (err?.message || err));
+                        }
+                        uploadSection.classList.remove('hidden');
+                        document.getElementById('loadingIndicator').classList.add('hidden');
+                    }
+                    throw err;
+                } finally {
+                    if (!background) {
+                        document.getElementById('loadingIndicator').classList.add('hidden');
+                    }
+                    if (vmLoadBtn) vmLoadBtn.disabled = false;
+                    if (background) {
+                        fullDatasetBackgroundPromise = null;
+                    }
+                }
+            };
+
+            if (background) {
+                fullDatasetBackgroundPromise = runner();
+                return fullDatasetBackgroundPromise;
+            }
+            return runner();
         }
 
         async function loadBundledSampleData(showErrors = true) {
@@ -3354,6 +3493,9 @@
 
         function resetDashboard() {
             setServerBrowseMode(false);
+            overviewBootstrapMode = false;
+            fullDatasetBackgroundReady = false;
+            fullDatasetBackgroundPromise = null;
             rawData = [];
             filteredData = [];
             chartData = [];
@@ -3812,7 +3954,7 @@
 
         function updateOverviewWorldMap() {
             const mapContainer = document.getElementById('overviewWorldMap');
-            if (serverBrowseMode) {
+            if (serverBrowseMode || overviewBootstrapMode) {
                 const source = Array.isArray(serverState.mapCountryCounts) && serverState.mapCountryCounts.length
                     ? serverState.mapCountryCounts
                     : serverState.records;
@@ -4051,7 +4193,7 @@
 
         function updateYearlyTrendChart() {
             destroyChart('yearlyTrend');
-            if (serverBrowseMode && Array.isArray(serverState.summary?.yearly_counts) && serverState.summary.yearly_counts.length) {
+            if ((serverBrowseMode || overviewBootstrapMode) && Array.isArray(serverState.summary?.yearly_counts) && serverState.summary.yearly_counts.length) {
                 const yearRows = serverState.summary.yearly_counts
                     .map(row => [String(row.year), Number(row.count || 0)])
                     .filter(([, count]) => Number.isFinite(count) && count > 0);
@@ -4092,7 +4234,7 @@
 
         function updateBodyDistributionChart() {
             destroyChart('bodyDistribution');
-            if (serverBrowseMode && Array.isArray(serverState.summary?.body_counts) && serverState.summary.body_counts.length) {
+            if ((serverBrowseMode || overviewBootstrapMode) && Array.isArray(serverState.summary?.body_counts) && serverState.summary.body_counts.length) {
                 const sorted = serverState.summary.body_counts
                     .map(row => [String(row.body || ''), Number(row.count || 0)])
                     .filter(([body, count]) => body && Number.isFinite(count) && count > 0)
@@ -4116,7 +4258,7 @@
 
         function updateRegionDistributionChart() {
             destroyChart('regionDistribution');
-            if (serverBrowseMode && Array.isArray(serverState.summary?.region_counts) && serverState.summary.region_counts.length) {
+            if ((serverBrowseMode || overviewBootstrapMode) && Array.isArray(serverState.summary?.region_counts) && serverState.summary.region_counts.length) {
                 const sorted = serverState.summary.region_counts
                     .map(row => [String(row.region || ''), Number(row.count || 0)])
                     .filter(([region, count]) => region && Number.isFinite(count) && count > 0);
