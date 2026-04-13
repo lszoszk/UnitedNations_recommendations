@@ -2475,7 +2475,7 @@
         function setServerModeStatus(message) {
             const statusEl = document.getElementById('serverModeStatus');
             if (statusEl) {
-                statusEl.textContent = message || 'Browse and map run on the VM. You can train from a server sample, then apply the classifier to the full matching dataset when needed.';
+                statusEl.textContent = message || 'Browse and map run on the VM. Overview charts use server aggregates, other tabs use the current page until you load full analytics.';
             }
         }
 
@@ -2539,8 +2539,7 @@
                     : 'Zoom with mouse wheel and drag to pan. Colors represent recommendation frequency in the current filter.';
             }
             document.querySelectorAll('#tabsSection .tab').forEach(tab => {
-                const showInServerMode = tab.dataset.tab === 'overview' || tab.dataset.tab === 'data';
-                tab.classList.toggle('hidden', serverBrowseMode && !showInServerMode);
+                tab.classList.remove('hidden');
             });
             if (serverBrowseMode) {
                 activateTab('overview');
@@ -2698,7 +2697,7 @@
             setServerModeStatus(
                 ready
                     ? `Current filter matches ${Number(summary.total_records || 0).toLocaleString()} records. You can load full analytics now or classify the full filter directly.`
-                    : `Current filter matches ${Number(summary.total_records || 0).toLocaleString()} records. Narrow to ${limit.toLocaleString()} or fewer for full charts, or keep browsing and classify the full filter directly from the VM view.`
+                    : `Current filter matches ${Number(summary.total_records || 0).toLocaleString()} records. Overview uses VM aggregates; other tabs use the current page until you load full analytics or classify the whole filter.`
             );
             const analysisBtn = document.getElementById('serverAnalysisBtn');
             if (analysisBtn) analysisBtn.disabled = !ready;
@@ -2754,7 +2753,7 @@
 
                 currentPage = serverState.page;
                 filteredData = normalizedRecords;
-                chartData = [];
+                chartData = normalizedRecords;
                 rawData = [];
                 recordMap = new Map();
                 registerRecords(normalizedRecords);
@@ -3506,8 +3505,10 @@
                 } else {
                     document.getElementById('emptyState').classList.add('hidden');
                 }
+                chartData = serverState.records || [];
                 updateServerSummaryUI(serverState.summary || {});
                 updateOverviewWorldMap();
+                if (hasData) updateAllCharts();
                 buildDataTable();
                 return;
             }
@@ -3996,6 +3997,21 @@
 
         function updateYearlyTrendChart() {
             destroyChart('yearlyTrend');
+            if (serverBrowseMode && Array.isArray(serverState.summary?.yearly_counts) && serverState.summary.yearly_counts.length) {
+                const yearRows = serverState.summary.yearly_counts
+                    .map(row => [String(row.year), Number(row.count || 0)])
+                    .filter(([, count]) => Number.isFinite(count) && count > 0);
+                const years = yearRows.map(([year]) => year);
+                charts.yearlyTrend = new Chart(document.getElementById('chartYearlyTrend'), {
+                    type: 'bar',
+                    data: {
+                        labels: years,
+                        datasets: [{ label: 'Records', data: yearRows.map(([, count]) => count), backgroundColor: colors.primary[0], borderRadius: 4 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip }, scales: { y: { beginAtZero: true } } }
+                });
+                return;
+            }
             const yc = {};
             chartData.forEach(r => { if (r._year) yc[r._year] = (yc[r._year]||0) + 1; });
             const yrs = Object.keys(yc).sort();
@@ -4022,6 +4038,18 @@
 
         function updateBodyDistributionChart() {
             destroyChart('bodyDistribution');
+            if (serverBrowseMode && Array.isArray(serverState.summary?.body_counts) && serverState.summary.body_counts.length) {
+                const sorted = serverState.summary.body_counts
+                    .map(row => [String(row.body || ''), Number(row.count || 0)])
+                    .filter(([body, count]) => body && Number.isFinite(count) && count > 0)
+                    .slice(0, 12);
+                charts.bodyDistribution = new Chart(document.getElementById('chartBodyDistribution'), {
+                    type: 'doughnut',
+                    data: { labels: sorted.map(s => s[0].replace('- ', '')), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.bodies }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
             const bc = {};
             chartData.forEach(r => { if (r._body) bc[r._body] = (bc[r._body]||0) + 1; });
             const sorted = Object.entries(bc).sort((a,b) => b[1]-a[1]).slice(0, 12);
@@ -4034,6 +4062,17 @@
 
         function updateRegionDistributionChart() {
             destroyChart('regionDistribution');
+            if (serverBrowseMode && Array.isArray(serverState.summary?.region_counts) && serverState.summary.region_counts.length) {
+                const sorted = serverState.summary.region_counts
+                    .map(row => [String(row.region || ''), Number(row.count || 0)])
+                    .filter(([region, count]) => region && Number.isFinite(count) && count > 0);
+                charts.regionDistribution = new Chart(document.getElementById('chartRegionDistribution'), {
+                    type: 'pie',
+                    data: { labels: sorted.map(s => s[0].replace('- ', '')), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.regions }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } }, tooltip: defaultTooltip } }
+                });
+                return;
+            }
             const rc = {};
             chartData.forEach(r => r._regionsArray.forEach(reg => { if (reg) rc[reg] = (rc[reg]||0) + 1; }));
             const sorted = Object.entries(rc).sort((a,b) => b[1]-a[1]);
