@@ -323,6 +323,7 @@
             padding: 24px;
             border-radius: 12px;
             box-shadow: var(--shadow);
+            position: relative;
         }
         .chart-card.full-width {
             width: 100%;
@@ -344,6 +345,33 @@
             border-radius: 4px;
             font-size: 12px;
         }
+        /* Copy-chart button */
+        .chart-copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            opacity: 0;
+            transition: opacity 0.15s, background 0.15s, box-shadow 0.15s;
+            z-index: 5;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            line-height: 1;
+            padding: 0;
+        }
+        .chart-card:hover .chart-copy-btn { opacity: 1; }
+        .chart-copy-btn:hover { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+        .chart-copy-btn.copied { background: #2e7d32; color: white; opacity: 1; }
+        .chart-copy-btn .copy-icon::after { content: '\1F4CB'; }
+        .chart-copy-btn.copied .copy-icon::after { content: '\2713'; }
         .chart-container { position: relative; height: 350px; }
         .chart-container.tall { height: 420px; }
         .chart-container.radar { height: 380px; }
@@ -2785,6 +2813,8 @@
         }
 
         function renderTabContent(tabName = 'overview') {
+            // Inject copy-to-clipboard buttons on chart cards after rendering.
+            requestAnimationFrame(() => { if (typeof initChartCopyButtons === 'function') initChartCopyButtons(); });
             if (overviewBootstrapMode && !fullDatasetBackgroundReady && tabName !== 'overview') {
                 if (bootstrapAnalyticsReady && tabName !== 'data') {
                     // Pre-computed analytics available — render charts directly
@@ -4865,6 +4895,91 @@
             }
         };
 
+        // ─── Copy chart to clipboard ────────────────────────────────
+        function initChartCopyButtons() {
+            document.querySelectorAll('.chart-card').forEach(card => {
+                if (card.querySelector('.chart-copy-btn')) return; // already injected
+                const btn = document.createElement('button');
+                btn.className = 'chart-copy-btn';
+                btn.title = 'Copy chart to clipboard';
+                btn.innerHTML = '<span class="copy-icon"></span>';
+                btn.addEventListener('click', () => copyChartToClipboard(card, btn));
+                card.appendChild(btn);
+            });
+        }
+
+        async function copyChartToClipboard(card, btn) {
+            const canvas = card.querySelector('canvas');
+            if (!canvas) return;
+
+            // Get chart title from h3 (text content only, not select elements)
+            const h3 = card.querySelector('h3');
+            let title = '';
+            if (h3) {
+                // Clone, remove selects/buttons, then read text
+                const clone = h3.cloneNode(true);
+                clone.querySelectorAll('select, button, .chart-copy-btn').forEach(el => el.remove());
+                title = clone.textContent.trim();
+            }
+
+            // Build composite image: white bg + title + chart
+            const scale = 2; // hi-DPI for crisp output
+            const padding = 32 * scale;
+            const titleHeight = title ? 40 * scale : 0;
+            const cw = canvas.width || canvas.offsetWidth;
+            const ch = canvas.height || canvas.offsetHeight;
+            const imgW = cw + padding * 2;
+            const imgH = ch + padding * 2 + titleHeight;
+
+            const offscreen = document.createElement('canvas');
+            offscreen.width = imgW;
+            offscreen.height = imgH;
+            const ctx = offscreen.getContext('2d');
+
+            // White background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, imgW, imgH);
+
+            // Title
+            if (title) {
+                ctx.fillStyle = '#1a365d';
+                ctx.font = `bold ${16 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+                ctx.textBaseline = 'top';
+                ctx.fillText(title, padding, padding);
+            }
+
+            // Chart image
+            ctx.drawImage(canvas, padding, padding + titleHeight, cw, ch);
+
+            // Subtle footer
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = `${9 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('UN Human Rights Analytics Dashboard', imgW - padding, imgH - 8 * scale);
+
+            try {
+                const blob = await new Promise(resolve => offscreen.toBlob(resolve, 'image/png'));
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                btn.classList.add('copied');
+                setTimeout(() => btn.classList.remove('copied'), 1500);
+            } catch (err) {
+                console.error('Copy chart failed:', err);
+                // Fallback: download the image
+                const url = offscreen.toDataURL('image/png');
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = (title || 'chart').replace(/[^a-z0-9]+/gi, '_').toLowerCase() + '.png';
+                a.click();
+            }
+        }
+
+        // Inject copy buttons after initial render and after any dynamic chart creation
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial injection (may run before charts are built)
+            setTimeout(initChartCopyButtons, 500);
+        });
+        // Also hook into renderTabContent completions
         function updateYearlyTrendChart() {
             destroyChart('yearlyTrend');
             if ((serverBrowseMode || overviewBootstrapMode) && Array.isArray(serverState.summary?.yearly_counts) && serverState.summary.yearly_counts.length) {
