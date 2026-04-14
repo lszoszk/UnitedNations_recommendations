@@ -635,6 +635,42 @@
             transition: background 0.2s ease;
         }
         .copy-btn:hover { background: #dde9ff; }
+        .copy-btn.copied { background: #2e7d32; color: white; border-color: #2e7d32; }
+        /* Source links in data table */
+        .source-cell { white-space: nowrap; }
+        .source-links { display: flex; gap: 4px; flex-wrap: wrap; }
+        .source-link {
+            display: inline-block;
+            font-size: 11px;
+            padding: 3px 7px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background 0.15s, color 0.15s;
+        }
+        .uhri-link { background: #e3f2fd; color: #0d47a1; border: 1px solid #90caf9; }
+        .uhri-link:hover { background: #0d47a1; color: white; }
+        .undocs-link { background: #f3e5f5; color: #6a1b9a; border: 1px solid #ce93d8; }
+        .undocs-link:hover { background: #6a1b9a; color: white; }
+        /* Record detail modal */
+        .record-detail-modal .modal-content { max-width: 800px; }
+        .record-detail-grid { display: grid; grid-template-columns: 140px 1fr; gap: 8px 16px; margin: 16px 0; }
+        .record-detail-label { font-weight: 600; color: var(--primary); font-size: 13px; padding-top: 2px; }
+        .record-detail-value { font-size: 13px; line-height: 1.5; word-break: break-word; }
+        .record-detail-text { background: #f8fbff; border: 1px solid #e2eaf5; border-radius: 8px; padding: 16px; margin: 12px 0; line-height: 1.7; font-size: 13.5px; }
+        .record-detail-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2eaf5; }
+        .record-detail-actions a, .record-detail-actions button {
+            padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            text-decoration: none; cursor: pointer; transition: background 0.15s;
+        }
+        .detail-btn-uhri { background: #0d47a1; color: white; border: none; }
+        .detail-btn-uhri:hover { background: #1565c0; }
+        .detail-btn-undocs { background: #6a1b9a; color: white; border: none; }
+        .detail-btn-undocs:hover { background: #8e24aa; }
+        .detail-btn-cite { background: #eef3ff; color: #1d3f73; border: 1px solid #c7d5ef; }
+        .detail-btn-cite:hover { background: #dde9ff; }
+        .detail-btn-copy { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+        .detail-btn-copy:hover { background: #c8e6c9; }
         .inline-btn {
             margin-left: 6px;
             border: 1px solid #c7d5ef;
@@ -1839,6 +1875,17 @@
                 </div>
             </div>
             <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Record Detail Modal -->
+    <div class="modal-overlay record-detail-modal hidden" id="recordDetailModal" onclick="closeRecordDetail(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="recordDetailTitle">Recommendation Details</h3>
+                <button class="modal-close" onclick="closeRecordDetail()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body" id="recordDetailBody"></div>
         </div>
     </div>
 
@@ -3943,12 +3990,43 @@
             if (rec._countries) parts.push(rec._countries.split('\n')[0]);
             if (rec._symbol) parts.push(rec._symbol);
             if (rec._year) parts.push(String(rec._year));
-            if (rec._documentId) parts.push(`DocumentId: ${rec._documentId}`);
-            if (rec._annotationId) parts.push(`AnnotationId: ${rec._annotationId}`);
             if (!parts.length) {
                 return rec._annotationId || rec._documentId || '';
             }
             return parts.join(' | ');
+        }
+
+        function getUhriUrl(rec) {
+            if (rec._documentId) return `https://uhri.ohchr.org/en/document/${rec._documentId}`;
+            return '';
+        }
+
+        function getUnDocsUrl(rec) {
+            if (rec._symbol) {
+                const sym = rec._symbol.replace(/^-+\s*/, '').trim();
+                if (sym) return `https://documents.un.org/en/${encodeURIComponent(sym)}`;
+            }
+            return '';
+        }
+
+        function buildFormattedCitation(rec) {
+            const body = (rec._body || '').replace(/^-+\s*/, '').trim();
+            const country = (rec._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
+            const symbol = (rec._symbol || '').replace(/^-+\s*/, '').trim();
+            const year = rec._year ? String(rec._year) : '';
+            const uhriUrl = getUhriUrl(rec);
+
+            // Academic-style citation: Body, "Recommendation concerning [Country]", Symbol (Year). Available at: URL
+            const parts = [];
+            if (body) parts.push(body);
+            if (country) parts.push(country);
+            if (symbol) parts.push(symbol);
+            if (year) parts.push(`(${year})`);
+            let citation = parts.join(', ');
+            if (uhriUrl) citation += `. Available at: ${uhriUrl}`;
+            const today = new Date().toISOString().slice(0, 10);
+            citation += ` [Accessed ${today}]`;
+            return citation;
         }
 
         function stripHtml(html) {
@@ -6606,30 +6684,21 @@
         // ========== DATA TABLE ==========
         function getTableColumns() {
             const hasPredictions = rawData.some(r => r._predictedLabels && r._predictedLabels.length > 0);
-            return hasPredictions
-                ? [
+            const baseCols = [
                     { key: '_select', label: 'Select', sortable: false },
                     { key: '_countries', label: 'Country', sortable: true },
                     { key: '_year', label: 'Year', sortable: true },
                     { key: '_body', label: 'Body', sortable: true },
                     { key: '_type', label: 'Type', sortable: true },
                     { key: '_text', label: 'Text', sortable: true },
-                    { key: '_predictedLabels', label: '🤖 Predicted', sortable: true },
+            ];
+            if (hasPredictions) baseCols.push({ key: '_predictedLabels', label: 'Predicted', sortable: true });
+            baseCols.push(
                     { key: '_themes', label: 'Themes', sortable: true },
-                    { key: '_citation', label: 'Citation', sortable: true },
-                    { key: '_actions', label: 'Quick Copy', sortable: false }
-                ]
-                : [
-                    { key: '_select', label: 'Select', sortable: false },
-                    { key: '_countries', label: 'Country', sortable: true },
-                    { key: '_year', label: 'Year', sortable: true },
-                    { key: '_body', label: 'Body', sortable: true },
-                    { key: '_type', label: 'Type', sortable: true },
-                    { key: '_text', label: 'Text', sortable: true },
-                    { key: '_themes', label: 'Themes', sortable: true },
-                    { key: '_citation', label: 'Citation', sortable: true },
-                    { key: '_actions', label: 'Quick Copy', sortable: false }
-                ];
+                    { key: '_source', label: 'Source', sortable: false },
+                    { key: '_actions', label: 'Actions', sortable: false }
+            );
+            return baseCols;
         }
 
         function stripDashPrefixes(value) {
@@ -6648,6 +6717,7 @@
             if (key === '_year') return Number.isFinite(record._year) ? String(record._year) : '';
             if (key === '_select') return '';
             if (key === '_actions') return '';
+            if (key === '_source') return record._symbol || '';
             return String(record[key] || '');
         }
 
@@ -6807,13 +6877,21 @@
                     if (key === '_themes') {
                         return renderTextCell(r._themes, searchState, r._id, '_themes', 260);
                     }
-                    if (key === '_citation') {
-                        return renderTextCell(r._citation, searchState, r._id, '_citation', 180);
+                    if (key === '_source') {
+                        const uhri = getUhriUrl(r);
+                        const undocs = getUnDocsUrl(r);
+                        const symbol = (r._symbol || '').replace(/^-+\s*/, '').trim();
+                        let html = '<td class="source-cell"><div class="source-links">';
+                        if (uhri) html += `<a href="${uhri}" target="_blank" rel="noopener" class="source-link uhri-link" title="View on UHRI">UHRI</a>`;
+                        if (undocs) html += `<a href="${undocs}" target="_blank" rel="noopener" class="source-link undocs-link" title="View UN document: ${escapeHtml(symbol)}">UN Doc</a>`;
+                        if (!uhri && !undocs) html += '<span style="color:#aaa">—</span>';
+                        html += '</div></td>';
+                        return html;
                     }
                     if (key === '_actions') {
                         return `<td><div class="copy-actions">
-                            <button class="copy-btn" onclick="copyRecordField(${r._id}, '_text', this)">Copy text</button>
-                            <button class="copy-btn" onclick="copyRecordField(${r._id}, '_citation', this)">Copy citation</button>
+                            <button class="copy-btn" onclick="showRecordDetail(${r._id})" title="View full details">Details</button>
+                            <button class="copy-btn" onclick="copyFormattedCitation(${r._id}, this)" title="Copy formatted citation">Cite</button>
                         </div></td>`;
                     }
                     return `<td>${highlightSearch(getCellValue(r, key), searchState)}</td>`;
@@ -6954,6 +7032,79 @@
 
         function copyModalText() {
             copyToClipboard(modalTextCache || '');
+        }
+
+        // ─── Record Detail Modal ────────────────────────────────
+        function showRecordDetail(id) {
+            const rec = recordMap.get(String(id));
+            if (!rec) return;
+
+            const body = (rec._body || '').replace(/^-+\s*/, '').trim();
+            const country = (rec._countries || '').split('\n').map(s => s.replace(/^-+\s*/, '').trim()).filter(Boolean).join(', ');
+            const type = (rec._type || '').replace(/^-+\s*/, '').trim();
+            const year = rec._year ? String(rec._year) : '';
+            const symbol = (rec._symbol || '').replace(/^-+\s*/, '').trim();
+            const themes = (rec._themesArray || []).map(t => t.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const affectedPersons = (rec._affectedPersonsArray || []).map(p => p.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const sdgs = (rec._sdgsArray || []).map(s => s.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const regions = (rec._regionsArray || []).map(r => r.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const uhriUrl = getUhriUrl(rec);
+            const unDocsUrl = getUnDocsUrl(rec);
+
+            const field = (label, value) => value ? `<div class="record-detail-label">${label}</div><div class="record-detail-value">${escapeHtml(value)}</div>` : '';
+            const fieldList = (label, arr) => arr.length ? `<div class="record-detail-label">${label}</div><div class="record-detail-value">${arr.map(v => escapeHtml(v)).join(', ')}</div>` : '';
+
+            let html = '';
+            // Full text
+            html += `<div class="record-detail-text">${escapeHtml(rec._text || '')}</div>`;
+            // Metadata grid
+            html += '<div class="record-detail-grid">';
+            html += field('Body', body);
+            html += field('Country', country);
+            html += field('Year', year);
+            html += field('Type', type);
+            html += field('Document', symbol);
+            html += fieldList('Regions', regions);
+            html += fieldList('Themes', themes);
+            html += fieldList('Affected Persons', affectedPersons);
+            html += fieldList('SDGs', sdgs);
+            html += '</div>';
+            // Actions
+            html += '<div class="record-detail-actions">';
+            if (uhriUrl) html += `<a href="${uhriUrl}" target="_blank" rel="noopener" class="detail-btn-uhri">View on UHRI</a>`;
+            if (unDocsUrl) html += `<a href="${unDocsUrl}" target="_blank" rel="noopener" class="detail-btn-undocs">View UN Document</a>`;
+            html += `<button class="detail-btn-cite" onclick="copyFormattedCitation(${id}, this)">Copy Citation</button>`;
+            html += `<button class="detail-btn-copy" onclick="copyToClipboard(recordMap.get('${id}')?._text || ''); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy Text',1500)">Copy Text</button>`;
+            html += '</div>';
+            // Citation preview
+            const citation = buildFormattedCitation(rec);
+            html += `<div style="margin-top:12px; padding:10px 14px; background:#f5f5f5; border-radius:6px; font-size:12px; color:#555; line-height:1.5;">`;
+            html += `<strong>Citation:</strong> ${escapeHtml(citation)}`;
+            html += '</div>';
+
+            document.getElementById('recordDetailTitle').textContent =
+                `${body || 'Recommendation'}${country ? ' — ' + country : ''}${year ? ' (' + year + ')' : ''}`;
+            document.getElementById('recordDetailBody').innerHTML = html;
+            document.getElementById('recordDetailModal').classList.remove('hidden');
+        }
+
+        function closeRecordDetail(e) {
+            if (!e || e.target === document.getElementById('recordDetailModal')) {
+                document.getElementById('recordDetailModal').classList.add('hidden');
+            }
+        }
+
+        function copyFormattedCitation(id, btn) {
+            const rec = recordMap.get(String(id));
+            if (!rec) return;
+            const citation = buildFormattedCitation(rec);
+            copyToClipboard(citation);
+            if (btn) {
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+            }
         }
 
         async function copyToClipboard(text) {
