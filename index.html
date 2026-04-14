@@ -2868,45 +2868,52 @@
             <button class="training-pane-close" onclick="closeTrainingPane()">&times;</button>
         </div>
         <div class="training-pane-body">
-            <!-- Step 1: Task Type -->
-            <div class="training-section">
-                <h3><span class="step-number">1</span> Select Task Type</h3>
-                <div class="guidance-card guided-only">
-                    <strong>Which task should I pick?</strong>
-                    <ul>
-                        <li><strong>Classification</strong>: assign one or more labels to each recommendation.</li>
-                        <li><strong>Text extraction</strong>: same workflow, but treated as detecting whether target concepts appear in text.</li>
-                    </ul>
-                </div>
-                <div class="task-type-options">
-                    <div class="task-type-btn selected" onclick="selectTaskType('classification')" id="taskTypeClassification">
-                        <div class="icon">🏷️</div>
-                        <div class="title">Multi-Label Classification</div>
-                        <div class="desc">Assign categories to text</div>
-                    </div>
-                    <div class="task-type-btn" onclick="selectTaskType('extraction')" id="taskTypeExtraction">
-                        <div class="icon">🔍</div>
-                        <div class="title">Text Extraction</div>
-                        <div class="desc">Extract patterns from text</div>
+            <!-- Quick Start: Load Example -->
+            <div class="training-section" style="background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%); border: 1px solid #c5d5f0; border-radius: 10px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <span style="font-size: 22px;">📘</span>
+                    <div>
+                        <div style="font-weight: 600; font-size: 14px; color: #1a3a5c;">Quick Start: Load a Pre-trained Example</div>
+                        <div style="font-size: 12px; color: #526783; margin-top: 2px;">See how the classifier works with real labeled data before creating your own.</div>
                     </div>
                 </div>
-                <div class="task-help" id="taskTypeHelp"></div>
+                <button class="btn btn-primary" onclick="loadRuleOfLawExample()" style="padding: 10px 20px; font-size: 13px;">
+                    Load "Rule of Law" Example (30 labeled samples, 7 categories)
+                </button>
+                <div style="font-size: 11px; color: #667; margin-top: 6px;">
+                    Based on 6,225 classified UN recommendations. Categories: Access to justice, Legality, Equality, Constitutional review, Legal certainty, Prevention of abuse of power, Unrelated.
+                </div>
             </div>
 
-            <!-- Step 2: Define Categories -->
+            <!-- Hidden: Task Type (defaults to classification) -->
+            <div class="task-type-options" style="display:none;">
+                <div class="task-type-btn selected" onclick="selectTaskType('classification')" id="taskTypeClassification">
+                    <div class="icon">🏷️</div>
+                    <div class="title">Multi-Label Classification</div>
+                    <div class="desc">Assign categories to text</div>
+                </div>
+                <div class="task-type-btn" onclick="selectTaskType('extraction')" id="taskTypeExtraction">
+                    <div class="icon">🔍</div>
+                    <div class="title">Text Extraction</div>
+                    <div class="desc">Extract patterns from text</div>
+                </div>
+            </div>
+            <div class="task-help" id="taskTypeHelp" style="display:none;"></div>
+
+            <!-- Step 1: Define Categories -->
             <div class="training-section" id="categorySection">
-                <h3 id="step2Title"><span class="step-number">2</span> Define Categories</h3>
+                <h3 id="step2Title"><span class="step-number">1</span> Define Categories</h3>
                 <div class="category-input-row">
                     <input type="text" id="newCategoryInput" placeholder="Enter category name..." onkeypress="if(event.key==='Enter')addCategory()">
                     <button class="btn btn-primary" onclick="addCategory()">Add</button>
                 </div>
                 <div class="category-list" id="categoryList"></div>
-                <p style="font-size: 11px; color: #666; margin-top: 8px;">Add as many categories as needed. The special category <code>excluded</code> is auto-added and learned by the model, but ignored in statistics.</p>
+                <p style="font-size: 11px; color: #666; margin-top: 8px;">Add categories for your classification task. The special category <code>excluded</code> is auto-added and learned by the model, but ignored in statistics.</p>
             </div>
 
-            <!-- Step 3: Label Samples -->
+            <!-- Step 2: Label Samples -->
             <div class="training-section" id="labelingSection">
-                <h3 id="step3Title"><span class="step-number">3</span> Label Training Samples</h3>
+                <h3 id="step3Title"><span class="step-number">2</span> Label Training Samples</h3>
                 <div class="sample-nav">
                     <div class="sample-nav-info">
                         <span id="labeledCount">0</span> / <span id="totalSamples">0</span> labeled
@@ -2915,7 +2922,7 @@
                     <div class="sample-nav-btns">
                         <button onclick="prevSample()" id="prevSampleBtn">← Previous</button>
                         <button onclick="nextSample()" id="nextSampleBtn">Next →</button>
-                        <button onclick="clearCurrentSampleLabels()" class="btn btn-secondary" style="padding: 8px 12px;">🧹 Clear Current</button>
+                        <button onclick="clearCurrentSampleLabels()" class="btn btn-secondary" style="padding: 8px 12px;">🧹 Clear</button>
                         <div style="display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px 2px 8px; background: #f8f9fb;">
                             <label for="sampleCountInput" style="font-size: 11px; color: #667; white-space: nowrap; cursor: help;" title="How many random records to load for labeling. More samples = better model, but more labeling work. 20 is a good starting point.">Samples:</label>
                             <input type="number" id="sampleCountInput" value="20" min="5" max="200" step="5" style="width: 52px; padding: 5px 4px; border: 1px solid #dde; border-radius: 4px; text-align: center; font-size: 12px;">
@@ -2924,54 +2931,24 @@
                     </div>
                 </div>
                 <div style="font-size: 11px; color: #666; margin-bottom: 8px; line-height: 1.5;">
-                    <strong>How it works:</strong> Load random samples, then tag each one with the categories that apply. The model learns from your labels.
-                    Start with <strong>20 samples</strong> (default) — you can always load more later. Previously labeled samples are preserved when you load a new batch.
+                    Load random samples, then tag each one with the categories that apply. Start with <strong>20 samples</strong> — you can always load more later.
                 </div>
                 <div id="sampleContainer"></div>
             </div>
 
-            <!-- Step 4: Train Model -->
+            <!-- Step 3: Train & Apply -->
             <div class="training-section">
-                <h3 id="step4Title"><span class="step-number">4</span> Train & Apply</h3>
-                <div class="guidance-card guided-only">
-                    <strong>Tips for good results:</strong>
-                    <ul>
-                        <li>Start with TextSetFit (recommended) and label at least 15–20 samples. More labeled samples generally improve accuracy.</li>
-                        <li>Check benchmark scores before applying to all records.</li>
-                        <li>If precision is low, increase threshold; if recall is low, decrease threshold.</li>
-                    </ul>
-                </div>
+                <h3 id="step4Title"><span class="step-number">3</span> Train & Apply</h3>
                 <div id="trainingControls">
-                    <div class="method-row">
-                        <div class="method-label" id="methodLabel">Classification method</div>
-                        <select id="classifierMethod" onchange="onClassifierMethodChange()">
-                            <option value="tfidf_centroid">TextSetFit (TF-IDF centroid, recommended)</option>
-                            <option value="keyword_overlap">NaiveTextToMultiOption (keyword overlap)</option>
-                            <option value="char_ngram_centroid">TextFastText (character n-gram centroid)</option>
-                            <option value="setfit_backend">SetFit (HF backend — requires server)</option>
-                        </select>
-                        <div class="method-hint" id="classifierMethodHint">Balanced precision/recall with sparse text vectors.</div>
-                        <div class="method-status" id="classifierBackendStatus">Checking SetFit backend availability...</div>
-                    </div>
-                    <div class="threshold-row">
-                        <div>
-                            <div class="threshold-label">Prediction threshold</div>
-                            <div class="threshold-hint">Lower: more labels (higher recall). Higher: fewer labels (higher precision).</div>
-                        </div>
-                        <div class="threshold-controls">
-                            <input type="range" id="thresholdSlider" min="0.01" max="0.95" step="0.01" value="0.15" oninput="onThresholdInput()">
-                            <span class="threshold-value" id="thresholdValue">0.15</span>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                        <button class="btn btn-purple" onclick="trainModel()" id="trainBtn" style="flex: 1;">
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                        <button class="btn btn-purple" onclick="trainModel()" id="trainBtn" style="flex: 2; padding: 12px;">
                             🚀 Train Model
                         </button>
-                        <button class="btn btn-secondary" onclick="applyPredictionToCurrentSample()" id="applyCurrentBtn" disabled style="flex: 1;">
-                            🎯 Apply to Current Sample
-                        </button>
-                        <button class="btn btn-success" onclick="applyPredictions()" id="applyBtn" disabled style="flex: 1;">
+                        <button class="btn btn-success" onclick="applyPredictions()" id="applyBtn" disabled style="flex: 2; padding: 12px;">
                             ✨ Apply to All Data
+                        </button>
+                        <button class="btn btn-secondary" onclick="applyPredictionToCurrentSample()" id="applyCurrentBtn" disabled style="flex: 1; padding: 12px; font-size: 11px;">
+                            🎯 Test on Current
                         </button>
                     </div>
                     <div class="training-progress hidden" id="trainingProgress">
@@ -2986,12 +2963,40 @@
                         <div class="benchmark-grid" id="benchmarkGrid"></div>
                         <div class="benchmark-note" id="benchmarkNote"></div>
                     </div>
+                    <!-- Advanced settings (collapsed by default) -->
+                    <details style="margin-top: 12px;">
+                        <summary style="cursor: pointer; font-size: 12px; color: #667; user-select: none;">Advanced settings</summary>
+                        <div style="margin-top: 10px; padding: 12px; background: #f8f9fb; border-radius: 8px;">
+                            <div class="method-row">
+                                <div class="method-label" id="methodLabel">Classification method</div>
+                                <select id="classifierMethod" onchange="onClassifierMethodChange()">
+                                    <option value="tfidf_centroid">TextSetFit (TF-IDF centroid, recommended)</option>
+                                    <option value="keyword_overlap">NaiveTextToMultiOption (keyword overlap)</option>
+                                    <option value="char_ngram_centroid">TextFastText (character n-gram centroid)</option>
+                                    <option value="setfit_backend">SetFit (HF backend — requires server)</option>
+                                </select>
+                                <div class="method-hint" id="classifierMethodHint">Balanced precision/recall with sparse text vectors.</div>
+                                <div class="method-status" id="classifierBackendStatus">Checking SetFit backend availability...</div>
+                            </div>
+                            <div class="threshold-row">
+                                <div>
+                                    <div class="threshold-label">Prediction threshold</div>
+                                    <div class="threshold-hint">Lower = more labels (higher recall). Higher = fewer labels (higher precision).</div>
+                                </div>
+                                <div class="threshold-controls">
+                                    <input type="range" id="thresholdSlider" min="0.01" max="0.95" step="0.01" value="0.15" oninput="onThresholdInput()">
+                                    <span class="threshold-value" id="thresholdValue">0.15</span>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
 
-            <!-- Step 5: Saved Models -->
+            <!-- Saved Models (collapsed) -->
             <div class="training-section">
-                <h3><span class="step-number">5</span> Saved Models & Packages</h3>
+                <details>
+                    <summary style="cursor: pointer; font-weight: 600; font-size: 14px; color: #2c3e50; user-select: none;">Saved Models & Packages</summary>
                 <div class="model-list" id="modelList">
                     <p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No saved models yet</p>
                 </div>
@@ -3002,6 +3007,7 @@
                     <input type="file" id="setfitPackageInput" accept=".zip,application/zip" style="display: none;" onchange="handleSetFitPackageSelected(event)">
                 </div>
                 <div id="modelStorageHint" style="font-size: 11px; color: #666; margin-top: 8px;">Local TF-IDF and keyword models are saved only in this browser. SetFit models are downloaded as ZIP files to your computer; the server copy is temporary and only lasts for the current session.</div>
+                </details>
             </div>
         </div>
     </div>
@@ -9816,9 +9822,9 @@
             document.getElementById('taskTypeClassification').classList.toggle('selected', !isExtraction);
             document.getElementById('taskTypeExtraction').classList.toggle('selected', isExtraction);
 
-            setStepTitle('step2Title', 2, isExtraction ? 'Define Extraction Targets' : 'Define Categories');
-            setStepTitle('step3Title', 3, isExtraction ? 'Label Samples (Target Present?)' : 'Label Training Samples');
-            setStepTitle('step4Title', 4, isExtraction ? 'Train & Apply Extractor' : 'Train & Apply');
+            setStepTitle('step2Title', 1, isExtraction ? 'Define Extraction Targets' : 'Define Categories');
+            setStepTitle('step3Title', 2, isExtraction ? 'Label Samples (Target Present?)' : 'Label Training Samples');
+            setStepTitle('step4Title', 3, isExtraction ? 'Train & Apply Extractor' : 'Train & Apply');
 
             const methodLabel = document.getElementById('methodLabel');
             if (methodLabel) methodLabel.textContent = isExtraction ? 'Extraction method (concept detection)' : 'Classification method';
@@ -10013,6 +10019,44 @@
             trainingState.samples = sampleRecords;
             trainingState.currentSampleIndex = 0;
             updateLabelingUI();
+        }
+
+        // ── Pre-loaded Rule of Law example ──
+        const RULE_OF_LAW_EXAMPLE = {
+            categories: ['Access to justice', 'Constitutional review', 'Equality and non-discrimination', 'Legal certainty', 'Legality', 'Prevention of abuse of power', 'Unrelated'],
+            examples: [{"text":"44. The Committee urges the State party to repeal all legislation treating child victims as offenders rather than as victims and to ensure that sexual abuse against children, in particular child prostitution and child pornography, is criminalized and that perpetrators are duly prosecuted and punished with sanctions commensurate with the gravity of their crimes. To this end, the State party should also establish mechanisms, procedures and guidelines to ensure the mandatory reporting of cases of c","labels":["Access to justice","Equality and non-discrimination","Legality"]},{"text":"Human rights defenders, journalists and lawyers working on economic, social and cultural rights 11. The Committee recommends that the State party:  (a) Strengthen the protection of human rights defenders, journalists and lawyers working on economic,  social  and cultural human rights, as well as their family members, from any kind of threat, harassment, kidnapping, torture, enforced disappearance and killings;  (b) Ensure  that all violations, including by non-State actors, are promptly,  effect","labels":["Access to justice","Prevention of abuse of power"]},{"text":"Excessive use of force during the protests of spring 2021 and autumn 2022 8.The Committee notes with concern the recurrent allegations of excessive use of force against demonstrators during the period under review. It is concerned at the numerous allegations that, during the demonstrations that took place in the context of the presidential election and following the establishment of the transitional military council in April 2021, as well as in the context of the inclusive and sovereign national","labels":["Access to justice","Prevention of abuse of power"]},{"text":"State of emergency 13. The State party should take measures to:  (a) Ensure that any process of derogation from the Covenant complies with article 4 and, to that end, develop national guidelines on the implementation of a proclamation of state of emergency;   (b) Effectively investigate all allegations of human rights violations committed during the state of emergency of 2014 with a view to bringing perpetrators to justice and providing victims with effective remedies.","labels":["Access to justice","Legality"]},{"text":"Discrimination in employment  23.The Committee takes note of the 2015 annual report on discrimination, which refers to several specific measures for preventing discrimination and improving the conditions of access to employment of persons from minority groups. It is concerned, however, about the relatively high unemployment rate among ethnic minorities, particularly among young and female members of minority groups. The Committee notes with concern that highly educated young migrants have diffic","labels":["Equality and non-discrimination"]},{"text":"Access to justice for migrant workers   22.  Recalling its general recommendation No. 31, the Committee recommends that the State party:  (a) Eliminate all barriers in access to justice by ensuring that all foreign workers have access to independent and effective complaint mechanisms, without fear of acts of reprisal;  (b) Conduct awareness-raising activities regarding the respective rights and duties of workers and employers;  (c) Enforce existing protective policies and legislation for migrant","labels":["Access to justice","Equality and non-discrimination"]},{"text":"Torture, ill-treatment and prison conditions 34. The State party should: (a) Ensure that all allegations of torture and ill-treatment are investigated promptly, impartially and thoroughly, that the perpetrators are prosecuted and punished and that victims are provided with effective remedies;  (b) Review the Criminal Code to include torture as a criminal offence and conclude the ratification process for the Convention against Torture and Other Cruel, Inhuman or Degrading Treatment or Punishment ","labels":["Access to justice","Legality"]},{"text":"Forced sterilization 31.  The Committee reiterates its recommendation that the State party ensure that Roma women who were victims of sterilization without their informed consent have access to effective remedies and adequate compensation, and that perpetrators are brought to justice. It recommends that measures taken to address the issue of forced sterilization are developed in consultation with and with the participation of members of the Roma community. It also recommends that the State party","labels":["Access to justice","Equality and non-discrimination","Legality"]},{"text":"Prohibition of torture and other cruel, inhuman or degrading treatment or punishment 29. The State party should take all measures necessary to end the practice of torture and ill-treatment, in line with the Covenant and international standards. In particular, it should: (a) Urgently adopt anti-torture legislation and ensure that it contains a definition of torture compliant with international law;   (b) Conduct prompt, thorough, transparent and impartial investigations into all allegations of to","labels":["Access to justice","Legality"]},{"text":"Security crisis and state of siege 5. The Committee urges the State party to: (a)  Take all effective measures, without delay, to guarantee the enjoyment of the Covenant rights by persons living in the regions affected by armed conflict,  especially in the east of the country;  (b) Provide effective protection for the country \u2019 s internally displaced persons so as to ensure that they have access to adequate food, decent housing and basic services, including water supplies and sanitation, health ","labels":["Access to justice","Legality","Prevention of abuse of power"]},{"text":"Investigation and prosecution of acts of torture and ill-treatment 23. The State party should: (a) Carry out prompt, impartial and effective investigations into all allegations of torture and ill-treatment, including excessive use of force by law enforcement officials, and ensure that those suspected of having committed such acts  are immediately suspended from their duties throughout the period of investigation, while ensuring that the principle of presumption of innocence is observed;  (b) Pro","labels":["Access to justice","Prevention of abuse of power"]},{"text":"Non-discrimination 14.The Committee notes the information provided by the State party that it is reviewing the Prevention of Discrimination Act 1997. However, it remains concerned about the absence of comprehensive anti-discrimination legislation that extends beyond discrimination in employment, provides full and effective protection against all forms of discrimination prohibited under the Covenant, including direct, indirect and multiple discrimination, and contains a list of prohibited grounds","labels":["Equality and non-discrimination"]},{"text":"Sexual exploitation and abuse  34.The Committee welcomes the adoption in 2005 of the law on sexual aggression. It is seriously concerned, however, about the high number of cases of sexual exploitation and abuse of children, which has further increased following the 2010 earthquake with a significant number of cases affecting children in IDP camps. It also notes with concern that perpetrators frequently enjoy impunity or receive light sentences. Furthermore, the Committee is concerned about:  (a)","labels":["Access to justice","Equality and non-discrimination"]},{"text":"Women\u2019s access to justice 22. The Committee recommends that the State party: (a) Ensure that Legal Aid South Africa has adequate human, technical and financial resources to deliver on its mandate to provide adequate legal assistance free of charge to women without sufficient means;  (b) Ensure that all cases of gender-based violence against women, including sexual violence, are duly investigated, that perpetrators are prosecuted and adequately punished, and that victims have access to adequate r","labels":["Access to justice","Equality and non-discrimination"]},{"text":"41.The Committee is concerned about cases in which persons with disabilities, especially women, children, Afro-Hondurans and indigenous peoples, are victims of physical and/or psychological ill-treatment, sexual violence and/or exploitation and abuse, including exploitation for the purpose of begging, and that there are no measures for their protection, recovery or compensation. It is also concerned that such cases are not properly investigated and that the perpetrators therefore go unpunished.","labels":["Equality and non-discrimination"]},{"text":"Counter-terrorism measures \n 45. The State party should take all measures necessary to ensure that its counter \u2011 terrorism and national security legislation, policies and practices are fully in line with the Convention and that adequate and effective legal safeguards against torture and ill-treatment and arbitrary detention are in place. Furthermore, the State party should carry out prompt, impartial and effective investigations into all allegations of human rights violations, including acts of ","labels":["Access to justice","Legality","Prevention of abuse of power"]},{"text":"J.Special protection measures (arts. 22, 30, 32\u201333, 35\u201336, 37 (b)\u2013(d) and 38\u201340) 43. The Committee  welcomes the  national  action  plan to combat child labour  and the prohibition of  employment of children in domestic work, but  it  is deeply concerned a bou t the high number of children engaged in domestic work and hazardous work. Taking note of target 8.7 of the Sustainable Development Goals, the Committee recalls its previous recommendations and recommends that the State party: (a) Establis","labels":["Access to justice","Equality and non-discrimination","Legality"]},{"text":"Protection of persons who report or who participate in the investigation of enforced disappearance 39.The Committee notes the information provided during the dialogue that the Special Prosecutor\u2019s Office and the Special Tribunal for the Gambia will be responsible for making arrangements for the protection of victims and witnesses. However, it regrets the lack of existing mechanisms to protect complainants, witnesses, relatives of the disappeared person and their defence counsel, and all those pa","labels":["Access to justice"]},{"text":"Report on the visit of the Subcommittee on Prevention of Torture and Other Cruel, Inhuman or Degrading Treatment or Punishment to Kyrgyzstan*** 33.The SPT noted that the problem of impunity is further exacerbated in the south of the country, following the June 2010 events.","labels":["Access to justice","Prevention of abuse of power"]},{"text":"Prohibition of torture and other cruel, inhuman or degrading treatment or punishment 18.While noting that the Commission for Disciplinary Control of the Security Forces and Services conducts monitoring activities in places of detention and that detainees can bring their complaints to prison authorities, the Committee is concerned by the information provided by the delegation that there were no complaints of torture or ill-treatment of prisoners between 2011 and 2021. In this respect, it regrets ","labels":["Access to justice","Prevention of abuse of power"]},{"text":"Training 25.The Committee acknowledges the efforts made by the State party to develop and implement educational and training modules on human rights, including on the absolute prohibition of torture, for law enforcement officers, prison staff, judges, prosecutors, members of the armed forces and public defenders. However, it regrets the limited information on mandatory and in-service training on the Istanbul Protocol, as revised, and on mechanisms for evaluating the effectiveness of training pro","labels":["Access to justice","Legality","Prevention of abuse of power"]},{"text":"Economic exploitation, including child labour 41. The Committee reiterates its previous recommendations (CRC/C/MRT/CO/2, para. 76) and urges the State party to:  (a) Expeditiously adopt the draft legislation aimed at prohibiting the worst forms of child labour, ensuring that it is in line with the Convention, and allocate sufficient human, technical and financial resources for the implementation of laws and policies on child labour, including the National Action Plan for the Elimination of Child","labels":["Access to justice","Legality"]},{"text":"Elimination of slavery, servitude and trafficking in persons  33. The State party should further strengthen its efforts to effectively prevent and combat trafficking in persons, including children, by, inter alia:  (a) Ensuring effective identification of victims, including the screening of groups in vulnerable situations, such as migrants and asylum-seekers;  (b) Investigating all cases of trafficking promptly and thoroughly, and prosecuting suspected perpetrators under the applicable legislati","labels":["Access to justice","Equality and non-discrimination","Legality"]},{"text":"National human rights commission  33. The State party should take the necessary legislative and other measures to ensure, in law and in practice, the independence of the National Commission for Human Rights, so that it investigates promptly and impartially all allegations of torture and ill-treatment that it receives and reports on illegal detention and on complaints of torture in its annual reports.","labels":["Access to justice","Legality","Prevention of abuse of power"]},{"text":"Excessive use of force 22.While welcoming the information provided by the State party on human rights training for members of law enforcement and security forces, the Committee regrets the lack of information received on complaints filed, investigations and prosecutions undertaken, and convictions handed down for excessive use of force and unlawful killings by police and security forces, as well as the lack of information on compensation provided to victims or their families. The Committee is co","labels":["Access to justice","Legality","Prevention of abuse of power"]},{"text":"Gender-based violence against women and girls 29.The Committee welcomes the adoption of the national action plan to prevent violence against all women and girls for the period 2023\u20132028, the criminalization of marital rape, stricter sentencing policies and the establishment of a \u201cno-drop\u201d policy for prosecuting gender-based violence against women and girls. However, it notes with concern: (a)The high prevalence of gender-based violence against women and girls in the State Party, the continuing j","labels":["Equality and non-discrimination"]},{"text":"Elimination of slavery, servitude and trafficking in persons  25.The Committee welcomes the efforts taken by the State party to combat and prevent trafficking in persons, including the amendments in 2019 to the Prevention and Combating of Trafficking and Exploitation of Persons and Protection of Victims Law, which significantly raised the penalties for trafficking offences under the law, and the creation in 2016 of the National Referral Mechanism. However, it is concerned about the continued pre","labels":["Access to justice","Equality and non-discrimination"]},{"text":"Protection of persons who report an enforced disappearance and/or participate in the investigation 34.  The Committee recommends that the State party establish mechanisms, including a structured programme, to ensure that all the persons referred to in article 12 (1) of the Convention are effectively protected against all ill-treatment or intimidation as a consequence of the complaint or any evidence given.","labels":["Access to justice"]},{"text":"Violence against women 14.The Committee notes the measures taken by the State party to prevent and combat violence against women. It is nonetheless concerned by reports that violence against women and girls, including femicide and sexual violence, remains widespread in the country. Although it notes the progress, described during the dialogue, in investigating the 113 femicides committed since November 2020, the Committee is concerned at the low conviction rate in cases of violence against women","labels":["Equality and non-discrimination"]},{"text":"Gender-based violence against women 34. Recalling its general recommendation No.  35 (2017)  on gender-based violence against women, updating general recommendation No. 19, the Committee recommends that the State party: (a) Adopt legislation to ensure that all forms of gender-based violence against women, including domestic violence and online violence, are specifically criminalized, and take into account the special protection needs of disadvantaged and marginalized groups of women, including w","labels":["Access to justice","Equality and non-discrimination"]}]
+        };
+
+        function loadRuleOfLawExample() {
+            // Set categories
+            trainingState.categories = [...RULE_OF_LAW_EXAMPLE.categories];
+            ensureExcludedCategory();
+            renderCategories();
+
+            // Create synthetic sample records from the examples
+            const samples = RULE_OF_LAW_EXAMPLE.examples.map((ex, i) => ({
+                _id: 900000 + i,
+                _text: ex.text,
+                _countries: '',
+                _body: '',
+                _year: '',
+                _type: '',
+                _themes: '',
+                _source: 'Rule of Law example'
+            }));
+            registerRecords(samples);
+            trainingState.samples = samples;
+            trainingState.currentSampleIndex = 0;
+
+            // Pre-apply labels
+            for (let i = 0; i < RULE_OF_LAW_EXAMPLE.examples.length; i++) {
+                const ex = RULE_OF_LAW_EXAMPLE.examples[i];
+                const key = getSampleKey(samples[i]);
+                trainingState.labeledSamples.set(key, [...ex.labels]);
+            }
+
+            updateLabelingUI();
+            alert('Rule of Law example loaded: 30 pre-labeled samples across 7 categories.\n\nYou can now click "Train Model" to see the classifier in action, or browse the labeled samples to understand how tagging works.');
         }
 
         function getSampleCountFromUI() {
