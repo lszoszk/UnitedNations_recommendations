@@ -295,6 +295,77 @@
         }
         .header-upload-btn:hover { background: rgba(255,255,255,0.28); }
 
+        .header-info-btn {
+            position: absolute;
+            top: 16px;
+            right: 100px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: #e8f2ff;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 17px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+            z-index: 10;
+            font-family: Georgia, serif;
+            font-weight: bold;
+            font-style: italic;
+        }
+        .header-info-btn:hover { background: rgba(255,255,255,0.28); }
+
+        /* About modal */
+        .about-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .about-overlay.visible { display: flex; }
+        .about-modal {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.25);
+            max-width: 520px;
+            width: 90%;
+            padding: 32px 36px;
+            position: relative;
+            color: #1e3a5f;
+            line-height: 1.6;
+        }
+        .about-modal h2 { margin: 0 0 8px; font-size: 20px; color: #1a365d; }
+        .about-modal .about-subtitle { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+        .about-modal p { font-size: 14px; margin: 0 0 14px; }
+        .about-modal a { color: #2563eb; text-decoration: none; }
+        .about-modal a:hover { text-decoration: underline; }
+        .about-modal .about-section { margin-bottom: 18px; }
+        .about-modal .about-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 6px; font-weight: 600; }
+        .about-modal .about-org { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .about-modal .about-close {
+            position: absolute; top: 14px; right: 16px;
+            background: none; border: none; font-size: 22px;
+            cursor: pointer; color: #94a3b8; line-height: 1;
+        }
+        .about-modal .about-close:hover { color: #1e3a5f; }
+        .about-modal hr { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
+
+        /* Footer acknowledgment */
+        .site-footer {
+            text-align: center;
+            padding: 14px 20px;
+            font-size: 12px;
+            color: #64748b;
+            background: #f1f5f9;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 24px;
+        }
+        .site-footer a { color: #2563eb; text-decoration: none; }
+        .site-footer a:hover { text-decoration: underline; }
+
         /* Explore CTA — dominant single button */
         .landing-explore-cta {
             display: flex;
@@ -2269,6 +2340,7 @@
                 </div>
             </div>
             <!-- Header action buttons -->
+            <button class="header-info-btn" id="headerInfoBtn" onclick="toggleAboutModal()" aria-label="About this project" title="About this project">i</button>
             <button class="header-upload-btn" id="headerUploadBtn" onclick="document.getElementById('fileInput').click()" aria-label="Upload file" title="Upload your own file">📂</button>
             <button class="settings-gear-btn" id="settingsGearBtn" onclick="toggleSettingsPanel()" aria-label="Settings" title="Settings">⚙</button>
             <div class="settings-panel" id="settingsPanel">
@@ -11364,6 +11436,51 @@
             loadSavedModels();
             updateModelStorageControls();
         }
+        function toggleAboutModal() {
+            const overlay = document.getElementById('aboutOverlay');
+            if (overlay) overlay.classList.toggle('visible');
+        }
+
     </script>
+
+    <!-- About modal -->
+    <div class="about-overlay" id="aboutOverlay" onclick="if(event.target===this)toggleAboutModal()">
+        <div class="about-modal">
+            <button class="about-close" onclick="toggleAboutModal()" aria-label="Close">&times;</button>
+            <h2>UN Human Rights Analytics Dashboard</h2>
+            <div class="about-subtitle">Interactive exploration of 266,000+ UN human rights recommendations</div>
+
+            <div class="about-section">
+                <div class="about-section-title">Developer</div>
+                <p style="margin:0">&Lstrok;ukasz Szoszkiewicz</p>
+            </div>
+
+            <hr>
+
+            <div class="about-section">
+                <div class="about-section-title">Fellowship</div>
+                <p>Developed under a <a href="https://reconstitution.eu" target="_blank" rel="noopener">re:constitution</a> fellowship, a programme sponsored by <a href="https://democracy-reporting.org/en/office/global" target="_blank" rel="noopener">Democracy Reporting International</a>.</p>
+            </div>
+
+            <div class="about-section">
+                <div class="about-section-title">Implemented at</div>
+                <p><a href="https://huridocs.org" target="_blank" rel="noopener">HURIDOCS</a> &mdash; Human Rights Information and Documentation Systems</p>
+            </div>
+
+            <hr>
+
+            <div class="about-section">
+                <div class="about-section-title">Data source</div>
+                <p style="margin:0">Universal Human Rights Index (UHRI), Office of the UN High Commissioner for Human Rights</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer acknowledgment -->
+    <footer class="site-footer">
+        Developed by &Lstrok;ukasz Szoszkiewicz under a <a href="https://reconstitution.eu" target="_blank" rel="noopener">re:constitution</a> fellowship
+        (<a href="https://democracy-reporting.org/en/office/global" target="_blank" rel="noopener">Democracy Reporting International</a>),
+        implemented at <a href="https://huridocs.org" target="_blank" rel="noopener">HURIDOCS</a>.
+    </footer>
 </body>
 </html>
