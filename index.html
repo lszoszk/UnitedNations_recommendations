@@ -2843,10 +2843,25 @@
                     : (chartData && chartData.length > 0);
                 const placeholder = document.getElementById('textAnalyticsPlaceholder');
                 const container = document.getElementById('textChartsContainer');
-                if (serverBrowseMode && !hasTextData) {
+                if (useServerAnalytics() && !hasTextData) {
+                    // Text analytics not yet computed for this filter — show
+                    // "Generate Text Analytics" button instead of auto-fetching
                     if (placeholder) placeholder.classList.remove('hidden');
                     if (container) container.classList.add('hidden');
+                    // Reset the generate button state in case it was previously used
+                    const btn = document.getElementById('generateTextAnalyticsBtn');
+                    const spinner = document.getElementById('textAnalyticsSpinner');
+                    if (btn) btn.disabled = false;
+                    if (spinner) spinner.classList.add('hidden');
+                } else if (hasTextData) {
+                    if (placeholder) placeholder.classList.add('hidden');
+                    if (container) container.classList.remove('hidden');
+                    updateAffectedPersonsChart();
+                    updateSDGsChart();
+                    updateBigramsChart();
+                    updateTextLengthChart();
                 } else {
+                    // No server analytics and no local data — show empty state
                     if (placeholder) placeholder.classList.add('hidden');
                     if (container) container.classList.remove('hidden');
                     updateAffectedPersonsChart();
@@ -3027,7 +3042,8 @@
             if (!serverBrowseMode) return [];
             if (tabName === 'trends' || tabName === 'bodies') return ['trends'];
             if (tabName === 'themes') return ['themes'];
-            if (tabName === 'text') return ['text'];
+            // Text tab is NOT included here — it uses an on-demand "Generate"
+            // button instead of auto-fetching (text analytics is the slowest section).
             return [];
         }
 
@@ -3274,13 +3290,11 @@
                 initializeServerBrowseDashboard();
                 updateServerSummaryUI(summary);
                 updateOverviewWorldMap();
-                if (background) {
-                    // Only render the currently active tab instead of all 28 charts at once.
-                    // This prevents the UI from freezing during the bootstrap→server transition.
+                // Only render the currently active tab instead of all 28 charts.
+                // Other tabs will render on-demand when the user clicks them.
+                {
                     const activeTab = document.querySelector('#tabsSection .tab.active')?.dataset?.tab || 'overview';
                     renderTabContent(activeTab);
-                } else {
-                    updateAllCharts();
                 }
                 buildDataTable();
                 setVmLoadingNotice(false);
