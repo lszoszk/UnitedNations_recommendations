@@ -3410,7 +3410,9 @@
             }
             if (summary.body_counts && bodiesEl) {
                 const count = Array.isArray(summary.body_counts) ? summary.body_counts.length : 0;
-                if (count > 0) {
+                const current = parseInt(bodiesEl.getAttribute('data-target'), 10) || 0;
+                if (count > current) {
+                    bodiesEl.setAttribute('data-target', count);
                     bodiesEl.textContent = formatter.format(count);
                 }
             }
