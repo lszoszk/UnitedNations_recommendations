@@ -2480,8 +2480,43 @@
             'côte d’ivoire': 'Cote d\'Ivoire',
             'myanmar': 'Myanmar',
             'timor-leste': 'Timor-Leste',
-            'eswatini': 'Eswatini'
+            'eswatini': 'Eswatini',
+            'brunei darussalam': 'Brunei',
+            'democratic republic of the congo': 'Dem. Rep. Congo',
+            'republic of moldova': 'Moldova',
+            'united republic of tanzania': 'Tanzania',
+            'micronesia federated states of': 'Micronesia',
+            'micronesia (federated states of)': 'Micronesia',
+            'iran (islamic republic of)': 'Iran',
+            'bolivia (plurinational state of)': 'Bolivia',
+            'venezuela (bolivarian republic of)': 'Venezuela',
         };
+
+        // Reverse map: Plotly display name → UHRI DB name for API queries
+        const plotlyToDbCountry = {
+            'Russia': 'Russian Federation',
+            'United States': 'United States of America',
+            'United Kingdom': 'United Kingdom of Great Britain and Northern Ireland',
+            'Iran': 'Iran (Islamic Republic of)',
+            'Syria': 'Syrian Arab Republic',
+            'Venezuela': 'Venezuela (Bolivarian Republic of)',
+            'Bolivia': 'Bolivia (Plurinational State of)',
+            'North Korea': "Democratic People's Republic of Korea",
+            'South Korea': 'Republic of Korea',
+            'Vietnam': 'Viet Nam',
+            'Laos': "Lao People's Democratic Republic",
+            'Moldova': 'Republic of Moldova',
+            'Tanzania': 'United Republic of Tanzania',
+            'Palestine': 'State of Palestine',
+            'Cape Verde': 'Cabo Verde',
+            'Brunei': 'Brunei Darussalam',
+            'Dem. Rep. Congo': 'Democratic Republic of the Congo',
+            'Micronesia': 'Micronesia (Federated States of)',
+        };
+
+        function resolveCountryForApi(plotlyName) {
+            return plotlyToDbCountry[plotlyName] || plotlyName;
+        }
         const customWidgetCatalog = [
             { id: 'worldMap', title: 'World Map Frequency', sourceType: 'plotly' },
             { id: 'yearlyTrend', title: 'Recommendations by Year', sourceType: 'chartjs', sourceChartKey: 'yearlyTrend' },
@@ -5186,13 +5221,18 @@
                     container.on('plotly_click', function(eventData) {
                         if (!eventData || !eventData.points || !eventData.points.length) return;
                         const pt = eventData.points[0];
-                        const country = pt.location;
+                        const plotlyName = pt.location;
                         const count = pt.z;
-                        if (!country) return;
-                        const title = `Recommendations for ${country} (${(count || 0).toLocaleString()})`;
-                        const filterFn = r => (r._countriesArray || []).some(c => c.replace(/^-+\s*/, '').trim() === country);
+                        if (!plotlyName) return;
+                        // Resolve to DB country name for API query
+                        const dbName = resolveCountryForApi(plotlyName);
+                        const title = `Recommendations for ${plotlyName} (${(count || 0).toLocaleString()})`;
+                        const filterFn = r => (r._countriesArray || []).some(c => {
+                            const clean = c.replace(/^-+\s*/, '').trim();
+                            return clean === plotlyName || clean === dbName;
+                        });
                         _currentDrilldownChartKey = 'mapCountry';
-                        openDrilldown(title, filterFn, country, '');
+                        openDrilldown(title, filterFn, dbName, '');
                     });
                 }).catch(() => {});
             }
@@ -5495,14 +5535,14 @@
             yoy:                label => ({ year_start: label, year_end: label }),
             bodyDistribution:   label => ({ bodies: '- ' + label }),
             topThemes:          label => ({ themes: label }),
-            affectedPersons:    label => ({ text_query: label }),
-            sdgs:               label => ({ text_query: label.substring(0, 20) }),
+            affectedPersons:    label => ({ affected_persons: label }),
+            sdgs:               label => ({ sdgs: label }),
             stackedTrend:       (label, ds) => ({ year_start: label, year_end: label, bodies: '- ' + ds }),
             cumulative:         label => ({ year_end: label }),
             regionDistribution: label => ({ regions: label }),
             regionComparison:   label => ({ regions: label }),
             bodyScatter:        label => ({ bodies: '- ' + label }),
-            topCountries:       label => ({ countries: label }),
+            topCountries:       label => ({ countries: resolveCountryForApi(label) }),
             mapCountry:         label => ({ countries: label }),
         };
 
