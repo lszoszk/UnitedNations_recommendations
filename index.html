@@ -5603,9 +5603,9 @@
             n._sdgs = toStr(row['Sdgs'] || row['SDGs']);
             n._sdgsArray = toArr(row['Sdgs'] || row['SDGs']);
             n._text = stripHtml(toStr(row['Text'] || row['text'] || row['Recommendation'] || ''));
-            n._symbol = toStr(row['Symbol']);
+            n._symbol = toStr(row['Symbol'] || row['Document Symbol']);
+            n._annotationId = toStr(row['AnnotationId'] || row['OHCHR Annotation Id'] || row['Annotation Id']);
             n._documentId = toStr(row['DocumentId']);
-            n._annotationId = toStr(row['AnnotationId']);
             n._citation = buildCitation(n);
             n._predictedLabels = extractAssignedLabelsFromRow(row); // Imported "My Labels" or classifier predictions
 
@@ -5714,6 +5714,7 @@
         }
 
         function getUhriUrl(rec) {
+            if (rec._annotationId) return `https://uhri.ohchr.org/en/search/annotation/${rec._annotationId}`;
             if (rec._documentId) return `https://uhri.ohchr.org/en/document/${rec._documentId}`;
             return '';
         }
