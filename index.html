@@ -394,6 +394,84 @@
             color: #4f6278;
             line-height: 1.45;
         }
+        /* Chart context subtitle */
+        .chart-context {
+            font-size: 12px;
+            color: #6b7f96;
+            font-weight: 400;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            padding: 4px 10px;
+            background: #f0f5fc;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+        }
+        .chart-context:empty { display: none; }
+        /* Active filter chips */
+        .filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 0;
+            min-height: 0;
+            transition: min-height 0.2s;
+        }
+        .filter-chips:empty { display: none; }
+        .filter-chips-bar {
+            margin: -8px 0 16px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .filter-chips-bar:has(.filter-chips:empty) { display: none; }
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            cursor: default;
+            white-space: nowrap;
+            animation: chipIn 0.15s ease-out;
+        }
+        @keyframes chipIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+        .filter-chip .chip-remove {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            color: white;
+            font-size: 13px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.15s;
+            border: none;
+            padding: 0;
+        }
+        .filter-chip .chip-remove:hover { background: rgba(255,255,255,0.55); }
+        .chip-country  { background: #2d5a87; }
+        .chip-body     { background: #4a90d9; }
+        .chip-region   { background: #5b6abf; }
+        .chip-type     { background: #7c5cbf; }
+        .chip-year     { background: #2e7d32; }
+        .chip-text     { background: #c06030; }
+        .filter-chips-clear {
+            font-size: 12px;
+            color: var(--accent);
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 6px 4px;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .filter-chips-clear:hover { text-decoration: underline; }
         .rights-controls {
             display: flex;
             gap: 12px;
@@ -1603,6 +1681,10 @@
                 </button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
                 <button class="export-btn" onclick="exportFilteredData()">📥 Export Data</button>
+            </div>
+            <div class="filter-chips-bar" id="filterChipsBar">
+                <div class="filter-chips" id="filterChips"></div>
+                <button class="filter-chips-clear" id="filterChipsClearAll" onclick="resetFilters()" style="display:none;">Clear all</button>
             </div>
         </div>
 
@@ -2915,8 +2997,11 @@
         }
 
         function renderTabContent(tabName = 'overview') {
-            // Inject copy-to-clipboard buttons on chart cards after rendering.
-            requestAnimationFrame(() => { if (typeof initChartCopyButtons === 'function') initChartCopyButtons(); });
+            // Inject copy-to-clipboard buttons and context subtitles on chart cards after rendering.
+            requestAnimationFrame(() => {
+                if (typeof initChartCopyButtons === 'function') initChartCopyButtons();
+                if (typeof updateChartContextSubtitles === 'function') updateChartContextSubtitles();
+            });
             if (overviewBootstrapMode && !fullDatasetBackgroundReady && tabName !== 'overview') {
                 if (bootstrapAnalyticsReady && tabName !== 'data') {
                     // Pre-computed analytics available — render charts directly
@@ -3479,6 +3564,7 @@
                 initializeServerBrowseDashboard();
                 updateServerSummaryUI(summary);
                 updateOverviewWorldMap();
+                renderFilterChips();
                 // Only render the currently active tab instead of all 28 charts.
                 // Other tabs will render on-demand when the user clicks them.
                 {
@@ -3486,6 +3572,7 @@
                     renderTabContent(activeTab);
                 }
                 buildDataTable();
+                updateChartContextSubtitles();
 
                 // After the initial background transition, clear bootstrapAnalyticsReady
                 // so that future filter changes properly wipe and re-fetch analytics.
@@ -4443,6 +4530,166 @@
             for (let opt of sel.options) opt.selected = false;
         }
 
+        // ========== ACTIVE FILTER CHIPS ==========
+        function getActiveFilters() {
+            const filters = [];
+            const countries = getSelectedValues('filterCountry');
+            countries.forEach(c => filters.push({ type: 'country', label: c, filterId: 'filterCountry', value: c }));
+            const bodies = getSelectedValues('filterBody');
+            bodies.forEach(b => filters.push({ type: 'body', label: b.replace(/^-+\s*/, ''), filterId: 'filterBody', value: b }));
+            const regions = getSelectedValues('filterRegion');
+            regions.forEach(r => filters.push({ type: 'region', label: r, filterId: 'filterRegion', value: r }));
+            const typeVal = document.getElementById('filterType').value;
+            if (typeVal && typeVal !== 'All') {
+                filters.push({ type: 'type', label: typeVal.replace(/^-+\s*/, ''), filterId: 'filterType', value: typeVal });
+            }
+            const ys = document.getElementById('filterYearStart').value;
+            const ye = document.getElementById('filterYearEnd').value;
+            // Only show year chip if user narrowed the range (not full dataset range)
+            const facetMinYear = serverBrowseMode
+                ? (serverState.facets?.min_year || '')
+                : (rawData.length ? Math.min(...rawData.map(r => r._year).filter(y => y > 1990)) : '');
+            const facetMaxYear = serverBrowseMode
+                ? (serverState.facets?.max_year || '')
+                : (rawData.length ? Math.max(...rawData.map(r => r._year).filter(y => y > 1990)) : '');
+            if (ys && ye && (String(ys) !== String(facetMinYear) || String(ye) !== String(facetMaxYear))) {
+                filters.push({ type: 'year', label: `${ys}–${ye}`, filterId: '_year', value: `${ys}-${ye}` });
+            } else if (ys && !ye) {
+                filters.push({ type: 'year', label: `From ${ys}`, filterId: '_year', value: ys });
+            } else if (!ys && ye) {
+                filters.push({ type: 'year', label: `Until ${ye}`, filterId: '_year', value: ye });
+            }
+            const textVal = document.getElementById('filterText').value.trim();
+            if (textVal) {
+                filters.push({ type: 'text', label: textVal.length > 30 ? textVal.slice(0, 28) + '…' : textVal, filterId: 'filterText', value: textVal });
+            }
+            return filters;
+        }
+
+        function renderFilterChips() {
+            const container = document.getElementById('filterChips');
+            const clearBtn = document.getElementById('filterChipsClearAll');
+            if (!container) return;
+            const filters = getActiveFilters();
+            if (!filters.length) {
+                container.innerHTML = '';
+                if (clearBtn) clearBtn.style.display = 'none';
+                return;
+            }
+            container.innerHTML = filters.map((f, i) => {
+                const cls = `chip-${f.type}`;
+                const icon = { country: '🌍', body: '🏛️', region: '📍', type: '📋', year: '📅', text: '🔎' }[f.type] || '';
+                return `<span class="filter-chip ${cls}" data-idx="${i}">${icon} ${escapeHtml(f.label)}<button class="chip-remove" data-idx="${i}" title="Remove this filter">×</button></span>`;
+            }).join('');
+            if (clearBtn) clearBtn.style.display = filters.length > 1 ? '' : 'none';
+            // Wire up remove buttons
+            container.querySelectorAll('.chip-remove').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(btn.dataset.idx, 10);
+                    const f = filters[idx];
+                    if (!f) return;
+                    removeFilterValue(f);
+                    applyFilters();
+                });
+            });
+        }
+
+        function removeFilterValue(f) {
+            if (f.filterId === '_year') {
+                // Reset year range to dataset defaults
+                if (serverBrowseMode && serverState.facets) {
+                    document.getElementById('filterYearStart').value = serverState.facets.min_year || '';
+                    document.getElementById('filterYearEnd').value = serverState.facets.max_year || '';
+                } else {
+                    const years = rawData.map(r => r._year).filter(y => y > 1990 && y < 2100);
+                    if (years.length) {
+                        document.getElementById('filterYearStart').value = Math.min(...years);
+                        document.getElementById('filterYearEnd').value = Math.max(...years);
+                    }
+                }
+                return;
+            }
+            if (f.filterId === 'filterText') {
+                document.getElementById('filterText').value = '';
+                return;
+            }
+            if (f.filterId === 'filterType') {
+                document.getElementById('filterType').selectedIndex = 0;
+                return;
+            }
+            // Multi-select: deselect this specific value
+            const sel = document.getElementById(f.filterId);
+            if (!sel) return;
+            for (const opt of sel.options) {
+                if (opt.value === f.value) opt.selected = false;
+            }
+        }
+
+        // ========== CHART CONTEXT SUBTITLES ==========
+        function getFilterContextText() {
+            const parts = [];
+            const countries = getSelectedValues('filterCountry');
+            if (countries.length) {
+                parts.push(countries.length <= 3
+                    ? countries.join(', ')
+                    : `${countries.length} countries`);
+            }
+            const bodies = getSelectedValues('filterBody');
+            if (bodies.length) {
+                const cleaned = bodies.map(b => b.replace(/^-+\s*/, ''));
+                parts.push(cleaned.length <= 2
+                    ? cleaned.join(', ')
+                    : `${cleaned.length} bodies`);
+            }
+            const regions = getSelectedValues('filterRegion');
+            if (regions.length) {
+                parts.push(regions.length <= 2
+                    ? regions.join(', ')
+                    : `${regions.length} regions`);
+            }
+            const typeVal = document.getElementById('filterType').value;
+            if (typeVal && typeVal !== 'All') parts.push(typeVal.replace(/^-+\s*/, ''));
+            const ys = document.getElementById('filterYearStart').value;
+            const ye = document.getElementById('filterYearEnd').value;
+            const facetMinYear = serverBrowseMode ? (serverState.facets?.min_year || '') : '';
+            const facetMaxYear = serverBrowseMode ? (serverState.facets?.max_year || '') : '';
+            if (ys && ye && (String(ys) !== String(facetMinYear) || String(ye) !== String(facetMaxYear))) {
+                parts.push(`${ys}–${ye}`);
+            }
+            const textVal = document.getElementById('filterText').value.trim();
+            if (textVal) parts.push(`"${textVal.length > 20 ? textVal.slice(0, 18) + '…' : textVal}"`);
+            return parts;
+        }
+
+        function updateChartContextSubtitles() {
+            const parts = getFilterContextText();
+            const totalRecords = serverBrowseMode
+                ? (serverState.summary?.total_records || serverState.totalRecords || 0)
+                : filteredData.length;
+            let text = '';
+            if (parts.length) {
+                text = `${totalRecords.toLocaleString()} records · Filtered by: ${parts.join(' · ')}`;
+            } else if (totalRecords) {
+                text = `${totalRecords.toLocaleString()} records (no filters applied)`;
+            }
+            document.querySelectorAll('.chart-card').forEach(card => {
+                let subtitle = card.querySelector('.chart-context');
+                if (!subtitle) {
+                    subtitle = document.createElement('div');
+                    subtitle.className = 'chart-context';
+                    // Insert after the <h3> title
+                    const h3 = card.querySelector('h3');
+                    if (h3) {
+                        h3.insertAdjacentElement('afterend', subtitle);
+                    } else {
+                        card.prepend(subtitle);
+                    }
+                }
+                subtitle.textContent = text;
+            });
+        }
+
         function applyFilters() {
             const btn = document.getElementById('applyFiltersBtn');
             btn.disabled = true;
@@ -4531,6 +4778,7 @@
 
         // ========== DASHBOARD UPDATE ==========
         function updateDashboard() {
+            renderFilterChips();
             if (serverBrowseMode) {
                 const hasData = serverState.totalRecords > 0;
                 if (!hasData) {
@@ -4543,6 +4791,7 @@
                 updateOverviewWorldMap();
                 if (hasData) updateAllCharts();
                 buildDataTable();
+                updateChartContextSubtitles();
                 return;
             }
             const hasData = filteredData.length > 0;
@@ -4563,6 +4812,7 @@
             updateStats();
             if (hasData) updateAllCharts();
             buildDataTable();
+            updateChartContextSubtitles();
         }
 
         function updateKPIs() {
