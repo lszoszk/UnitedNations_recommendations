@@ -1994,6 +1994,9 @@
             analyticsLoading: {},
             analyticsFilterKey: ''
         };
+        // Track in-flight analytics fetch promises so concurrent callers can
+        // await the same request instead of spinning in an infinite microtask loop.
+        const _analyticsInflight = {};
         const CUSTOM_WIDGETS_STORAGE_KEY = 'un_hr_dashboard_custom_widgets_v1';
         const selectedRowIds = new Set();
         const customCharts = {};
@@ -3071,7 +3074,20 @@
                 !serverState.analytics?.[section] && !serverState.analyticsLoading?.[section]
             ));
 
-            if (!sectionsToRequest.length) return null;
+            // If nothing new to fetch, check whether any requested sections are
+            // still being loaded by a prior call.  If so, wait for that in-flight
+            // promise instead of returning null (which would cause the caller's
+            // .then() to fire immediately and re-trigger renderTabContent in an
+            // infinite microtask loop).
+            if (!sectionsToRequest.length) {
+                const inflightToWait = requiredSections
+                    .filter(s => serverState.analyticsLoading?.[s] && _analyticsInflight[s])
+                    .map(s => _analyticsInflight[s]);
+                if (inflightToWait.length) {
+                    await Promise.all(inflightToWait);
+                }
+                return null;
+            }
 
             sectionsToRequest.forEach(section => {
                 serverState.analyticsLoading[section] = true;
@@ -3079,34 +3095,50 @@
 
             setVmLoadingNotice(true, `Loading full-filter ${sectionsToRequest.join(', ')} analytics from the VM. Please wait until this notice disappears before reading those charts.`);
 
-            try {
-                const params = buildServerQueryParams({ includePagination: false, includeSort: false });
-                params.set('sections', sectionsToRequest.join(','));
-                const payload = await fetchServerJson(
-                    `${DATASET_ANALYTICS_URL}?${params.toString()}`,
-                    'Unable to load full-filter VM analytics'
-                );
-                sectionsToRequest.forEach(section => {
-                    serverState.analytics[section] = payload?.[section] || null;
-                    serverState.analyticsLoading[section] = false;
-                });
-                if (!hasPendingServerAnalyticsLoads() && !overviewBootstrapMode) {
-                    setVmLoadingNotice(false);
+            const fetchPromise = (async () => {
+                try {
+                    const params = buildServerQueryParams({ includePagination: false, includeSort: false });
+                    params.set('sections', sectionsToRequest.join(','));
+                    const payload = await fetchServerJson(
+                        `${DATASET_ANALYTICS_URL}?${params.toString()}`,
+                        'Unable to load full-filter VM analytics'
+                    );
+                    sectionsToRequest.forEach(section => {
+                        serverState.analytics[section] = payload?.[section] || null;
+                        serverState.analyticsLoading[section] = false;
+                    });
+                    if (!hasPendingServerAnalyticsLoads() && !overviewBootstrapMode) {
+                        setVmLoadingNotice(false);
+                    }
+                    return payload;
+                } catch (err) {
+                    console.error('Server analytics load failed:', err);
+                    sectionsToRequest.forEach(section => {
+                        serverState.analyticsLoading[section] = false;
+                    });
+                    if (!hasPendingServerAnalyticsLoads() && !overviewBootstrapMode) {
+                        setVmLoadingNotice(false);
+                    }
+                    if (showErrors) {
+                        alert('Failed to load full-filter VM analytics.\n\n' + (err?.message || err));
+                    }
+                    throw err;
+                } finally {
+                    // Clean up inflight tracking so future calls start fresh.
+                    sectionsToRequest.forEach(section => {
+                        if (_analyticsInflight[section] === fetchPromise) {
+                            delete _analyticsInflight[section];
+                        }
+                    });
                 }
-                return payload;
-            } catch (err) {
-                console.error('Server analytics load failed:', err);
-                sectionsToRequest.forEach(section => {
-                    serverState.analyticsLoading[section] = false;
-                });
-                if (!hasPendingServerAnalyticsLoads() && !overviewBootstrapMode) {
-                    setVmLoadingNotice(false);
-                }
-                if (showErrors) {
-                    alert('Failed to load full-filter VM analytics.\n\n' + (err?.message || err));
-                }
-                throw err;
-            }
+            })();
+
+            // Register this promise so concurrent callers can await it.
+            sectionsToRequest.forEach(section => {
+                _analyticsInflight[section] = fetchPromise;
+            });
+
+            return fetchPromise;
         }
 
         function updateTextSamplingDisclaimer(textData) {
@@ -3322,7 +3354,6 @@
                     renderTabContent(activeTab);
                 }
                 buildDataTable();
-                setVmLoadingNotice(false);
 
                 // After the initial background transition, clear bootstrapAnalyticsReady
                 // so that future filter changes properly wipe and re-fetch analytics.
@@ -3331,15 +3362,23 @@
                 }
 
                 const fastSections = ['trends', 'themes'];
-                if (filterChanged || !areServerAnalyticsSectionsReady(fastSections)) {
+                const needsPrefetch = filterChanged || !areServerAnalyticsSectionsReady(fastSections);
+                if (needsPrefetch) {
+                    // Keep the VM loading notice visible while trends/themes
+                    // are being fetched so users don't click tabs prematurely.
+                    setVmLoadingNotice(true, 'Loading trends & themes analytics from the VM. Please wait until this notice disappears before reading those charts.');
                     ensureServerAnalyticsSections(fastSections, false)
                         .then(() => {
+                            setVmLoadingNotice(false);
                             const activeTab = document.querySelector('#tabsSection .tab.active')?.dataset?.tab || 'overview';
                             renderTabContent(activeTab);
                         })
                         .catch(err => {
+                            setVmLoadingNotice(false);
                             console.error('Background fast analytics prefetch failed:', err);
                         });
+                } else {
+                    setVmLoadingNotice(false);
                 }
             } catch (err) {
                 console.error('Server browse load failed:', err);
