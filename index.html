@@ -1896,7 +1896,7 @@
                 <div class="chart-card full-width">
                     <h3>World Map: Recommendation Frequency by Country</h3>
                     <div id="overviewWorldMap" class="world-map-container"></div>
-                    <div class="world-map-note" id="overviewWorldMapNote">Zoom with mouse wheel and drag to pan. Colors represent recommendation frequency in the current filter.</div>
+                    <div class="world-map-note" id="overviewWorldMapNote">Click a country to drill down. Zoom with mouse wheel and drag to pan. Colors represent recommendation frequency in the current filter.</div>
                 </div>
             </div>
             <div class="chart-row">
@@ -5181,6 +5181,19 @@
                     if (container.isConnected && container.data) {
                         Plotly.Plots.resize(container);
                     }
+                    // Wire up click-to-drilldown on map countries
+                    container.removeAllListeners?.('plotly_click');
+                    container.on('plotly_click', function(eventData) {
+                        if (!eventData || !eventData.points || !eventData.points.length) return;
+                        const pt = eventData.points[0];
+                        const country = pt.location;
+                        const count = pt.z;
+                        if (!country) return;
+                        const title = `Recommendations for ${country} (${(count || 0).toLocaleString()})`;
+                        const filterFn = r => (r._countriesArray || []).some(c => c.replace(/^-+\s*/, '').trim() === country);
+                        _currentDrilldownChartKey = 'mapCountry';
+                        openDrilldown(title, filterFn, country, '');
+                    });
                 }).catch(() => {});
             }
         }
@@ -5459,12 +5472,15 @@
             const datasetLabel = chart.data.datasets?.[el.datasetIndex]?.label || '';
             if (!label) return;
 
+            // Use full (untruncated) label for API params when available
+            const fullLabel = chart._fullLabels?.[el.index] || label;
+
             const titleFn = chartDrilldownTitles[chartKey];
-            const title = titleFn ? titleFn(label, datasetLabel) : `Recommendations: ${label}`;
-            const filterFn = chartDrilldownMap[chartKey](label, datasetLabel);
+            const title = titleFn ? titleFn(fullLabel, datasetLabel) : `Recommendations: ${fullLabel}`;
+            const filterFn = chartDrilldownMap[chartKey](fullLabel, datasetLabel);
 
             _currentDrilldownChartKey = chartKey;
-            openDrilldown(title, filterFn, label, datasetLabel);
+            openDrilldown(title, filterFn, fullLabel, datasetLabel);
         }
 
         // Register the global onClick via Chart.js defaults
@@ -5478,15 +5494,16 @@
             yearlyTrend:        label => ({ year_start: label, year_end: label }),
             yoy:                label => ({ year_start: label, year_end: label }),
             bodyDistribution:   label => ({ bodies: '- ' + label }),
-            topThemes:          label => ({ text_query: label.substring(0, 40) }),
+            topThemes:          label => ({ themes: label }),
             affectedPersons:    label => ({ text_query: label }),
             sdgs:               label => ({ text_query: label.substring(0, 20) }),
             stackedTrend:       (label, ds) => ({ year_start: label, year_end: label, bodies: '- ' + ds }),
             cumulative:         label => ({ year_end: label }),
-            regionDistribution: label => ({ regions: '- ' + label }),
-            regionComparison:   label => ({ regions: '- ' + label }),
+            regionDistribution: label => ({ regions: label }),
+            regionComparison:   label => ({ regions: label }),
             bodyScatter:        label => ({ bodies: '- ' + label }),
-            topCountries:       label => ({ countries: '- ' + label }),
+            topCountries:       label => ({ countries: label }),
+            mapCountry:         label => ({ countries: label }),
         };
 
         async function openDrilldown(title, filterFn, label, datasetLabel) {
@@ -6201,21 +6218,25 @@
                     .map(row => [String(row.theme || ''), Number(row.count || 0)])
                     .filter(([theme, count]) => theme && Number.isFinite(count) && count > 0)
                     .slice(0, 15);
+                const fullLabels = sorted.map(s => s[0].replace(/^-+\s*/, '').trim());
                 charts.topThemes = new Chart(document.getElementById('chartTopThemes'), {
                     type: 'bar',
-                    data: { labels: sorted.map(s => s[0].replace('- ','').slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[4], borderRadius: 4 }] },
+                    data: { labels: fullLabels.map(l => l.slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[4], borderRadius: 4 }] },
                     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
                 });
+                charts.topThemes._fullLabels = fullLabels;
                 return;
             }
             const tc = {};
             chartData.forEach(r => r._themesArray.forEach(t => { if (t) tc[t] = (tc[t]||0) + 1; }));
             const sorted = Object.entries(tc).sort((a,b) => b[1]-a[1]).slice(0, 15);
+            const fullLabels2 = sorted.map(s => s[0].replace(/^-+\s*/, '').trim());
             charts.topThemes = new Chart(document.getElementById('chartTopThemes'), {
                 type: 'bar',
-                data: { labels: sorted.map(s => s[0].replace('- ','').slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[4], borderRadius: 4 }] },
+                data: { labels: fullLabels2.map(l => l.slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[4], borderRadius: 4 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
             });
+            charts.topThemes._fullLabels = fullLabels2;
         }
 
         function updateThemeTrendsChart() {
@@ -6731,21 +6752,25 @@
                     .map(row => [String(row.affected_person || ''), Number(row.count || 0)])
                     .filter(([value, count]) => value && Number.isFinite(count) && count > 0)
                     .slice(0, 12);
+                const apFullLabels = sorted.map(s => s[0].replace(/^-+\s*/, '').trim());
                 charts.affectedPersons = new Chart(document.getElementById('chartAffectedPersons'), {
                     type: 'bar',
-                    data: { labels: sorted.map(s => s[0].replace('- ','').slice(0,35)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[5], borderRadius: 4 }] },
+                    data: { labels: apFullLabels.map(l => l.slice(0,35)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[5], borderRadius: 4 }] },
                     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
                 });
+                charts.affectedPersons._fullLabels = apFullLabels;
                 return;
             }
             const pc = {};
             chartData.forEach(r => r._affectedPersonsArray.forEach(p => { if (p) pc[p] = (pc[p]||0) + 1; }));
             const sorted = Object.entries(pc).sort((a,b) => b[1]-a[1]).slice(0, 12);
+            const apFullLabels2 = sorted.map(s => s[0].replace(/^-+\s*/, '').trim());
             charts.affectedPersons = new Chart(document.getElementById('chartAffectedPersons'), {
                 type: 'bar',
-                data: { labels: sorted.map(s => s[0].replace('- ','').slice(0,35)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[5], borderRadius: 4 }] },
+                data: { labels: apFullLabels2.map(l => l.slice(0,35)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[5], borderRadius: 4 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
             });
+            charts.affectedPersons._fullLabels = apFullLabels2;
         }
 
         function updateSDGsChart() {
@@ -6757,21 +6782,25 @@
                     .map(row => [String(row.sdg || ''), Number(row.count || 0)])
                     .filter(([value, count]) => value && Number.isFinite(count) && count > 0)
                     .slice(0, 12);
+                const sdgFullLabels = sorted.map(s => s[0].replace(/^-+\s*/, '').trim());
                 charts.sdgs = new Chart(document.getElementById('chartSDGs'), {
                     type: 'bar',
-                    data: { labels: sorted.map(s => s[0].replace('- ','').slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[3], borderRadius: 4 }] },
+                    data: { labels: sdgFullLabels.map(l => l.slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[3], borderRadius: 4 }] },
                     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
                 });
+                charts.sdgs._fullLabels = sdgFullLabels;
                 return;
             }
             const sc = {};
             chartData.forEach(r => r._sdgsArray.forEach(s => { if (s) sc[s] = (sc[s]||0) + 1; }));
             const sorted = Object.entries(sc).sort((a,b) => b[1]-a[1]).slice(0, 12);
+            const sdgFullLabels2 = sorted.map(s => s[0].replace(/^-+\s*/, '').trim());
             charts.sdgs = new Chart(document.getElementById('chartSDGs'), {
                 type: 'bar',
-                data: { labels: sorted.map(s => s[0].replace('- ','').slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[3], borderRadius: 4 }] },
+                data: { labels: sdgFullLabels2.map(l => l.slice(0,40)), datasets: [{ data: sorted.map(s => s[1]), backgroundColor: colors.primary[3], borderRadius: 4 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: defaultTooltip } }
             });
+            charts.sdgs._fullLabels = sdgFullLabels2;
         }
 
         function tokenizeForBigrams(text) {
