@@ -665,6 +665,32 @@
             margin-bottom: 16px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .tab-loading-overlay {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            color: #666;
+            text-align: center;
+            min-height: 200px;
+        }
+        .tab-loading-overlay .spinner {
+            width: 36px;
+            height: 36px;
+            border-width: 3px;
+            margin-bottom: 14px;
+        }
+        .tab-loading-overlay .tab-loading-message {
+            font-size: 14px;
+            line-height: 1.5;
+            max-width: 420px;
+        }
+        .tab-loading-overlay .tab-loading-fallback-hint {
+            margin-top: 12px;
+            font-size: 12px;
+            color: #999;
+        }
         .progress-bar {
             width: 300px;
             height: 8px;
@@ -1644,24 +1670,39 @@
 
         <!-- Text Tab -->
         <div class="charts-section" id="tab-text">
-            <div class="chart-row">
-                <div class="chart-card">
-                    <h3>Affected Persons Mentioned</h3>
-                    <div class="chart-container tall"><canvas id="chartAffectedPersons"></canvas></div>
-                </div>
-                <div class="chart-card">
-                    <h3>SDG Coverage</h3>
-                    <div class="chart-container tall"><canvas id="chartSDGs"></canvas></div>
+            <div class="text-analytics-placeholder hidden" id="textAnalyticsPlaceholder" style="text-align:center; padding:40px 20px; background:#f8f9fa; border-radius:12px; margin:16px 0;">
+                <h3 style="margin:0 0 8px;">Text Analytics</h3>
+                <p style="color:#666; margin:0 0 16px; max-width:500px; margin-left:auto; margin-right:auto;">
+                    Text analysis (bigrams, affected persons, SDGs) requires processing every record and takes ~10 seconds for the current filter. Click below to generate.
+                </p>
+                <button class="btn btn-primary" id="generateTextAnalyticsBtn" onclick="generateTextAnalyticsOnDemand()" style="font-size:15px; padding:10px 28px;">
+                    Generate Text Analytics
+                </button>
+                <div class="text-analytics-spinner hidden" id="textAnalyticsSpinner" style="margin-top:16px;">
+                    <div class="spinner" style="margin:0 auto 8px;"></div>
+                    <span style="color:#666;">Processing text across all matching records...</span>
                 </div>
             </div>
-            <div class="chart-row">
-                <div class="chart-card">
-                    <h3>Top Bigrams (All Terms, Stopwords Filtered)</h3>
-                    <div class="chart-container"><canvas id="chartBigrams"></canvas></div>
+            <div id="textChartsContainer">
+                <div class="chart-row">
+                    <div class="chart-card">
+                        <h3>Affected Persons Mentioned</h3>
+                        <div class="chart-container tall"><canvas id="chartAffectedPersons"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>SDG Coverage</h3>
+                        <div class="chart-container tall"><canvas id="chartSDGs"></canvas></div>
+                    </div>
                 </div>
-                <div class="chart-card">
-                    <h3>Avg Text Length by Body</h3>
-                    <div class="chart-container"><canvas id="chartTextLength"></canvas></div>
+                <div class="chart-row">
+                    <div class="chart-card">
+                        <h3>Top Bigrams (All Terms, Stopwords Filtered)</h3>
+                        <div class="chart-container"><canvas id="chartBigrams"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Avg Text Length by Body</h3>
+                        <div class="chart-container"><canvas id="chartTextLength"></canvas></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1964,6 +2005,7 @@
         let overviewBootstrapMode = false;
         let fullDatasetBackgroundReady = false;
         let fullDatasetBackgroundPromise = null;
+        let bootstrapAnalyticsReady = false;
         let preferredActiveTab = 'overview';
 
         function readSearchParam(name) {
@@ -2494,15 +2536,19 @@
             value.textContent = '-';
         }
 
-        async function fetchRemoteDatasetHealth() {
+        async function fetchRemoteDatasetHealth(timeoutMs = 10000) {
             if (!DATASET_HEALTH_URL) return null;
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), timeoutMs);
             try {
-                const response = await fetch(DATASET_HEALTH_URL, { cache: 'no-store' });
+                const response = await fetch(DATASET_HEALTH_URL, { cache: 'no-store', signal: ctrl.signal });
+                clearTimeout(timer);
                 if (!response.ok) {
                     throw new Error(`Unable to fetch dataset metadata (${response.status})`);
                 }
                 return await response.json();
             } catch (err) {
+                clearTimeout(timer);
                 console.warn('Remote dataset health check failed:', err);
                 return null;
             }
@@ -2519,6 +2565,7 @@
         function applyOverviewBootstrap(payload = {}) {
             const summary = payload.summary || {};
             const mapCountryCounts = Array.isArray(payload.map_country_counts) ? payload.map_country_counts : [];
+            const precomputedAnalytics = payload.analytics_precomputed ? payload.analytics : null;
             overviewBootstrapMode = true;
             fullDatasetBackgroundReady = false;
             activeDataSource = 'overview_bootstrap';
@@ -2529,6 +2576,17 @@
             serverState.summary = summary;
             serverState.totalRecords = Number(summary.total_records || 0);
             serverState.mapCountryCounts = mapCountryCounts;
+
+            if (precomputedAnalytics) {
+                serverState.analytics = {
+                    trends: precomputedAnalytics.trends || null,
+                    themes: precomputedAnalytics.themes || null,
+                    text: precomputedAnalytics.text || null
+                };
+                serverState.analyticsLoading = {};
+                bootstrapAnalyticsReady = true;
+            }
+
             rawData = [];
             filteredData = [];
             chartData = [];
@@ -2547,13 +2605,23 @@
             document.getElementById('emptyState').classList.add('hidden');
 
             updateServerSummaryUI(summary);
-            setStatusBanner({
-                visible: true,
-                title: 'Overview Snapshot Ready',
-                message: 'The first tab is loaded from a small JSON snapshot for speed. Interactive VM browse mode is loading in the background now.',
-                showAnalysisButton: false
-            });
-            setVmLoadingNotice(true, 'VM data is loading in the background. Please wait before expecting complete trends, themes, and text plots.');
+
+            if (precomputedAnalytics) {
+                setStatusBanner({
+                    visible: true,
+                    title: 'Full Dataset Analytics Ready',
+                    message: `All charts loaded instantly from pre-computed analytics (${Number(summary.total_records || 0).toLocaleString()} records). VM browse mode is connecting for interactive filtering and the data table.`,
+                    showAnalysisButton: false
+                });
+            } else {
+                setStatusBanner({
+                    visible: true,
+                    title: 'Overview Snapshot Ready',
+                    message: 'The first tab is loaded from a small JSON snapshot for speed. Interactive VM browse mode is loading in the background now.',
+                    showAnalysisButton: false
+                });
+                setVmLoadingNotice(true, 'VM data is loading in the background. Please wait before expecting complete trends, themes, and text plots.');
+            }
             activateTab('overview');
             updateSelectedCountInfo();
         }
@@ -2572,15 +2640,49 @@
             }
         }
 
+        async function fallbackToBundledSample(reason) {
+            console.warn('Falling back to bundled sample data. Reason:', reason);
+            removeAllTabLoadingSpinners();
+            setVmLoadingNotice(false);
+            overviewBootstrapMode = false;
+            fullDatasetBackgroundReady = false;
+            await loadBundledSampleData(false);
+            setStatusBanner({
+                visible: true,
+                title: 'Loaded Sample Dataset',
+                message: `The VM server could not be reached (${reason}). The dashboard loaded a bundled sample dataset so all tabs are fully interactive. Use the VM button to retry the server connection.`,
+                showAnalysisButton: false
+            });
+        }
+
         async function loadOverviewBootstrapThenServerBrowse(showErrors = true) {
             const loadedBootstrap = await loadOverviewBootstrap(false);
             if (loadedBootstrap) {
-                loadRemoteDatasetServerMode(false, { background: true, preserveBootstrapOnFailure: true }).catch(err => {
+                try {
+                    await loadRemoteDatasetServerMode(false, { background: true, preserveBootstrapOnFailure: true });
+                } catch (err) {
                     console.error('Background server browse init failed:', err);
-                });
+                    if (bootstrapAnalyticsReady) {
+                        console.info('VM unreachable but bootstrap analytics cover all chart tabs. Staying on bootstrap.');
+                        setVmLoadingNotice(false);
+                        setStatusBanner({
+                            visible: true,
+                            title: 'Full Dataset Analytics (Offline)',
+                            message: `All charts show pre-computed analytics for ${Number(serverState.totalRecords || 0).toLocaleString()} records. The VM is not reachable, so filtering and the data table are unavailable. Use the VM button to retry.`,
+                            showAnalysisButton: false
+                        });
+                    } else {
+                        await fallbackToBundledSample(err?.message || 'connection failed');
+                    }
+                }
                 return;
             }
-            loadRemoteDatasetServerMode(showErrors);
+            try {
+                await loadRemoteDatasetServerMode(showErrors);
+            } catch (err) {
+                console.error('Direct server browse init failed:', err);
+                await fallbackToBundledSample(err?.message || 'connection failed');
+            }
         }
 
         function resetServerState() {
@@ -2630,17 +2732,31 @@
             textEl.textContent = message || 'VM data is still loading. Please wait until this notice disappears before expecting complete charts in every tab.';
         }
 
+        function showTabLoadingSpinner(tabName, message) {
+            const target = document.getElementById(`tab-${tabName}`);
+            if (!target) return;
+            if (target.querySelector('.tab-loading-overlay')) return;
+            const overlay = document.createElement('div');
+            overlay.className = 'tab-loading-overlay';
+            overlay.innerHTML = `<div class="spinner"></div>`
+                + `<div class="tab-loading-message">${message || 'Loading data from the server...'}</div>`
+                + `<div class="tab-loading-fallback-hint">If this takes too long, sample data will load automatically.</div>`;
+            target.prepend(overlay);
+        }
+
+        function removeTabLoadingSpinner(tabName) {
+            const target = document.getElementById(`tab-${tabName}`);
+            if (!target) return;
+            const overlay = target.querySelector('.tab-loading-overlay');
+            if (overlay) overlay.remove();
+        }
+
+        function removeAllTabLoadingSpinners() {
+            document.querySelectorAll('.tab-loading-overlay').forEach(el => el.remove());
+        }
+
         function activateTab(tabName = 'overview') {
             preferredActiveTab = tabName;
-            if (overviewBootstrapMode && tabName !== 'overview' && !fullDatasetBackgroundReady) {
-                setStatusBanner({
-                    visible: true,
-                    title: 'Overview Snapshot Ready',
-                    message: 'The first tab is loaded from a small JSON snapshot. Lightweight VM browse mode is still loading in the background; the other tabs will fill in automatically when that finishes.',
-                    showAnalysisButton: false
-                });
-                setVmLoadingNotice(true, 'VM data is still loading. Please wait until this notice disappears before expecting complete charts in every tab.');
-            }
             const target = document.getElementById(`tab-${tabName}`);
             if (!target) return;
             document.querySelectorAll('.tab').forEach(tab => {
@@ -2663,24 +2779,36 @@
 
         function renderTabContent(tabName = 'overview') {
             if (overviewBootstrapMode && !fullDatasetBackgroundReady && tabName !== 'overview') {
-                return;
+                if (bootstrapAnalyticsReady && tabName !== 'data') {
+                    // Pre-computed analytics available — render charts directly
+                } else if (tabName === 'data') {
+                    showTabLoadingSpinner(tabName, 'The data table requires a VM connection for browsing records. Connecting...');
+                    return;
+                } else {
+                    showTabLoadingSpinner(tabName, 'Connecting to the VM server to load this tab...');
+                    return;
+                }
             }
             if (serverBrowseMode) {
                 const requiredSections = getServerAnalyticsSectionsForTab(tabName);
                 if (requiredSections.length && !areServerAnalyticsSectionsReady(requiredSections)) {
+                    showTabLoadingSpinner(tabName, `Loading ${requiredSections.join(', ')} analytics from the server...`);
                     ensureServerAnalyticsSections(requiredSections, false)
                         .then(() => {
+                            removeTabLoadingSpinner(tabName);
                             const target = document.getElementById(`tab-${tabName}`);
                             if (target && target.classList.contains('active')) {
                                 renderTabContent(tabName);
                             }
                         })
                         .catch(err => {
+                            removeTabLoadingSpinner(tabName);
                             console.error(`Failed to hydrate ${tabName} analytics from VM:`, err);
                         });
                     return;
                 }
             }
+            removeTabLoadingSpinner(tabName);
             if (tabName === 'overview') {
                 updateOverviewWorldMap();
                 updateYearlyTrendChart();
@@ -2710,10 +2838,22 @@
                 return;
             }
             if (tabName === 'text') {
-                updateAffectedPersonsChart();
-                updateSDGsChart();
-                updateBigramsChart();
-                updateTextLengthChart();
+                const hasTextData = useServerAnalytics()
+                    ? !!serverState.analytics?.text
+                    : (chartData && chartData.length > 0);
+                const placeholder = document.getElementById('textAnalyticsPlaceholder');
+                const container = document.getElementById('textChartsContainer');
+                if (serverBrowseMode && !hasTextData) {
+                    if (placeholder) placeholder.classList.remove('hidden');
+                    if (container) container.classList.add('hidden');
+                } else {
+                    if (placeholder) placeholder.classList.add('hidden');
+                    if (container) container.classList.remove('hidden');
+                    updateAffectedPersonsChart();
+                    updateSDGsChart();
+                    updateBigramsChart();
+                    updateTextLengthChart();
+                }
                 return;
             }
             if (tabName === 'labels') {
@@ -2738,6 +2878,8 @@
         function setServerBrowseMode(active) {
             serverBrowseMode = !!active;
             overviewBootstrapMode = false;
+            bootstrapAnalyticsReady = false;
+            removeAllTabLoadingSpinners();
             const banner = document.getElementById('serverModeBanner');
             const trainBtn = document.getElementById('trainClassifierBtn');
             const exportAllBtn = document.getElementById('exportAllBtn');
@@ -2848,8 +2990,20 @@
             return params;
         }
 
-        async function fetchServerJson(url, errorPrefix) {
-            const response = await fetch(url, { cache: 'no-store' });
+        async function fetchServerJson(url, errorPrefix, timeoutMs = 15000) {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+            let response;
+            try {
+                response = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+            } catch (err) {
+                clearTimeout(timer);
+                if (err.name === 'AbortError') {
+                    throw new Error(`${errorPrefix}: request timed out after ${(timeoutMs / 1000).toFixed(0)}s. Is the VM running?`);
+                }
+                throw new Error(`${errorPrefix}: network error (${err.message})`);
+            }
+            clearTimeout(timer);
             let body = null;
             try {
                 body = await response.json();
@@ -2861,6 +3015,10 @@
                 throw new Error(detail);
             }
             return body;
+        }
+
+        function useServerAnalytics() {
+            return serverBrowseMode || bootstrapAnalyticsReady;
         }
 
         function getServerAnalyticsSectionsForTab(tabName = 'overview') {
@@ -2922,6 +3080,30 @@
                     alert('Failed to load full-filter VM analytics.\n\n' + (err?.message || err));
                 }
                 throw err;
+            }
+        }
+
+        async function generateTextAnalyticsOnDemand() {
+            const btn = document.getElementById('generateTextAnalyticsBtn');
+            const spinner = document.getElementById('textAnalyticsSpinner');
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+
+            try {
+                await ensureServerAnalyticsSections(['text'], true);
+                const placeholder = document.getElementById('textAnalyticsPlaceholder');
+                const container = document.getElementById('textChartsContainer');
+                if (placeholder) placeholder.classList.add('hidden');
+                if (container) container.classList.remove('hidden');
+                updateAffectedPersonsChart();
+                updateSDGsChart();
+                updateBigramsChart();
+                updateTextLengthChart();
+            } catch (err) {
+                console.error('On-demand text analytics failed:', err);
+            } finally {
+                if (btn) btn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
             }
         }
 
@@ -3087,28 +3269,24 @@
                 updateAllCharts();
                 buildDataTable();
                 setVmLoadingNotice(false);
-                if (filterChanged || !areServerAnalyticsSectionsReady(['trends', 'themes', 'text'])) {
-                    ensureServerAnalyticsSections(['trends', 'themes', 'text'], false)
+                const fastSections = ['trends', 'themes'];
+                if (filterChanged || !areServerAnalyticsSectionsReady(fastSections)) {
+                    ensureServerAnalyticsSections(fastSections, false)
                         .then(() => {
                             const activeTab = document.querySelector('#tabsSection .tab.active')?.dataset?.tab || 'overview';
                             renderTabContent(activeTab);
                         })
                         .catch(err => {
-                            console.error('Background full-filter analytics prefetch failed:', err);
+                            console.error('Background fast analytics prefetch failed:', err);
                         });
                 }
             } catch (err) {
                 console.error('Server browse load failed:', err);
+                setVmLoadingNotice(false);
                 if (background) {
-                    setVmLoadingNotice(false);
-                    setStatusBanner({
-                        visible: true,
-                        title: 'Overview Snapshot Ready',
-                        message: 'The fast overview snapshot loaded, but VM browse mode could not finish starting automatically. You can still use the VM controls to retry.',
-                        showAnalysisButton: false
-                    });
+                    // Let the caller (loadOverviewBootstrapThenServerBrowse) handle fallback
+                    throw err;
                 } else if (showErrors) {
-                    setVmLoadingNotice(false);
                     alert('Failed to browse the VM dataset.\n\n' + (err?.message || err));
                 }
                 if (!background) {
@@ -3135,6 +3313,13 @@
                 uploadSection.classList.add('hidden');
                 setProgress(8, 'Connecting to VM browse API...');
                 setVmLoadingNotice(true, 'Connecting to the VM and loading data. Please wait until this notice disappears before using all tabs.');
+            } else if (bootstrapAnalyticsReady) {
+                setStatusBanner({
+                    visible: true,
+                    title: 'Full Dataset Analytics Ready',
+                    message: `All charts loaded instantly from pre-computed analytics (${Number(serverState.totalRecords || 0).toLocaleString()} records). VM browse mode is connecting for interactive filtering and the data table.`,
+                    showAnalysisButton: false
+                });
             } else {
                 setStatusBanner({
                     visible: true,
@@ -3179,6 +3364,9 @@
                 if (!background || !preserveBootstrapOnFailure) {
                     uploadSection.classList.remove('hidden');
                     document.getElementById('loadingIndicator').classList.add('hidden');
+                }
+                if (background) {
+                    throw err;
                 }
             }
         }
@@ -4668,7 +4856,7 @@
         function updateStackedChart() {
             destroyChart('stackedTrend');
             const by = document.getElementById('stackBySelector')?.value || 'body';
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const trends = serverState.analytics?.trends;
                 if (!trends) return;
                 const sourceRows = by === 'body'
@@ -4727,7 +4915,7 @@
 
         function updateCumulativeChart() {
             destroyChart('cumulative');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const yearRows = serverState.analytics?.trends?.yearly_counts || serverState.summary?.yearly_counts || [];
                 const rows = yearRows
                     .map(row => [String(row.year), Number(row.count || 0)])
@@ -4759,7 +4947,7 @@
         function updateYoYChart() {
             destroyChart('yoy');
             const noteEl = document.getElementById('chartYoYNote');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const trends = serverState.analytics?.trends;
                 if (!trends) {
                     if (noteEl) noteEl.textContent = 'Full-filter VM analytics are still loading for this chart.';
@@ -4891,7 +5079,7 @@
             const meta = document.getElementById('rightsMetaInfo');
             if (!container || !meta) return;
 
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const themeAnalytics = serverState.analytics?.themes;
                 if (!themeAnalytics) {
                     container.innerHTML = '<div style="font-size:12px;color:#6b7f98;">Loading full-filter rights analytics from the VM...</div>';
@@ -5059,7 +5247,7 @@
 
         function updateTopThemesChart() {
             destroyChart('topThemes');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const themeAnalytics = serverState.analytics?.themes;
                 if (!themeAnalytics) return;
                 const sorted = (themeAnalytics.theme_counts || [])
@@ -5085,7 +5273,7 @@
 
         function updateThemeTrendsChart() {
             destroyChart('themeTrends');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const themeAnalytics = serverState.analytics?.themes;
                 if (!themeAnalytics) return;
                 const top5 = (themeAnalytics.theme_counts || [])
@@ -5163,7 +5351,7 @@
 
         function updateEscCcprTrendChart() {
             destroyChart('escCcprTrend');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const themeAnalytics = serverState.analytics?.themes;
                 if (!themeAnalytics) return;
                 const yearly = getRightsYearlyDataFromThemeRows(themeAnalytics.yearly_theme_counts || []);
@@ -5263,7 +5451,7 @@
         function updateRightsScatterChart() {
             destroyChart('rightsScatter');
             const info = document.getElementById('rightsScatterInfo');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const themeAnalytics = serverState.analytics?.themes;
                 if (!themeAnalytics) {
                     if (info) info.textContent = 'VM analytics are loading for this chart.';
@@ -5443,7 +5631,7 @@
 
         function updateBodyScatterChart() {
             destroyChart('bodyScatter');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const trends = serverState.analytics?.trends;
                 if (!trends) return;
                 const rows = trends.yearly_body_counts || [];
@@ -5497,7 +5685,7 @@
 
         function updateBodyHeatmapChart() {
             destroyChart('bodyHeatmap');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const trends = serverState.analytics?.trends;
                 if (!trends) return;
                 const rows = trends.yearly_body_counts || [];
@@ -5544,7 +5732,7 @@
 
         function updateRegionComparisonChart() {
             destroyChart('regionComparison');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const trends = serverState.analytics?.trends;
                 if (!trends) return;
                 const ryc = {};
@@ -5589,7 +5777,7 @@
 
         function updateAffectedPersonsChart() {
             destroyChart('affectedPersons');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const textAnalytics = serverState.analytics?.text;
                 if (!textAnalytics) return;
                 const sorted = (textAnalytics.affected_person_counts || [])
@@ -5615,7 +5803,7 @@
 
         function updateSDGsChart() {
             destroyChart('sdgs');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const textAnalytics = serverState.analytics?.text;
                 if (!textAnalytics) return;
                 const sorted = (textAnalytics.sdg_counts || [])
@@ -5646,7 +5834,7 @@
 
         function updateBigramsChart() {
             destroyChart('bigrams');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const textAnalytics = serverState.analytics?.text;
                 if (!textAnalytics) return;
                 const sorted = (textAnalytics.bigram_counts || [])
@@ -5715,7 +5903,7 @@
 
         function updateTextLengthChart() {
             destroyChart('textLength');
-            if (serverBrowseMode) {
+            if (useServerAnalytics()) {
                 const textAnalytics = serverState.analytics?.text;
                 if (!textAnalytics) return;
                 const avgL = (textAnalytics.body_avg_text_length || [])
