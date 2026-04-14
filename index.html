@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UN Human Rights Analytics Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
@@ -2436,7 +2437,7 @@
                     🔍 Explore Full Dashboard
                 </button>
                 <button class="cta-secondary" id="sampleLoadBtn" onclick="loadBundledSampleData()">
-                    🚀 Quick Demo (739 records)
+                    🚀 Quick Demo — Rule of Law (6,225 records)
                 </button>
             </div>
 
@@ -4107,8 +4108,8 @@
         const uploadSection = document.getElementById('uploadSection');
         const fileInput = document.getElementById('fileInput');
         const vmLoadBtn = document.getElementById('vmLoadBtn');
-        const BUNDLED_SAMPLE_PATH = './sample-data/search-4_2_2026_739_labelled.xlsx';
-        const BUNDLED_SAMPLE_NAME = 'search-4_2_2026_739_labelled.xlsx';
+        const BUNDLED_SAMPLE_PATH = './sample-data/rule-of-law-6225.xlsx';
+        const BUNDLED_SAMPLE_NAME = 'rule-of-law-6225.xlsx';
         const OVERVIEW_BOOTSTRAP_PATH = './sample-data/overview-bootstrap.json';
         loadSavedUIMode();
         loadCustomWidgetsFromStorage();
