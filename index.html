@@ -372,7 +372,7 @@
         .chart-copy-btn.copied { background: #2e7d32; color: white; opacity: 1; }
         .chart-copy-btn .copy-icon::after { content: '\1F4CB'; }
         .chart-copy-btn.copied .copy-icon::after { content: '\2713'; }
-        .chart-container { position: relative; height: 350px; }
+        .chart-container { position: relative; height: 350px; cursor: pointer; }
         .chart-container.tall { height: 420px; }
         .chart-container.radar { height: 380px; }
         .world-map-container {
@@ -671,6 +671,50 @@
         .detail-btn-cite:hover { background: #dde9ff; }
         .detail-btn-copy { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
         .detail-btn-copy:hover { background: #c8e6c9; }
+        /* Chart drill-down panel */
+        .drilldown-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1100;
+            display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px;
+            overflow-y: auto;
+        }
+        .drilldown-panel {
+            background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            width: 100%; max-width: 900px; max-height: calc(100vh - 80px);
+            display: flex; flex-direction: column;
+        }
+        .drilldown-header {
+            padding: 16px 20px; border-bottom: 1px solid #e2eaf5;
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+        }
+        .drilldown-header h3 { margin: 0; color: var(--primary); font-size: 16px; }
+        .drilldown-header .drilldown-count { font-size: 13px; color: #666; margin-left: 8px; }
+        .drilldown-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #666; padding: 4px 8px; }
+        .drilldown-close:hover { color: #333; }
+        .drilldown-body { overflow-y: auto; flex: 1; padding: 0; }
+        .drilldown-rec {
+            padding: 14px 20px; border-bottom: 1px solid #f0f0f0;
+            display: grid; grid-template-columns: 1fr auto; gap: 8px 16px;
+            transition: background 0.1s;
+        }
+        .drilldown-rec:hover { background: #f8fbff; }
+        .drilldown-rec:last-child { border-bottom: none; }
+        .drilldown-text { font-size: 13px; line-height: 1.6; color: #333; grid-column: 1 / -1; }
+        .drilldown-text mark { background: #fff3cd; padding: 1px 2px; border-radius: 2px; }
+        .drilldown-meta { font-size: 12px; color: #666; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .drilldown-meta span { white-space: nowrap; }
+        .drilldown-actions { display: flex; gap: 4px; align-items: center; justify-self: end; }
+        .drilldown-actions a, .drilldown-actions button {
+            font-size: 11px; padding: 3px 8px; border-radius: 4px; text-decoration: none;
+            cursor: pointer; font-weight: 600; border: 1px solid transparent; transition: background 0.15s;
+        }
+        .drilldown-loading { padding: 40px; text-align: center; color: #666; font-size: 14px; }
+        .drilldown-empty { padding: 40px; text-align: center; color: #999; font-size: 14px; }
+        .drilldown-more { padding: 12px 20px; text-align: center; border-top: 1px solid #f0f0f0; }
+        .drilldown-more button {
+            background: var(--primary); color: white; border: none; border-radius: 6px;
+            padding: 8px 20px; cursor: pointer; font-size: 13px; font-weight: 600;
+        }
+        .drilldown-more button:hover { background: var(--secondary); }
         .inline-btn {
             margin-left: 6px;
             border: 1px solid #c7d5ef;
@@ -1886,6 +1930,17 @@
                 <button class="modal-close" onclick="closeRecordDetail()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body" id="recordDetailBody"></div>
+        </div>
+    </div>
+
+    <!-- Chart Drill-Down Panel -->
+    <div class="drilldown-overlay hidden" id="drilldownOverlay" onclick="closeDrilldown(event)">
+        <div class="drilldown-panel" onclick="event.stopPropagation()">
+            <div class="drilldown-header">
+                <div><h3 id="drilldownTitle">Recommendations</h3></div>
+                <button class="drilldown-close" onclick="closeDrilldown()" aria-label="Close">&times;</button>
+            </div>
+            <div class="drilldown-body" id="drilldownBody"></div>
         </div>
     </div>
 
@@ -4947,6 +5002,201 @@
             padding: 12,
             cornerRadius: 6
         };
+
+        // ─── Chart Drill-Down System ────────────────────────────────
+        // Maps chart key → function(clickedLabel) → filter predicate for records
+        const chartDrilldownMap = {
+            yearlyTrend:        label => r => String(r._year) === String(label),
+            bodyDistribution:   label => r => (r._body || '').replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim(),
+            regionDistribution: label => r => (r._regions || '').replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim() || (r._regionsArray || []).some(rg => rg.replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim()),
+            topThemes:          label => r => (r._themesArray || []).some(t => t.replace(/^-+\s*/, '').trim().startsWith(label.replace(/^-+\s*/, '').trim().substring(0, 30))),
+            affectedPersons:    label => r => (r._affectedPersonsArray || []).some(p => p.replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim()),
+            sdgs:               label => r => (r._sdgsArray || []).some(s => s.replace(/^-+\s*/, '').trim().startsWith(label.replace(/^-+\s*/, '').trim().substring(0, 20))),
+            stackedTrend:       (label, datasetLabel) => r => String(r._year) === String(label) && (r._body || '').replace(/^-+\s*/, '').includes(datasetLabel),
+            cumulative:         label => r => Number(r._year) <= Number(label),
+            yoy:                label => r => String(r._year) === String(label),
+            bodyScatter:        label => r => (r._body || '').replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim(),
+            regionComparison:   label => r => (r._regionsArray || []).some(rg => rg.replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim()),
+            topCountries:       label => r => (r._countriesArray || []).some(c => c.replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim()),
+        };
+
+        // Drill-down descriptions for the panel title
+        const chartDrilldownTitles = {
+            yearlyTrend:        label => `Recommendations from ${label}`,
+            bodyDistribution:   label => `Recommendations by ${label}`,
+            regionDistribution: label => `Recommendations for ${label}`,
+            topThemes:          label => `Recommendations: ${label}`,
+            affectedPersons:    label => `Recommendations mentioning ${label}`,
+            sdgs:               label => `Recommendations: ${label}`,
+            stackedTrend:       (label, ds) => `${ds} recommendations from ${label}`,
+            cumulative:         label => `Recommendations up to ${label}`,
+            yoy:                label => `Recommendations from ${label}`,
+            bodyScatter:        label => `Recommendations by ${label}`,
+            regionComparison:   label => `Recommendations for ${label}`,
+            topCountries:       label => `Recommendations for ${label}`,
+        };
+
+        // Find which chart key a Chart.js instance belongs to
+        function getChartKey(chartInstance) {
+            for (const [key, inst] of Object.entries(charts)) {
+                if (inst === chartInstance) return key;
+            }
+            return null;
+        }
+
+        // Global Chart.js onClick handler — added to all new charts
+        function handleChartDrilldown(event, elements, chart) {
+            if (!elements || elements.length === 0) return;
+            const el = elements[0];
+            const chartKey = getChartKey(chart);
+            if (!chartKey || !chartDrilldownMap[chartKey]) return;
+
+            const label = chart.data.labels?.[el.index];
+            const datasetLabel = chart.data.datasets?.[el.datasetIndex]?.label || '';
+            if (!label) return;
+
+            const titleFn = chartDrilldownTitles[chartKey];
+            const title = titleFn ? titleFn(label, datasetLabel) : `Recommendations: ${label}`;
+            const filterFn = chartDrilldownMap[chartKey](label, datasetLabel);
+
+            _currentDrilldownChartKey = chartKey;
+            openDrilldown(title, filterFn, label, datasetLabel);
+        }
+
+        // Register the global onClick via Chart.js defaults
+        Chart.defaults.onClick = handleChartDrilldown;
+
+        const DRILLDOWN_PAGE_SIZE = 25;
+        let _drilldownState = { filterFn: null, allResults: [], shown: 0, label: '' };
+
+        // Build extra API query params for server-mode drill-down based on chart + label
+        const chartDrilldownApiParams = {
+            yearlyTrend:        label => ({ year_start: label, year_end: label }),
+            yoy:                label => ({ year_start: label, year_end: label }),
+            bodyDistribution:   label => ({ bodies: '- ' + label }),
+            topThemes:          label => ({ text_query: label.substring(0, 40) }),
+            affectedPersons:    label => ({ text_query: label }),
+            sdgs:               label => ({ text_query: label.substring(0, 20) }),
+            stackedTrend:       (label, ds) => ({ year_start: label, year_end: label, bodies: '- ' + ds }),
+            cumulative:         label => ({ year_end: label }),
+            regionDistribution: label => ({ regions: '- ' + label }),
+            regionComparison:   label => ({ regions: '- ' + label }),
+            bodyScatter:        label => ({ bodies: '- ' + label }),
+            topCountries:       label => ({ countries: '- ' + label }),
+        };
+
+        async function openDrilldown(title, filterFn, label, datasetLabel) {
+            const overlay = document.getElementById('drilldownOverlay');
+            const titleEl = document.getElementById('drilldownTitle');
+            const bodyEl = document.getElementById('drilldownBody');
+            overlay.classList.remove('hidden');
+            titleEl.textContent = title;
+            bodyEl.innerHTML = '<div class="drilldown-loading">Searching recommendations...</div>';
+
+            let results = [];
+
+            if (serverBrowseMode && DATASET_RECORDS_URL) {
+                // Server mode: fetch matching records from the API with extra filters
+                try {
+                    const params = buildServerQueryParams({ includePagination: false, includeSort: false });
+                    params.set('page_size', '50');
+                    params.set('page', '1');
+
+                    // Find the chart key from the drilldown state
+                    const chartKey = _currentDrilldownChartKey;
+                    const extraParamsFn = chartKey ? chartDrilldownApiParams[chartKey] : null;
+                    if (extraParamsFn) {
+                        const extra = extraParamsFn(label, datasetLabel);
+                        for (const [k, v] of Object.entries(extra)) {
+                            if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
+                        }
+                    }
+
+                    const payload = await fetchServerJson(
+                        `${DATASET_RECORDS_URL}?${params.toString()}`,
+                        'Drill-down fetch',
+                        20000
+                    );
+                    if (payload?.records) {
+                        results = payload.records.map((row, idx) => normalizeRecord(row, 900000 + idx));
+                    }
+                } catch (err) {
+                    console.warn('Drill-down API fetch failed:', err);
+                    bodyEl.innerHTML = '<div class="drilldown-empty">Could not fetch recommendations from the server. Try again later.</div>';
+                    return;
+                }
+            } else {
+                // Local mode: filter in-memory data
+                const sourceData = filteredData.length > 0 ? filteredData : chartData;
+                results = sourceData.filter(filterFn);
+            }
+
+            _drilldownState = { filterFn, allResults: results, shown: 0, label };
+
+            if (results.length === 0) {
+                bodyEl.innerHTML = '<div class="drilldown-empty">No matching recommendations found.</div>';
+                return;
+            }
+
+            renderDrilldownPage();
+        }
+
+        let _currentDrilldownChartKey = null;
+
+        function renderDrilldownPage() {
+            const body = document.getElementById('drilldownBody');
+            const { allResults, shown } = _drilldownState;
+            const end = Math.min(shown + DRILLDOWN_PAGE_SIZE, allResults.length);
+            const batch = allResults.slice(shown, end);
+
+            let html = shown === 0 ? '' : body.innerHTML.replace(/<div class="drilldown-more">[\s\S]*?<\/div>$/, '');
+
+            batch.forEach(rec => {
+                const text = (rec._text || '').substring(0, 400);
+                const textMore = (rec._text || '').length > 400 ? '...' : '';
+                const body_ = (rec._body || '').replace(/^-+\s*/, '').trim();
+                const country = (rec._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
+                const year = rec._year || '';
+                const symbol = (rec._symbol || '').replace(/^-+\s*/, '').trim();
+                const uhri = getUhriUrl(rec);
+                const undocs = getUnDocsUrl(rec);
+
+                html += `<div class="drilldown-rec">`;
+                html += `<div class="drilldown-text">${escapeHtml(text)}${textMore ? '<span style="color:#999">...</span>' : ''}</div>`;
+                html += `<div class="drilldown-meta">`;
+                if (body_) html += `<span><strong>${escapeHtml(body_)}</strong></span>`;
+                if (country) html += `<span>${escapeHtml(country)}</span>`;
+                if (year) html += `<span>${year}</span>`;
+                if (symbol) html += `<span style="color:#888">${escapeHtml(symbol)}</span>`;
+                html += `</div>`;
+                html += `<div class="drilldown-actions">`;
+                if (uhri) html += `<a href="${uhri}" target="_blank" rel="noopener" class="source-link uhri-link">UHRI</a>`;
+                if (undocs) html += `<a href="${undocs}" target="_blank" rel="noopener" class="source-link undocs-link">UN Doc</a>`;
+                if (typeof rec._id !== 'undefined' && recordMap.has(String(rec._id))) {
+                    html += `<button class="copy-btn" onclick="showRecordDetail(${rec._id})" style="font-size:11px">Details</button>`;
+                    html += `<button class="copy-btn" onclick="copyFormattedCitation(${rec._id}, this)" style="font-size:11px">Cite</button>`;
+                }
+                html += `</div></div>`;
+            });
+
+            _drilldownState.shown = end;
+
+            if (end < allResults.length) {
+                const remaining = allResults.length - end;
+                html += `<div class="drilldown-more"><button onclick="renderDrilldownPage()">Show more (${remaining} remaining of ${allResults.length} total)</button></div>`;
+            } else {
+                html += `<div style="padding:12px 20px; text-align:center; color:#999; font-size:12px;">${allResults.length} recommendation${allResults.length !== 1 ? 's' : ''} shown</div>`;
+            }
+
+            body.innerHTML = html;
+        }
+
+        function closeDrilldown(e) {
+            if (!e || e.target === document.getElementById('drilldownOverlay')) {
+                document.getElementById('drilldownOverlay').classList.add('hidden');
+                _drilldownState = { filterFn: null, allResults: [], shown: 0, label: '' };
+            }
+        }
 
         const rightsPointNumberPlugin = {
             id: 'rightsPointNumberPlugin',
