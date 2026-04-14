@@ -102,6 +102,246 @@
             opacity: 0.9;
         }
 
+        /* ── Settings gear button & floating panel ── */
+        .settings-gear-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: #e8f2ff;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s, transform 0.3s;
+            z-index: 10;
+        }
+        .settings-gear-btn:hover { background: rgba(255,255,255,0.28); transform: rotate(30deg); }
+        .settings-panel {
+            display: none;
+            position: absolute;
+            top: 58px; right: 16px;
+            background: #fff;
+            color: #1e3a5f;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+            padding: 18px 20px;
+            min-width: 260px;
+            z-index: 20;
+            font-size: 13px;
+            text-align: left;
+        }
+        .settings-panel.open { display: block; }
+        .settings-panel h4 { margin: 0 0 12px; font-size: 14px; color: var(--primary); }
+        .settings-panel label {
+            display: flex; align-items: center; gap: 8px;
+            cursor: pointer; padding: 6px 0;
+        }
+        .settings-panel label input[type="checkbox"] {
+            width: 16px; height: 16px; accent-color: var(--accent);
+        }
+        .settings-panel .settings-hint {
+            font-size: 11px; color: #8899aa; margin-top: 2px; padding-left: 24px;
+        }
+        .settings-panel hr { border: none; border-top: 1px solid #e4edf7; margin: 10px 0; }
+
+        /* ── Count-up animation ── */
+        .hero-stat-value {
+            transition: opacity 0.3s ease;
+        }
+        .hero-stat-value.counting {
+            opacity: 0.7;
+        }
+
+        /* ── Living Data Canvas — mini-dashboard landing ── */
+        .landing-canvas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0 24px;
+            min-height: 260px;
+        }
+        @media (max-width: 900px) {
+            .landing-canvas { grid-template-columns: 1fr; }
+        }
+        .landing-canvas-card {
+            background: #fff;
+            border: 1px solid #e4edf7;
+            border-radius: 14px;
+            padding: 18px 20px 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+        .landing-canvas-card h4 {
+            margin: 0 0 10px;
+            font-size: 13px;
+            color: #5a6d80;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .landing-canvas-card .mini-chart-area {
+            width: 100%;
+            height: 200px;
+            position: relative;
+        }
+        .landing-canvas-card .mini-chart-area canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .landing-canvas-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: #8899aa;
+            font-size: 13px;
+            gap: 8px;
+        }
+        .landing-canvas-loading .mini-spinner {
+            width: 18px; height: 18px;
+            border: 2px solid #e4edf7;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Spotlight card */
+        .landing-spotlight {
+            background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%);
+            border: 1px solid #d4e4f7;
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .landing-spotlight .spotlight-quote {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #2d4a6f;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+        .landing-spotlight .spotlight-source {
+            font-size: 12px;
+            color: #6a8299;
+            font-weight: 600;
+        }
+        .landing-spotlight .spotlight-label {
+            position: absolute;
+            top: 12px; right: 16px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8899aa;
+        }
+
+        /* Quick filter bar on landing */
+        .landing-filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .landing-filters .landing-filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #fff;
+            border: 1px solid #d4e4f7;
+            border-radius: 999px;
+            font-size: 13px;
+            color: #2d4a6f;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .landing-filters .landing-filter-chip:hover {
+            background: #eef6ff;
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+        .landing-filters .landing-filter-chip .chip-count {
+            background: var(--accent);
+            color: #fff;
+            font-size: 11px;
+            padding: 1px 7px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        /* Upload icon in header */
+        .header-upload-btn {
+            position: absolute;
+            top: 16px;
+            right: 58px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: #e8f2ff;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+            z-index: 10;
+        }
+        .header-upload-btn:hover { background: rgba(255,255,255,0.28); }
+
+        /* Explore CTA — dominant single button */
+        .landing-explore-cta {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .landing-explore-cta .cta-main {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 36px;
+            background: linear-gradient(135deg, #1a5fa8, #2d7fd4);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(26,95,168,0.35);
+            transition: all 0.25s;
+        }
+        .landing-explore-cta .cta-main:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(26,95,168,0.45);
+        }
+        .landing-explore-cta .cta-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            background: transparent;
+            border: 2px solid #d4e4f7;
+            border-radius: 10px;
+            color: #5a6d80;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .landing-explore-cta .cta-secondary:hover {
+            border-color: var(--accent);
+            color: var(--primary);
+            background: #f6faff;
+        }
+
         .guided-only { display: none; }
         body.mode-guided .guided-only { display: block; }
         body.mode-guided .guided-only.inline { display: inline; }
@@ -1637,84 +1877,122 @@
             <p class="hero-tagline">Explore 266,000+ UN human rights recommendations across 199 countries, 21 treaty bodies, and 25 years of monitoring data.</p>
             <div class="hero-stats" id="heroStats">
                 <div class="hero-stat">
-                    <div class="hero-stat-value">266,780</div>
+                    <div class="hero-stat-value" id="heroStatRecs" data-target="266780">0</div>
                     <div class="hero-stat-label">Recommendations</div>
                 </div>
                 <div class="hero-stat">
-                    <div class="hero-stat-value">199</div>
+                    <div class="hero-stat-value" id="heroStatCountries" data-target="199">0</div>
                     <div class="hero-stat-label">Countries</div>
                 </div>
                 <div class="hero-stat">
-                    <div class="hero-stat-value">21</div>
+                    <div class="hero-stat-value" id="heroStatBodies" data-target="21">0</div>
                     <div class="hero-stat-label">Treaty Bodies</div>
                 </div>
                 <div class="hero-stat">
-                    <div class="hero-stat-value">2006–2026</div>
+                    <div class="hero-stat-value" id="heroStatSpan" data-target-text="2006–2026">—</div>
                     <div class="hero-stat-label">Time Span</div>
                 </div>
             </div>
-            <div class="view-toggle-wrap" role="tablist" aria-label="Interface mode" style="margin-top:20px;">
-                <button class="view-toggle-btn" id="modeGuidedBtn" onclick="setUIMode('guided')" role="tab">Guided (HR Expert)</button>
-                <button class="view-toggle-btn" id="modeExpertBtn" onclick="setUIMode('expert')" role="tab">Expert (Current)</button>
+            <!-- Header action buttons -->
+            <button class="header-upload-btn" id="headerUploadBtn" onclick="document.getElementById('fileInput').click()" aria-label="Upload file" title="Upload your own file">📂</button>
+            <button class="settings-gear-btn" id="settingsGearBtn" onclick="toggleSettingsPanel()" aria-label="Settings" title="Settings">⚙</button>
+            <div class="settings-panel" id="settingsPanel">
+                <h4>⚙ Dashboard Settings</h4>
+                <label>
+                    <input type="checkbox" id="annotationsToggle" onchange="setUIMode(this.checked ? 'guided' : 'expert')">
+                    Show annotations &amp; tips
+                </label>
+                <div class="settings-hint">Step-by-step guidance for each section. Recommended for first-time users.</div>
+                <hr>
+                <label>
+                    <input type="checkbox" id="autoLoadToggle" onchange="toggleAutoLoad(this.checked)">
+                    Auto-load dataset on return
+                </label>
+                <div class="settings-hint">Skip the landing page and load data automatically on your next visit.</div>
             </div>
-            <div class="view-toggle-note" id="modeNote">Guided view shows additional step-by-step instructions for non-technical users.</div>
+            <!-- Hidden legacy elements for backward compatibility with setUIMode -->
+            <div class="view-toggle-wrap" style="display:none !important;" role="tablist" aria-label="Interface mode">
+                <button class="view-toggle-btn" id="modeGuidedBtn" role="tab">With annotations</button>
+                <button class="view-toggle-btn" id="modeExpertBtn" role="tab">Compact view</button>
+            </div>
+            <div class="view-toggle-note" id="modeNote" style="display:none !important;"></div>
         </header>
 
-        <div class="upload-section" id="uploadSection">
-            <h3 style="margin-bottom: 6px; color: var(--primary); font-size: 20px;">Get Started</h3>
-            <p style="margin-bottom: 4px; color: #5a6d80; font-size: 14px;">Load the full UHRI dataset or upload your own data to begin exploring.</p>
-            <div class="guidance-card guided-only">
-                <strong>Quick start (for human rights experts):</strong>
-                <ul>
-                    <li>Click <strong>Explore Full Dataset</strong> to load all 266,780 UN recommendations.</li>
-                    <li>Use filters to narrow by country, body, theme, or year.</li>
-                    <li>Click any chart bar to drill down to the underlying recommendations.</li>
-                    <li>Copy charts, cite sources, and export data for your reports.</li>
-                </ul>
-            </div>
-
-            <div class="landing-features">
-                <div class="landing-feature">
-                    <div class="landing-feature-icon">📊</div>
-                    <div class="landing-feature-text">Interactive Charts<small>Trends, themes, bodies, regions with drill-down</small></div>
-                </div>
-                <div class="landing-feature">
-                    <div class="landing-feature-icon">🌍</div>
-                    <div class="landing-feature-text">World Map<small>Geographic distribution of recommendations</small></div>
-                </div>
-                <div class="landing-feature">
-                    <div class="landing-feature-icon">📋</div>
-                    <div class="landing-feature-text">Source Links<small>Direct links to UHRI and UN Documents</small></div>
-                </div>
-                <div class="landing-feature">
-                    <div class="landing-feature-icon">🤖</div>
-                    <div class="landing-feature-text">ML Classifier<small>Train custom labels with SetFit</small></div>
-                </div>
-            </div>
-
-            <div class="landing-actions">
-                <button class="landing-cta primary" id="vmLoadBtn" onclick="loadRemoteDataset()">
-                    🔍 Explore Full Dataset
-                </button>
-                <button class="landing-cta green" id="sampleLoadBtn" onclick="loadBundledSampleData()">
-                    🚀 Quick Demo
-                </button>
-            </div>
-
-            <div class="landing-or">or upload your own file</div>
-
+        <div class="upload-section" id="uploadSection" style="text-align:left; border:none; box-shadow:none; background:transparent; padding:0;">
+            <!-- Hidden file input (used by header upload button) -->
             <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json">
-            <div style="display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">
-                <button class="landing-cta secondary" onclick="document.getElementById('fileInput').click()">
-                    📂 Upload File
-                </button>
-                <div class="file-types" style="margin:0;">
-                    <span class="file-type-badge excel">📊 Excel</span>
-                    <span class="file-type-badge json">📄 JSON</span>
+
+            <!-- Guidance card for first-time visitors -->
+            <div class="guidance-card guided-only" style="margin-bottom:16px;">
+                <strong>💡 Welcome!</strong> This dashboard lets you explore 266,000+ UN human rights recommendations with interactive charts, maps, and drill-downs.
+                Click any chart below to preview the data, then hit <strong>"Explore Full Dashboard"</strong> to unlock all features.
+                <div style="margin-top:6px; font-size:11px; color:#5a7089;">
+                    You can hide these tips via the ⚙ icon in the header.
                 </div>
             </div>
-            <div class="upload-hint" style="margin-top:16px;">
-                <span id="uploadHintDetail"></span>
+
+            <!-- Living Data Canvas — mini charts -->
+            <div class="landing-canvas" id="landingCanvas">
+                <div class="landing-canvas-card">
+                    <h4>📊 Top Themes</h4>
+                    <div class="mini-chart-area" id="miniThemesArea">
+                        <div class="landing-canvas-loading" id="miniThemesLoading">
+                            <div class="mini-spinner"></div> Loading preview…
+                        </div>
+                        <canvas id="miniThemesChart" style="display:none;"></canvas>
+                    </div>
+                </div>
+                <div class="landing-canvas-card">
+                    <h4>👥 Most Affected Groups</h4>
+                    <div class="mini-chart-area" id="miniPersonsArea">
+                        <div class="landing-canvas-loading" id="miniPersonsLoading">
+                            <div class="mini-spinner"></div> Loading preview…
+                        </div>
+                        <canvas id="miniPersonsChart" style="display:none;"></canvas>
+                    </div>
+                </div>
+                <div class="landing-canvas-card">
+                    <h4>🌍 Top Countries</h4>
+                    <div class="mini-chart-area" id="miniCountriesArea">
+                        <div class="landing-canvas-loading" id="miniCountriesLoading">
+                            <div class="mini-spinner"></div> Loading preview…
+                        </div>
+                        <canvas id="miniCountriesChart" style="display:none;"></canvas>
+                    </div>
+                </div>
+                <div class="landing-canvas-card">
+                    <h4>📈 Recommendations Over Time</h4>
+                    <div class="mini-chart-area" id="miniTrendArea">
+                        <div class="landing-canvas-loading" id="miniTrendLoading">
+                            <div class="mini-spinner"></div> Loading preview…
+                        </div>
+                        <canvas id="miniTrendChart" style="display:none;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Popular question chips -->
+            <div class="landing-filters" id="landingQuestionChips">
+                <span style="font-size:12px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px;">Quick explore:</span>
+                <button class="landing-filter-chip" onclick="quickExploreChip('countries','China')">🇨🇳 China</button>
+                <button class="landing-filter-chip" onclick="quickExploreChip('themes','Equality &amp; non-discrimination')">⚖️ Equality</button>
+                <button class="landing-filter-chip" onclick="quickExploreChip('affected_persons','Children')">👶 Children</button>
+                <button class="landing-filter-chip" onclick="quickExploreChip('affected_persons','Women &amp; girls')">♀️ Women & girls</button>
+                <button class="landing-filter-chip" onclick="quickExploreChip('regions','Africa')">🌍 Africa</button>
+            </div>
+
+            <!-- Single dominant CTA -->
+            <div class="landing-explore-cta">
+                <button class="cta-main" id="vmLoadBtn" onclick="loadRemoteDataset()">
+                    🔍 Explore Full Dashboard
+                </button>
+                <button class="cta-secondary" id="sampleLoadBtn" onclick="loadBundledSampleData()">
+                    🚀 Quick Demo (739 records)
+                </button>
+            </div>
+
+            <div class="upload-hint" style="margin-top:14px; text-align:center;">
+                <span id="uploadHintDetail" style="font-size:12px; color:#8899aa;"></span>
             </div>
         </div>
 
@@ -2598,16 +2876,15 @@
             document.body.classList.remove('mode-guided', 'mode-expert');
             document.body.classList.add(`mode-${uiMode}`);
 
+            // Sync legacy toggle buttons (hidden but kept for backward compat)
             const guidedBtn = document.getElementById('modeGuidedBtn');
             const expertBtn = document.getElementById('modeExpertBtn');
-            const note = document.getElementById('modeNote');
             if (guidedBtn) guidedBtn.classList.toggle('active', uiMode === 'guided');
             if (expertBtn) expertBtn.classList.toggle('active', uiMode === 'expert');
-            if (note) {
-                note.textContent = uiMode === 'guided'
-                    ? 'Guided view (for non-IT users): additional practical instructions are visible in each step.'
-                    : 'Expert view: compact interface, matching the original dashboard behavior.';
-            }
+
+            // Sync settings panel checkbox
+            const annotationsToggle = document.getElementById('annotationsToggle');
+            if (annotationsToggle) annotationsToggle.checked = (uiMode === 'guided');
 
             try {
                 localStorage.setItem(UI_MODE_STORAGE_KEY, uiMode);
@@ -2617,16 +2894,308 @@
         }
 
         function loadSavedUIMode() {
+            let isFirstVisit = true;
             try {
                 const stored = localStorage.getItem(UI_MODE_STORAGE_KEY);
                 if (stored === 'guided' || stored === 'expert') {
+                    isFirstVisit = false;
                     setUIMode(stored);
                     return;
+                }
+                // Check if user has ever visited (via returning-user key)
+                if (localStorage.getItem('un_hr_dashboard_visited')) {
+                    isFirstVisit = false;
                 }
             } catch {
                 // Ignore storage access errors.
             }
-            setUIMode('expert');
+            // First-time visitors get annotations by default
+            setUIMode(isFirstVisit ? 'guided' : 'expert');
+        }
+
+        /* ── Settings panel toggle ── */
+        function toggleSettingsPanel() {
+            const panel = document.getElementById('settingsPanel');
+            if (panel) panel.classList.toggle('open');
+        }
+        // Close settings panel on outside click
+        document.addEventListener('click', function(e) {
+            const panel = document.getElementById('settingsPanel');
+            const gear = document.getElementById('settingsGearBtn');
+            if (panel && panel.classList.contains('open') && !panel.contains(e.target) && e.target !== gear) {
+                panel.classList.remove('open');
+            }
+        });
+
+        /* ── Auto-load preference ── */
+        const AUTOLOAD_STORAGE_KEY = 'un_hr_dashboard_autoload';
+        function toggleAutoLoad(enabled) {
+            try {
+                localStorage.setItem(AUTOLOAD_STORAGE_KEY, enabled ? '1' : '0');
+            } catch { /* ignore */ }
+        }
+        function isAutoLoadEnabled() {
+            try {
+                return localStorage.getItem(AUTOLOAD_STORAGE_KEY) === '1';
+            } catch { return false; }
+        }
+
+        /* ── Count-up animation for hero stats ── */
+        function animateCountUp(el, target, duration) {
+            const start = performance.now();
+            const formatter = new Intl.NumberFormat();
+            el.classList.add('counting');
+            function tick(now) {
+                const elapsed = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                // Ease-out cubic
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = Math.round(target * eased);
+                el.textContent = formatter.format(current);
+                if (progress < 1) {
+                    requestAnimationFrame(tick);
+                } else {
+                    el.classList.remove('counting');
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        function runHeroCountUp() {
+            const stats = document.querySelectorAll('.hero-stat-value[data-target]');
+            stats.forEach(el => {
+                const target = parseInt(el.getAttribute('data-target'), 10);
+                if (!isNaN(target) && target > 0) {
+                    const duration = target > 1000 ? 2000 : target > 100 ? 1500 : 800;
+                    animateCountUp(el, target, duration);
+                }
+            });
+            // Handle the text-based span stat
+            const spanEl = document.getElementById('heroStatSpan');
+            if (spanEl) {
+                setTimeout(() => {
+                    spanEl.textContent = spanEl.getAttribute('data-target-text') || '2006–2026';
+                }, 600);
+            }
+        }
+
+        /* ── Update hero stats from live API data ── */
+        function updateHeroStatsFromApi(summary) {
+            if (!summary) return;
+            const recsEl = document.getElementById('heroStatRecs');
+            const countriesEl = document.getElementById('heroStatCountries');
+            const bodiesEl = document.getElementById('heroStatBodies');
+            const spanEl = document.getElementById('heroStatSpan');
+            const formatter = new Intl.NumberFormat();
+
+            if (summary.total_records && recsEl) {
+                recsEl.setAttribute('data-target', summary.total_records);
+                recsEl.textContent = formatter.format(summary.total_records);
+            }
+            if (summary.country_counts && countriesEl) {
+                const count = Array.isArray(summary.country_counts) ? summary.country_counts.length : 0;
+                if (count > 0) {
+                    countriesEl.textContent = formatter.format(count);
+                }
+            }
+            if (summary.body_counts && bodiesEl) {
+                const count = Array.isArray(summary.body_counts) ? summary.body_counts.length : 0;
+                if (count > 0) {
+                    bodiesEl.textContent = formatter.format(count);
+                }
+            }
+            if (summary.yearly_counts && spanEl) {
+                const years = summary.yearly_counts.map(y => y.year || y[0]).filter(Boolean);
+                if (years.length) {
+                    const minY = Math.min(...years);
+                    const maxY = Math.max(...years);
+                    spanEl.textContent = `${minY}–${maxY}`;
+                }
+            }
+        }
+
+        /* ── Living Data Canvas: mini-chart rendering ── */
+        const miniCharts = {};
+        const MINI_CHART_COLORS = ['#2d6ea3','#3d8fd4','#5aa5e0','#7bbbea','#a0d0f2','#c4e3f9','#1a7a3a','#28a745'];
+
+        function renderMiniThemesChart(themeData) {
+            const top = themeData.slice(0, 7);
+            const canvas = document.getElementById('miniThemesChart');
+            const loading = document.getElementById('miniThemesLoading');
+            if (!canvas || !top.length) return;
+            loading.style.display = 'none';
+            canvas.style.display = 'block';
+            if (miniCharts.themes) miniCharts.themes.destroy();
+            const labels = top.map(t => {
+                const name = (t.theme || '').replace(/^-\s*/, '');
+                return name.length > 30 ? name.slice(0, 28) + '…' : name;
+            });
+            miniCharts.themes = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ data: top.map(t => t.count), backgroundColor: MINI_CHART_COLORS, borderRadius: 4 }]
+                },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => Number(ctx.raw).toLocaleString() + ' recommendations' } } },
+                    scales: { x: { display: false }, y: { ticks: { font: { size: 11 } }, grid: { display: false } } },
+                    onClick: (evt, elements) => {
+                        if (elements.length) quickExploreChip('themes', themeData[elements[0].index]?.theme);
+                    }
+                }
+            });
+        }
+
+        function renderMiniPersonsChart(personsData) {
+            const top = personsData.slice(0, 6);
+            const canvas = document.getElementById('miniPersonsChart');
+            const loading = document.getElementById('miniPersonsLoading');
+            if (!canvas || !top.length) return;
+            loading.style.display = 'none';
+            canvas.style.display = 'block';
+            if (miniCharts.persons) miniCharts.persons.destroy();
+            const labels = top.map(p => {
+                const name = (p.affected_person || '').replace(/^-\s*/, '');
+                return name.length > 28 ? name.slice(0, 26) + '…' : name;
+            });
+            miniCharts.persons = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ data: top.map(p => p.count), backgroundColor: ['#e07c3e','#d4a03d','#3d8fd4','#2d6ea3','#7b68ee','#28a745'], borderRadius: 4 }]
+                },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => Number(ctx.raw).toLocaleString() + ' recommendations' } } },
+                    scales: { x: { display: false }, y: { ticks: { font: { size: 11 } }, grid: { display: false } } },
+                    onClick: (evt, elements) => {
+                        if (elements.length) quickExploreChip('affected_persons', personsData[elements[0].index]?.affected_person);
+                    }
+                }
+            });
+        }
+
+        function renderMiniCountriesChart(countryData) {
+            const top = countryData.slice(0, 8);
+            const canvas = document.getElementById('miniCountriesChart');
+            const loading = document.getElementById('miniCountriesLoading');
+            if (!canvas || !top.length) return;
+            loading.style.display = 'none';
+            canvas.style.display = 'block';
+            if (miniCharts.countries) miniCharts.countries.destroy();
+            const labels = top.map(c => {
+                const name = (c.country || '').replace(/^-\s*/, '');
+                return name.length > 24 ? name.slice(0, 22) + '…' : name;
+            });
+            miniCharts.countries = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ data: top.map(c => c.count), backgroundColor: MINI_CHART_COLORS, borderRadius: 4 }]
+                },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => Number(ctx.raw).toLocaleString() + ' recommendations' } } },
+                    scales: { x: { display: false }, y: { ticks: { font: { size: 11 } }, grid: { display: false } } },
+                    onClick: (evt, elements) => {
+                        if (elements.length) quickExploreChip('countries', countryData[elements[0].index]?.country);
+                    }
+                }
+            });
+        }
+
+        function renderMiniTrendChart(yearlyData) {
+            const canvas = document.getElementById('miniTrendChart');
+            const loading = document.getElementById('miniTrendLoading');
+            if (!canvas || !yearlyData.length) return;
+            loading.style.display = 'none';
+            canvas.style.display = 'block';
+            if (miniCharts.trend) miniCharts.trend.destroy();
+            const years = yearlyData.map(y => String(y.year));
+            const counts = yearlyData.map(y => y.count);
+            miniCharts.trend = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: years,
+                    datasets: [{
+                        data: counts,
+                        borderColor: '#2d6ea3',
+                        backgroundColor: 'rgba(45,110,163,0.08)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => Number(ctx.raw).toLocaleString() + ' recommendations' } } },
+                    scales: {
+                        x: { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } },
+                        y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'k' : v }, grid: { color: '#f0f0f0' } }
+                    }
+                }
+            });
+        }
+
+        /* Destroy mini-charts when transitioning to full dashboard */
+        function destroyMiniCharts() {
+            for (const key of Object.keys(miniCharts)) {
+                if (miniCharts[key]) { miniCharts[key].destroy(); miniCharts[key] = null; }
+            }
+        }
+
+        /* Populate the living canvas from bootstrap data */
+        function populateLandingCanvas(bootstrapData) {
+            if (!bootstrapData) return;
+            const summary = bootstrapData.summary || {};
+            const analytics = bootstrapData.analytics || {};
+            const themes = analytics.themes?.theme_counts || [];
+            const persons = analytics.text?.affected_person_counts || [];
+            const countries = bootstrapData.map_country_counts || [];
+            const yearly = summary.yearly_counts || [];
+
+            // Update hero stats with real data
+            updateHeroStatsFromApi(summary);
+
+            // Render mini charts
+            if (themes.length) renderMiniThemesChart(themes);
+            if (persons.length) renderMiniPersonsChart(persons);
+            if (countries.length) renderMiniCountriesChart(countries);
+            if (yearly.length) renderMiniTrendChart(yearly);
+        }
+
+        /* Quick explore chip — loads dashboard with a pre-set filter */
+        function quickExploreChip(filterType, value) {
+            if (!value) return;
+            // Store the desired filter for after load
+            window._quickExploreFilter = { type: filterType, value: value };
+            // Trigger full dashboard load
+            if (DATASET_API_URL || isGithubPagesHost()) {
+                loadOverviewBootstrapThenServerBrowse(false);
+            } else {
+                loadBundledSampleData(false);
+            }
+        }
+
+        /* Auto-fetch bootstrap for living canvas on page load */
+        function autoFetchLandingPreview() {
+            const bootstrapPath = './sample-data/overview-bootstrap.json';
+            fetch(bootstrapPath, { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
+                .then(data => {
+                    window._landingBootstrapData = data;
+                    populateLandingCanvas(data);
+                })
+                .catch(err => {
+                    console.debug('Landing preview fetch skipped:', err);
+                    // Hide loading indicators, show "data loads on click" message
+                    document.querySelectorAll('.landing-canvas-loading').forEach(el => {
+                        el.innerHTML = '<span style="color:#aab;font-size:12px;">Click "Explore" to load data</span>';
+                    });
+                });
         }
 
         function loadCustomWidgetsFromStorage() {
@@ -2831,6 +3400,30 @@
         updateRemoteDatasetUI();
         bindTabSwitching();
 
+        // ── Run count-up animation on hero stats ──
+        runHeroCountUp();
+
+        // ── Sync auto-load toggle in settings panel ──
+        const autoLoadToggle = document.getElementById('autoLoadToggle');
+        if (autoLoadToggle) autoLoadToggle.checked = isAutoLoadEnabled();
+
+        // ── Auto-fetch bootstrap for Living Data Canvas (mini-charts on landing) ──
+        autoFetchLandingPreview();
+
+        // ── Prefetch API metadata for live hero stats (non-blocking, if bootstrap unavailable) ──
+        if (DATASET_SUMMARY_URL) {
+            fetch(DATASET_SUMMARY_URL, { signal: AbortSignal.timeout(8000) })
+                .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
+                .then(summary => {
+                    updateHeroStatsFromApi(summary);
+                    window._prefetchedSummary = summary;
+                })
+                .catch(err => console.debug('Hero stats prefetch skipped:', err));
+        }
+
+        // ── Mark user as returning visitor ──
+        try { localStorage.setItem('un_hr_dashboard_visited', '1'); } catch {}
+
         uploadSection.addEventListener('dragover', (e) => { e.preventDefault(); uploadSection.classList.add('dragover'); });
         uploadSection.addEventListener('dragleave', () => uploadSection.classList.remove('dragover'));
         uploadSection.addEventListener('drop', (e) => {
@@ -2841,8 +3434,13 @@
         fileInput.addEventListener('change', (e) => {
             if (e.target.files[0]) processFile(e.target.files[0], 'upload');
         });
+
+        // ── Returning user auto-load (if enabled in settings) ──
         if (shouldAutoLoadDemoData()) {
             loadBundledSampleData(false);
+        } else if (isAutoLoadEnabled() && DATASET_API_URL) {
+            // User opted into auto-load — skip landing page
+            loadOverviewBootstrapThenServerBrowse(false);
         } else if (shouldAutoLoadRemoteData()) {
             loadOverviewBootstrapThenServerBrowse(false);
         }
@@ -2864,17 +3462,24 @@
         function updateRemoteDatasetUI() {
             const configured = !!(DATASET_API_URL && DATASET_FACETS_URL && DATASET_SUMMARY_URL && DATASET_RECORDS_URL);
             if (vmLoadBtn) {
-                vmLoadBtn.classList.toggle('hidden', !configured);
-                vmLoadBtn.disabled = !configured;
+                // Always show main CTA; if no API, it loads bootstrap/sample instead
+                if (!configured) {
+                    vmLoadBtn.textContent = '🔍 Explore Full Dashboard';
+                    vmLoadBtn.onclick = function() {
+                        loadOverviewBootstrapThenServerBrowse(false);
+                    };
+                }
+                vmLoadBtn.classList.remove('hidden');
+                vmLoadBtn.disabled = false;
             }
             const hint = document.getElementById('uploadHintDetail');
             if (!hint) return;
             if (!configured) {
-                hint.textContent = ' No VM dataset API configured yet.';
+                hint.textContent = '';
                 return;
             }
             const sourceLabel = VM_BASE_URL ? ` via ${VM_BASE_URL}` : '';
-            hint.innerHTML = ` Fast overview bootstrap plus lightweight VM browse mode is configured${escapeHtml(sourceLabel)}. Use <code>?source=upload</code> to skip autoload or the VM button to force a full download only when you really need it.`;
+            hint.innerHTML = `Connected to analytics server${escapeHtml(sourceLabel)}.`;
         }
 
         function shouldAutoLoadRemoteData() {
@@ -3003,6 +3608,7 @@
 
             document.getElementById('loadingIndicator').classList.add('hidden');
             uploadSection.classList.add('hidden');
+            destroyMiniCharts(); // Free landing page mini-charts
             document.getElementById('dataInfo').classList.remove('hidden');
             updateDatasetMetadataUI();
             document.getElementById('sampleNotice').classList.add('hidden');
@@ -3032,6 +3638,38 @@
             }
             activateTab('overview');
             updateSelectedCountInfo();
+
+            // Apply quick-explore filter if user clicked a chip on the landing page
+            if (window._quickExploreFilter) {
+                const qf = window._quickExploreFilter;
+                window._quickExploreFilter = null;
+                setTimeout(() => {
+                    try {
+                        const filterMap = {
+                            countries: 'filterCountry',
+                            regions: 'filterRegion',
+                            themes: 'filterTheme',
+                            affected_persons: 'filterAffectedPerson',
+                            bodies: 'filterBody'
+                        };
+                        const selectId = filterMap[qf.type];
+                        if (selectId) {
+                            const select = document.getElementById(selectId);
+                            if (select) {
+                                const cleanValue = (qf.value || '').replace(/^-\s*/, '');
+                                for (const opt of select.options) {
+                                    const optClean = opt.value.replace(/^-\s*/, '');
+                                    if (optClean === cleanValue || opt.value === qf.value) {
+                                        select.value = opt.value;
+                                        select.dispatchEvent(new Event('change'));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) { console.debug('Quick explore filter apply failed:', e); }
+                }, 500);
+            }
         }
 
         async function loadOverviewBootstrap(showErrors = true) {
