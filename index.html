@@ -4043,14 +4043,14 @@
             if (!DATASET_API_URL) return false;
             try {
                 const url = new URL(window.location.href);
+                const source = String(url.searchParams.get('source') || '').toLowerCase();
                 const autoload = String(url.searchParams.get('autoload') || '').toLowerCase();
-                if (autoload === '0' || autoload === 'false') return false;
-                if (autoload === '1' || autoload === 'true' || autoload === 'vm') return true;
+                if (source === 'upload' || autoload === '0' || autoload === 'false') return false;
+                if (source === 'vm' || autoload === '1' || autoload === 'true' || autoload === 'vm') return true;
             } catch {
-                // Fall back below.
+                // Fall back to host-based default below.
             }
-            // GH Pages: show landing page by default (user clicks "Explore" to load)
-            return false;
+            return isGithubPagesHost();
         }
 
         function resetDatasetMetadata() {
@@ -4197,37 +4197,55 @@
             activateTab('overview');
             updateSelectedCountInfo();
 
-            // Apply quick-explore filter if user clicked a chip on the landing page
-            if (window._quickExploreFilter) {
-                const qf = window._quickExploreFilter;
-                window._quickExploreFilter = null;
-                setTimeout(() => {
-                    try {
-                        const filterMap = {
-                            countries: 'filterCountry',
-                            regions: 'filterRegion',
-                            themes: 'filterTheme',
-                            affected_persons: 'filterAffectedPerson',
-                            bodies: 'filterBody'
-                        };
-                        const selectId = filterMap[qf.type];
-                        if (selectId) {
-                            const select = document.getElementById(selectId);
-                            if (select) {
-                                const cleanValue = (qf.value || '').replace(/^-\s*/, '');
-                                for (const opt of select.options) {
-                                    const optClean = opt.value.replace(/^-\s*/, '');
-                                    if (optClean === cleanValue || opt.value === qf.value) {
-                                        select.value = opt.value;
-                                        select.dispatchEvent(new Event('change'));
-                                        break;
-                                    }
+            // Apply quick-explore filter from landing page selection
+            applyQuickExploreFilter();
+        }
+
+        function applyQuickExploreFilter() {
+            if (!window._quickExploreFilter) return;
+            const qf = window._quickExploreFilter;
+            window._quickExploreFilter = null;
+            setTimeout(() => {
+                try {
+                    const selectMap = {
+                        countries: 'filterCountry',
+                        regions: 'filterRegion',
+                        bodies: 'filterBody'
+                    };
+                    const selectId = selectMap[qf.type];
+                    const cleanValue = (qf.value || '').replace(/^-\s*/, '');
+                    let applied = false;
+
+                    if (selectId) {
+                        const select = document.getElementById(selectId);
+                        if (select) {
+                            for (const opt of select.options) {
+                                const optClean = opt.value.replace(/^-\s*/, '');
+                                if (optClean === cleanValue || opt.value === qf.value) {
+                                    opt.selected = true;
+                                    applied = true;
+                                    break;
                                 }
                             }
                         }
-                    } catch (e) { console.debug('Quick explore filter apply failed:', e); }
-                }, 500);
-            }
+                    } else if (qf.type === 'themes' || qf.type === 'affected_persons') {
+                        const textInput = document.getElementById('filterText');
+                        if (textInput) {
+                            textInput.value = `"${cleanValue}"`;
+                            applied = true;
+                        }
+                    }
+
+                    if (applied) {
+                        // Open the facets details if a select filter was applied
+                        if (selectId) {
+                            const details = document.getElementById('filterFacetsDetails');
+                            if (details) details.open = true;
+                        }
+                        applyFilters();
+                    }
+                } catch (e) { console.debug('Quick explore filter apply failed:', e); }
+            }, 500);
         }
 
         async function loadOverviewBootstrap(showErrors = true) {
@@ -5787,6 +5805,9 @@
                 resizeOverviewWorldMap();
             });
 
+            // Apply quick-explore filter from landing page selection
+            applyQuickExploreFilter();
+
             setProgress(100, 'Complete!');
         }
 
@@ -6726,7 +6747,8 @@
         Chart.defaults.onClick = handleChartDrilldown;
 
         const DRILLDOWN_PAGE_SIZE = 25;
-        let _drilldownState = { filterFn: null, allResults: [], shown: 0, label: '' };
+        let _drilldownState = { filterFn: null, allResults: [], shown: 0, label: '', totalOnServer: 0 };
+        let _drilldownTotalOnServer = 0;
 
         // Build extra API query params for server-mode drill-down based on chart + label
         const chartDrilldownApiParams = {
@@ -6763,8 +6785,9 @@
                     const params = serverBrowseMode
                         ? buildServerQueryParams({ includePagination: false, includeSort: false })
                         : new URLSearchParams();
-                    params.set('page_size', '50');
+                    params.set('page_size', '100');
                     params.set('page', '1');
+                    params.set('sort', '-year');
 
                     // Find the chart key from the drilldown state
                     const chartKey = _currentDrilldownChartKey;
@@ -6784,6 +6807,7 @@
                     if (payload?.records) {
                         results = payload.records.map((row, idx) => normalizeRecord(row, 900000 + idx));
                     }
+                    _drilldownTotalOnServer = payload?.total || payload?.total_count || results.length;
                 } catch (err) {
                     console.warn('Drill-down API fetch failed:', err);
                     bodyEl.innerHTML = '<div class="drilldown-empty">Could not fetch recommendations from the server. Try again later.</div>';
@@ -6792,10 +6816,14 @@
             } else {
                 // Local mode: filter in-memory data
                 const sourceData = filteredData.length > 0 ? filteredData : chartData;
-                results = sourceData.filter(filterFn);
+                const allMatches = sourceData.filter(filterFn);
+                _drilldownTotalOnServer = allMatches.length;
+                // Sort by year descending (most recent first), take max 100
+                allMatches.sort((a, b) => (b._year || 0) - (a._year || 0));
+                results = allMatches.slice(0, 100);
             }
 
-            _drilldownState = { filterFn, allResults: results, shown: 0, label };
+            _drilldownState = { filterFn, allResults: results, shown: 0, label, totalOnServer: _drilldownTotalOnServer };
 
             if (results.length === 0) {
                 bodyEl.innerHTML = '<div class="drilldown-empty">No matching recommendations found.</div>';
@@ -6809,7 +6837,8 @@
 
         function renderDrilldownPage() {
             const body = document.getElementById('drilldownBody');
-            const { allResults, shown } = _drilldownState;
+            const titleEl = document.getElementById('drilldownTitle');
+            const { allResults, shown, totalOnServer } = _drilldownState;
             const end = Math.min(shown + DRILLDOWN_PAGE_SIZE, allResults.length);
             const batch = allResults.slice(shown, end);
 
@@ -6837,7 +6866,7 @@
                 if (uhri) html += `<a href="${uhri}" target="_blank" rel="noopener" class="source-link uhri-link">UHRI</a>`;
                 if (undocs) html += `<a href="${undocs}" target="_blank" rel="noopener" class="source-link undocs-link">UN Doc</a>`;
                 if (typeof rec._id !== 'undefined' && recordMap.has(String(rec._id))) {
-                    html += `<button class="copy-btn" onclick="showRecordDetail(${rec._id})" style="font-size:11px">Details</button>`;
+                    html += `<button class="copy-btn" onclick="showDrilldownDetail(${rec._id})" style="font-size:11px">Details</button>`;
                     html += `<button class="copy-btn" onclick="copyFormattedCitation(${rec._id}, this)" style="font-size:11px">Cite</button>`;
                 }
                 html += `</div></div>`;
@@ -6845,20 +6874,96 @@
 
             _drilldownState.shown = end;
 
-            if (end < allResults.length) {
+            const DRILLDOWN_MAX = 100;
+            const hasMore = end < allResults.length;
+            const limitNote = totalOnServer && totalOnServer > DRILLDOWN_MAX
+                ? `<div style="padding:8px 20px; text-align:center; color:#8899aa; font-size:11px;">Showing ${Math.min(allResults.length, DRILLDOWN_MAX)} most recent of ${Number(totalOnServer).toLocaleString()} total matches</div>`
+                : `<div style="padding:8px 20px; text-align:center; color:#8899aa; font-size:11px;">${allResults.length} recommendation${allResults.length !== 1 ? 's' : ''}</div>`;
+
+            if (hasMore) {
                 const remaining = allResults.length - end;
-                html += `<div class="drilldown-more"><button onclick="renderDrilldownPage()">Show more (${remaining} remaining of ${allResults.length} total)</button></div>`;
+                html += `<div class="drilldown-more"><button onclick="renderDrilldownPage()">Show more (${remaining} remaining)</button></div>`;
             } else {
-                html += `<div style="padding:12px 20px; text-align:center; color:#999; font-size:12px;">${allResults.length} recommendation${allResults.length !== 1 ? 's' : ''} shown</div>`;
+                html += limitNote;
             }
 
             body.innerHTML = html;
         }
 
+        // Show record detail inside the drilldown overlay (replacing the list)
+        function showDrilldownDetail(id) {
+            const rec = recordMap.get(String(id));
+            if (!rec) return;
+
+            const titleEl = document.getElementById('drilldownTitle');
+            const bodyEl = document.getElementById('drilldownBody');
+
+            // Save current list state so we can restore it
+            _drilldownState._savedListHTML = bodyEl.innerHTML;
+            _drilldownState._savedTitle = titleEl.textContent;
+
+            const body_ = (rec._body || '').replace(/^-+\s*/, '').trim();
+            const country = (rec._countries || '').split('\n').map(s => s.replace(/^-+\s*/, '').trim()).filter(Boolean).join(', ');
+            const type = (rec._type || '').replace(/^-+\s*/, '').trim();
+            const year = rec._year ? String(rec._year) : '';
+            const symbol = (rec._symbol || '').replace(/^-+\s*/, '').trim();
+            const themes = (rec._themesArray || []).map(t => t.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const affectedPersons = (rec._affectedPersonsArray || []).map(p => p.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const sdgs = (rec._sdgsArray || []).map(s => s.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const regions = (rec._regionsArray || []).map(r => r.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const uhriUrl = getUhriUrl(rec);
+            const unDocsUrl = getUnDocsUrl(rec);
+
+            const field = (label, value) => value ? `<div class="record-detail-label">${label}</div><div class="record-detail-value">${escapeHtml(value)}</div>` : '';
+            const fieldList = (label, arr) => arr.length ? `<div class="record-detail-label">${label}</div><div class="record-detail-value">${arr.map(v => escapeHtml(v)).join(', ')}</div>` : '';
+
+            titleEl.textContent = `${body_ || 'Recommendation'}${country ? ' — ' + country : ''}${year ? ' (' + year + ')' : ''}`;
+
+            let html = '';
+            html += `<div style="margin-bottom:12px;"><button class="btn btn-secondary" onclick="restoreDrilldownList()" style="padding:6px 14px; font-size:12px;">← Back to list</button></div>`;
+            html += `<div class="record-detail-text">${escapeHtml(rec._text || '')}</div>`;
+            html += '<div class="record-detail-grid">';
+            html += field('Body', body_);
+            html += field('Country', country);
+            html += field('Year', year);
+            html += field('Type', type);
+            html += field('Document', symbol);
+            html += fieldList('Regions', regions);
+            html += fieldList('Themes', themes);
+            html += fieldList('Affected Persons', affectedPersons);
+            html += fieldList('SDGs', sdgs);
+            html += '</div>';
+            html += '<div class="record-detail-actions">';
+            if (uhriUrl) html += `<a href="${uhriUrl}" target="_blank" rel="noopener" class="detail-btn-uhri">View on UHRI</a>`;
+            if (unDocsUrl) html += `<a href="${unDocsUrl}" target="_blank" rel="noopener" class="detail-btn-undocs">View UN Document</a>`;
+            html += `<button class="detail-btn-cite" onclick="copyFormattedCitation(${id}, this)">Copy Citation</button>`;
+            html += `<button class="detail-btn-copy" onclick="copyToClipboard(recordMap.get('${id}')?._text || ''); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy Text',1500)">Copy Text</button>`;
+            html += '</div>';
+            const citation = buildFormattedCitation(rec);
+            html += `<div style="margin-top:12px; padding:10px 14px; background:#f5f5f5; border-radius:6px; font-size:12px; color:#555; line-height:1.5;">`;
+            html += `<strong>Citation:</strong> ${escapeHtml(citation)}`;
+            html += '</div>';
+
+            bodyEl.innerHTML = html;
+            bodyEl.scrollTop = 0;
+        }
+
+        function restoreDrilldownList() {
+            const titleEl = document.getElementById('drilldownTitle');
+            const bodyEl = document.getElementById('drilldownBody');
+            if (_drilldownState._savedListHTML) {
+                bodyEl.innerHTML = _drilldownState._savedListHTML;
+                titleEl.textContent = _drilldownState._savedTitle || '';
+                _drilldownState._savedListHTML = null;
+                _drilldownState._savedTitle = null;
+            }
+        }
+
         function closeDrilldown(e) {
             if (!e || e.target === document.getElementById('drilldownOverlay')) {
                 document.getElementById('drilldownOverlay').classList.add('hidden');
-                _drilldownState = { filterFn: null, allResults: [], shown: 0, label: '' };
+                _drilldownState = { filterFn: null, allResults: [], shown: 0, label: '', totalOnServer: 0 };
+                _drilldownTotalOnServer = 0;
             }
         }
 
