@@ -2878,7 +2878,9 @@
         function setServerBrowseMode(active) {
             serverBrowseMode = !!active;
             overviewBootstrapMode = false;
-            bootstrapAnalyticsReady = false;
+            // Keep bootstrapAnalyticsReady true during transition so tabs stay
+            // functional until fresh VM analytics arrive and replace them.
+            if (!active) bootstrapAnalyticsReady = false;
             removeAllTabLoadingSpinners();
             const banner = document.getElementById('serverModeBanner');
             const trainBtn = document.getElementById('trainClassifierBtn');
@@ -3241,11 +3243,17 @@
                 serverState.records = normalizedRecords;
                 serverState.mapCountryCounts = Array.isArray(mapPayload?.country_counts) ? mapPayload.country_counts : [];
                 if (filterChanged) {
-                    serverState.analytics = {
-                        trends: null,
-                        themes: null,
-                        text: null
-                    };
+                    const hadBootstrapAnalytics = bootstrapAnalyticsReady && serverState.analytics;
+                    if (hadBootstrapAnalytics) {
+                        // Preserve pre-computed bootstrap analytics as initial values;
+                        // they'll be replaced when VM analytics arrive
+                    } else {
+                        serverState.analytics = {
+                            trends: null,
+                            themes: null,
+                            text: null
+                        };
+                    }
                     serverState.analyticsLoading = {};
                 }
                 serverState.analyticsFilterKey = analyticsFilterKey;
@@ -3266,9 +3274,23 @@
                 initializeServerBrowseDashboard();
                 updateServerSummaryUI(summary);
                 updateOverviewWorldMap();
-                updateAllCharts();
+                if (background) {
+                    // Only render the currently active tab instead of all 28 charts at once.
+                    // This prevents the UI from freezing during the bootstrap→server transition.
+                    const activeTab = document.querySelector('#tabsSection .tab.active')?.dataset?.tab || 'overview';
+                    renderTabContent(activeTab);
+                } else {
+                    updateAllCharts();
+                }
                 buildDataTable();
                 setVmLoadingNotice(false);
+
+                // After the initial background transition, clear bootstrapAnalyticsReady
+                // so that future filter changes properly wipe and re-fetch analytics.
+                if (activateServerBrowse && bootstrapAnalyticsReady) {
+                    bootstrapAnalyticsReady = false;
+                }
+
                 const fastSections = ['trends', 'themes'];
                 if (filterChanged || !areServerAnalyticsSectionsReady(fastSections)) {
                     ensureServerAnalyticsSections(fastSections, false)
