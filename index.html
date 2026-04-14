@@ -30,14 +30,49 @@
         }
         .dashboard { max-width: 1800px; margin: 0 auto; padding: 20px; }
         header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            background: linear-gradient(135deg, #0d2137 0%, #1a4572 40%, #2d6ea3 100%);
             color: white;
-            padding: 24px 32px;
-            border-radius: 12px;
+            padding: 48px 40px 40px;
+            border-radius: 16px;
             margin-bottom: 24px;
-            box-shadow: var(--shadow);
+            box-shadow: 0 4px 24px rgba(13,33,55,0.25);
+            position: relative;
+            overflow: hidden;
         }
-        header h1 { font-size: 28px; margin-bottom: 8px; }
+        header::before {
+            content: '';
+            position: absolute;
+            top: -60px; right: -60px;
+            width: 260px; height: 260px;
+            background: radial-gradient(circle, rgba(74,144,217,0.18) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        header::after {
+            content: '';
+            position: absolute;
+            bottom: -40px; left: 30%;
+            width: 320px; height: 160px;
+            background: radial-gradient(ellipse, rgba(255,255,255,0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        header h1 { font-size: 32px; margin-bottom: 6px; font-weight: 700; letter-spacing: -0.3px; position: relative; }
+        header .hero-tagline { opacity: 0.85; font-size: 15px; max-width: 560px; line-height: 1.55; position: relative; }
+        header .hero-stats {
+            display: flex; gap: 32px; margin-top: 20px; flex-wrap: wrap; position: relative;
+        }
+        header .hero-stat {
+            text-align: center;
+        }
+        header .hero-stat-value {
+            font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 0%, #a8d4ff 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        header .hero-stat-label {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+            opacity: 0.65; margin-top: 2px;
+        }
         header p { opacity: 0.9; font-size: 14px; }
         .view-toggle-wrap {
             margin-top: 14px;
@@ -95,17 +130,91 @@
         /* Upload Section */
         .upload-section {
             background: white;
-            padding: 32px;
-            border-radius: 12px;
+            padding: 36px 32px 32px;
+            border-radius: 16px;
             margin-bottom: 24px;
-            box-shadow: var(--shadow);
-            border: 2px dashed var(--border);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            border: 2px solid var(--border);
             text-align: center;
             transition: all 0.3s ease;
         }
         .upload-section:hover, .upload-section.dragover {
             border-color: var(--accent);
-            background: #f0f7ff;
+            background: #f6faff;
+        }
+        .landing-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
+            text-align: left;
+        }
+        .landing-feature {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: #f4f8fd;
+            border: 1px solid #e4edf7;
+        }
+        .landing-feature-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #e8f0fe, #d4e4f7);
+        }
+        .landing-feature-text {
+            font-size: 13px;
+            color: var(--primary);
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        .landing-feature-text small {
+            font-weight: 400;
+            color: #5a7089;
+            display: block;
+            margin-top: 2px;
+        }
+        .landing-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 24px;
+        }
+        .landing-cta {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 14px 28px;
+            border: none; border-radius: 10px;
+            font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        .landing-cta:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .landing-cta.primary {
+            background: linear-gradient(135deg, #1a5fa8, #2d7fd4);
+            color: white; box-shadow: 0 3px 12px rgba(26,95,168,0.3);
+        }
+        .landing-cta.primary:hover { transform: translateY(-2px); box-shadow: 0 5px 18px rgba(26,95,168,0.4); }
+        .landing-cta.secondary {
+            background: white; color: var(--primary);
+            border: 2px solid var(--border);
+        }
+        .landing-cta.secondary:hover { border-color: var(--accent); background: #f8fbff; }
+        .landing-cta.green {
+            background: linear-gradient(135deg, #1a7a3a, #28a745);
+            color: white; box-shadow: 0 3px 12px rgba(40,167,69,0.25);
+        }
+        .landing-cta.green:hover { transform: translateY(-2px); box-shadow: 0 5px 18px rgba(40,167,69,0.35); }
+        .landing-or {
+            display: flex; align-items: center; gap: 12px; margin: 20px 0;
+            color: #8899aa; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .landing-or::before, .landing-or::after {
+            content: ''; flex: 1; height: 1px; background: var(--border);
         }
         .upload-section input[type="file"] { display: none; }
         .upload-btn {
@@ -1525,8 +1634,26 @@
     <div class="dashboard">
         <header>
             <h1>UN Human Rights Analytics Dashboard</h1>
-            <p>Analyze UN recommendations from uploaded files or auto-load the full dataset from a VM API.</p>
-            <div class="view-toggle-wrap" role="tablist" aria-label="Interface mode">
+            <p class="hero-tagline">Explore 266,000+ UN human rights recommendations across 199 countries, 21 treaty bodies, and 25 years of monitoring data.</p>
+            <div class="hero-stats" id="heroStats">
+                <div class="hero-stat">
+                    <div class="hero-stat-value">266,780</div>
+                    <div class="hero-stat-label">Recommendations</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">199</div>
+                    <div class="hero-stat-label">Countries</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">21</div>
+                    <div class="hero-stat-label">Treaty Bodies</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">2006–2026</div>
+                    <div class="hero-stat-label">Time Span</div>
+                </div>
+            </div>
+            <div class="view-toggle-wrap" role="tablist" aria-label="Interface mode" style="margin-top:20px;">
                 <button class="view-toggle-btn" id="modeGuidedBtn" onclick="setUIMode('guided')" role="tab">Guided (HR Expert)</button>
                 <button class="view-toggle-btn" id="modeExpertBtn" onclick="setUIMode('expert')" role="tab">Expert (Current)</button>
             </div>
@@ -1534,33 +1661,60 @@
         </header>
 
         <div class="upload-section" id="uploadSection">
-            <h3 style="margin-bottom: 16px; color: var(--primary);">Upload Your Data</h3>
-            <p style="margin-bottom: 20px; color: #666;">Drag & drop a file or click to browse</p>
+            <h3 style="margin-bottom: 6px; color: var(--primary); font-size: 20px;">Get Started</h3>
+            <p style="margin-bottom: 4px; color: #5a6d80; font-size: 14px;">Load the full UHRI dataset or upload your own data to begin exploring.</p>
             <div class="guidance-card guided-only">
                 <strong>Quick start (for human rights experts):</strong>
                 <ul>
-                    <li>Upload Excel/JSON with recommendations text and countries/themes columns.</li>
-                    <li>Use filters to narrow scope, then open <strong>Train Classifier</strong> only if you want custom labels.</li>
-                    <li>Use <strong>My Labels</strong> tab to analyze your assigned labels and trends.</li>
+                    <li>Click <strong>Explore Full Dataset</strong> to load all 266,780 UN recommendations.</li>
+                    <li>Use filters to narrow by country, body, theme, or year.</li>
+                    <li>Click any chart bar to drill down to the underlying recommendations.</li>
+                    <li>Copy charts, cite sources, and export data for your reports.</li>
                 </ul>
             </div>
-            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json">
-            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                📂 Select File
-            </button>
-            <button class="upload-btn secondary" id="sampleLoadBtn" onclick="loadBundledSampleData()">
-                🚀 Load Rule of Law Sample Data
-            </button>
-            <button class="upload-btn vm hidden" id="vmLoadBtn" onclick="loadRemoteDataset()">
-                ☁️ Load Full Dataset from VM
-            </button>
-            <div class="upload-hint">
-                For online demo links, add <code>?demo=1</code> to auto-load bundled sample data.
-                <span id="uploadHintDetail"></span>
+
+            <div class="landing-features">
+                <div class="landing-feature">
+                    <div class="landing-feature-icon">📊</div>
+                    <div class="landing-feature-text">Interactive Charts<small>Trends, themes, bodies, regions with drill-down</small></div>
+                </div>
+                <div class="landing-feature">
+                    <div class="landing-feature-icon">🌍</div>
+                    <div class="landing-feature-text">World Map<small>Geographic distribution of recommendations</small></div>
+                </div>
+                <div class="landing-feature">
+                    <div class="landing-feature-icon">📋</div>
+                    <div class="landing-feature-text">Source Links<small>Direct links to UHRI and UN Documents</small></div>
+                </div>
+                <div class="landing-feature">
+                    <div class="landing-feature-icon">🤖</div>
+                    <div class="landing-feature-text">ML Classifier<small>Train custom labels with SetFit</small></div>
+                </div>
             </div>
-            <div class="file-types">
-                <span class="file-type-badge excel">📊 Excel (.xlsx, .xls, .csv)</span>
-                <span class="file-type-badge json">📄 JSON (.json)</span>
+
+            <div class="landing-actions">
+                <button class="landing-cta primary" id="vmLoadBtn" onclick="loadRemoteDataset()">
+                    🔍 Explore Full Dataset
+                </button>
+                <button class="landing-cta green" id="sampleLoadBtn" onclick="loadBundledSampleData()">
+                    🚀 Quick Demo
+                </button>
+            </div>
+
+            <div class="landing-or">or upload your own file</div>
+
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json">
+            <div style="display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">
+                <button class="landing-cta secondary" onclick="document.getElementById('fileInput').click()">
+                    📂 Upload File
+                </button>
+                <div class="file-types" style="margin:0;">
+                    <span class="file-type-badge excel">📊 Excel</span>
+                    <span class="file-type-badge json">📄 JSON</span>
+                </div>
+            </div>
+            <div class="upload-hint" style="margin-top:16px;">
+                <span id="uploadHintDetail"></span>
             </div>
         </div>
 
