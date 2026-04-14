@@ -1294,6 +1294,77 @@
             display: none;
         }
         .data-table-section.active { display: block; }
+
+        /* View toggle buttons */
+        .table-view-toggle { display: flex; gap: 2px; }
+        .view-btn {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 4px;
+            color: #8899aa;
+            transition: all .15s;
+        }
+        .view-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .view-btn:hover:not(.active) { background: #eef2f7; }
+
+        /* Card list view */
+        .card-list { display: flex; flex-direction: column; gap: 12px; max-height: 700px; overflow-y: auto; }
+        .rec-card {
+            border: 1px solid #e2e6ea;
+            border-radius: 10px;
+            padding: 16px 20px;
+            transition: box-shadow .15s, border-color .15s;
+            position: relative;
+        }
+        .rec-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(74,144,217,0.10); }
+        .rec-card-text {
+            font-size: 14px;
+            line-height: 1.65;
+            color: #1d2d3d;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .rec-card-text mark { background: #fff3b0; border-radius: 2px; }
+        .rec-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 10px;
+            align-items: center;
+            font-size: 12px;
+            color: #546071;
+        }
+        .rec-meta-tag {
+            background: #eef2f7;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        .rec-meta-tag.body { background: #e3e9ff; color: #2d4a8c; }
+        .rec-meta-tag.country { background: #e8f5e9; color: #2e7d32; }
+        .rec-meta-tag.year { background: #fff3e0; color: #e65100; }
+        .rec-meta-tag.type { background: #f3e5f5; color: #6a1b9a; }
+        .rec-card-themes {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #7b8c9d;
+            line-height: 1.5;
+        }
+        .rec-card-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            align-items: center;
+        }
+        .rec-card-select {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+        }
         .table-controls {
             display: flex;
             justify-content: space-between;
@@ -2657,8 +2728,11 @@
         <div class="data-table-section" id="tab-data">
             <div class="table-controls">
                 <div class="search-wrap">
-                    <input type="text" class="search-box" id="tableSearch" placeholder="🔍 Search table (plain or /regex/i)...">
-                    <div class="search-hint">Regex is supported: use <code>/pattern/i</code> or <code>re:pattern</code> (case-insensitive by default).</div>
+                    <input type="text" class="search-box" id="tableSearch" placeholder="🔍 Search recommendations (plain text, &quot;exact phrase&quot;, or /regex/i)...">
+                    <div class="search-hint">
+                        <label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>
+                        Regex: <code>/pattern/i</code> or <code>re:pattern</code>
+                    </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                     <span id="tableInfo">Showing 0 records</span>
@@ -2668,8 +2742,17 @@
                     <button class="btn btn-primary" style="padding: 8px 12px;" onclick="exportSelectedToExcel()">⬇ Export selected XLSX</button>
                     <button class="btn btn-primary" id="exportAllBtn" style="padding: 8px 12px;" onclick="exportAllToExcel()">⬇ Export all XLSX</button>
                 </div>
+                <div class="table-view-toggle">
+                    <button class="view-btn active" id="viewBtnCard" onclick="setTableView('card')" title="Card view">☰</button>
+                    <button class="view-btn" id="viewBtnTable" onclick="setTableView('table')" title="Table view">⊞</button>
+                </div>
             </div>
-            <div class="table-wrapper">
+
+            <!-- Card view (default) -->
+            <div class="card-list" id="cardListView"></div>
+
+            <!-- Classic table view (hidden by default) -->
+            <div class="table-wrapper hidden" id="classicTableView">
                 <table id="dataTable">
                     <thead><tr id="tableHeader"></tr></thead>
                     <tbody id="tableBody"></tbody>
@@ -2833,10 +2916,17 @@
                         <button onclick="prevSample()" id="prevSampleBtn">← Previous</button>
                         <button onclick="nextSample()" id="nextSampleBtn">Next →</button>
                         <button onclick="clearCurrentSampleLabels()" class="btn btn-secondary" style="padding: 8px 12px;">🧹 Clear Current</button>
-                        <button onclick="getRandomSamples()" class="btn btn-secondary" style="padding: 8px 12px;">🔄 New Samples</button>
+                        <div style="display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px 2px 8px; background: #f8f9fb;">
+                            <label for="sampleCountInput" style="font-size: 11px; color: #667; white-space: nowrap; cursor: help;" title="How many random records to load for labeling. More samples = better model, but more labeling work. 20 is a good starting point.">Samples:</label>
+                            <input type="number" id="sampleCountInput" value="20" min="5" max="200" step="5" style="width: 52px; padding: 5px 4px; border: 1px solid #dde; border-radius: 4px; text-align: center; font-size: 12px;">
+                        </div>
+                        <button onclick="getRandomSamples()" class="btn btn-secondary" style="padding: 8px 12px;">🔄 Load Samples</button>
                     </div>
                 </div>
-                <p style="font-size: 11px; color: #666; margin-bottom: 8px;">Define categories once, then for each sample select only the categories that apply. Different samples can have different category combinations.</p>
+                <div style="font-size: 11px; color: #666; margin-bottom: 8px; line-height: 1.5;">
+                    <strong>How it works:</strong> Load random samples, then tag each one with the categories that apply. The model learns from your labels.
+                    Start with <strong>20 samples</strong> (default) — you can always load more later. Previously labeled samples are preserved when you load a new batch.
+                </div>
                 <div id="sampleContainer"></div>
             </div>
 
@@ -2844,9 +2934,9 @@
             <div class="training-section">
                 <h3 id="step4Title"><span class="step-number">4</span> Train & Apply</h3>
                 <div class="guidance-card guided-only">
-                    <strong>Simple recommendation:</strong>
+                    <strong>Tips for good results:</strong>
                     <ul>
-                        <li>Start with TextSetFit (recommended) and label at least 15-20 samples.</li>
+                        <li>Start with TextSetFit (recommended) and label at least 15–20 samples. More labeled samples generally improve accuracy.</li>
                         <li>Check benchmark scores before applying to all records.</li>
                         <li>If precision is low, increase threshold; if recall is low, decrease threshold.</li>
                     </ul>
@@ -2858,10 +2948,10 @@
                             <option value="tfidf_centroid">TextSetFit (TF-IDF centroid, recommended)</option>
                             <option value="keyword_overlap">NaiveTextToMultiOption (keyword overlap)</option>
                             <option value="char_ngram_centroid">TextFastText (character n-gram centroid)</option>
-                            <option value="setfit_backend">SetFit (HF backend)</option>
+                            <option value="setfit_backend">SetFit (HF backend — requires server)</option>
                         </select>
                         <div class="method-hint" id="classifierMethodHint">Balanced precision/recall with sparse text vectors.</div>
-                        <div class="method-status" id="classifierBackendStatus">Checking SetFit backend...</div>
+                        <div class="method-status" id="classifierBackendStatus">Checking SetFit backend availability...</div>
                     </div>
                     <div class="threshold-row">
                         <div>
@@ -2911,7 +3001,7 @@
                     <button class="btn btn-secondary" onclick="document.getElementById('setfitPackageInput').click()" style="padding: 10px 16px;">Upload SetFit ZIP</button>
                     <input type="file" id="setfitPackageInput" accept=".zip,application/zip" style="display: none;" onchange="handleSetFitPackageSelected(event)">
                 </div>
-                <div id="modelStorageHint" style="font-size: 11px; color: #666; margin-top: 8px;">SetFit: model zapisany lokalnie jako ZIP na komputerze użytkownika, serwerowa kopia tymczasowa na VM służy tylko do bieżącej sesji. Lokalne TF-IDF i keyword models zapisują się wyłącznie w tej przeglądarce.</div>
+                <div id="modelStorageHint" style="font-size: 11px; color: #666; margin-top: 8px;">Local TF-IDF and keyword models are saved only in this browser. SetFit models are downloaded as ZIP files to your computer; the server copy is temporary and only lasts for the current session.</div>
             </div>
         </div>
     </div>
@@ -3165,7 +3255,7 @@
             },
             setfit_backend: {
                 label: 'SetFit (HF backend)',
-                hint: 'Real Hugging Face SetFit via local Python API (multilingual by default).',
+                hint: 'Hugging Face SetFit — requires a running Python API server (multilingual, most accurate).',
                 defaultThreshold: 0.35,
                 requiresBackend: true
             }
@@ -4554,8 +4644,8 @@
             }
             if (searchHint) {
                 searchHint.innerHTML = serverBrowseMode
-                    ? 'Server mode: this search filters the <strong>currently loaded page</strong>. Use <strong>Search Text</strong> above for dataset-wide filtering.'
-                    : 'Regex is supported: use <code>/pattern/i</code> or <code>re:pattern</code> (case-insensitive by default).';
+                    ? '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Server mode: this search filters the <strong>currently loaded page</strong>. Use <strong>Search Text</strong> above for dataset-wide filtering.'
+                    : '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Regex is supported: use <code>/pattern/i</code> or <code>re:pattern</code> (case-insensitive by default).';
             }
             if (mapNote) {
                 mapNote.textContent = serverBrowseMode
@@ -8922,7 +9012,8 @@
         function renderTableBody() {
             const tbody = document.getElementById('tableBody');
             const searchState = parseSearchQuery(document.getElementById('tableSearch').value);
-            const cols = getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
+            const textOnly = document.getElementById('searchTextOnly')?.checked;
+            const cols = textOnly ? ['_text'] : getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
 
             if (searchState.type === 'invalid') {
                 tbody.innerHTML = `<tr><td colspan="${getTableColumns().length}" style="color:#b02a37;">Invalid regex: ${escapeHtml(searchState.error || '')}</td></tr>`;
@@ -9018,7 +9109,68 @@
                 selectAllVisible.checked = allSelected;
             }
             updateSelectedCountInfo();
+            renderCardView(pageData, searchState);
             renderPagination(totalPages);
+        }
+
+        let _currentTableView = 'card';
+
+        function setTableView(mode) {
+            _currentTableView = mode;
+            document.getElementById('viewBtnCard')?.classList.toggle('active', mode === 'card');
+            document.getElementById('viewBtnTable')?.classList.toggle('active', mode === 'table');
+            document.getElementById('cardListView')?.classList.toggle('hidden', mode !== 'card');
+            document.getElementById('classicTableView')?.classList.toggle('hidden', mode !== 'table');
+            renderTableBody();
+        }
+
+        function renderCardView(pageData, searchState) {
+            const container = document.getElementById('cardListView');
+            if (!container || _currentTableView !== 'card') return;
+
+            if (!pageData.length) {
+                container.innerHTML = '<div style="padding:24px; text-align:center; color:#8899aa;">No matching records found.</div>';
+                return;
+            }
+
+            container.innerHTML = pageData.map(r => {
+                const fullText = r._text || '';
+                const maxLen = 600;
+                const truncated = fullText.length > maxLen;
+                const displayText = truncated ? fullText.substring(0, maxLen) : fullText;
+                const highlighted = highlightSearch(displayText, searchState) + (truncated ? '<span style="color:#999">...</span>' : '');
+
+                const body_ = (r._body || '').replace(/^-+\s*/, '').trim();
+                const country = (r._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
+                const year = r._year || '';
+                const type = (r._type || '').replace(/^-+\s*/, '').trim();
+                const themes = (r._themesArray || []).slice(0, 4).map(t => t.replace(/^-+\s*/, '').trim()).filter(Boolean);
+                const moreThemes = (r._themesArray || []).length > 4 ? ` +${(r._themesArray || []).length - 4} more` : '';
+                const uhri = getUhriUrl(r);
+                const undocs = getUnDocsUrl(r);
+                const checked = selectedRowIds.has(String(r._id)) ? 'checked' : '';
+
+                let html = `<div class="rec-card">`;
+                html += `<input type="checkbox" class="rec-card-select" onchange="toggleRowSelection(${r._id}, this.checked)" ${checked}>`;
+                html += `<div class="rec-card-text">${highlighted}</div>`;
+                if (truncated) html += `<button class="copy-btn" onclick="showRecordDetail(${r._id})" style="margin-bottom:8px; font-size:11px;">Read full text</button>`;
+                html += `<div class="rec-card-meta">`;
+                if (body_) html += `<span class="rec-meta-tag body">${escapeHtml(body_)}</span>`;
+                if (country) html += `<span class="rec-meta-tag country">${escapeHtml(country)}</span>`;
+                if (year) html += `<span class="rec-meta-tag year">${year}</span>`;
+                if (type) html += `<span class="rec-meta-tag type">${escapeHtml(type)}</span>`;
+                html += `</div>`;
+                if (themes.length) {
+                    html += `<div class="rec-card-themes">${themes.map(t => escapeHtml(t)).join(' · ')}${moreThemes}</div>`;
+                }
+                html += `<div class="rec-card-actions">`;
+                if (uhri) html += `<a href="${uhri}" target="_blank" rel="noopener" class="source-link uhri-link">UHRI</a>`;
+                if (undocs) html += `<a href="${undocs}" target="_blank" rel="noopener" class="source-link undocs-link">UN Doc</a>`;
+                html += `<button class="copy-btn" onclick="showRecordDetail(${r._id})">Details</button>`;
+                html += `<button class="copy-btn" onclick="copyFormattedCitation(${r._id}, this)">Cite</button>`;
+                html += `</div></div>`;
+                return html;
+            }).join('');
         }
 
         function renderPagination(total) {
@@ -9434,7 +9586,7 @@
             statusEl.classList.remove('online', 'offline');
             if (available) {
                 statusEl.classList.add('online');
-                statusEl.textContent = `SetFit backend online (${(health.device || 'cpu').toUpperCase()}). Model zapisany lokalnie, serwerowa kopia tymczasowa na VM.`;
+                statusEl.textContent = `SetFit backend online (${(health.device || 'cpu').toUpperCase()}). Models are downloaded as ZIP; server copy is temporary.`;
                 if (trainingState.model?.engine === 'setfit_backend') {
                     document.getElementById('applyBtn').disabled = false;
                     document.getElementById('applyCurrentBtn').disabled = false;
@@ -9446,15 +9598,15 @@
             if (!health.checked) {
                 statusEl.textContent = 'Checking SetFit backend...';
             } else if (!health.online) {
-                statusEl.textContent = 'SetFit backend offline. Local methods still available.';
+                statusEl.innerHTML = 'SetFit backend offline — requires a running Python API server. <strong>The 3 local methods above work without any server.</strong>';
             } else if (!health.setfitReady) {
-                statusEl.textContent = `SetFit backend missing dependencies. ${health.message || ''}`.trim();
+                statusEl.innerHTML = `SetFit backend connected but missing dependencies. ${escapeHtml(health.message || '')} <strong>Fix: run <code>pip install setfit</code> on the server.</strong>`.trim();
             } else {
                 statusEl.textContent = 'SetFit backend unavailable.';
             }
 
             if (showPopup) {
-                alert('SetFit backend is unavailable. Using local classifier methods.');
+                alert('SetFit backend is unavailable.\n\nSetFit requires a Python API server running locally or on a VM. The 3 local methods (TextSetFit, NaiveText, TextFastText) work directly in your browser without any server.');
             }
 
             if (trainingState.model?.engine === 'setfit_backend') {
@@ -9644,7 +9796,7 @@
             const currentEngine = trainingState.model?.engine || null;
             if (currentMethod === 'setfit_backend' || currentEngine === 'setfit_backend') {
                 saveBtn.textContent = currentEngine === 'setfit_backend' ? 'Download ZIP' : 'Save / Download';
-                storageHint.textContent = 'SetFit: model zapisany lokalnie jako ZIP na komputerze użytkownika, serwerowa kopia tymczasowa na VM służy tylko do bieżącej sesji.';
+                storageHint.textContent = 'SetFit models are downloaded as ZIP files to your computer. The server copy is temporary and only lasts for the current session.';
             } else {
                 saveBtn.textContent = 'Save';
                 storageHint.textContent = 'Local TF-IDF and keyword models are saved only in this browser.';
@@ -9861,10 +10013,19 @@
             updateLabelingUI();
         }
 
+        function getSampleCountFromUI() {
+            const input = document.getElementById('sampleCountInput');
+            const val = parseInt(input?.value, 10);
+            if (!val || val < 1) return 20;
+            return Math.max(5, Math.min(200, val));
+        }
+
         async function getRandomSamples() {
+            const requestedCount = getSampleCountFromUI();
+
             if (serverBrowseMode && !rawData.length) {
                 try {
-                    await loadServerTrainingSamples(20);
+                    await loadServerTrainingSamples(requestedCount);
                     return;
                 } catch (err) {
                     console.error('Server training sample load failed:', err);
@@ -9880,7 +10041,7 @@
                 updateLabelingUI();
                 return;
             }
-            const sampleSize = Math.min(20, pool.length);
+            const sampleSize = Math.min(requestedCount, pool.length);
             const indices = new Set();
             while (indices.size < sampleSize) {
                 indices.add(Math.floor(Math.random() * pool.length));
@@ -10998,7 +11159,7 @@
                 const createdAt = m.createdAt ? new Date(m.createdAt) : null;
                 const createdLabel = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleDateString() : 'n/a';
                 const methodLabel = classifierMethodMeta[m.method || 'tfidf_centroid']?.label || (m.method || 'tfidf_centroid');
-                const originLabel = m._origin === 'setfit_session' ? 'tymczasowo na VM' : 'lokalnie w przeglądarce';
+                const originLabel = m._origin === 'setfit_session' ? 'temporary on VM' : 'saved in browser';
                 const expiryLabel = m._origin === 'setfit_session' && m.backendMeta?.expires_at
                     ? ` • expires ${new Date(m.backendMeta.expires_at).toLocaleString()}`
                     : '';
