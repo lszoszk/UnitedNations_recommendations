@@ -1704,6 +1704,10 @@
                         <div class="chart-container"><canvas id="chartTextLength"></canvas></div>
                     </div>
                 </div>
+                <div class="hidden" id="textSamplingDisclaimer" style="margin:18px 0 0; padding:12px 18px; background:#fff8e1; border-left:4px solid #ffc107; border-radius:6px; font-size:13px; color:#665500; line-height:1.5;">
+                    <strong>Sampling notice:</strong>
+                    <span id="textSamplingMessage">These charts were computed from a random sample of records for performance reasons. Results are statistically representative (95% CI) but may show minor variation on each generation.</span>
+                </div>
             </div>
         </div>
 
@@ -2860,6 +2864,9 @@
                     updateSDGsChart();
                     updateBigramsChart();
                     updateTextLengthChart();
+                    updateTextSamplingDisclaimer(
+                        useServerAnalytics() ? serverState.analytics?.text : null
+                    );
                 } else {
                     // No server analytics and no local data — show empty state
                     if (placeholder) placeholder.classList.add('hidden');
@@ -2868,6 +2875,7 @@
                     updateSDGsChart();
                     updateBigramsChart();
                     updateTextLengthChart();
+                    updateTextSamplingDisclaimer(null);
                 }
                 return;
             }
@@ -3101,6 +3109,22 @@
             }
         }
 
+        function updateTextSamplingDisclaimer(textData) {
+            const disclaimer = document.getElementById('textSamplingDisclaimer');
+            const message = document.getElementById('textSamplingMessage');
+            if (!disclaimer) return;
+            if (textData && textData.sampled) {
+                const sampleSize = Number(textData.sample_size || 0).toLocaleString();
+                const totalRecords = Number(textData.total_records || 0).toLocaleString();
+                if (message) {
+                    message.textContent = `These charts were computed from a random sample of ${sampleSize} out of ${totalRecords} matching records for performance. Results are statistically representative (95% CI, \u00b12%) but may show minor variation on each generation.`;
+                }
+                disclaimer.classList.remove('hidden');
+            } else {
+                disclaimer.classList.add('hidden');
+            }
+        }
+
         async function generateTextAnalyticsOnDemand() {
             const btn = document.getElementById('generateTextAnalyticsBtn');
             const spinner = document.getElementById('textAnalyticsSpinner');
@@ -3117,6 +3141,7 @@
                 updateSDGsChart();
                 updateBigramsChart();
                 updateTextLengthChart();
+                updateTextSamplingDisclaimer(serverState.analytics?.text);
             } catch (err) {
                 console.error('On-demand text analytics failed:', err);
             } finally {
