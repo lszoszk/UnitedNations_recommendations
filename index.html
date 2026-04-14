@@ -342,6 +342,214 @@
             background: #f6faff;
         }
 
+        /* ── Landing search/autocomplete bar ── */
+        .landing-search-wrap {
+            max-width: 560px;
+            margin: 0 auto 20px;
+            position: relative;
+        }
+        .landing-search-box {
+            display: flex;
+            align-items: center;
+            background: #fff;
+            border: 2px solid #d4e4f7;
+            border-radius: 12px;
+            padding: 10px 16px;
+            gap: 10px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .landing-search-box:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(45,110,163,0.12);
+        }
+        .landing-search-icon { font-size: 16px; flex-shrink: 0; opacity: 0.5; }
+        .landing-search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            color: var(--primary);
+            background: transparent;
+        }
+        .landing-search-input::placeholder { color: #a0b0c0; }
+        .landing-search-kbd {
+            font-size: 10px;
+            padding: 2px 6px;
+            background: #f0f4f8;
+            border: 1px solid #d4e4f7;
+            border-radius: 4px;
+            color: #8899aa;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+        .landing-search-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0; right: 0;
+            background: #fff;
+            border: 1px solid #d4e4f7;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            max-height: 280px;
+            overflow-y: auto;
+            z-index: 50;
+        }
+        .landing-search-dropdown.hidden { display: none; }
+        .landing-search-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.15s;
+            font-size: 13px;
+            color: var(--primary);
+        }
+        .landing-search-item:hover, .landing-search-item.active {
+            background: #eef6ff;
+        }
+        .landing-search-item .search-type-badge {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+        .landing-search-item .search-type-badge.country { background: #e8f5e9; color: #2e7d32; }
+        .landing-search-item .search-type-badge.theme { background: #e3f2fd; color: #1565c0; }
+        .landing-search-item .search-type-badge.body { background: #fff3e0; color: #e65100; }
+        .landing-search-item .search-type-badge.person { background: #fce4ec; color: #c62828; }
+        .landing-search-item .search-type-badge.region { background: #f3e5f5; color: #6a1b9a; }
+        .landing-search-item .search-count {
+            margin-left: auto;
+            font-size: 11px;
+            color: #8899aa;
+            font-weight: 500;
+        }
+
+        /* ── Coach mark overlay ── */
+        .coach-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(13,33,55,0.55);
+            z-index: 9000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .coach-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 32px 36px;
+            max-width: 440px;
+            width: 90%;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.25);
+            text-align: center;
+            animation: slideUp 0.35s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .coach-card .coach-step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .coach-card .coach-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #d4e4f7;
+            transition: background 0.2s;
+        }
+        .coach-card .coach-dot.active { background: var(--accent); }
+        .coach-card .coach-emoji { font-size: 40px; margin-bottom: 12px; }
+        .coach-card .coach-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        .coach-card .coach-text {
+            font-size: 14px;
+            color: #5a6d80;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .coach-card .coach-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        .coach-card .coach-btn {
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        .coach-card .coach-btn.primary {
+            background: linear-gradient(135deg, #1a5fa8, #2d7fd4);
+            color: #fff;
+        }
+        .coach-card .coach-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,95,168,0.3); }
+        .coach-card .coach-btn.ghost {
+            background: transparent;
+            color: #8899aa;
+            border: 1px solid #d4e4f7;
+        }
+        .coach-card .coach-btn.ghost:hover { background: #f6faff; color: var(--primary); }
+
+        /* ── Micro-interactions: chart bar hover tooltip ── */
+        .mini-chart-tooltip {
+            position: absolute;
+            background: #1e3a5f;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            pointer-events: none;
+            z-index: 30;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .mini-chart-tooltip.visible { opacity: 1; }
+        .mini-chart-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #1e3a5f;
+        }
+
+        /* Landing canvas card hover lift */
+        .landing-canvas-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .landing-canvas-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.09);
+        }
+
+        /* Smooth CTA pulse on landing */
+        .landing-explore-cta .cta-main {
+            animation: ctaPulse 3s ease-in-out 2s 2;
+        }
+        @keyframes ctaPulse {
+            0%, 100% { box-shadow: 0 4px 16px rgba(26,95,168,0.35); }
+            50% { box-shadow: 0 4px 24px rgba(26,95,168,0.55); }
+        }
+
         .guided-only { display: none; }
         body.mode-guided .guided-only { display: block; }
         body.mode-guided .guided-only.inline { display: inline; }
@@ -565,6 +773,79 @@
             padding: 2px 6px;
         }
         .filter-label .clear-btn:hover { text-decoration: underline; }
+
+        /* ── Query bar ── */
+        .filter-query-bar { margin-bottom: 20px; }
+        .filter-query-input-wrap {
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 4px 4px 4px 14px;
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .filter-query-input-wrap:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(74,144,217,0.12);
+        }
+        .filter-query-icon { font-size: 18px; margin-right: 8px; flex-shrink: 0; }
+        .filter-query-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 15px;
+            padding: 10px 8px;
+            background: transparent;
+            min-width: 0;
+        }
+        .filter-query-input::placeholder { color: #9aabb8; }
+        .filter-query-go {
+            border-radius: 8px !important;
+            padding: 10px 22px !important;
+            font-size: 14px !important;
+            flex-shrink: 0;
+        }
+        .filter-query-help {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+            margin-top: 8px;
+            padding-left: 2px;
+        }
+        .filter-query-tip {
+            font-size: 11px;
+            color: #7b8c9d;
+        }
+        .filter-query-tip strong { color: #4a6a82; }
+        .filter-query-tip code {
+            background: #eef2f7;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+
+        /* ── Collapsible facets ── */
+        .filter-facets-details { margin-top: 4px; }
+        .filter-facets-toggle {
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--accent);
+            font-weight: 600;
+            padding: 8px 0;
+            list-style: none;
+            user-select: none;
+        }
+        .filter-facets-toggle::before {
+            content: '▸ ';
+            display: inline-block;
+            transition: transform .2s;
+        }
+        .filter-facets-details[open] > .filter-facets-toggle::before {
+            transform: rotate(90deg);
+        }
+        .filter-facets-toggle::-webkit-details-marker { display: none; }
+
         .filter-group select, .filter-group input {
             padding: 10px 12px;
             border: 1px solid var(--border);
@@ -614,6 +895,33 @@
             animation: spin 0.8s linear infinite;
         }
 
+        /* Classifier CTA */
+        .classifier-cta {
+            background: linear-gradient(135deg, #f0ebff 0%, #e8e0ff 100%);
+            border: 1px solid #d4c8f5;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .classifier-cta.active { display: flex; }
+        .classifier-cta-icon { font-size: 28px; flex-shrink: 0; }
+        .classifier-cta-body { flex: 1; min-width: 200px; }
+        .classifier-cta-title {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+        .classifier-cta-desc {
+            font-size: 12px;
+            color: #546071;
+            line-height: 1.5;
+        }
+
         /* KPIs */
         .kpi-grid {
             display: grid;
@@ -635,14 +943,9 @@
 
         /* Stats */
         .stats-section {
-            background: white;
-            padding: 24px;
-            border-radius: 12px;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow);
-            display: none;
+            display: none !important;
         }
-        .stats-section.active { display: block; }
+        .stats-section.active { display: none !important; }
         .stats-section h3 { color: var(--primary); margin-bottom: 16px; font-size: 18px; }
         .stats-grid {
             display: grid;
@@ -1244,19 +1547,20 @@
 
         /* Info Bar */
         .data-info {
-            background: linear-gradient(135deg, #e8f4f8 0%, #d4e9f7 100%);
-            padding: 16px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            background: #f5f7f9;
+            padding: 8px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: center;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 6px 18px;
+            border: 1px solid #e2e6ea;
         }
-        .data-info-item { display: flex; align-items: center; gap: 8px; }
-        .data-info-label { font-size: 12px; color: #666; }
-        .data-info-value { font-weight: 600; color: var(--primary); }
+        .data-info-item { display: flex; align-items: center; gap: 5px; }
+        .data-info-label { font-size: 11px; color: #8899aa; }
+        .data-info-value { font-size: 12px; font-weight: 500; color: #546071; }
 
         /* Notices */
         .sample-notice {
@@ -1874,7 +2178,7 @@
     <div class="dashboard">
         <header>
             <h1>UN Human Rights Analytics Dashboard</h1>
-            <p class="hero-tagline">Explore 266,000+ UN human rights recommendations across 199 countries, 21 treaty bodies, and 25 years of monitoring data.</p>
+            <p class="hero-tagline">Explore 266,000+ UN human rights recommendations across 199 countries, 71 mechanisms, and 25 years of monitoring data.</p>
             <div class="hero-stats" id="heroStats">
                 <div class="hero-stat">
                     <div class="hero-stat-value" id="heroStatRecs" data-target="266780">0</div>
@@ -1885,8 +2189,8 @@
                     <div class="hero-stat-label">Countries</div>
                 </div>
                 <div class="hero-stat">
-                    <div class="hero-stat-value" id="heroStatBodies" data-target="21">0</div>
-                    <div class="hero-stat-label">Treaty Bodies</div>
+                    <div class="hero-stat-value" id="heroStatBodies" data-target="71">0</div>
+                    <div class="hero-stat-label">Mechanisms</div>
                 </div>
                 <div class="hero-stat">
                     <div class="hero-stat-value" id="heroStatSpan" data-target-text="2006–2026">—</div>
@@ -1971,14 +2275,16 @@
                 </div>
             </div>
 
-            <!-- Popular question chips -->
-            <div class="landing-filters" id="landingQuestionChips">
-                <span style="font-size:12px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px;">Quick explore:</span>
-                <button class="landing-filter-chip" onclick="quickExploreChip('countries','China')">🇨🇳 China</button>
-                <button class="landing-filter-chip" onclick="quickExploreChip('themes','Equality &amp; non-discrimination')">⚖️ Equality</button>
-                <button class="landing-filter-chip" onclick="quickExploreChip('affected_persons','Children')">👶 Children</button>
-                <button class="landing-filter-chip" onclick="quickExploreChip('affected_persons','Women &amp; girls')">♀️ Women & girls</button>
-                <button class="landing-filter-chip" onclick="quickExploreChip('regions','Africa')">🌍 Africa</button>
+            <!-- Search/autocomplete bar -->
+            <div class="landing-search-wrap" id="landingSearchWrap">
+                <div class="landing-search-box">
+                    <span class="landing-search-icon">🔍</span>
+                    <input type="text" id="landingSearchInput" class="landing-search-input"
+                           placeholder="Search countries, themes, mechanisms…"
+                           autocomplete="off" spellcheck="false">
+                    <kbd class="landing-search-kbd">Enter</kbd>
+                </div>
+                <div class="landing-search-dropdown hidden" id="landingSearchDropdown"></div>
             </div>
 
             <!-- Single dominant CTA -->
@@ -2023,12 +2329,6 @@
                     <span class="data-info-value" id="infoDatasetCutoff">-</span>
                 </div>
             </div>
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <button class="btn btn-purple" id="trainClassifierBtn" onclick="openTrainingPane()">
-                    🤖 Train Classifier
-                </button>
-                <button class="btn btn-secondary" id="switchDatasetBtn" onclick="resetDashboard()">📁 Upload Different File</button>
-            </div>
         </div>
 
         <div class="server-mode-banner hidden" id="serverModeBanner">
@@ -2054,70 +2354,90 @@
                 <h3>🔍 Filters</h3>
                 <span class="filter-count" id="filterCount">Showing all records</span>
             </div>
-            <div class="guidance-card guided-only">
-                <strong>How to use filters:</strong>
-                <ul>
-                    <li>Select one or more countries/bodies/regions to compare trends.</li>
-                    <li>Use year range to focus on a policy period.</li>
-                    <li>After changing filters click <strong>Apply Filters</strong> to refresh all charts.</li>
-                </ul>
-            </div>
-            <div class="filters-grid">
-                <div class="filter-group">
-                    <div class="filter-label">
-                        <label>Country</label>
-                        <button class="clear-btn" onclick="clearFilter('filterCountry')">Clear</button>
-                    </div>
-                    <select id="filterCountry" multiple size="4"></select>
+
+            <!-- Prominent search query bar -->
+            <div class="filter-query-bar">
+                <div class="filter-query-input-wrap">
+                    <span class="filter-query-icon">🔎</span>
+                    <input type="text" id="filterText" class="filter-query-input"
+                        placeholder='e.g. "freedom of expression" AND torture NOT children'>
+                    <button class="btn btn-primary filter-query-go" id="applyFiltersBtn" onclick="applyFilters()">
+                        <span>Search</span>
+                    </button>
                 </div>
-                <div class="filter-group">
-                    <div class="filter-label">
-                        <label>Recommending Body</label>
-                        <button class="clear-btn" onclick="clearFilter('filterBody')">Clear</button>
-                    </div>
-                    <select id="filterBody" multiple size="4"></select>
-                </div>
-                <div class="filter-group">
-                    <div class="filter-label">
-                        <label>Region</label>
-                        <button class="clear-btn" onclick="clearFilter('filterRegion')">Clear</button>
-                    </div>
-                    <select id="filterRegion" multiple size="4"></select>
-                </div>
-                <div class="filter-group">
-                    <div class="filter-label">
-                        <label>Type</label>
-                    </div>
-                    <select id="filterType"></select>
-                </div>
-                <div class="filter-group">
-                    <div class="filter-label">
-                        <label>Year Range</label>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="number" id="filterYearStart" placeholder="From" min="1990" max="2030" style="flex:1;">
-                        <input type="number" id="filterYearEnd" placeholder="To" min="1990" max="2030" style="flex:1;">
-                    </div>
-                </div>
-                <div class="filter-group">
-                    <div class="filter-label">
-                        <label>Search Text</label>
-                    </div>
-                    <input type="text" id="filterText" placeholder="Enter keywords or /regex/i ...">
-                    <div style="font-size:11px;color:#546071;margin-top:5px;">Regex supported: <code>/pattern/i</code> or <code>re:pattern</code>.</div>
+                <div class="filter-query-help">
+                    <span class="filter-query-tip"><strong>"quoted phrase"</strong> exact match</span>
+                    <span class="filter-query-tip"><strong>AND</strong> all terms must appear</span>
+                    <span class="filter-query-tip"><strong>OR</strong> any term matches</span>
+                    <span class="filter-query-tip"><strong>NOT</strong> excludes a term</span>
+                    <span class="filter-query-tip"><code>/regex/i</code> advanced pattern</span>
                 </div>
             </div>
-            <div class="filter-actions">
-                <button class="btn btn-primary" id="applyFiltersBtn" onclick="applyFilters()">
-                    <span>Apply Filters</span>
-                </button>
-                <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
-                <button class="export-btn" onclick="exportFilteredData()">📥 Export Data</button>
-            </div>
+
+            <!-- Collapsible facet filters -->
+            <details class="filter-facets-details" id="filterFacetsDetails">
+                <summary class="filter-facets-toggle">Narrow by country, body, region, type, or year range</summary>
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <div class="filter-label">
+                            <label>Country</label>
+                            <button class="clear-btn" onclick="clearFilter('filterCountry')">Clear</button>
+                        </div>
+                        <select id="filterCountry" multiple size="4"></select>
+                    </div>
+                    <div class="filter-group">
+                        <div class="filter-label">
+                            <label>Recommending Body</label>
+                            <button class="clear-btn" onclick="clearFilter('filterBody')">Clear</button>
+                        </div>
+                        <select id="filterBody" multiple size="4"></select>
+                    </div>
+                    <div class="filter-group">
+                        <div class="filter-label">
+                            <label>Region</label>
+                            <button class="clear-btn" onclick="clearFilter('filterRegion')">Clear</button>
+                        </div>
+                        <select id="filterRegion" multiple size="4"></select>
+                    </div>
+                    <div class="filter-group">
+                        <div class="filter-label">
+                            <label>Type</label>
+                        </div>
+                        <select id="filterType"></select>
+                    </div>
+                    <div class="filter-group">
+                        <div class="filter-label">
+                            <label>Year Range</label>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="filterYearStart" placeholder="From" min="1990" max="2030" style="flex:1;">
+                            <input type="number" id="filterYearEnd" placeholder="To" min="1990" max="2030" style="flex:1;">
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-actions" style="margin-top:16px;">
+                    <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+                    <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
+                    <button class="export-btn" onclick="exportFilteredData()">📥 Export Data</button>
+                </div>
+            </details>
+
             <div class="filter-chips-bar" id="filterChipsBar">
                 <div class="filter-chips" id="filterChips"></div>
                 <button class="filter-chips-clear" id="filterChipsClearAll" onclick="resetFilters()" style="display:none;">Clear all</button>
             </div>
+        </div>
+
+        <div class="classifier-cta hidden" id="classifierCta">
+            <div class="classifier-cta-icon">🤖</div>
+            <div class="classifier-cta-body">
+                <div class="classifier-cta-title">Train a Custom Classifier</div>
+                <div class="classifier-cta-desc">
+                    Build an AI model to automatically categorize recommendations by your own labels.
+                    Useful when you need to tag thousands of records by topic, compliance status, or any custom scheme.
+                </div>
+            </div>
+            <button class="btn btn-purple" id="trainClassifierBtn" onclick="openTrainingPane()">Open Trainer</button>
         </div>
 
         <div class="kpi-grid hidden" id="kpiSection">
@@ -3188,14 +3508,240 @@
                 .then(data => {
                     window._landingBootstrapData = data;
                     populateLandingCanvas(data);
+                    buildSearchIndex(data);
                 })
                 .catch(err => {
                     console.debug('Landing preview fetch skipped:', err);
-                    // Hide loading indicators, show "data loads on click" message
                     document.querySelectorAll('.landing-canvas-loading').forEach(el => {
                         el.innerHTML = '<span style="color:#aab;font-size:12px;">Click "Explore" to load data</span>';
                     });
                 });
+        }
+
+        /* ══════════════════════════════════════════════════
+           PHASE 3: Search/Autocomplete Bar
+           ══════════════════════════════════════════════════ */
+        let searchIndex = [];
+
+        function buildSearchIndex(bootstrapData) {
+            searchIndex = [];
+            if (!bootstrapData) return;
+            const analytics = bootstrapData.analytics || {};
+            const summary = bootstrapData.summary || {};
+
+            // Countries
+            (bootstrapData.map_country_counts || []).forEach(c => {
+                searchIndex.push({
+                    label: (c.country || '').replace(/^-\s*/, ''),
+                    type: 'country',
+                    filterType: 'countries',
+                    value: c.country,
+                    count: c.count
+                });
+            });
+            // Themes
+            (analytics.themes?.theme_counts || []).forEach(t => {
+                searchIndex.push({
+                    label: (t.theme || '').replace(/^-\s*/, ''),
+                    type: 'theme',
+                    filterType: 'themes',
+                    value: t.theme,
+                    count: t.count
+                });
+            });
+            // Bodies
+            (summary.body_counts || []).forEach(b => {
+                searchIndex.push({
+                    label: (b.body || '').replace(/^-\s*/, ''),
+                    type: 'body',
+                    filterType: 'bodies',
+                    value: b.body,
+                    count: b.count
+                });
+            });
+            // Affected persons
+            (analytics.text?.affected_person_counts || []).forEach(p => {
+                searchIndex.push({
+                    label: (p.affected_person || '').replace(/^-\s*/, ''),
+                    type: 'person',
+                    filterType: 'affected_persons',
+                    value: p.affected_person,
+                    count: p.count
+                });
+            });
+            // Regions
+            (summary.region_counts || []).forEach(r => {
+                searchIndex.push({
+                    label: (r.region || '').replace(/^-\s*/, ''),
+                    type: 'region',
+                    filterType: 'regions',
+                    value: r.region,
+                    count: r.count
+                });
+            });
+        }
+
+        function initLandingSearch() {
+            const input = document.getElementById('landingSearchInput');
+            const dropdown = document.getElementById('landingSearchDropdown');
+            if (!input || !dropdown) return;
+            let activeIdx = -1;
+
+            input.addEventListener('input', () => {
+                const q = input.value.trim().toLowerCase();
+                if (q.length < 1) { dropdown.classList.add('hidden'); return; }
+                const matches = searchIndex
+                    .filter(item => item.label.toLowerCase().includes(q))
+                    .slice(0, 10);
+                if (!matches.length) {
+                    dropdown.innerHTML = '<div class="landing-search-item" style="color:#8899aa;cursor:default;">No matches found</div>';
+                    dropdown.classList.remove('hidden');
+                    return;
+                }
+                activeIdx = -1;
+                dropdown.innerHTML = matches.map((m, i) => `
+                    <div class="landing-search-item" data-idx="${i}" data-filter-type="${m.filterType}" data-value="${escapeHtml(m.value)}">
+                        <span class="search-type-badge ${m.type}">${m.type}</span>
+                        <span>${highlightMatch(escapeHtml(m.label), q)}</span>
+                        <span class="search-count">${Number(m.count).toLocaleString()}</span>
+                    </div>
+                `).join('');
+                dropdown.classList.remove('hidden');
+
+                dropdown.querySelectorAll('.landing-search-item[data-idx]').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const ft = el.getAttribute('data-filter-type');
+                        const val = el.getAttribute('data-value');
+                        input.value = '';
+                        dropdown.classList.add('hidden');
+                        quickExploreChip(ft, val);
+                    });
+                });
+            });
+
+            input.addEventListener('keydown', (e) => {
+                const items = dropdown.querySelectorAll('.landing-search-item[data-idx]');
+                if (!items.length) return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+                    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIdx = Math.max(activeIdx - 1, 0);
+                    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (activeIdx >= 0 && items[activeIdx]) {
+                        items[activeIdx].click();
+                    } else if (items[0]) {
+                        items[0].click();
+                    }
+                } else if (e.key === 'Escape') {
+                    dropdown.classList.add('hidden');
+                    input.blur();
+                }
+            });
+
+            // Close dropdown on outside click
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        }
+
+        function highlightMatch(text, query) {
+            const idx = text.toLowerCase().indexOf(query.toLowerCase());
+            if (idx === -1) return text;
+            return text.slice(0, idx) + '<strong>' + text.slice(idx, idx + query.length) + '</strong>' + text.slice(idx + query.length);
+        }
+
+        /* ══════════════════════════════════════════════════
+           PHASE 3: Coach Mark Overlay (First Visit Tour)
+           ══════════════════════════════════════════════════ */
+        const COACH_STORAGE_KEY = 'un_hr_dashboard_coach_done';
+
+        const coachSteps = [
+            {
+                emoji: '📊',
+                title: 'Live Data Preview',
+                text: 'The charts below show real data from 266,780 UN human rights recommendations — updated automatically. Hover any bar for details.'
+            },
+            {
+                emoji: '🔍',
+                title: 'Search & Explore',
+                text: 'Use the search bar to find any country, theme, or treaty body. Select a result to instantly open the full dashboard filtered to your topic.'
+            },
+            {
+                emoji: '⚙️',
+                title: 'Make It Yours',
+                text: 'Click the ⚙ icon to toggle annotations, enable auto-loading, or upload your own dataset via the 📂 icon. Every setting is remembered.'
+            }
+        ];
+
+        function showCoachMarks() {
+            // Only show on first visit if landing page is visible
+            try {
+                if (localStorage.getItem(COACH_STORAGE_KEY)) return;
+            } catch { return; }
+            const uploadSection = document.getElementById('uploadSection');
+            if (!uploadSection || uploadSection.classList.contains('hidden')) return;
+
+            let step = 0;
+            renderCoachStep(step);
+
+            function renderCoachStep(idx) {
+                // Remove existing overlay
+                document.querySelector('.coach-overlay')?.remove();
+
+                if (idx >= coachSteps.length) {
+                    try { localStorage.setItem(COACH_STORAGE_KEY, '1'); } catch {}
+                    return;
+                }
+
+                const s = coachSteps[idx];
+                const overlay = document.createElement('div');
+                overlay.className = 'coach-overlay';
+                overlay.innerHTML = `
+                    <div class="coach-card">
+                        <div class="coach-step-indicator">
+                            ${coachSteps.map((_, i) => `<div class="coach-dot ${i === idx ? 'active' : ''}"></div>`).join('')}
+                        </div>
+                        <div class="coach-emoji">${s.emoji}</div>
+                        <div class="coach-title">${s.title}</div>
+                        <div class="coach-text">${s.text}</div>
+                        <div class="coach-actions">
+                            <button class="coach-btn ghost" id="coachSkip">${idx === 0 ? 'Skip tour' : 'Back'}</button>
+                            <button class="coach-btn primary" id="coachNext">${idx === coachSteps.length - 1 ? 'Get started!' : 'Next →'}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+
+                overlay.querySelector('#coachNext').addEventListener('click', () => {
+                    step = idx + 1;
+                    renderCoachStep(step);
+                });
+                overlay.querySelector('#coachSkip').addEventListener('click', () => {
+                    if (idx === 0) {
+                        // Skip all
+                        overlay.remove();
+                        try { localStorage.setItem(COACH_STORAGE_KEY, '1'); } catch {}
+                    } else {
+                        // Go back
+                        step = idx - 1;
+                        renderCoachStep(step);
+                    }
+                });
+                // Click outside card to dismiss
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        try { localStorage.setItem(COACH_STORAGE_KEY, '1'); } catch {}
+                    }
+                });
+            }
         }
 
         function loadCustomWidgetsFromStorage() {
@@ -3410,6 +3956,17 @@
         // ── Auto-fetch bootstrap for Living Data Canvas (mini-charts on landing) ──
         autoFetchLandingPreview();
 
+        // ── Initialize landing search bar ──
+        initLandingSearch();
+
+        // ── Enter key on main filter query input triggers search ──
+        document.getElementById('filterText')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
+        });
+
+        // ── Show coach marks for first-time visitors (delayed to let page settle) ──
+        setTimeout(showCoachMarks, 1200);
+
         // ── Prefetch API metadata for live hero stats (non-blocking, if bootstrap unavailable) ──
         if (DATASET_SUMMARY_URL) {
             fetch(DATASET_SUMMARY_URL, { signal: AbortSignal.timeout(8000) })
@@ -3486,14 +4043,14 @@
             if (!DATASET_API_URL) return false;
             try {
                 const url = new URL(window.location.href);
-                const source = String(url.searchParams.get('source') || '').toLowerCase();
                 const autoload = String(url.searchParams.get('autoload') || '').toLowerCase();
-                if (source === 'upload' || autoload === '0' || autoload === 'false') return false;
-                if (source === 'vm' || autoload === '1' || autoload === 'true' || autoload === 'vm') return true;
+                if (autoload === '0' || autoload === 'false') return false;
+                if (autoload === '1' || autoload === 'true' || autoload === 'vm') return true;
             } catch {
-                // Fall back to host-based default below.
+                // Fall back below.
             }
-            return isGithubPagesHost();
+            // GH Pages: show landing page by default (user clicks "Explore" to load)
+            return false;
         }
 
         function resetDatasetMetadata() {
@@ -3614,6 +4171,7 @@
             document.getElementById('sampleNotice').classList.add('hidden');
             document.getElementById('filtersSection').classList.remove('active');
             document.getElementById('kpiSection').classList.remove('hidden');
+            { const _cc = document.getElementById('classifierCta'); if (_cc) { _cc.classList.remove('hidden'); _cc.classList.add('active'); } }
             document.getElementById('statsSection').classList.add('active');
             document.getElementById('tabsSection').classList.remove('hidden');
             document.getElementById('emptyState').classList.add('hidden');
@@ -3963,7 +4521,7 @@
             if (banner) banner.classList.toggle('hidden', !serverBrowseMode);
             if (trainBtn) {
                 trainBtn.disabled = false;
-                trainBtn.textContent = '🤖 Train Classifier';
+                trainBtn.textContent = 'Open Trainer';
             }
             if (analysisBtn) {
                 analysisBtn.disabled = false;
@@ -4310,6 +4868,7 @@
             document.getElementById('sampleNotice').classList.add('hidden');
             document.getElementById('filtersSection').classList.add('active');
             document.getElementById('kpiSection').classList.remove('hidden');
+            { const _cc = document.getElementById('classifierCta'); if (_cc) { _cc.classList.remove('hidden'); _cc.classList.add('active'); } }
             document.getElementById('statsSection').classList.add('active');
             document.getElementById('tabsSection').classList.remove('hidden');
             document.getElementById('emptyState').classList.add('hidden');
@@ -4973,7 +5532,7 @@
         function getUnDocsUrl(rec) {
             if (rec._symbol) {
                 const sym = rec._symbol.replace(/^-+\s*/, '').trim();
-                if (sym) return `https://documents.un.org/en/${encodeURIComponent(sym)}`;
+                if (sym) return `https://undocs.org/${encodeURIComponent(sym)}`;
             }
             return '';
         }
@@ -5215,6 +5774,7 @@
 
             document.getElementById('filtersSection').classList.add('active');
             document.getElementById('kpiSection').classList.remove('hidden');
+            { const _cc = document.getElementById('classifierCta'); if (_cc) { _cc.classList.remove('hidden'); _cc.classList.add('active'); } }
             document.getElementById('statsSection').classList.add('active');
             document.getElementById('tabsSection').classList.remove('hidden');
             activateTab(preferredActiveTab || 'overview');
@@ -5285,6 +5845,7 @@
             updateDatasetMetadataUI();
             document.getElementById('filtersSection').classList.remove('active');
             document.getElementById('kpiSection').classList.add('hidden');
+            { const _cc = document.getElementById('classifierCta'); if (_cc) { _cc.classList.add('hidden'); _cc.classList.remove('active'); } }
             document.getElementById('statsSection').classList.remove('active');
             document.getElementById('tabsSection').classList.add('hidden');
             document.getElementById('emptyState').classList.add('hidden');
@@ -8090,6 +8651,7 @@
             const raw = String(rawInput || '').trim();
             if (!raw) return { type: 'none', raw: '' };
 
+            // Regex modes: re:pattern or /pattern/flags
             if (raw.startsWith('re:')) {
                 const pattern = raw.slice(3);
                 try {
@@ -8100,7 +8662,6 @@
                     return { type: 'invalid', raw, error: err.message };
                 }
             }
-
             if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) {
                 const lastSlash = raw.lastIndexOf('/');
                 const pattern = raw.slice(1, lastSlash);
@@ -8116,12 +8677,69 @@
                 }
             }
 
+            // Boolean mode: supports AND, OR, NOT, "quoted phrases"
+            if (/\b(AND|OR|NOT)\b/.test(raw) || raw.includes('"')) {
+                return parseBooleanQuery(raw);
+            }
+
             return { type: 'plain', raw, lowered: raw.toLowerCase() };
+        }
+
+        function parseBooleanQuery(raw) {
+            // Tokenize: extract quoted phrases, AND, OR, NOT, and bare words
+            const tokens = [];
+            const re = /"([^"]+)"|(\bAND\b|\bOR\b|\bNOT\b)|(\S+)/g;
+            let m;
+            while ((m = re.exec(raw)) !== null) {
+                if (m[1] !== undefined) tokens.push({ type: 'phrase', value: m[1].toLowerCase() });
+                else if (m[2]) tokens.push({ type: 'op', value: m[2] });
+                else if (m[3]) tokens.push({ type: 'word', value: m[3].toLowerCase() });
+            }
+            if (!tokens.length) return { type: 'none', raw };
+
+            // Build clause groups: split by OR, each group joined by implicit AND
+            // Each clause is { term: string, negate: boolean }
+            const orGroups = [[]];
+            let negate = false;
+            for (const tok of tokens) {
+                if (tok.type === 'op') {
+                    if (tok.value === 'OR') { orGroups.push([]); negate = false; }
+                    else if (tok.value === 'NOT') { negate = true; }
+                    // AND is implicit — just continue
+                } else {
+                    orGroups[orGroups.length - 1].push({ term: tok.value, negate });
+                    negate = false;
+                }
+            }
+
+            // Collect highlight terms (non-negated)
+            const hlTerms = [];
+            for (const g of orGroups) for (const c of g) if (!c.negate) hlTerms.push(c.term);
+            let highlightRegex = null;
+            if (hlTerms.length) {
+                try {
+                    highlightRegex = new RegExp('(' + hlTerms.map(t => escapeRegex(t)).join('|') + ')', 'gi');
+                } catch { /* ignore */ }
+            }
+
+            return { type: 'boolean', raw, orGroups, highlightRegex };
         }
 
         function recordMatchesSearch(record, cols, searchState) {
             if (!searchState || searchState.type === 'none') return true;
             if (searchState.type === 'invalid') return false;
+
+            const getText = () => cols.map(c => getCellValue(record, c)).join(' ').toLowerCase();
+
+            if (searchState.type === 'boolean') {
+                const text = getText();
+                // Match if ANY orGroup matches; a group matches when ALL its clauses match
+                return searchState.orGroups.some(group =>
+                    group.every(clause =>
+                        clause.negate ? !text.includes(clause.term) : text.includes(clause.term)
+                    )
+                );
+            }
 
             return cols.some(c => {
                 const v = getCellValue(record, c);
@@ -8166,7 +8784,13 @@
                 const re = new RegExp(escapeRegex(searchState.raw), 'gi');
                 return highlightByRegex(text, re);
             }
-            return highlightByRegex(text, searchState.highlightRegex);
+            if (searchState.type === 'boolean' && searchState.highlightRegex) {
+                return highlightByRegex(text, searchState.highlightRegex);
+            }
+            if (searchState.highlightRegex) {
+                return highlightByRegex(text, searchState.highlightRegex);
+            }
+            return escapeHtml(text);
         }
 
         function renderTextCell(value, searchState, rowId, key, maxLength = 260) {
