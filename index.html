@@ -5516,10 +5516,14 @@
 
             let results = [];
 
-            if (serverBrowseMode && DATASET_RECORDS_URL) {
+            // Determine the records API URL — works in server browse mode and bootstrap mode
+            const drilldownRecordsUrl = DATASET_RECORDS_URL || (overviewBootstrapMode && DEFAULT_VM_BASE_URL ? `${DEFAULT_VM_BASE_URL}/api/data/records` : '');
+            if ((serverBrowseMode || overviewBootstrapMode) && drilldownRecordsUrl) {
                 // Server mode: fetch matching records from the API with extra filters
                 try {
-                    const params = buildServerQueryParams({ includePagination: false, includeSort: false });
+                    const params = serverBrowseMode
+                        ? buildServerQueryParams({ includePagination: false, includeSort: false })
+                        : new URLSearchParams();
                     params.set('page_size', '50');
                     params.set('page', '1');
 
@@ -5534,7 +5538,7 @@
                     }
 
                     const payload = await fetchServerJson(
-                        `${DATASET_RECORDS_URL}?${params.toString()}`,
+                        `${drilldownRecordsUrl}?${params.toString()}`,
                         'Drill-down fetch',
                         20000
                     );
