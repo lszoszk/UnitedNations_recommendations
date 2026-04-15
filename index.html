@@ -3491,6 +3491,24 @@
             return normalizeLabelName(label) === EXCLUDED_LABEL;
         }
 
+        /**
+         * Build enriched text for classification by prepending key metadata.
+         * Body and AffectedPersons give strong thematic signal without
+         * conflicting with user-defined categories the way OHCHR Themes might.
+         */
+        function getClassificationText(record) {
+            const parts = [];
+            const body = (record._body || '').replace(/^-\s*/, '').trim();
+            if (body) parts.push(`UN Body: ${body}.`);
+            const persons = (record._affectedPersons || '').replace(/\n/g, ', ').trim();
+            if (persons) parts.push(`Affected groups: ${persons}.`);
+            const countries = (record._countries || '').replace(/\n/g, ', ').trim();
+            if (countries) parts.push(`Country: ${countries}.`);
+            const text = (record._text || '').trim();
+            if (text) parts.push(text);
+            return parts.join(' ');
+        }
+
         function getStatisticsCategories(categories = []) {
             return categories.filter(c => !isExcludedCategory(c));
         }
@@ -10683,7 +10701,7 @@
         }
 
         function predictLabelsForRecord(record) {
-            return predictLabelsForText(record._text, trainingState.model);
+            return predictLabelsForText(getClassificationText(record), trainingState.model);
         }
 
         async function predictZeroShotBatch(pipe, texts, categories, threshold, onProgress) {
@@ -10694,8 +10712,8 @@
                     results.push({ id: texts[i].id, labels: [], scores: {} });
                     continue;
                 }
-                // Truncate very long texts to first 512 chars for speed
-                const truncated = text.length > 512 ? text.slice(0, 512) : text;
+                // Truncate very long texts for speed (600 chars to allow for metadata prefix)
+                const truncated = text.length > 600 ? text.slice(0, 600) : text;
                 const output = await pipe(truncated, categories, { multi_label: true });
                 const labels = [];
                 const scores = {};
@@ -10785,7 +10803,7 @@
                 if (!sample) return;
                 examples.push({
                     id: sampleId,
-                    text: sample._text,
+                    text: getClassificationText(sample),
                     labels: cleaned
                 });
             });
@@ -11134,7 +11152,7 @@
                 for (let i = 0; i < sampleSize; i++) sampleIndices.push(Math.min(i * step, records.length - 1));
                 const sampleTexts = sampleIndices.map(idx => ({
                     id: getRecordStableKey(records[idx]) || records[idx]._id,
-                    text: (records[idx]._text || '').slice(0, 512)
+                    text: getClassificationText(records[idx]).slice(0, 600)
                 }));
 
                 const benchStart = performance.now();
@@ -11180,7 +11198,7 @@
 
                 const batchTexts = toClassify.map(r => ({
                     id: getRecordStableKey(r) || r._id,
-                    text: r._text || ''
+                    text: getClassificationText(r)
                 }));
 
                 const predictions = await predictZeroShotBatch(pipe, batchTexts, categories, threshold, (done, totalItems) => {
@@ -11438,7 +11456,7 @@
                     btn.innerHTML = '<span class="spinner-small"></span>';
                     try {
                         const pipe = await loadZeroShotPipeline();
-                        const results = await predictZeroShotBatch(pipe, [{ id: record._id, text: record._text || '' }], categories, threshold);
+                        const results = await predictZeroShotBatch(pipe, [{ id: record._id, text: getClassificationText(record) }], categories, threshold);
                         record._predictedLabels = results[0]?.labels || [];
                     } finally {
                         btn.disabled = false;
