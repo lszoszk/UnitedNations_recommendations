@@ -3222,7 +3222,7 @@
         let charts = {};
         let currentSort = { column: null, direction: 'asc' };
         let currentPage = 1;
-        const ROWS_PER_PAGE = 200;
+        const ROWS_PER_PAGE = 100;
         const MAX_CHART_RECORDS = 50000;
         const MAX_BIGRAM_RECORDS = 20000;
         const SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT = 50000;
@@ -4361,14 +4361,99 @@
             loadOverviewBootstrapThenServerBrowse(false);
         }
 
-        // Debounced table search
+        // Debounced table search — in server mode, re-queries the VM
+        let _serverSearchFilter = '';  // current Data-tab search sent to server
         document.getElementById('tableSearch').addEventListener('input', (e) => {
             clearTimeout(searchDebounceTimer);
             searchDebounceTimer = setTimeout(() => {
                 currentPage = 1;
-                renderTableBody();
-            }, 300);
+                if (serverBrowseMode) {
+                    const query = (e.target.value || '').trim();
+                    _serverSearchFilter = query;
+                    _serverSearchRefresh(query, 1);
+                } else {
+                    renderTableBody();
+                }
+            }, 400);
         });
+
+        // Server-mode search: re-fetch records with text_filter param
+        let _serverSearchAbort = null;
+        async function _serverSearchRefresh(searchTerm, page) {
+            if (!DATASET_RECORDS_URL) return;
+            // Abort any in-flight search request
+            if (_serverSearchAbort) { try { _serverSearchAbort.abort(); } catch {} }
+            _serverSearchAbort = new AbortController();
+
+            const opts = {
+                page,
+                includePagination: true,
+                textFilter: searchTerm || undefined,
+                pageSize: ROWS_PER_PAGE
+            };
+            const params = buildServerQueryParams(opts);
+            const url = `${DATASET_RECORDS_URL}?${params.toString()}`;
+
+            // Fade out
+            const target = _currentTableView === 'card'
+                ? document.getElementById('cardListView')
+                : document.getElementById('classicTableView');
+            if (target) { target.style.transition = 'opacity 0.12s'; target.style.opacity = '0.35'; }
+
+            try {
+                const ctrl = _serverSearchAbort;
+                const timer = setTimeout(() => ctrl.abort(), 30000);
+                const resp = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+                clearTimeout(timer);
+                if (!resp.ok) throw new Error(`${resp.status}`);
+                const data = await resp.json();
+
+                serverState.page = data.page || page;
+                serverState.pageSize = data.page_size || ROWS_PER_PAGE;
+                serverState.searchTotalPages = data.total_pages || 1;
+                serverState.searchTotalRecords = data.total_records || 0;
+                serverState.records = (data.records || []).map((row, idx) =>
+                    normalizeRecord(row, idx + ((data.page - 1) * (data.page_size || ROWS_PER_PAGE)))
+                );
+                currentPage = serverState.page;
+                filteredData = serverState.records;
+                registerRecords(serverState.records);
+                buildDataTable();
+                // Prefetch next page
+                _serverPrefetchNext(searchTerm, serverState.page + 1, serverState.searchTotalPages);
+            } catch (err) {
+                if (err.name === 'AbortError') return; // superseded by newer search
+                console.warn('Server search failed:', err);
+            } finally {
+                if (target) { target.style.opacity = '1'; }
+            }
+        }
+
+        // Server-mode prefetch cache
+        let _serverPrefetchedPage = { page: null, records: null, searchTerm: null };
+        async function _serverPrefetchNext(searchTerm, nextPage, totalPages) {
+            if (nextPage > totalPages) { _serverPrefetchedPage = { page: null, records: null, searchTerm: null }; return; }
+            try {
+                const opts = {
+                    page: nextPage,
+                    includePagination: true,
+                    textFilter: searchTerm || undefined,
+                    pageSize: ROWS_PER_PAGE
+                };
+                const params = buildServerQueryParams(opts);
+                const url = `${DATASET_RECORDS_URL}?${params.toString()}`;
+                const resp = await fetch(url, { cache: 'no-store' });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                _serverPrefetchedPage = {
+                    page: nextPage,
+                    searchTerm: searchTerm || '',
+                    records: (data.records || []).map((row, idx) =>
+                        normalizeRecord(row, idx + ((nextPage - 1) * (data.page_size || ROWS_PER_PAGE)))
+                    )
+                };
+            } catch {}
+        }
 
         function setProgress(pct, text) {
             document.getElementById('progressFill').style.width = pct + '%';
@@ -5068,6 +5153,7 @@
             if (filters.yearStart) params.set('year_start', String(filters.yearStart));
             if (filters.yearEnd) params.set('year_end', String(filters.yearEnd));
             if (filters.textQuery) params.set('text_query', filters.textQuery);
+            if (options.textFilter) params.set('text_filter', options.textFilter);
 
             if (options.includePagination !== false) {
                 params.set('page', String(options.page || currentPage || 1));
@@ -9485,7 +9571,9 @@
 
             const sourceData = serverBrowseMode ? serverState.records : filteredData;
             let data = sourceData;
-            if (searchState.type !== 'none') {
+            // In server mode with active search, server already filtered — skip local filtering
+            const serverSearchActive = serverBrowseMode && _serverSearchFilter;
+            if (!serverSearchActive && searchState.type !== 'none') {
                 data = data.filter(r => recordMatchesSearch(r, cols, searchState));
             }
 
@@ -9500,7 +9588,9 @@
                 });
             }
 
-            const totalPages = serverBrowseMode ? (serverState.totalPages || 1) : Math.ceil(data.length / ROWS_PER_PAGE);
+            const totalPages = serverBrowseMode
+                ? (serverSearchActive ? (serverState.searchTotalPages || 1) : (serverState.totalPages || 1))
+                : Math.ceil(data.length / ROWS_PER_PAGE);
             if (!serverBrowseMode && totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
             const start = serverBrowseMode ? ((serverState.page - 1) * serverState.pageSize) : ((currentPage - 1) * ROWS_PER_PAGE);
             // Use prefetch cache if available for the current page
@@ -9573,14 +9663,24 @@
             const isSearchActive = searchState.type !== 'none' && searchState.type !== 'invalid';
             const infoEl = document.getElementById('tableInfo');
             if (serverBrowseMode) {
-                const pageStart = serverState.totalRecords ? start + 1 : 0;
-                const pageEnd = serverState.totalRecords ? start + serverState.records.length : 0;
-                if (isSearchActive) {
+                const baseTotalRecords = serverState.totalRecords || 0;
+                if (serverSearchActive) {
+                    // Server-side search is active: show hits relative to the full VM subset
+                    const searchTotal = serverState.searchTotalRecords || 0;
+                    const searchPages = serverState.searchTotalPages || 1;
+                    const pct = baseTotalRecords ? ((searchTotal / baseTotalRecords) * 100).toFixed(1) : '0.0';
+                    const pageStart = searchTotal ? start + 1 : 0;
+                    const pageEnd = searchTotal ? Math.min(start + serverState.pageSize, searchTotal) : 0;
+                    infoEl.innerHTML = `<span style="background:#e8f0fe; color:#1a56db; padding:2px 8px; border-radius:4px; font-weight:500;">${searchTotal.toLocaleString()} hits</span> <span style="color:#667;">(${pct}% of ${baseTotalRecords.toLocaleString()}) — page ${serverState.page} of ${searchPages}</span>`;
+                } else if (isSearchActive) {
+                    // Local search only (shouldn't happen much now, but fallback)
                     const pct = sourceData.length ? ((data.length / sourceData.length) * 100).toFixed(1) : '0.0';
-                    infoEl.innerHTML = `<span style="background:#e8f0fe; color:#1a56db; padding:2px 8px; border-radius:4px; font-weight:500;">${data.length.toLocaleString()} hits</span> <span style="color:#667;">(${pct}% of page) | ${serverState.totalRecords.toLocaleString()} total VM matches${modeSuffix}</span>`;
+                    infoEl.innerHTML = `<span style="background:#e8f0fe; color:#1a56db; padding:2px 8px; border-radius:4px; font-weight:500;">${data.length.toLocaleString()} hits</span> <span style="color:#667;">(${pct}% of page) | ${baseTotalRecords.toLocaleString()} total VM matches${modeSuffix}</span>`;
                 } else {
-                    infoEl.textContent = serverState.totalRecords
-                        ? `Showing ${pageStart}-${pageEnd} of ${serverState.totalRecords.toLocaleString()} | server page ${serverState.page} of ${serverState.totalPages}${modeSuffix}`
+                    const pageStart = baseTotalRecords ? start + 1 : 0;
+                    const pageEnd = baseTotalRecords ? start + serverState.records.length : 0;
+                    infoEl.textContent = baseTotalRecords
+                        ? `Showing ${pageStart}-${pageEnd} of ${baseTotalRecords.toLocaleString()} | page ${serverState.page} of ${serverState.totalPages}${modeSuffix}`
                         : `Showing 0 records${modeSuffix}`;
                 }
             } else {
@@ -9786,11 +9886,34 @@
             }
 
             if (serverBrowseMode) {
-                refreshServerBrowseData(p, true).then(() => {
+                // Check if we have a prefetched page from server
+                const searchTerm = _serverSearchFilter || '';
+                if (_serverPrefetchedPage.page === p && _serverPrefetchedPage.searchTerm === searchTerm && _serverPrefetchedPage.records) {
+                    // Use prefetch cache — instant page turn
+                    serverState.page = p;
+                    serverState.records = _serverPrefetchedPage.records;
+                    filteredData = _serverPrefetchedPage.records;
+                    registerRecords(_serverPrefetchedPage.records);
+                    _serverPrefetchedPage = { page: null, records: null, searchTerm: null };
+                    buildDataTable();
                     if (target) { target.style.opacity = '1'; }
-                }).catch(() => {
-                    if (target) { target.style.opacity = '1'; }
-                });
+                    // Prefetch the NEXT page in background
+                    const totalPg = _serverSearchFilter ? (serverState.searchTotalPages || 1) : (serverState.totalPages || 1);
+                    _serverPrefetchNext(searchTerm, p + 1, totalPg);
+                } else if (_serverSearchFilter) {
+                    // Server search active — re-query with text_filter
+                    _serverSearchRefresh(_serverSearchFilter, p).then(() => {
+                        if (target) { target.style.opacity = '1'; }
+                    }).catch(() => {
+                        if (target) { target.style.opacity = '1'; }
+                    });
+                } else {
+                    refreshServerBrowseData(p, true).then(() => {
+                        if (target) { target.style.opacity = '1'; }
+                    }).catch(() => {
+                        if (target) { target.style.opacity = '1'; }
+                    });
+                }
             } else {
                 requestAnimationFrame(() => {
                     renderTableBody();
