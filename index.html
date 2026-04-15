@@ -2076,15 +2076,18 @@
         }
         .sample-text {
             font-size: 13px;
-            line-height: 1.5;
+            line-height: 1.6;
             color: var(--dark);
-            max-height: 120px;
+            max-height: 300px;
             overflow-y: auto;
-            padding: 10px;
+            padding: 12px;
             background: white;
             border-radius: 6px;
             border: 1px solid var(--border);
             margin-bottom: 12px;
+        }
+        .sample-text.expanded {
+            max-height: none;
         }
         .sample-labels {
             display: flex;
@@ -4957,6 +4960,85 @@
             }
         }
 
+        /**
+         * Convert a client-side text query (which may contain AND/OR/NOT/quotes)
+         * into a format the server API understands. The server supports plain text
+         * (LIKE %needle%) and regex (re:pattern). It does NOT parse boolean operators.
+         *
+         * Strategy:
+         *  - Plain text queries → sent as-is (server LIKE match)
+         *  - Regex queries (re: or /.../) → sent as-is
+         *  - Boolean queries (AND/OR/NOT/"phrases") → converted to regex:
+         *      OR groups  → (term1|term2)
+         *      AND terms  → (?=.*term1)(?=.*term2)
+         *      NOT terms  → (?!.*term)
+         *      Phrases    → treated as literal text within the pattern
+         */
+        function convertTextQueryForServer(rawQuery) {
+            const raw = String(rawQuery || '').trim();
+            if (!raw) return '';
+
+            // Already regex? Pass through.
+            if (raw.startsWith('re:')) return raw;
+            if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) return raw;
+
+            // Not boolean? Pass through (server handles plain LIKE).
+            if (!/\b(AND|OR|NOT)\b/.test(raw) && !raw.includes('"')) return raw;
+
+            // Parse into boolean token groups (same logic as parseBooleanQuery)
+            const tokens = [];
+            const re = /"([^"]+)"|(\bAND\b|\bOR\b|\bNOT\b)|(\S+)/g;
+            let m;
+            while ((m = re.exec(raw)) !== null) {
+                if (m[1] !== undefined) tokens.push({ type: 'phrase', value: m[1] });
+                else if (m[2]) tokens.push({ type: 'op', value: m[2] });
+                else if (m[3]) tokens.push({ type: 'word', value: m[3] });
+            }
+            if (!tokens.length) return raw;
+
+            // Build OR groups, each with AND/NOT clauses
+            const orGroups = [[]];
+            let negate = false;
+            for (const tok of tokens) {
+                if (tok.type === 'op') {
+                    if (tok.value === 'OR') { orGroups.push([]); negate = false; }
+                    else if (tok.value === 'NOT') { negate = true; }
+                    // AND is implicit
+                } else {
+                    orGroups[orGroups.length - 1].push({ term: tok.value, negate });
+                    negate = false;
+                }
+            }
+
+            // Convert each OR group into a regex pattern
+            // Each group: positive terms as lookaheads (?=.*term), negatives as (?!.*term)
+            // Groups joined by |
+            const escRx = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            const groupPatterns = orGroups.map(group => {
+                const parts = [];
+                for (const clause of group) {
+                    const escaped = escRx(clause.term);
+                    if (clause.negate) {
+                        parts.push(`(?!.*${escaped})`);
+                    } else {
+                        parts.push(`(?=.*${escaped})`);
+                    }
+                }
+                // Lookaheads must all succeed at position 0, then match rest
+                return parts.join('') + '.*';
+            });
+
+            let pattern;
+            if (groupPatterns.length === 1) {
+                pattern = groupPatterns[0];
+            } else {
+                pattern = groupPatterns.map(p => `(?:${p})`).join('|');
+            }
+
+            return `re:(?i)${pattern}`;
+        }
+
         function buildServerQueryParams(options = {}) {
             const filters = getServerFilterState();
             const params = new URLSearchParams();
@@ -4966,7 +5048,7 @@
             appendCsvQueryParam(params, 'annotation_type', filters.annotationType);
             if (filters.yearStart) params.set('year_start', String(filters.yearStart));
             if (filters.yearEnd) params.set('year_end', String(filters.yearEnd));
-            if (filters.textQuery) params.set('text_query', filters.textQuery);
+            if (filters.textQuery) params.set('text_query', convertTextQueryForServer(filters.textQuery));
 
             if (options.includePagination !== false) {
                 params.set('page', String(options.page || currentPage || 1));
@@ -9270,29 +9352,36 @@
             return { type: 'boolean', raw, orGroups, highlightRegex };
         }
 
+        // Normalize hyphens to spaces for search matching.
+        // UN documents use "asylum-seekers" but users type "asylum seekers".
+        function normalizeForSearch(text) {
+            return text.replace(/-/g, ' ');
+        }
+
         function recordMatchesSearch(record, cols, searchState) {
             if (!searchState || searchState.type === 'none') return true;
             if (searchState.type === 'invalid') return false;
 
-            const getText = () => cols.map(c => getCellValue(record, c)).join(' ').toLowerCase();
+            const getText = () => normalizeForSearch(cols.map(c => getCellValue(record, c)).join(' ').toLowerCase());
 
             if (searchState.type === 'boolean') {
                 const text = getText();
                 // Match if ANY orGroup matches; a group matches when ALL its clauses match
                 return searchState.orGroups.some(group =>
-                    group.every(clause =>
-                        clause.negate ? !text.includes(clause.term) : text.includes(clause.term)
-                    )
+                    group.every(clause => {
+                        const normalizedTerm = normalizeForSearch(clause.term);
+                        return clause.negate ? !text.includes(normalizedTerm) : text.includes(normalizedTerm);
+                    })
                 );
             }
 
             return cols.some(c => {
-                const v = getCellValue(record, c);
+                const v = normalizeForSearch(getCellValue(record, c));
                 if (searchState.type === 'regex') {
                     searchState.testRegex.lastIndex = 0;
                     return searchState.testRegex.test(v);
                 }
-                return v.toLowerCase().includes(searchState.lowered);
+                return v.toLowerCase().includes(normalizeForSearch(searchState.lowered));
             });
         }
 
@@ -10055,79 +10144,92 @@
             return record && (record._source === 'Rule of Law example' || (record._id >= 900000 && !record._countries && !record._year));
         }
 
-        function exportClassifiedData() {
-            // Collect rows from two sources:
-            // 1. Manually tagged real records (from the labeling tool — excludes demo/synthetic)
-            // 2. Auto-classified records (from prediction)
-            const rows = [];
-            const seen = new Set();
+        function _getLabelsForRecord(record) {
+            // Check manual labels first, then auto-predicted
+            const key = getSampleKey(record);
+            const manual = trainingState.labeledSamples.get(key);
+            if (manual) {
+                const cleaned = sanitizeSampleLabels(manual).filter(l => !isExcludedCategory(l));
+                if (cleaned.length) return { labels: cleaned.join(', '), source: 'manual' };
+            }
+            if (record._predictedLabels && record._predictedLabels.length) {
+                return { labels: record._predictedLabels.join(', '), source: 'auto' };
+            }
+            return { labels: '', source: '' };
+        }
 
-            // Source 1: manually tagged real records
+        function _recordToRow(r) {
+            const { labels, source } = _getLabelsForRecord(r);
+            return {
+                'My Labels': labels,
+                Source: source,
+                Country: r._countries || '',
+                Year: r._year || '',
+                Body: (r._body || '').replace(/^-\s*/, ''),
+                Type: (r._type || '').replace(/^-\s*/, ''),
+                Themes: r._themes || '',
+                'Affected Persons': r._affectedPersons || '',
+                Regions: r._regions || '',
+                SDGs: r._sdgs || '',
+                Citation: r._citation || '',
+                Symbol: r._symbol || '',
+                Text: r._text || '',
+                'UHRI Link': typeof getUhriUrl === 'function' ? getUhriUrl(r) : '',
+                'UN Doc Link': typeof getUnDocsUrl === 'function' ? getUnDocsUrl(r) : ''
+            };
+        }
+
+        function exportClassifiedData() {
+            // Export all filtered (or all) records with "My Labels" column.
+            // Labeled records appear first so the user sees them at the top.
+            const pool = filteredData.length ? filteredData : rawData;
+            if (!pool.length) {
+                alert('No records to export. Load a dataset first.');
+                return;
+            }
+
+            const labeled = [];
+            const unlabeled = [];
+
+            pool.forEach(r => {
+                if (isSyntheticRecord(r)) return;
+                const row = _recordToRow(r);
+                if (row['My Labels']) {
+                    labeled.push(row);
+                } else {
+                    unlabeled.push(row);
+                }
+            });
+
+            // Also include manually tagged samples that might not be in the current filtered pool
+            const poolIds = new Set(pool.map(r => getSampleKey(r)));
             trainingState.labeledSamples.forEach((labels, sampleKey) => {
-                const cleaned = sanitizeSampleLabels(labels);
+                if (poolIds.has(sampleKey)) return; // already included
+                const cleaned = sanitizeSampleLabels(labels).filter(l => !isExcludedCategory(l));
                 if (!cleaned.length) return;
                 const record = recordMap.get(String(sampleKey))
                     || trainingState.samples.find(s => getSampleKey(s) === String(sampleKey));
-                if (!record) return;
-                if (isSyntheticRecord(record)) return; // skip demo examples
-                const id = record._id || sampleKey;
-                if (seen.has(id)) return;
-                seen.add(id);
-                rows.push({
-                    Country: record._countries || '',
-                    Year: record._year || '',
-                    Body: (record._body || '').replace(/^-\s*/, ''),
-                    Type: (record._type || '').replace(/^-\s*/, ''),
-                    'My Labels': cleaned.filter(l => !isExcludedCategory(l)).join(', '),
-                    Source: 'manual',
-                    Themes: record._themes || '',
-                    'Affected Persons': record._affectedPersons || '',
-                    Regions: record._regions || '',
-                    SDGs: record._sdgs || '',
-                    Citation: record._citation || '',
-                    Symbol: record._symbol || '',
-                    Text: record._text || '',
-                    'UHRI Link': typeof getUhriUrl === 'function' ? getUhriUrl(record) : '',
-                    'UN Doc Link': typeof getUnDocsUrl === 'function' ? getUnDocsUrl(record) : ''
-                });
+                if (!record || isSyntheticRecord(record)) return;
+                labeled.push(_recordToRow(record));
             });
 
-            // Source 2: auto-classified records
-            const data = filteredData.length ? filteredData : rawData;
-            data.forEach(r => {
-                if (!r._predictedLabels || !r._predictedLabels.length) return;
-                if (isSyntheticRecord(r)) return;
-                const id = r._id;
-                if (seen.has(id)) return;
-                seen.add(id);
-                rows.push({
-                    Country: r._countries || '',
-                    Year: r._year || '',
-                    Body: (r._body || '').replace(/^-\s*/, ''),
-                    Type: (r._type || '').replace(/^-\s*/, ''),
-                    'My Labels': (r._predictedLabels || []).join(', '),
-                    Source: 'auto',
-                    Themes: r._themes || '',
-                    'Affected Persons': r._affectedPersons || '',
-                    Regions: r._regions || '',
-                    SDGs: r._sdgs || '',
-                    Citation: r._citation || '',
-                    Symbol: r._symbol || '',
-                    Text: r._text || '',
-                    'UHRI Link': typeof getUhriUrl === 'function' ? getUhriUrl(r) : '',
-                    'UN Doc Link': typeof getUnDocsUrl === 'function' ? getUnDocsUrl(r) : ''
-                });
-            });
+            const rows = [...labeled, ...unlabeled];
 
             if (!rows.length) {
-                alert('No real records to export.\n\nThe demo examples are not included in the export — load actual data first (Quick Demo or connect to a server), then tag records in Step 2.');
+                alert('No records to export. Load a dataset first.');
                 return;
             }
+
+            const labeledCount = labeled.length;
             const ws = XLSX.utils.json_to_sheet(rows);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Tagged');
-            const cats = (trainingState.categories || []).join('_').slice(0, 30).replace(/[^a-zA-Z0-9_]/g, '') || 'labels';
-            XLSX.writeFile(wb, `tagged_${cats}_${rows.length}records.xlsx`);
+            XLSX.utils.book_append_sheet(wb, ws, 'Records');
+            const cats = (trainingState.categories || []).join('_').slice(0, 30).replace(/[^a-zA-Z0-9_]/g, '') || 'export';
+            XLSX.writeFile(wb, `uhri_${cats}_${rows.length}records.xlsx`);
+
+            if (labeledCount > 0) {
+                alert(`Exported ${rows.length.toLocaleString()} records.\n\n${labeledCount} labeled records are at the top of the file.`);
+            }
         }
 
         function goToMyLabelsTab() {
@@ -10648,6 +10750,14 @@
                 console.error('Benchmark refresh error:', err);
             });
             updateLabelingUI();
+            updateLabeledExamplesInfo();
+        }
+
+        function toggleSampleTextExpand(link) {
+            const box = document.getElementById('sampleTextBox');
+            if (!box) return;
+            box.classList.toggle('expanded');
+            link.textContent = box.classList.contains('expanded') ? 'Collapse' : 'Show full text';
         }
 
         function toggleCurrentSampleLabel(categoryIndex) {
@@ -10662,6 +10772,7 @@
             if (!key) return;
             trainingState.labeledSamples.set(key, []);
             updateLabelingUI();
+            updateLabeledExamplesInfo();
         }
 
         function toggleExcludeCurrentSample() {
@@ -10677,6 +10788,7 @@
                 console.error('Benchmark refresh error:', err);
             });
             updateLabelingUI();
+            updateLabeledExamplesInfo();
         }
 
         function updateLabelingUI() {
@@ -10715,7 +10827,8 @@
                             ${isExcluded ? '↩ Remove excluded label' : '🚫 Mark as excluded'}
                         </button>
                     </div>
-                    <div class="sample-text">${escapeHtml((sample._text || '').slice(0, 500))}${(sample._text || '').length > 500 ? '...' : ''}</div>
+                    <div class="sample-text" id="sampleTextBox">${escapeHtml(sample._text || '')}</div>
+                    <a href="javascript:void(0)" id="sampleTextExpandLink" onclick="toggleSampleTextExpand(this)" style="font-size:11px;color:var(--primary);margin-bottom:8px;display:none;">Show full text</a>
                     ${predictedLabels.length
                         ? `<div style="font-size: 11px; color: #415067; margin-bottom: 10px;">Model suggestion: ${predictedLabels.map(l => `<span class=\"pred-badge\">${escapeHtml(l)}</span>`).join(' ')}</div>`
                         : ''
@@ -10759,6 +10872,17 @@
             document.getElementById('labeledCount').textContent = labeledCount;
             document.getElementById('totalSamples').textContent = totalSamples;
             document.getElementById('excludedCount').textContent = excludedCount;
+
+            // Show expand link only if text actually overflows
+            const textBox = document.getElementById('sampleTextBox');
+            const expandLink = document.getElementById('sampleTextExpandLink');
+            if (textBox && expandLink) {
+                if (textBox.scrollHeight > textBox.clientHeight + 2) {
+                    expandLink.style.display = 'inline-block';
+                } else {
+                    expandLink.style.display = 'none';
+                }
+            }
         }
 
         // ========== CLASSIFIER METHODS ==========
