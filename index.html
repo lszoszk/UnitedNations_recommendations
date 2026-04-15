@@ -7595,11 +7595,11 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-small"></span> Applying...';
             _pushUrlState();
-            saveRecentFilter();
 
             if (serverBrowseMode) {
                 currentPage = 1;
                 refreshServerBrowseData(1, true)
+                    .then(() => { saveRecentFilter(); })
                     .finally(() => {
                         btn.disabled = false;
                         btn.innerHTML = '<span>Apply Filters</span>';
@@ -7641,6 +7641,7 @@
                 chartData = filteredData.length > MAX_CHART_RECORDS ? sampleData(filteredData, MAX_CHART_RECORDS) : filteredData;
                 currentPage = 1;
                 updateDashboard();
+                saveRecentFilter();
 
                 btn.disabled = false;
                 btn.innerHTML = '<span>Apply Filters</span>';
