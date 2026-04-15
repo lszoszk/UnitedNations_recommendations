@@ -3093,7 +3093,7 @@
         let charts = {};
         let currentSort = { column: null, direction: 'asc' };
         let currentPage = 1;
-        const ROWS_PER_PAGE = 100;
+        const ROWS_PER_PAGE = 200;
         const MAX_CHART_RECORDS = 50000;
         const MAX_BIGRAM_RECORDS = 20000;
         const SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT = 50000;
@@ -9221,6 +9221,10 @@
             updateSelectedCountInfo();
             renderCardView(pageData, searchState);
             renderPagination(totalPages);
+            // Prefetch next page in background for smooth transitions
+            if (!serverBrowseMode) {
+                setTimeout(prefetchNextPage, 100);
+            }
         }
 
         let _currentTableView = 'card';
@@ -9341,15 +9345,79 @@
             pg.innerHTML = html;
         }
 
-        function goToPage(p) {
-            currentPage = p;
-            if (serverBrowseMode) {
-                refreshServerBrowseData(p, true);
-            } else {
-                renderTableBody();
+        // --- Prefetch cache for smooth page transitions ---
+        let _prefetchCache = { page: null, data: null, searchKey: null };
+
+        function _getPrefetchSearchKey() {
+            return (document.getElementById('tableSearch')?.value || '') + '|' + (document.getElementById('searchTextOnly')?.checked || false);
+        }
+
+        function prefetchNextPage() {
+            if (serverBrowseMode) return; // server mode handled separately
+            const searchState = parseSearchQuery(document.getElementById('tableSearch').value);
+            const textOnly = document.getElementById('searchTextOnly')?.checked;
+            const cols = textOnly ? ['_text'] : getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
+            let data = filteredData;
+            if (searchState.type !== 'none' && searchState.type !== 'invalid') {
+                data = data.filter(r => recordMatchesSearch(r, cols, searchState));
             }
-            // Scroll to top of data section
-            document.getElementById('dataContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (currentSort.column) {
+                data = [...data].sort((a, b) => {
+                    const cmp = getCellValue(a, currentSort.column).localeCompare(
+                        getCellValue(b, currentSort.column), undefined, { numeric: true }
+                    );
+                    return currentSort.direction === 'asc' ? cmp : -cmp;
+                });
+            }
+            const totalPages = Math.ceil(data.length / ROWS_PER_PAGE);
+            const nextPage = currentPage + 1;
+            if (nextPage > totalPages) { _prefetchCache = { page: null, data: null, searchKey: null }; return; }
+            const start = (nextPage - 1) * ROWS_PER_PAGE;
+            _prefetchCache = {
+                page: nextPage,
+                data: data.slice(start, start + ROWS_PER_PAGE),
+                searchKey: _getPrefetchSearchKey()
+            };
+        }
+
+        function goToPage(p) {
+            if (p === currentPage) return;
+            currentPage = p;
+
+            // Fade transition
+            const cardView = document.getElementById('cardListView');
+            const tableView = document.getElementById('classicTableView');
+            const target = _currentTableView === 'card' ? cardView : tableView;
+
+            if (target) {
+                target.style.transition = 'opacity 0.12s ease-out';
+                target.style.opacity = '0.35';
+            }
+
+            if (serverBrowseMode) {
+                refreshServerBrowseData(p, true).then(() => {
+                    if (target) { target.style.opacity = '1'; }
+                }).catch(() => {
+                    if (target) { target.style.opacity = '1'; }
+                });
+            } else {
+                requestAnimationFrame(() => {
+                    renderTableBody();
+                    if (target) {
+                        requestAnimationFrame(() => { target.style.opacity = '1'; });
+                    }
+                });
+            }
+
+            // Scroll pagination into view (not the whole section)
+            const pg = document.getElementById('pagination');
+            const tableControls = document.querySelector('.table-controls');
+            if (tableControls) {
+                const rect = tableControls.getBoundingClientRect();
+                if (rect.top < 0) {
+                    tableControls.scrollIntoView({ behavior: 'instant', block: 'start' });
+                }
+            }
         }
 
         function updateSelectedCountInfo() {
