@@ -3313,6 +3313,8 @@
             'iran (islamic republic of)': 'Iran',
             'bolivia (plurinational state of)': 'Bolivia',
             'venezuela (bolivarian republic of)': 'Venezuela',
+            'türkiye': 'Turkey',
+            'turkiye': 'Turkey',
         };
 
         // Reverse map: Plotly display name → UHRI DB name for API queries
@@ -3335,6 +3337,7 @@
             'Brunei': 'Brunei Darussalam',
             'Dem. Rep. Congo': 'Democratic Republic of the Congo',
             'Micronesia': 'Micronesia (Federated States of)',
+            'Turkey': 'Türkiye',
         };
 
         function resolveCountryForApi(plotlyName) {
@@ -3536,6 +3539,7 @@
             if (summary.total_records && recsEl) {
                 recsEl.setAttribute('data-target', summary.total_records);
                 recsEl.textContent = formatter.format(summary.total_records);
+                updateAllRecordCounts(summary.total_records);
             }
             if (summary.country_counts && countriesEl) {
                 const count = Array.isArray(summary.country_counts) ? summary.country_counts.length : 0;
@@ -3558,6 +3562,32 @@
                     const maxY = Math.max(...years);
                     spanEl.textContent = `${minY}–${maxY}`;
                 }
+            }
+        }
+
+        /* ── Update all hardcoded record counts from live data ── */
+        function updateAllRecordCounts(totalRecords) {
+            if (!totalRecords || totalRecords <= 0) return;
+            const approx = Math.floor(totalRecords / 500) * 500;
+            // Format with commas explicitly (locale-independent)
+            const approxText = approx.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '+';
+            // Regex that matches any prior formatted number (commas, dots, spaces, non-breaking spaces) followed by + and "UN human rights"
+            const countPattern = /\d[\d,.\s\u00a0]*\+?\s*UN human rights/;
+            const replacement = approxText + ' UN human rights';
+            // Hero tagline
+            const tagline = document.querySelector('.hero-tagline');
+            if (tagline) tagline.innerHTML = tagline.innerHTML.replace(countPattern, replacement);
+            // Welcome banner
+            const guidance = document.querySelector('.guidance-card');
+            if (guidance) guidance.innerHTML = guidance.innerHTML.replace(countPattern, replacement);
+            // About modal subtitle
+            const aboutSub = document.querySelector('.about-subtitle');
+            if (aboutSub) aboutSub.innerHTML = aboutSub.innerHTML.replace(countPattern, replacement);
+            // Coach step text spans
+            document.querySelectorAll('.dynamic-rec-count').forEach(el => { el.textContent = approxText; });
+            // Coach steps array (for future renders)
+            if (typeof coachSteps !== 'undefined' && coachSteps[0]) {
+                coachSteps[0].text = coachSteps[0].text.replace(/>\d[\d,.\s\u00a0]*\+?</, '>' + approxText + '<');
             }
         }
 
@@ -3893,7 +3923,7 @@
             {
                 emoji: '📊',
                 title: 'Live Data Preview',
-                text: 'The charts below show real data from 266,780 UN human rights recommendations — updated automatically. Hover any bar for details.'
+                text: 'The charts below show real data from <span class="dynamic-rec-count">267,500+</span> UN human rights recommendations — updated automatically. Hover any bar for details.'
             },
             {
                 emoji: '🔍',
@@ -5091,6 +5121,7 @@
                 : 'uhri-export.json';
             document.getElementById('infoFormat').textContent = 'Server API';
             document.getElementById('infoRecords').textContent = Number(summary.total_records || 0).toLocaleString();
+            updateAllRecordCounts(summary.total_records);
             document.getElementById('filterCount').textContent = `${Number(summary.total_records || 0).toLocaleString()} matching records on the VM`;
             document.getElementById('kpiTotal').textContent = Number(summary.total_records || 0).toLocaleString();
             document.getElementById('kpiCountries').textContent = Number(summary.countries_count || 0).toLocaleString();
@@ -6016,6 +6047,7 @@
             document.getElementById('infoFileName').textContent = fileName;
             document.getElementById('infoFormat').textContent = fileFormat;
             document.getElementById('infoRecords').textContent = rawData.length.toLocaleString();
+            updateAllRecordCounts(rawData.length);
             updateDatasetMetadataUI();
             const vcNotice = document.getElementById('veniceCommissionNotice');
             if (vcNotice) vcNotice.classList.add('hidden');
@@ -9290,7 +9322,14 @@
             const totalPages = serverBrowseMode ? (serverState.totalPages || 1) : Math.ceil(data.length / ROWS_PER_PAGE);
             if (!serverBrowseMode && totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
             const start = serverBrowseMode ? ((serverState.page - 1) * serverState.pageSize) : ((currentPage - 1) * ROWS_PER_PAGE);
-            const pageData = serverBrowseMode ? data : data.slice(start, start + ROWS_PER_PAGE);
+            // Use prefetch cache if available for the current page
+            let pageData;
+            if (!serverBrowseMode && _prefetchCache.page === currentPage && _prefetchCache.searchKey === _getPrefetchSearchKey()) {
+                pageData = _prefetchCache.data;
+                _prefetchCache = { page: null, data: null, searchKey: null };
+            } else {
+                pageData = serverBrowseMode ? data : data.slice(start, start + ROWS_PER_PAGE);
+            }
             lastRenderedPageData = pageData;
 
             tbody.innerHTML = pageData.map(r => {
