@@ -1109,7 +1109,7 @@
             display: inline-block; padding: 4px 10px; border-radius: 16px; font-size: 11px;
             font-weight: 500; background: #f0f4f8; color: var(--primary);
             border: 1px solid var(--border); cursor: pointer; transition: background 0.15s;
-            white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis;
         }
         .recent-filter-quick:hover { background: #e3edf8; border-color: var(--accent); }
 
@@ -7294,20 +7294,16 @@
 
         function buildFilterLabel(st) {
             const parts = [];
-            if (st.textQuery) parts.push(st.textQuery.length > 25 ? st.textQuery.slice(0,23) + '…' : st.textQuery);
-            if (st.countries?.length) parts.push(st.countries.length <= 2 ? st.countries.map(c => c.replace(/^-\s*/, '').split(/\s*\(/)[0].trim()).join(', ') : `${st.countries.length} countries`);
-            if (st.bodies?.length) parts.push(st.bodies.length <= 2 ? st.bodies.map(b => b.replace(/^-\s*/, '').trim()).join(', ') : `${st.bodies.length} bodies`);
-            if (st.regions?.length) parts.push(st.regions.join(', '));
-            if (st.annotationType?.length) parts.push(st.annotationType[0].replace(/^-\s*/, ''));
-            // Only show year if it's not the default full range
-            const defMin = serverBrowseMode ? (serverState.facets?.min_year || 2006) : (rawData.length ? Math.min(...rawData.map(r => r._year).filter(y => y > 1990)) : 2006);
-            const defMax = serverBrowseMode ? (serverState.facets?.max_year || 2026) : (rawData.length ? Math.max(...rawData.map(r => r._year).filter(y => y > 1990)) : 2026);
-            const yearNarrow = (st.yearStart && String(st.yearStart) !== String(defMin)) || (st.yearEnd && String(st.yearEnd) !== String(defMax));
-            if (yearNarrow && st.yearStart && st.yearEnd) parts.push(`${st.yearStart}-${st.yearEnd}`);
-            else if (yearNarrow && st.yearStart) parts.push(`from ${st.yearStart}`);
-            else if (yearNarrow && st.yearEnd) parts.push(`to ${st.yearEnd}`);
+            if (st.textQuery) parts.push(st.textQuery.length > 20 ? st.textQuery.slice(0,18) + '…' : st.textQuery);
+            if (st.countries?.length) parts.push(st.countries.length === 1 ? st.countries[0].replace(/^-\s*/, '').split(/\s*\(/)[0].trim() : `${st.countries.length} countries`);
+            if (st.bodies?.length) parts.push(st.bodies.length === 1 ? st.bodies[0].replace(/^-\s*/, '').split(/\s+/g).slice(0,2).join(' ') : `${st.bodies.length} bodies`);
             const label = parts.join(' + ') || 'All records';
-            return label.length > 55 ? label.slice(0, 53) + '…' : label;
+            return label.length > 35 ? label.slice(0, 33) + '…' : label;
+        }
+
+        function _getHitCount() {
+            if (serverBrowseMode) return serverState.totalRecords || 0;
+            return filteredData.length || 0;
         }
 
         function saveRecentFilter() {
@@ -7316,13 +7312,14 @@
             const defMinYear = serverBrowseMode ? (serverState.facets?.min_year || null) : (rawData.length ? Math.min(...rawData.map(r => r._year).filter(y => y > 1990)) : null);
             const defMaxYear = serverBrowseMode ? (serverState.facets?.max_year || null) : (rawData.length ? Math.max(...rawData.map(r => r._year).filter(y => y > 1990)) : null);
             const yearIsDefault = (!state.yearStart || String(state.yearStart) === String(defMinYear)) && (!state.yearEnd || String(state.yearEnd) === String(defMaxYear));
-            // Skip if no real filters active (ignore default year range)
             const hasFilter = state.textQuery || state.countries.length || state.bodies.length ||
-                state.regions.length || state.annotationType.length || !yearIsDefault;
+                state.regions.length || (state.themes || []).length || (state.affectedPersons || []).length ||
+                state.annotationType.length || !yearIsDefault;
             if (!hasFilter) return;
             const key = JSON.stringify(state);
+            const hits = _getHitCount();
             let list = _loadRecent().filter(r => JSON.stringify(r.state) !== key);
-            list.unshift({ id: Date.now(), timestamp: Date.now(), label: buildFilterLabel(state), state });
+            list.unshift({ id: Date.now(), timestamp: Date.now(), label: buildFilterLabel(state), hits, state });
             if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
             _saveRecentList(list);
             updateRecentUI();
@@ -7363,17 +7360,21 @@
             if (panel.classList.contains('open')) renderRecentPanel();
         }
 
+        function _recentHitsLabel(r) {
+            return r.hits ? ` (${Number(r.hits).toLocaleString()})` : '';
+        }
+
         function renderRecentPanel() {
             const panel = document.getElementById('recentFiltersPanel');
             const list = _loadRecent();
             if (!list.length) {
-                panel.innerHTML = '<h4>🕐 Recent Searches</h4><div class="recent-filters-empty">No recent searches yet.<br>Apply filters to save them automatically.</div>';
+                panel.innerHTML = '<h4>🕐 Recent <button class="recent-filters-clear" onclick="clearAllRecent()" style="visibility:hidden;">Clear all</button></h4><div class="recent-filters-empty">No recent searches yet.<br>Apply filters to save them automatically.</div>';
                 return;
             }
-            let html = '<h4>🕐 Recent Searches <button class="recent-filters-clear" onclick="clearAllRecent()">Clear all</button></h4>';
+            let html = '<h4>🕐 Recent <button class="recent-filters-clear" onclick="clearAllRecent()">Clear all</button></h4>';
             html += list.map(r => `
                 <div class="recent-filter-item" onclick="restoreFilter(${escapeHtml(JSON.stringify(r.state).replace(/"/g, '&quot;'))})">
-                    <span class="recent-filter-label" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</span>
+                    <span class="recent-filter-label" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}<span style="color:#8899aa; font-weight:400;">${_recentHitsLabel(r)}</span></span>
                     <span class="recent-filter-time">${formatTimeAgo(r.timestamp)}</span>
                     <button class="recent-filter-del" onclick="event.stopPropagation(); deleteRecent(${r.id})" title="Remove">&times;</button>
                 </div>
@@ -7385,12 +7386,13 @@
             const bar = document.getElementById('recentFiltersBar');
             const items = document.getElementById('recentFiltersBarItems');
             if (!bar || !items) return;
-            const list = _loadRecent().slice(0, 4);
+            const list = _loadRecent().slice(0, 3);
             if (!list.length) { bar.style.display = 'none'; return; }
             bar.style.display = 'flex';
-            items.innerHTML = list.map(r =>
-                `<button class="recent-filter-quick" onclick="restoreFilter(${escapeHtml(JSON.stringify(r.state).replace(/"/g, '&quot;'))})" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</button>`
-            ).join('');
+            items.innerHTML = list.map(r => {
+                const hitsStr = r.hits ? ` (${Number(r.hits).toLocaleString()})` : '';
+                return `<button class="recent-filter-quick" onclick="restoreFilter(${escapeHtml(JSON.stringify(r.state).replace(/"/g, '&quot;'))})" title="${escapeHtml(r.label)}${hitsStr}">${escapeHtml(r.label)}${hitsStr}</button>`;
+            }).join('');
         }
 
         function updateRecentUI() { renderRecentPanel(); renderRecentBar(); }
