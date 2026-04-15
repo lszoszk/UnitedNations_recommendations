@@ -955,6 +955,122 @@
             box-shadow: 0 0 0 3px rgba(74,144,217,0.1);
         }
         .filter-group select[multiple] { min-height: 100px; }
+
+        /* ── Chip-Select Component ── */
+        .chip-select-wrap {
+            position: relative;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+            min-height: 42px;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: #fff;
+            cursor: text;
+        }
+        .chip-select-wrap:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(74,144,217,0.1);
+        }
+        .chip-select-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 3px 6px 3px 8px;
+            border-radius: 12px;
+            font-size: 11.5px;
+            font-weight: 500;
+            color: #fff;
+            white-space: nowrap;
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chip-select-chip.chip-country { background: #2d5a87; }
+        .chip-select-chip.chip-body { background: #4a7fb5; }
+        .chip-select-chip.chip-region { background: #5b6abf; }
+        .chip-select-chip-x {
+            background: none; border: none; color: rgba(255,255,255,0.7);
+            cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1;
+        }
+        .chip-select-chip-x:hover { color: #fff; }
+        .chip-select-input {
+            flex: 1;
+            min-width: 80px;
+            border: none;
+            outline: none;
+            font-size: 13px;
+            padding: 4px 0;
+            background: transparent;
+        }
+        .chip-select-input::placeholder { color: #aab; }
+        .chip-select-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 3px);
+            left: 0; right: 0;
+            background: #fff;
+            border: 1px solid #d4e4f7;
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 50;
+        }
+        .chip-select-dropdown.open { display: block; }
+        .chip-select-option {
+            padding: 7px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #334;
+        }
+        .chip-select-option:hover, .chip-select-option.active { background: #eef6ff; }
+        .chip-select-option mark { background: #fff3cd; padding: 0 1px; border-radius: 2px; }
+        .chip-select-empty { padding: 12px; text-align: center; color: #8899aa; font-size: 12px; }
+
+        /* ── Recent Filters ── */
+        .header-recent-btn {
+            position: absolute; top: 16px; right: 142px;
+            background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
+            color: #e8f2ff; width: 36px; height: 36px; border-radius: 50%;
+            cursor: pointer; font-size: 16px; display: flex; align-items: center;
+            justify-content: center; transition: background 0.2s; z-index: 10;
+        }
+        .header-recent-btn:hover { background: rgba(255,255,255,0.28); }
+        .recent-filters-panel {
+            display: none; position: absolute; top: 58px; right: 80px;
+            background: #fff; color: var(--primary); border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18); padding: 14px 16px;
+            min-width: 300px; max-width: 400px; z-index: 20; font-size: 13px;
+        }
+        .recent-filters-panel.open { display: block; }
+        .recent-filters-panel h4 { margin: 0 0 10px; font-size: 14px; }
+        .recent-filter-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s;
+        }
+        .recent-filter-item:hover { background: #eef6ff; }
+        .recent-filter-label { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .recent-filter-time { font-size: 11px; color: #8899aa; white-space: nowrap; }
+        .recent-filter-del { opacity: 0; font-size: 14px; color: #c44; cursor: pointer; background: none; border: none; padding: 2px 4px; }
+        .recent-filter-item:hover .recent-filter-del { opacity: 1; }
+        .recent-filters-empty { color: #8899aa; text-align: center; padding: 16px 0; font-size: 12px; }
+        .recent-filters-clear { font-size: 11px; color: var(--accent); cursor: pointer; background: none; border: none; float: right; }
+        .recent-filters-clear:hover { text-decoration: underline; }
+        .recent-filters-bar {
+            display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; flex-wrap: wrap;
+        }
+        .recent-filters-bar-label { font-size: 12px; font-weight: 600; color: #7b8c9d; white-space: nowrap; }
+        .recent-filter-quick {
+            display: inline-block; padding: 4px 10px; border-radius: 16px; font-size: 11px;
+            font-weight: 500; background: #f0f4f8; color: var(--primary);
+            border: 1px solid var(--border); cursor: pointer; transition: background 0.15s;
+            white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis;
+        }
+        .recent-filter-quick:hover { background: #e3edf8; border-color: var(--accent); }
+
         .filter-actions {
             display: flex;
             gap: 12px;
@@ -2373,6 +2489,8 @@
                 </div>
             </div>
             <!-- Header action buttons -->
+            <button class="header-recent-btn" id="headerRecentBtn" onclick="toggleRecentFiltersPanel()" aria-label="Recent searches" title="Recent searches">🕐</button>
+            <div class="recent-filters-panel" id="recentFiltersPanel"></div>
             <button class="header-info-btn" id="headerInfoBtn" onclick="toggleAboutModal()" aria-label="About this project" title="About this project">i</button>
             <button class="header-upload-btn" id="headerUploadBtn" onclick="document.getElementById('fileInput').click()" aria-label="Upload file" title="Upload your own file">📂</button>
             <button class="settings-gear-btn" id="settingsGearBtn" onclick="toggleSettingsPanel()" aria-label="Settings" title="Settings">⚙</button>
@@ -2564,21 +2682,33 @@
                             <label>Country</label>
                             <button class="clear-btn" onclick="clearFilter('filterCountry')">Clear</button>
                         </div>
-                        <select id="filterCountry" multiple size="4"></select>
+                        <div class="chip-select-wrap" data-select-id="filterCountry" data-chip-class="chip-country" onclick="this.querySelector('.chip-select-input').focus()">
+                            <input type="text" class="chip-select-input" placeholder="Type to search countries..." autocomplete="off" spellcheck="false">
+                            <div class="chip-select-dropdown"></div>
+                        </div>
+                        <select id="filterCountry" multiple size="4" style="display:none !important;"></select>
                     </div>
                     <div class="filter-group">
                         <div class="filter-label">
                             <label>Recommending Body</label>
                             <button class="clear-btn" onclick="clearFilter('filterBody')">Clear</button>
                         </div>
-                        <select id="filterBody" multiple size="4"></select>
+                        <div class="chip-select-wrap" data-select-id="filterBody" data-chip-class="chip-body" onclick="this.querySelector('.chip-select-input').focus()">
+                            <input type="text" class="chip-select-input" placeholder="Type to search bodies..." autocomplete="off" spellcheck="false">
+                            <div class="chip-select-dropdown"></div>
+                        </div>
+                        <select id="filterBody" multiple size="4" style="display:none !important;"></select>
                     </div>
                     <div class="filter-group">
                         <div class="filter-label">
                             <label>Region</label>
                             <button class="clear-btn" onclick="clearFilter('filterRegion')">Clear</button>
                         </div>
-                        <select id="filterRegion" multiple size="4"></select>
+                        <div class="chip-select-wrap" data-select-id="filterRegion" data-chip-class="chip-region" onclick="this.querySelector('.chip-select-input').focus()">
+                            <input type="text" class="chip-select-input" placeholder="Type to search regions..." autocomplete="off" spellcheck="false">
+                            <div class="chip-select-dropdown"></div>
+                        </div>
+                        <select id="filterRegion" multiple size="4" style="display:none !important;"></select>
                     </div>
                     <div class="filter-group">
                         <div class="filter-label">
@@ -2602,6 +2732,11 @@
                     <button class="export-btn" onclick="exportFilteredData()">📥 Export Data</button>
                 </div>
             </details>
+
+            <div class="recent-filters-bar" id="recentFiltersBar" style="display:none;">
+                <span class="recent-filters-bar-label">Recent:</span>
+                <div id="recentFiltersBarItems"></div>
+            </div>
 
             <div class="filter-chips-bar" id="filterChipsBar">
                 <div class="filter-chips" id="filterChips"></div>
@@ -3575,6 +3710,11 @@
             if (searchHelp && !searchHelp.classList.contains('hidden') && !searchHelp.contains(e.target) && !e.target.closest('[aria-label="Search help"]')) {
                 searchHelp.classList.add('hidden');
             }
+            const recentPanel = document.getElementById('recentFiltersPanel');
+            const recentBtn = document.getElementById('headerRecentBtn');
+            if (recentPanel && recentPanel.classList.contains('open') && !recentPanel.contains(e.target) && e.target !== recentBtn) {
+                recentPanel.classList.remove('open');
+            }
         });
 
         /* ── Auto-load preference ── */
@@ -4353,6 +4493,7 @@
 
         // ── Restore URL state (filters, tab, search from hash) ──
         const _hadUrlState = _restoreUrlState();
+        updateRecentUI();
 
         // ── Returning user auto-load (if enabled in settings) ──
         if (shouldAutoLoadDemoData()) {
@@ -4815,6 +4956,7 @@
                     }
 
                     if (applied) {
+                        if (selectId && _chipSelects[selectId]) _chipSelects[selectId].sync();
                         // Open the facets details if a select filter was applied
                         if (selectId) {
                             const details = document.getElementById('filterFacetsDetails');
@@ -5086,10 +5228,10 @@
         function _restoreMultiSelect(selectId, values) {
             const el = document.getElementById(selectId);
             if (!el) return;
-            // For multi-select elements, set selected options
             Array.from(el.options).forEach(opt => {
                 opt.selected = values.includes(opt.value);
             });
+            if (_chipSelects[selectId]) _chipSelects[selectId].sync();
         }
 
         function renderTabContent(tabName = 'overview') {
@@ -5286,6 +5428,7 @@
             if (Number.isFinite(facets.max_year)) {
                 document.getElementById('filterYearEnd').value = facets.max_year;
             }
+            _initChipSelects();
         }
 
         function getServerFilterState() {
@@ -6714,16 +6857,272 @@
                 document.getElementById('filterYearStart').value = Math.min(...years);
                 document.getElementById('filterYearEnd').value = Math.max(...years);
             }
+            _initChipSelects();
         }
 
         function populateSelect(id, options) {
             const sel = document.getElementById(id);
             sel.innerHTML = options.map(o => `<option value="${escapeHtml(o)}">${o.length > 50 ? o.slice(0,50)+'...' : o}</option>`).join('');
+            if (_chipSelects[id]) _chipSelects[id].sync();
         }
 
         function clearFilter(id) {
             const sel = document.getElementById(id);
             for (let opt of sel.options) opt.selected = false;
+            if (_chipSelects[id]) _chipSelects[id].sync();
+        }
+
+        // ── Chip-Select Component ──
+        const _chipSelects = {};
+
+        function _initChipSelects() {
+            document.querySelectorAll('.chip-select-wrap[data-select-id]').forEach(wrap => {
+                const id = wrap.dataset.selectId;
+                if (_chipSelects[id]) return; // already init
+                _chipSelects[id] = new _ChipSelect(wrap, id, wrap.dataset.chipClass || 'chip-country');
+            });
+        }
+
+        function _ChipSelect(wrap, selectId, chipClass) {
+            this.wrap = wrap;
+            this.sel = document.getElementById(selectId);
+            this.chipClass = chipClass;
+            this.input = wrap.querySelector('.chip-select-input');
+            this.dropdown = wrap.querySelector('.chip-select-dropdown');
+            this.activeIdx = -1;
+            this._debounce = null;
+
+            const self = this;
+
+            // Insert chips container before input
+            this.chipsArea = wrap;
+
+            // Events
+            this.input.addEventListener('input', () => {
+                clearTimeout(self._debounce);
+                self._debounce = setTimeout(() => self._filter(), 80);
+            });
+            this.input.addEventListener('focus', () => self._filter());
+            this.input.addEventListener('keydown', (e) => self._onKey(e));
+
+            // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (!wrap.contains(e.target)) self._close();
+            });
+
+            this.sync();
+        }
+
+        _ChipSelect.prototype.sync = function() {
+            // Re-render chips from hidden select state
+            // Remove old chips
+            this.wrap.querySelectorAll('.chip-select-chip').forEach(c => c.remove());
+            const input = this.input;
+            Array.from(this.sel.selectedOptions).forEach(opt => {
+                const chip = document.createElement('span');
+                chip.className = `chip-select-chip ${this.chipClass}`;
+                const label = opt.textContent.length > 24 ? opt.textContent.slice(0,22) + '…' : opt.textContent;
+                chip.innerHTML = `${escapeHtml(label)}<button class="chip-select-chip-x" title="Remove">&times;</button>`;
+                chip.querySelector('.chip-select-chip-x').onclick = (e) => {
+                    e.stopPropagation();
+                    opt.selected = false;
+                    this.sync();
+                };
+                this.wrap.insertBefore(chip, input);
+            });
+        };
+
+        _ChipSelect.prototype._filter = function() {
+            const q = this.input.value.toLowerCase().trim();
+            const selected = new Set(Array.from(this.sel.selectedOptions).map(o => o.value));
+            const matches = [];
+            for (const opt of this.sel.options) {
+                if (selected.has(opt.value)) continue;
+                if (q && !opt.textContent.toLowerCase().includes(q)) continue;
+                matches.push(opt);
+                if (matches.length >= 12) break; // Hick's Law: limit visible
+            }
+            this.activeIdx = -1;
+            if (matches.length === 0) {
+                this.dropdown.innerHTML = `<div class="chip-select-empty">${q ? 'No matches' : 'All selected'}</div>`;
+            } else {
+                this.dropdown.innerHTML = matches.map((opt, i) => {
+                    const text = opt.textContent;
+                    const hl = q ? text.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>') : escapeHtml(text);
+                    return `<div class="chip-select-option" data-value="${escapeHtml(opt.value)}" data-idx="${i}">${hl}</div>`;
+                }).join('');
+                this.dropdown.querySelectorAll('.chip-select-option').forEach(el => {
+                    el.onmousedown = (e) => {
+                        e.preventDefault(); // keep focus on input
+                        this._select(el.dataset.value);
+                    };
+                });
+            }
+            this.dropdown.classList.add('open');
+        };
+
+        _ChipSelect.prototype._select = function(value) {
+            const opt = Array.from(this.sel.options).find(o => o.value === value);
+            if (opt) opt.selected = true;
+            this.input.value = '';
+            this.sync();
+            this._close();
+            this.input.focus();
+        };
+
+        _ChipSelect.prototype._close = function() {
+            this.dropdown.classList.remove('open');
+            this.activeIdx = -1;
+        };
+
+        _ChipSelect.prototype._onKey = function(e) {
+            const opts = this.dropdown.querySelectorAll('.chip-select-option');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!this.dropdown.classList.contains('open')) { this._filter(); return; }
+                this.activeIdx = Math.min(this.activeIdx + 1, opts.length - 1);
+                this._highlightActive(opts);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                this.activeIdx = Math.max(this.activeIdx - 1, 0);
+                this._highlightActive(opts);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.activeIdx >= 0 && opts[this.activeIdx]) {
+                    this._select(opts[this.activeIdx].dataset.value);
+                }
+            } else if (e.key === 'Escape') {
+                this._close();
+            } else if (e.key === 'Backspace' && !this.input.value) {
+                // Remove last chip
+                const selected = Array.from(this.sel.selectedOptions);
+                if (selected.length) {
+                    selected[selected.length - 1].selected = false;
+                    this.sync();
+                }
+            }
+        };
+
+        _ChipSelect.prototype._highlightActive = function(opts) {
+            opts.forEach((o, i) => o.classList.toggle('active', i === this.activeIdx));
+            if (opts[this.activeIdx]) opts[this.activeIdx].scrollIntoView({ block: 'nearest' });
+        };
+
+        // ========== RECENT FILTERS ==========
+        const RECENT_FILTERS_KEY = 'un_hr_dashboard_recent_filters';
+        const MAX_RECENT = 8;
+
+        function _loadRecent() {
+            try { return JSON.parse(localStorage.getItem(RECENT_FILTERS_KEY) || '[]'); }
+            catch { return []; }
+        }
+
+        function _saveRecentList(list) {
+            try { localStorage.setItem(RECENT_FILTERS_KEY, JSON.stringify(list)); } catch {}
+        }
+
+        function buildFilterLabel(st) {
+            const parts = [];
+            if (st.textQuery) parts.push(st.textQuery.length > 20 ? st.textQuery.slice(0,18) + '…' : st.textQuery);
+            if (st.countries?.length) parts.push(st.countries.length <= 2 ? st.countries.map(c => c.replace(/^-\s*/, '').split(/\s*\(/)[0].trim()).join(', ') : `${st.countries.length} countries`);
+            if (st.bodies?.length) parts.push(st.bodies.length <= 2 ? st.bodies.map(b => b.replace(/^-\s*/, '').trim()).join(', ') : `${st.bodies.length} bodies`);
+            if (st.regions?.length) parts.push(st.regions.join(', '));
+            if (st.annotationType?.length) parts.push(st.annotationType[0]);
+            if (st.yearStart && st.yearEnd) parts.push(`${st.yearStart}-${st.yearEnd}`);
+            else if (st.yearStart) parts.push(`from ${st.yearStart}`);
+            else if (st.yearEnd) parts.push(`to ${st.yearEnd}`);
+            const label = parts.join(' + ') || 'All records';
+            return label.length > 55 ? label.slice(0, 53) + '…' : label;
+        }
+
+        function saveRecentFilter() {
+            const state = getServerFilterState();
+            // Skip if no filters active
+            const hasFilter = state.textQuery || state.countries.length || state.bodies.length ||
+                state.regions.length || state.annotationType.length || state.yearStart || state.yearEnd;
+            if (!hasFilter) return;
+            const key = JSON.stringify(state);
+            let list = _loadRecent().filter(r => JSON.stringify(r.state) !== key);
+            list.unshift({ id: Date.now(), timestamp: Date.now(), label: buildFilterLabel(state), state });
+            if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
+            _saveRecentList(list);
+            updateRecentUI();
+        }
+
+        function restoreFilter(state) {
+            _restoreMultiSelect('filterCountry', state.countries || []);
+            _restoreMultiSelect('filterBody', state.bodies || []);
+            _restoreMultiSelect('filterRegion', state.regions || []);
+            const typeEl = document.getElementById('filterType');
+            if (typeEl) typeEl.value = state.annotationType?.[0] || 'All';
+            const ys = document.getElementById('filterYearStart');
+            const ye = document.getElementById('filterYearEnd');
+            if (ys) ys.value = state.yearStart || '';
+            if (ye) ye.value = state.yearEnd || '';
+            const textEl = document.getElementById('filterText');
+            if (textEl) textEl.value = state.textQuery || '';
+            // Open facets if filters are set
+            const details = document.getElementById('filterFacetsDetails');
+            if (details && (state.countries?.length || state.bodies?.length || state.regions?.length)) details.open = true;
+            applyFilters();
+        }
+
+        function formatTimeAgo(ts) {
+            const diff = Date.now() - ts;
+            if (diff < 60000) return 'just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+            if (diff < 172800000) return 'yesterday';
+            return new Date(ts).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+        }
+
+        function toggleRecentFiltersPanel() {
+            const panel = document.getElementById('recentFiltersPanel');
+            panel.classList.toggle('open');
+            if (panel.classList.contains('open')) renderRecentPanel();
+        }
+
+        function renderRecentPanel() {
+            const panel = document.getElementById('recentFiltersPanel');
+            const list = _loadRecent();
+            if (!list.length) {
+                panel.innerHTML = '<h4>🕐 Recent Searches</h4><div class="recent-filters-empty">No recent searches yet.<br>Apply filters to save them automatically.</div>';
+                return;
+            }
+            let html = '<h4>🕐 Recent Searches <button class="recent-filters-clear" onclick="clearAllRecent()">Clear all</button></h4>';
+            html += list.map(r => `
+                <div class="recent-filter-item" onclick="restoreFilter(${escapeHtml(JSON.stringify(r.state).replace(/"/g, '&quot;'))})">
+                    <span class="recent-filter-label" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</span>
+                    <span class="recent-filter-time">${formatTimeAgo(r.timestamp)}</span>
+                    <button class="recent-filter-del" onclick="event.stopPropagation(); deleteRecent(${r.id})" title="Remove">&times;</button>
+                </div>
+            `).join('');
+            panel.innerHTML = html;
+        }
+
+        function renderRecentBar() {
+            const bar = document.getElementById('recentFiltersBar');
+            const items = document.getElementById('recentFiltersBarItems');
+            if (!bar || !items) return;
+            const list = _loadRecent().slice(0, 4);
+            if (!list.length) { bar.style.display = 'none'; return; }
+            bar.style.display = 'flex';
+            items.innerHTML = list.map(r =>
+                `<button class="recent-filter-quick" onclick="restoreFilter(${escapeHtml(JSON.stringify(r.state).replace(/"/g, '&quot;'))})" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</button>`
+            ).join('');
+        }
+
+        function updateRecentUI() { renderRecentPanel(); renderRecentBar(); }
+
+        function deleteRecent(id) {
+            let list = _loadRecent().filter(r => r.id !== id);
+            _saveRecentList(list);
+            updateRecentUI();
+        }
+
+        function clearAllRecent() {
+            _saveRecentList([]);
+            updateRecentUI();
         }
 
         // ========== ACTIVE FILTER CHIPS ==========
@@ -6820,6 +7219,7 @@
             for (const opt of sel.options) {
                 if (opt.value === f.value) opt.selected = false;
             }
+            if (_chipSelects[f.filterId]) _chipSelects[f.filterId].sync();
         }
 
         // ========== CHART CONTEXT SUBTITLES ==========
@@ -6891,6 +7291,7 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-small"></span> Applying...';
             _pushUrlState();
+            saveRecentFilter();
 
             if (serverBrowseMode) {
                 currentPage = 1;
