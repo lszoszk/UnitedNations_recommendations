@@ -1574,7 +1574,6 @@
             padding: 14px 18px;
             transition: box-shadow .15s, border-color .15s;
             position: relative;
-            max-width: 900px;
         }
         .rec-card:hover { border-color: #b8c8d8; box-shadow: 0 2px 8px rgba(74,144,217,0.08); }
         .rec-card.selected { border-left-color: var(--accent); background: #f8fbff; }
@@ -10753,6 +10752,20 @@
 
         function _isGuidLike(s) { return /^[0-9a-f-]{20,}$/i.test(s); }
 
+        // ISO country code → full name via browser Intl API
+        const _countryNames = (() => {
+            try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch { return null; }
+        })();
+        function _countryLabel(raw) {
+            const s = (raw || '').replace(/^-+\s*/, '').trim();
+            if (!s) return '';
+            // If it's a 2-letter ISO code, resolve it
+            if (s.length === 2 && /^[A-Z]{2}$/.test(s) && _countryNames) {
+                try { return _countryNames.of(s) || s; } catch { return s; }
+            }
+            return s;
+        }
+
         function _renderSingleCard(r, searchState) {
             const fullText = r._text || '';
             const maxLen = 600;
@@ -10762,7 +10775,7 @@
             const highlightedFull = highlightSearch(fullText, searchState);
 
             const body_ = (r._body || '').replace(/^-+\s*/, '').trim();
-            const country = (r._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
+            const country = _countryLabel((r._countries || '').split('\n')[0]);
             const year = r._year || '';
             const rawType = (r._type || '').replace(/^-+\s*/, '').trim();
             const type = (_isGuidLike(rawType) || rawType.length < 3) ? '' : rawType;
