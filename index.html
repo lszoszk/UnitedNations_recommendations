@@ -2656,20 +2656,29 @@
 
             <!-- Prominent search query bar -->
             <div class="filter-query-bar">
-                <div class="filter-query-input-wrap">
+                <div class="filter-query-input-wrap" style="position:relative;">
                     <span class="filter-query-icon">🔎</span>
                     <input type="text" id="filterText" class="filter-query-input"
-                        placeholder='e.g. "freedom of expression" AND torture NOT children'>
+                        placeholder="Search recommendations..." style="padding-right:40px;">
+                    <button onclick="document.getElementById('filterSearchHelp').classList.toggle('hidden')" title="Search syntax help" style="position:absolute; right:110px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:24px; height:24px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Filter search help">?</button>
+                    <div id="filterSearchHelp" class="hidden" style="position:absolute; top:calc(100% + 6px); right:60px; z-index:100; background:#fff; border:1px solid #dde; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:14px 16px; width:340px; font-size:12px; line-height:1.6; color:#334;">
+                        <div style="font-weight:600; margin-bottom:8px; font-size:13px;">Search syntax</div>
+                        <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+                            <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">plain text</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">asylum seekers</code></td></tr>
+                            <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">OR (any term)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">internet OR online OR digital</code></td></tr>
+                            <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">AND (all terms)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">education AND women</code></td></tr>
+                            <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">NOT (exclude)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">migrants NOT trafficking</code></td></tr>
+                            <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">"exact phrase"</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">"freedom of expression"</code></td></tr>
+                            <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">regex</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">/child(ren)?/i</code></td></tr>
+                        </table>
+                        <div style="margin-top:8px; padding-top:8px; border-top:1px solid #eef; color:#889; font-size:11px;">Operators must be UPPERCASE. Hyphens are normalized automatically.</div>
+                    </div>
                     <button class="btn btn-primary filter-query-go" id="applyFiltersBtn" onclick="applyFilters()">
                         <span>Search</span>
                     </button>
                 </div>
-                <div class="filter-query-help">
-                    <span class="filter-query-tip"><strong>"quoted phrase"</strong> exact match</span>
-                    <span class="filter-query-tip"><strong>AND</strong> all terms must appear</span>
-                    <span class="filter-query-tip"><strong>OR</strong> any term matches</span>
-                    <span class="filter-query-tip"><strong>NOT</strong> excludes a term</span>
-                    <span class="filter-query-tip"><code>/regex/i</code> advanced pattern</span>
+                <div class="filter-query-help" style="font-size:12px; color:#667; margin-top:4px;">
+                    Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>
                 </div>
             </div>
 
@@ -2799,8 +2808,9 @@
         </div>
 
         <div class="empty-state hidden" id="emptyState">
-            <h3>No Records Found</h3>
-            <p>Your current filters don't match any records. Try adjusting or resetting your filters.</p>
+            <h3>No matching records found</h3>
+            <p id="emptyStateMsg">Your current filters don't match any records.</p>
+            <p style="font-size:13px; color:#667; margin-top:8px;">Try broadening your search, using <strong>OR</strong> for alternatives, or removing some filters.</p>
             <button class="btn btn-primary" onclick="resetFilters()" style="margin-top: 16px;">Reset Filters</button>
         </div>
 
@@ -3707,7 +3717,11 @@
                 panel.classList.remove('open');
             }
             const searchHelp = document.getElementById('searchHelpPopover');
-            if (searchHelp && !searchHelp.classList.contains('hidden') && !searchHelp.contains(e.target) && !e.target.closest('[aria-label="Search help"]')) {
+            if (searchHelp && !searchHelp.classList.contains('hidden') && !searchHelp.contains(e.target) && !e.target.closest('[aria-label="Search help"]') && !e.target.closest('[aria-label="Filter search help"]')) {
+                searchHelp.classList.add('hidden');
+            }
+            const filterHelp = document.getElementById('filterSearchHelp');
+            if (filterHelp && !filterHelp.classList.contains('hidden') && !filterHelp.contains(e.target) && !e.target.closest('[aria-label="Filter search help"]')) {
                 searchHelp.classList.add('hidden');
             }
             const recentPanel = document.getElementById('recentFiltersPanel');
@@ -5781,7 +5795,15 @@
             document.getElementById('infoFormat').textContent = 'Server API';
             document.getElementById('infoRecords').textContent = Number(summary.total_records || 0).toLocaleString();
             updateAllRecordCounts(summary.total_records);
-            document.getElementById('filterCount').textContent = `${Number(summary.total_records || 0).toLocaleString()} matching records on the VM`;
+            const _vmTotal = Number(summary.total_records || 0);
+            const _vmSearchTerm = (document.getElementById('filterText')?.value || '').trim();
+            if (_vmTotal === 0) {
+                document.getElementById('filterCount').innerHTML = `<span style="color:#c62828;">0 results</span> — try different terms`;
+            } else if (_vmSearchTerm) {
+                document.getElementById('filterCount').innerHTML = `<strong>${_vmTotal.toLocaleString()}</strong> records matching <em>'${escapeHtml(_vmSearchTerm.length > 25 ? _vmSearchTerm.slice(0,23) + '…' : _vmSearchTerm)}'</em>`;
+            } else {
+                document.getElementById('filterCount').textContent = `${_vmTotal.toLocaleString()} matching records`;
+            }
             document.getElementById('kpiTotal').textContent = Number(summary.total_records || 0).toLocaleString();
             document.getElementById('kpiCountries').textContent = Number(summary.countries_count || 0).toLocaleString();
             document.getElementById('kpiBodies').textContent = Number(summary.bodies_count || 0).toLocaleString();
@@ -7394,12 +7416,27 @@
             }
             const hasData = filteredData.length > 0;
 
-            document.getElementById('filterCount').textContent = filteredData.length === rawData.length
-                ? `Showing all ${rawData.length.toLocaleString()} records`
-                : `${filteredData.length.toLocaleString()} of ${rawData.length.toLocaleString()} records`;
+            const filterCountEl = document.getElementById('filterCount');
+            const searchTerm = (document.getElementById('filterText')?.value || '').trim();
+            if (filteredData.length === rawData.length) {
+                filterCountEl.textContent = `Showing all ${rawData.length.toLocaleString()} records`;
+            } else if (filteredData.length === 0) {
+                filterCountEl.innerHTML = `<span style="color:#c62828;">0 results</span> of ${rawData.length.toLocaleString()}`;
+            } else {
+                const pct = ((filteredData.length / rawData.length) * 100).toFixed(1);
+                filterCountEl.innerHTML = searchTerm
+                    ? `<strong>${filteredData.length.toLocaleString()}</strong> of ${rawData.length.toLocaleString()} matching <em>'${escapeHtml(searchTerm.length > 25 ? searchTerm.slice(0,23) + '…' : searchTerm)}'</em>`
+                    : `${filteredData.length.toLocaleString()} of ${rawData.length.toLocaleString()} records (${pct}%)`;
+            }
 
             if (!hasData) {
                 document.getElementById('emptyState').classList.remove('hidden');
+                const emptyMsg = document.getElementById('emptyStateMsg');
+                if (emptyMsg) {
+                    emptyMsg.innerHTML = searchTerm
+                        ? `No records match <strong>'${escapeHtml(searchTerm)}'</strong> with the current filters.`
+                        : 'Your current filters don\'t match any records.';
+                }
                 document.querySelectorAll('.charts-section').forEach(s => s.classList.add('hidden'));
             } else {
                 document.getElementById('emptyState').classList.add('hidden');
