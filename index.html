@@ -3041,7 +3041,11 @@
             <div class="training-section">
                 <h3><span class="step-number">2</span> Classify</h3>
                 <div id="trainingControls">
-                    <!-- Device benchmark info -->
+                    <!-- Dataset scope info -->
+                    <div id="classifyScopeInfo" style="background: #f0f7ff; border: 1px solid #d0e3f7; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: #2c4a6e; line-height: 1.5;">
+                        <div id="classifyScopeText">Loading dataset info...</div>
+                    </div>
+                    <!-- Device benchmark info (shown after first run) -->
                     <div id="deviceBenchmarkInfo" class="hidden" style="background: #f0f7ff; border: 1px solid #d0e3f7; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: #2c4a6e; line-height: 1.5;">
                         <div id="deviceBenchmarkText">Benchmarking your device...</div>
                     </div>
@@ -3064,6 +3068,17 @@
                         <h4>Classification Results</h4>
                         <div class="benchmark-grid" id="benchmarkGrid"></div>
                         <div class="benchmark-note" id="benchmarkNote"></div>
+                    </div>
+                    <!-- Hybrid flow: refine zero-shot with TF-IDF -->
+                    <div id="hybridRefineBox" class="hidden" style="background: #f0faf0; border: 1px solid #b8e0b8; border-radius: 8px; padding: 12px 14px; margin-top: 10px; font-size: 12px; line-height: 1.6;">
+                        <div style="font-weight: 600; color: #2a5a2a; margin-bottom: 6px;">Improve accuracy with labeled examples</div>
+                        <p style="margin: 0 0 8px; color: #3a6a3a;">
+                            Zero-shot gave initial labels. Now review &amp; correct a sample in Step 3 below, then click <strong>Retrain with TF-IDF</strong> to build a faster, more accurate model based on your corrections.
+                        </p>
+                        <button class="btn btn-secondary" onclick="hybridRetrainTfidf()" id="hybridRetrainBtn" style="padding: 8px 16px;">
+                            Retrain with TF-IDF (using corrected labels)
+                        </button>
+                        <span id="hybridRetrainHint" style="font-size: 11px; color: #667; margin-left: 8px;"></span>
                     </div>
                     <!-- Advanced: threshold + fallback methods -->
                     <details style="margin-top: 12px;">
@@ -3404,6 +3419,13 @@
         // ========== TRANSFORMERS.JS ZERO-SHOT ENGINE ==========
         let _zeroShotPipeline = null;
         let _zeroShotLoading = false;
+
+        function releaseZeroShotPipeline() {
+            if (_zeroShotPipeline) {
+                try { _zeroShotPipeline.dispose?.(); } catch (e) {}
+                _zeroShotPipeline = null;
+            }
+        }
         let _deviceBenchmark = null; // { msPerRecord, maxRecommended, device }
         const ZERO_SHOT_MODEL = 'Xenova/nli-deberta-v3-xsmall';
         const ZERO_SHOT_HARD_CAP = 5000;
@@ -3425,35 +3447,6 @@
             } finally {
                 _zeroShotLoading = false;
             }
-        }
-
-        async function runDeviceBenchmark(pipe, categories) {
-            const testSentences = [
-                'The state should ensure access to justice for all citizens regardless of social status.',
-                'Measures to prevent torture and ill-treatment in detention facilities must be strengthened.',
-                'The committee recommends legislative reforms to protect freedom of expression.'
-            ];
-            const labels = categories.length > 0 ? categories.slice(0, 6) : ['Human rights', 'Legal reform', 'Social protection'];
-            const start = performance.now();
-            for (const sent of testSentences) {
-                await pipe(sent, labels, { multi_label: true });
-            }
-            const elapsed = performance.now() - start;
-            const msPerRecord = elapsed / testSentences.length;
-            // Scale by number of categories (NLI does one forward pass per category)
-            const catScale = categories.length > 0 ? categories.length / labels.length : 1;
-            const adjustedMs = msPerRecord * catScale;
-
-            // Determine max records for reasonable UX (< 3 min)
-            const maxTime = 180000; // 3 minutes
-            const maxRecommended = Math.min(ZERO_SHOT_HARD_CAP, Math.max(50, Math.floor(maxTime / adjustedMs)));
-
-            _deviceBenchmark = {
-                msPerRecord: Math.round(adjustedMs),
-                maxRecommended,
-                device: navigator.gpu ? 'WebGPU available' : 'CPU'
-            };
-            return _deviceBenchmark;
         }
 
         function formatDuration(ms) {
@@ -10081,6 +10074,7 @@
             renderBenchmark(trainingState.benchmark);
             updateModelStorageControls();
             loadSavedModels();
+            updateClassifyScopeInfo();
         }
 
         function closeTrainingPane() {
@@ -11020,6 +11014,27 @@
         }
 
         // ========== ZERO-SHOT CLASSIFICATION ==========
+
+        function updateClassifyScopeInfo() {
+            const el = document.getElementById('classifyScopeText');
+            if (!el) return;
+            const data = rawData.length ? rawData : filteredData;
+            const totalDataset = serverBrowseMode ? Number(serverState.summary?.total_records || serverState.totalRecords || 0) : data.length;
+            const filtered = filteredData.length || totalDataset;
+            const isFiltered = filtered < totalDataset;
+            const classifiable = Math.min(filtered, ZERO_SHOT_HARD_CAP);
+            el.innerHTML =
+                `<strong>Dataset:</strong> ${totalDataset.toLocaleString()} total records` +
+                (isFiltered ? ` — <strong>current filter: ${filtered.toLocaleString()} records</strong>` : '') +
+                `<br><strong>Will classify:</strong> ${classifiable.toLocaleString()} records` +
+                (filtered > ZERO_SHOT_HARD_CAP
+                    ? ` <span style="color:#b8860b;">(max ${ZERO_SHOT_HARD_CAP.toLocaleString()} — narrow filters for full coverage)</span>`
+                    : '') +
+                (_deviceBenchmark
+                    ? `<br><strong>Your device:</strong> ${_deviceBenchmark.msPerRecord}ms/record (${_deviceBenchmark.device}) — estimated ${formatDuration(_deviceBenchmark.msPerRecord * classifiable)}`
+                    : '');
+        }
+
         async function applyZeroShot() {
             const categories = getStatisticsCategories(trainingState.categories);
             if (categories.length < 1) {
@@ -11050,50 +11065,83 @@
             applyBtn.disabled = true;
             applyCurrentBtn.disabled = true;
             applyBtn.innerHTML = '<span class="spinner-small"></span> Loading model...';
+            document.getElementById('hybridRefineBox')?.classList.add('hidden');
 
             document.getElementById('trainingProgress').classList.remove('hidden');
             setTrainingProgress(5, 'Loading zero-shot model (~70 MB, cached after first use)...');
 
             try {
-                let _dlFiles = {}, _dlDone = false;
+                // ── Load model with progress ──
+                let _dlFiles = {}, _dlDone = false, _initStartTime = null;
                 const pipePromise = loadZeroShotPipeline((progress) => {
                     if (progress.status === 'progress' && progress.file) {
                         _dlFiles[progress.file] = progress.progress || 0;
                         const files = Object.values(_dlFiles);
                         const avgPct = Math.round(files.reduce((a, b) => a + b, 0) / Math.max(files.length, 1));
-                        setTrainingProgress(Math.min(5 + avgPct * 0.20, 25), `Downloading model files... ${avgPct}%`);
+                        setTrainingProgress(Math.min(5 + avgPct * 0.15, 20), `Downloading model files... ${avgPct}%`);
                     } else if (progress.status === 'done') {
                         _dlDone = true;
-                        setTrainingProgress(25, 'Download complete — initializing model (this may take 30-60s on first load)...');
+                        _initStartTime = performance.now();
+                        setTrainingProgress(20, 'Download complete — initializing model...');
                     } else if (progress.status === 'initiate') {
-                        setTrainingProgress(Math.min(8, 25), `Preparing ${progress.file || 'model'}...`);
+                        setTrainingProgress(Math.min(8, 20), `Preparing ${progress.file || 'model'}...`);
                     }
                 });
-                // Animate progress while waiting for model init (25% → 35%)
+                // Animate progress and show elapsed time during model init
                 const initInterval = setInterval(() => {
-                    if (_dlDone) {
-                        const el = document.getElementById('progressBar');
-                        const current = el ? parseFloat(el.style.width) || 25 : 25;
-                        if (current < 35) {
-                            setTrainingProgress(Math.min(current + 0.5, 35), 'Initializing model (compiling WASM runtime)...');
+                    if (_dlDone && _initStartTime) {
+                        const el = document.getElementById('trainingProgressFill');
+                        const current = el ? parseFloat(el.style.width) || 20 : 20;
+                        const elapsedSec = Math.round((performance.now() - _initStartTime) / 1000);
+                        const msg = elapsedSec < 15
+                            ? `Initializing model... (${elapsedSec}s)`
+                            : elapsedSec < 60
+                            ? `Compiling WASM runtime... (${elapsedSec}s — first load is slow, subsequent loads are instant)`
+                            : `Still initializing... (${elapsedSec}s — this is normal for first load, the model is being compiled for your browser)`;
+                        if (current < 28) {
+                            setTrainingProgress(Math.min(current + 0.3, 28), msg);
+                        } else {
+                            setTrainingProgress(current, msg);
                         }
                     }
                 }, 1000);
                 const pipe = await pipePromise;
                 clearInterval(initInterval);
+                setTrainingProgress(28, 'Model ready.');
 
-                // Run device benchmark
-                setTrainingProgress(32, 'Benchmarking your device...');
-                const benchmark = await runDeviceBenchmark(pipe, categories);
+                // ── Test on 10 real examples to benchmark ──
+                setTrainingProgress(30, 'Testing on 10 sample records to estimate speed...');
+                const sampleSize = Math.min(10, records.length);
+                const sampleIndices = [];
+                const step = Math.max(1, Math.floor(records.length / sampleSize));
+                for (let i = 0; i < sampleSize; i++) sampleIndices.push(Math.min(i * step, records.length - 1));
+                const sampleTexts = sampleIndices.map(idx => ({
+                    id: getRecordStableKey(records[idx]) || records[idx]._id,
+                    text: (records[idx]._text || '').slice(0, 512)
+                }));
+
+                const benchStart = performance.now();
+                await predictZeroShotBatch(pipe, sampleTexts, categories, 0.5, (done, t) => {
+                    setTrainingProgress(30 + Math.round((done / t) * 5), `Testing ${done}/${t} sample records...`);
+                });
+                const benchElapsed = performance.now() - benchStart;
+                const msPerRecord = Math.round(benchElapsed / sampleSize);
+                const catScale = 1; // already tested with real categories
+
+                const maxTime = 180000; // 3 minutes
+                const maxRecommended = Math.min(ZERO_SHOT_HARD_CAP, Math.max(50, Math.floor(maxTime / msPerRecord)));
+                _deviceBenchmark = { msPerRecord, maxRecommended, device: navigator.gpu ? 'WebGPU available' : 'CPU' };
+
                 const classifyCount = Math.min(total, ZERO_SHOT_HARD_CAP);
-                updateDeviceBenchmarkUI(benchmark, classifyCount);
+                updateClassifyScopeInfo();
+                updateDeviceBenchmarkUI(_deviceBenchmark, classifyCount);
 
-                if (classifyCount > benchmark.maxRecommended) {
-                    const estimatedMs = benchmark.msPerRecord * classifyCount;
+                if (classifyCount > maxRecommended) {
+                    const estimatedMs = msPerRecord * classifyCount;
                     const proceed = confirm(
-                        `Your device can process ~${benchmark.msPerRecord}ms per record.\n` +
+                        `Based on 10 test records, your device processes ~${msPerRecord}ms per record.\n` +
                         `Classifying ${classifyCount.toLocaleString()} records will take ${formatDuration(estimatedMs)}.\n\n` +
-                        `Recommended maximum: ${benchmark.maxRecommended.toLocaleString()} records.\n\n` +
+                        `Recommended maximum for smooth experience: ${maxRecommended.toLocaleString()} records.\n\n` +
                         `Proceed anyway?`
                     );
                     if (!proceed) {
@@ -11105,7 +11153,7 @@
                     }
                 }
 
-                // Classify records
+                // ── Classify all records ──
                 const threshold = getThresholdFromUI();
                 const toClassify = records.slice(0, ZERO_SHOT_HARD_CAP);
                 const startTime = performance.now();
@@ -11165,17 +11213,29 @@
                     box.classList.remove('hidden');
                 }
 
+                // Show hybrid refine option
+                const hybridBox = document.getElementById('hybridRefineBox');
+                if (hybridBox) {
+                    hybridBox.classList.remove('hidden');
+                    const hint = document.getElementById('hybridRetrainHint');
+                    if (hint) hint.textContent = 'Review & correct labels in Step 3 first, then retrain for better accuracy.';
+                }
+
+                // Release model to free memory (~200-400 MB WASM heap)
+                releaseZeroShotPipeline();
+
                 updateAllCharts();
                 buildDataTable();
                 applyCurrentBtn.disabled = false;
+                updateClassifyScopeInfo();
 
                 setTimeout(() => {
                     document.getElementById('trainingProgress').classList.add('hidden');
-                    closeTrainingPane();
-                }, 2000);
+                }, 3000);
 
             } catch (err) {
                 console.error('Zero-shot classification error:', err);
+                releaseZeroShotPipeline();
                 alert('Classification failed: ' + err.message);
             } finally {
                 applyBtn.disabled = false;
@@ -11188,6 +11248,30 @@
             document.getElementById('trainingProgressFill').style.width = pct + '%';
             document.getElementById('trainingProgressPct').textContent = pct + '%';
             document.getElementById('trainingStatusText').textContent = text;
+        }
+
+        async function hybridRetrainTfidf() {
+            // Collect all labeled examples (from manual review + zero-shot predictions)
+            const labeledExamples = collectLabeledExamples();
+            if (labeledExamples.length < 5) {
+                alert(
+                    'Not enough labeled examples to retrain.\n\n' +
+                    'Go to Step 3 "Label & Review Samples", click "Load Samples", ' +
+                    'review/correct the zero-shot labels on at least 5 records, then try again.'
+                );
+                return;
+            }
+
+            // Switch to TF-IDF and train
+            setClassifierMethodUI('tfidf_centroid');
+            trainingState.method = 'tfidf_centroid';
+            await trainModel();
+
+            // After training, offer to re-apply
+            if (trainingState.model && trainingState.model.engine === 'local') {
+                const hint = document.getElementById('hybridRetrainHint');
+                if (hint) hint.textContent = `TF-IDF model trained on ${labeledExamples.length} examples. Use "Classify Current Filter" to re-classify with the improved model.`;
+            }
         }
 
         async function applyPredictionsToServerDataset() {
