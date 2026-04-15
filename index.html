@@ -1082,10 +1082,11 @@
         }
         .header-recent-btn:hover { background: rgba(255,255,255,0.28); }
         .recent-filters-panel {
-            display: none; position: absolute; top: 58px; right: 80px;
+            display: none; position: fixed; top: 60px; right: 80px;
             background: #fff; color: var(--primary); border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.18); padding: 14px 16px;
-            min-width: 300px; max-width: 400px; z-index: 20; font-size: 13px;
+            min-width: 300px; max-width: 400px; max-height: 70vh; overflow-y: auto;
+            z-index: 1000; font-size: 13px;
         }
         .recent-filters-panel.open { display: block; }
         .recent-filters-panel h4 { margin: 0 0 10px; font-size: 14px; }
@@ -1568,18 +1569,37 @@
         .card-list { display: flex; flex-direction: column; gap: 12px; max-height: 700px; overflow-y: auto; }
         .rec-card {
             border: 1px solid #e2e6ea;
-            border-radius: 10px;
-            padding: 16px 20px;
+            border-left: 3px solid #e2e6ea;
+            border-radius: 8px;
+            padding: 14px 18px;
             transition: box-shadow .15s, border-color .15s;
             position: relative;
+            max-width: 900px;
         }
-        .rec-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(74,144,217,0.10); }
+        .rec-card:hover { border-color: #b8c8d8; box-shadow: 0 2px 8px rgba(74,144,217,0.08); }
+        .rec-card.selected { border-left-color: var(--accent); background: #f8fbff; }
+        .rec-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .rec-card-header .rec-card-select { position: static; margin: 0; }
+        .rec-card-header-links { margin-left: auto; display: flex; gap: 4px; flex-shrink: 0; }
+        .rec-card-themes-bar {
+            display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;
+        }
+        .rec-theme-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 10.5px; font-weight: 500; background: #eef2f7; color: #4a5568;
+            white-space: nowrap;
+        }
         .rec-card-text {
-            font-size: 14px;
-            line-height: 1.65;
-            color: #1d2d3d;
-            margin-bottom: 10px;
-            white-space: pre-wrap;
+            font-size: 13.5px;
+            line-height: 1.7;
+            color: #2d3748;
+            margin-bottom: 8px;
             word-break: break-word;
         }
         .rec-card-text mark { background: #fff3b0; border-radius: 2px; }
@@ -1611,7 +1631,7 @@
         .rec-card-actions {
             display: flex;
             gap: 6px;
-            margin-top: 10px;
+            margin-top: 8px;
             align-items: center;
         }
         .rec-card-select {
@@ -10730,6 +10750,8 @@
             container.innerHTML = toolbarHtml + pageData.map(r => _renderSingleCard(r, searchState)).join('') + sentinelHtml;
         }
 
+        function _isGuidLike(s) { return /^[0-9a-f-]{20,}$/i.test(s); }
+
         function _renderSingleCard(r, searchState) {
             const fullText = r._text || '';
             const maxLen = 600;
@@ -10741,32 +10763,42 @@
             const body_ = (r._body || '').replace(/^-+\s*/, '').trim();
             const country = (r._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
             const year = r._year || '';
-            const type = (r._type || '').replace(/^-+\s*/, '').trim();
-            const themes = (r._themesArray || []).slice(0, 4).map(t => t.replace(/^-+\s*/, '').trim()).filter(Boolean);
-            const moreThemes = (r._themesArray || []).length > 4 ? ` +${(r._themesArray || []).length - 4} more` : '';
+            const rawType = (r._type || '').replace(/^-+\s*/, '').trim();
+            const type = (_isGuidLike(rawType) || rawType.length < 3) ? '' : rawType;
+            const themes = (r._themesArray || []).slice(0, 5).map(t => t.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const moreThemes = (r._themesArray || []).length > 5 ? `+${(r._themesArray || []).length - 5}` : '';
             const uhri = getUhriUrl(r);
             const undocs = getUnDocsUrl(r);
-            const checked = selectedRowIds.has(String(r._id)) ? 'checked' : '';
+            const isSelected = selectedRowIds.has(String(r._id));
+            const checked = isSelected ? 'checked' : '';
 
-            let html = `<div class="rec-card">`;
-            html += `<input type="checkbox" class="rec-card-select" onchange="toggleRowSelection(${r._id}, this.checked)" ${checked}>`;
-            html += `<div class="rec-card-text" id="card-short-${r._id}">${highlightedShort}</div>`;
-            if (truncated) {
-                html += `<div class="rec-card-text hidden" id="card-full-${r._id}">${highlightedFull}</div>`;
-                html += `<button class="copy-btn" id="card-toggle-${r._id}" onclick="toggleCardText(${r._id})" style="margin-bottom:8px; font-size:11px;">Read full text</button>`;
-            }
-            html += `<div class="rec-card-meta">`;
+            // ── Header: checkbox + Body · Country · Year + links ──
+            let html = `<div class="rec-card${isSelected ? ' selected' : ''}">`;
+            html += `<div class="rec-card-header">`;
+            html += `<input type="checkbox" class="rec-card-select" onchange="toggleRowSelection(${r._id}, this.checked); this.closest('.rec-card').classList.toggle('selected', this.checked)" ${checked}>`;
             if (body_) html += `<span class="rec-meta-tag body">${escapeHtml(body_)}</span>`;
             if (country) html += `<span class="rec-meta-tag country">${escapeHtml(country)}</span>`;
             if (year) html += `<span class="rec-meta-tag year">${year}</span>`;
             if (type) html += `<span class="rec-meta-tag type">${escapeHtml(type)}</span>`;
-            html += `</div>`;
-            if (themes.length) {
-                html += `<div class="rec-card-themes">${themes.map(t => escapeHtml(t)).join(' · ')}${moreThemes}</div>`;
-            }
-            html += `<div class="rec-card-actions">`;
+            html += `<span class="rec-card-header-links">`;
             if (uhri) html += `<a href="${uhri}" target="_blank" rel="noopener" class="source-link uhri-link">UHRI</a>`;
             if (undocs) html += `<a href="${undocs}" target="_blank" rel="noopener" class="source-link undocs-link">UN Doc</a>`;
+            html += `</span></div>`;
+
+            // ── Theme badges ──
+            if (themes.length) {
+                html += `<div class="rec-card-themes-bar">${themes.map(t => `<span class="rec-theme-badge">${escapeHtml(t)}</span>`).join('')}${moreThemes ? `<span class="rec-theme-badge" style="color:#8899aa;">${moreThemes}</span>` : ''}</div>`;
+            }
+
+            // ── Text ──
+            html += `<div class="rec-card-text" id="card-short-${r._id}">${highlightedShort}</div>`;
+            if (truncated) {
+                html += `<div class="rec-card-text hidden" id="card-full-${r._id}">${highlightedFull}</div>`;
+            }
+
+            // ── Actions ──
+            html += `<div class="rec-card-actions">`;
+            if (truncated) html += `<button class="copy-btn" id="card-toggle-${r._id}" onclick="toggleCardText(${r._id})" style="font-size:11px;">Read full text</button>`;
             html += `<button class="copy-btn" onclick="showRecordDetail(${r._id})">Details</button>`;
             html += `<button class="copy-btn" onclick="copyFormattedCitation(${r._id}, this)">Cite</button>`;
             html += `</div></div>`;
