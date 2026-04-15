@@ -1016,7 +1016,7 @@
             border: 1px solid #d4e4f7;
             border-radius: 8px;
             box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-            max-height: 220px;
+            max-height: 320px;
             overflow-y: auto;
             z-index: 50;
         }
@@ -1030,6 +1030,46 @@
         .chip-select-option:hover, .chip-select-option.active { background: #eef6ff; }
         .chip-select-option mark { background: #fff3cd; padding: 0 1px; border-radius: 2px; }
         .chip-select-empty { padding: 12px; text-align: center; color: #8899aa; font-size: 12px; }
+
+        /* Expanded filter modal */
+        .chip-modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            z-index: 1000; display: flex; align-items: center; justify-content: center;
+        }
+        .chip-modal {
+            background: #fff; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+            width: 90%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column;
+        }
+        .chip-modal-header {
+            display: flex; align-items: center; gap: 10px; padding: 16px 20px 12px;
+            border-bottom: 1px solid #eef;
+        }
+        .chip-modal-header h3 { margin: 0; font-size: 15px; color: var(--primary); flex: 1; }
+        .chip-modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #667; padding: 4px 8px; }
+        .chip-modal-close:hover { color: #333; }
+        .chip-modal-search {
+            margin: 0 20px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px;
+            font-size: 13px; outline: none; margin-top: 12px;
+        }
+        .chip-modal-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(74,144,217,0.1); }
+        .chip-modal-list {
+            flex: 1; overflow-y: auto; padding: 8px 12px; margin: 8px 0;
+        }
+        .chip-modal-item {
+            display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+            border-radius: 6px; cursor: pointer; font-size: 13px; color: #334;
+        }
+        .chip-modal-item:hover { background: #eef6ff; }
+        .chip-modal-item.selected { background: #e0edfa; font-weight: 500; }
+        .chip-modal-item-check {
+            width: 16px; height: 16px; border: 1.5px solid #aab; border-radius: 3px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            font-size: 11px; color: #fff; transition: background 0.15s;
+        }
+        .chip-modal-item.selected .chip-modal-item-check {
+            background: var(--accent); border-color: var(--accent);
+        }
+        .chip-modal-count { font-size: 11px; color: #8899aa; margin: 0 20px 12px; }
 
         /* ── Recent Filters ── */
         .header-recent-btn {
@@ -2690,7 +2730,10 @@
                     <div class="filter-group">
                         <div class="filter-label">
                             <label>Country</label>
-                            <button class="clear-btn" onclick="clearFilter('filterCountry')">Clear</button>
+                            <div style="display:flex; gap:4px; align-items:center;">
+                                <button class="clear-btn" onclick="if(_chipSelects['filterCountry']) _chipSelects['filterCountry']._openExpandedModal()" title="Browse all countries" style="font-size:13px;">⊞</button>
+                                <button class="clear-btn" onclick="clearFilter('filterCountry')">Clear</button>
+                            </div>
                         </div>
                         <div class="chip-select-wrap" data-select-id="filterCountry" data-chip-class="chip-country" onclick="this.querySelector('.chip-select-input').focus()">
                             <input type="text" class="chip-select-input" placeholder="Type to search countries..." autocomplete="off" spellcheck="false">
@@ -2701,7 +2744,10 @@
                     <div class="filter-group">
                         <div class="filter-label">
                             <label>Recommending Body</label>
-                            <button class="clear-btn" onclick="clearFilter('filterBody')">Clear</button>
+                            <div style="display:flex; gap:4px; align-items:center;">
+                                <button class="clear-btn" onclick="if(_chipSelects['filterBody']) _chipSelects['filterBody']._openExpandedModal()" title="Browse all bodies" style="font-size:13px;">⊞</button>
+                                <button class="clear-btn" onclick="clearFilter('filterBody')">Clear</button>
+                            </div>
                         </div>
                         <div class="chip-select-wrap" data-select-id="filterBody" data-chip-class="chip-body" onclick="this.querySelector('.chip-select-input').focus()">
                             <input type="text" class="chip-select-input" placeholder="Type to search bodies..." autocomplete="off" spellcheck="false">
@@ -2712,7 +2758,10 @@
                     <div class="filter-group">
                         <div class="filter-label">
                             <label>Region</label>
-                            <button class="clear-btn" onclick="clearFilter('filterRegion')">Clear</button>
+                            <div style="display:flex; gap:4px; align-items:center;">
+                                <button class="clear-btn" onclick="if(_chipSelects['filterRegion']) _chipSelects['filterRegion']._openExpandedModal()" title="Browse all regions" style="font-size:13px;">⊞</button>
+                                <button class="clear-btn" onclick="clearFilter('filterRegion')">Clear</button>
+                            </div>
                         </div>
                         <div class="chip-select-wrap" data-select-id="filterRegion" data-chip-class="chip-region" onclick="this.querySelector('.chip-select-input').focus()">
                             <input type="text" class="chip-select-input" placeholder="Type to search regions..." autocomplete="off" spellcheck="false">
@@ -6892,7 +6941,7 @@
 
         function populateSelect(id, options) {
             const sel = document.getElementById(id);
-            sel.innerHTML = options.map(o => `<option value="${escapeHtml(o)}">${o.length > 50 ? o.slice(0,50)+'...' : o}</option>`).join('');
+            sel.innerHTML = options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
             if (_chipSelects[id]) _chipSelects[id].sync();
         }
 
@@ -6970,21 +7019,32 @@
                 if (selected.has(opt.value)) continue;
                 if (q && !opt.textContent.toLowerCase().includes(q)) continue;
                 matches.push(opt);
-                if (matches.length >= 12) break; // Hick's Law: limit visible
             }
+            // When no query, limit to 20 initial items + "show all" link (Hick's Law)
+            const showLimit = q ? matches.length : Math.min(20, matches.length);
+            const hasMore = !q && matches.length > 20;
             this.activeIdx = -1;
             if (matches.length === 0) {
                 this.dropdown.innerHTML = `<div class="chip-select-empty">${q ? 'No matches' : 'All selected'}</div>`;
             } else {
-                this.dropdown.innerHTML = matches.map((opt, i) => {
+                const self = this;
+                let html = matches.slice(0, showLimit).map((opt, i) => {
                     const text = opt.textContent;
                     const hl = q ? text.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>') : escapeHtml(text);
                     return `<div class="chip-select-option" data-value="${escapeHtml(opt.value)}" data-idx="${i}">${hl}</div>`;
                 }).join('');
+                if (hasMore) {
+                    html += `<div class="chip-select-option" data-action="expand" style="color:var(--accent); font-weight:500; text-align:center; border-top:1px solid #eef;">Browse all ${matches.length} options...</div>`;
+                }
+                this.dropdown.innerHTML = html;
                 this.dropdown.querySelectorAll('.chip-select-option').forEach(el => {
                     el.onmousedown = (e) => {
-                        e.preventDefault(); // keep focus on input
-                        this._select(el.dataset.value);
+                        e.preventDefault();
+                        if (el.dataset.action === 'expand') {
+                            self._openExpandedModal();
+                        } else {
+                            self._select(el.dataset.value);
+                        }
                     };
                 });
             }
@@ -7036,6 +7096,113 @@
         _ChipSelect.prototype._highlightActive = function(opts) {
             opts.forEach((o, i) => o.classList.toggle('active', i === this.activeIdx));
             if (opts[this.activeIdx]) opts[this.activeIdx].scrollIntoView({ block: 'nearest' });
+        };
+
+        _ChipSelect.prototype._openExpandedModal = function() {
+            this._close();
+            const self = this;
+            const selectId = this.sel.id;
+            const label = this.wrap.closest('.filter-group')?.querySelector('label')?.textContent || 'Select';
+
+            // Build overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'chip-modal-overlay';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+            const selected = new Set(Array.from(this.sel.selectedOptions).map(o => o.value));
+            const allOpts = Array.from(this.sel.options);
+
+            function render(query) {
+                const q = (query || '').toLowerCase().trim();
+                const filtered = q ? allOpts.filter(o => o.textContent.toLowerCase().includes(q)) : allOpts;
+
+                const listHtml = filtered.map(opt => {
+                    const isSel = selected.has(opt.value);
+                    const text = opt.textContent;
+                    const hl = q ? text.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>') : escapeHtml(text);
+                    return `<div class="chip-modal-item ${isSel ? 'selected' : ''}" data-value="${escapeHtml(opt.value)}">
+                        <span class="chip-modal-item-check">${isSel ? '✓' : ''}</span>
+                        <span>${hl}</span>
+                    </div>`;
+                }).join('');
+
+                return `<div class="chip-modal">
+                    <div class="chip-modal-header">
+                        <h3>Select ${escapeHtml(label)}</h3>
+                        <span style="font-size:12px; color:#667;">${selected.size} selected</span>
+                        <button class="chip-modal-close" data-action="close">&times;</button>
+                    </div>
+                    <input type="text" class="chip-modal-search" placeholder="Filter..." value="${escapeHtml(query || '')}" autofocus>
+                    <div class="chip-modal-count">${filtered.length} of ${allOpts.length} items</div>
+                    <div class="chip-modal-list">${listHtml || '<div style="padding:20px; text-align:center; color:#8899aa;">No matches</div>'}</div>
+                </div>`;
+            }
+
+            overlay.innerHTML = render('');
+
+            // Wire events
+            function wireEvents() {
+                overlay.querySelector('.chip-modal-close').onclick = () => overlay.remove();
+                const searchInput = overlay.querySelector('.chip-modal-search');
+                let debounce = null;
+                searchInput.addEventListener('input', () => {
+                    clearTimeout(debounce);
+                    debounce = setTimeout(() => {
+                        const modal = overlay.querySelector('.chip-modal');
+                        const q = searchInput.value;
+                        // Re-render list only
+                        const qLower = q.toLowerCase().trim();
+                        const filtered = qLower ? allOpts.filter(o => o.textContent.toLowerCase().includes(qLower)) : allOpts;
+                        const listEl = overlay.querySelector('.chip-modal-list');
+                        const countEl = overlay.querySelector('.chip-modal-count');
+
+                        listEl.innerHTML = filtered.map(opt => {
+                            const isSel = selected.has(opt.value);
+                            const text = opt.textContent;
+                            const hl = qLower ? text.replace(new RegExp(`(${qLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>') : escapeHtml(text);
+                            return `<div class="chip-modal-item ${isSel ? 'selected' : ''}" data-value="${escapeHtml(opt.value)}">
+                                <span class="chip-modal-item-check">${isSel ? '✓' : ''}</span>
+                                <span>${hl}</span>
+                            </div>`;
+                        }).join('') || '<div style="padding:20px; text-align:center; color:#8899aa;">No matches</div>';
+
+                        countEl.textContent = `${filtered.length} of ${allOpts.length} items`;
+                        wireListClicks();
+                    }, 100);
+                });
+                wireListClicks();
+
+                // Focus search
+                setTimeout(() => searchInput.focus(), 50);
+            }
+
+            function wireListClicks() {
+                overlay.querySelectorAll('.chip-modal-item').forEach(item => {
+                    item.onclick = () => {
+                        const val = item.dataset.value;
+                        if (selected.has(val)) {
+                            selected.delete(val);
+                            item.classList.remove('selected');
+                            item.querySelector('.chip-modal-item-check').textContent = '';
+                        } else {
+                            selected.add(val);
+                            item.classList.add('selected');
+                            item.querySelector('.chip-modal-item-check').textContent = '✓';
+                        }
+                        // Sync hidden select
+                        for (const opt of self.sel.options) {
+                            opt.selected = selected.has(opt.value);
+                        }
+                        self.sync();
+                        // Update count
+                        const countSpan = overlay.querySelector('.chip-modal-header span');
+                        if (countSpan) countSpan.textContent = `${selected.size} selected`;
+                    };
+                });
+            }
+
+            document.body.appendChild(overlay);
+            wireEvents();
         };
 
         // ========== RECENT FILTERS ==========
