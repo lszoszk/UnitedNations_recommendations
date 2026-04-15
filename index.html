@@ -3094,9 +3094,9 @@
                 </div>
             </div>
 
-            <!-- Labeling section (hidden for zero-shot, shown for trained methods) -->
-            <div class="training-section hidden" id="labelingSection">
-                <h3 id="step3Title">Label Training Samples (for trained methods)</h3>
+            <!-- Labeling section — always available -->
+            <div class="training-section" id="labelingSection">
+                <h3 id="step3Title">Label &amp; Review Samples</h3>
                 <div class="sample-nav">
                     <div class="sample-nav-info">
                         <span id="labeledCount">0</span> / <span id="totalSamples">0</span> labeled
@@ -10093,10 +10093,17 @@
             trainingState.method = normalized;
             const hint = document.getElementById('classifierMethodHint');
             if (hint) hint.textContent = classifierMethodMeta[normalized].hint;
-            // Show/hide labeling section based on method
+            // Labeling section is always available (for review/correction in zero-shot, for training in other methods)
             const labelingSection = document.getElementById('labelingSection');
             if (labelingSection) {
-                labelingSection.classList.toggle('hidden', normalized === 'zero_shot');
+                labelingSection.classList.remove('hidden');
+            }
+            // Update title based on method
+            const step3Title = document.getElementById('step3Title');
+            if (step3Title) {
+                step3Title.textContent = normalized === 'zero_shot'
+                    ? 'Review & Label Samples'
+                    : 'Label Training Samples';
             }
             updateModelStorageControls();
         }
@@ -11036,10 +11043,15 @@
             setTrainingProgress(5, 'Loading zero-shot model (~70 MB, cached after first use)...');
 
             try {
+                let _dlFiles = {};
                 const pipe = await loadZeroShotPipeline((progress) => {
-                    if (progress.status === 'progress' && progress.progress) {
-                        const pct = Math.round(progress.progress);
-                        setTrainingProgress(Math.min(pct * 0.3, 30), `Downloading model... ${pct}%`);
+                    if (progress.status === 'progress' && progress.file) {
+                        _dlFiles[progress.file] = progress.progress || 0;
+                        const files = Object.values(_dlFiles);
+                        const avgPct = Math.round(files.reduce((a, b) => a + b, 0) / Math.max(files.length, 1));
+                        setTrainingProgress(Math.min(5 + avgPct * 0.25, 30), `Downloading model files... ${avgPct}%`);
+                    } else if (progress.status === 'done') {
+                        setTrainingProgress(30, 'Model loaded.');
                     }
                 });
 
