@@ -9171,18 +9171,28 @@
             }
 
             const modeSuffix = searchState.type === 'regex' ? ' | regex mode' : '';
+            const isSearchActive = searchState.type !== 'none' && searchState.type !== 'invalid';
             if (serverBrowseMode) {
                 const pageStart = serverState.totalRecords ? start + 1 : 0;
                 const pageEnd = serverState.totalRecords ? start + serverState.records.length : 0;
-                document.getElementById('tableInfo').textContent = searchState.type === 'none'
-                    ? (serverState.totalRecords
+                if (isSearchActive) {
+                    const pct = sourceData.length ? ((data.length / sourceData.length) * 100).toFixed(1) : '0.0';
+                    document.getElementById('tableInfo').textContent = `${data.length.toLocaleString()} hits (${pct}% of page) | ${serverState.totalRecords.toLocaleString()} total VM matches${modeSuffix}`;
+                } else {
+                    document.getElementById('tableInfo').textContent = serverState.totalRecords
                         ? `Showing ${pageStart}-${pageEnd} of ${serverState.totalRecords.toLocaleString()} | server page ${serverState.page} of ${serverState.totalPages}${modeSuffix}`
-                        : `Showing 0 records${modeSuffix}`)
-                    : `${data.length.toLocaleString()} rows on this page match the local table search | ${serverState.totalRecords.toLocaleString()} total VM matches${modeSuffix}`;
+                        : `Showing 0 records${modeSuffix}`;
+                }
             } else {
-                document.getElementById('tableInfo').textContent = data.length
-                    ? `Showing ${start + 1}-${Math.min(start + ROWS_PER_PAGE, data.length)} of ${data.length.toLocaleString()}${modeSuffix}`
-                    : `Showing 0 records${modeSuffix}`;
+                if (isSearchActive) {
+                    const totalSource = (serverBrowseMode ? serverState.records : filteredData).length;
+                    const pct = totalSource ? ((data.length / totalSource) * 100).toFixed(1) : '0.0';
+                    document.getElementById('tableInfo').textContent = `${data.length.toLocaleString()} hits (${pct}% of ${totalSource.toLocaleString()}) — showing ${start + 1}-${Math.min(start + ROWS_PER_PAGE, data.length)}${modeSuffix}`;
+                } else {
+                    document.getElementById('tableInfo').textContent = data.length
+                        ? `Showing ${start + 1}-${Math.min(start + ROWS_PER_PAGE, data.length)} of ${data.length.toLocaleString()}${modeSuffix}`
+                        : `Showing 0 records${modeSuffix}`;
+                }
             }
             const selectAllVisible = document.getElementById('selectAllVisible');
             if (selectAllVisible) {
@@ -9315,26 +9325,13 @@
 
         function goToPage(p) {
             currentPage = p;
-            // Visual feedback: briefly show loading state
-            const container = document.getElementById('cardListView');
-            const tbody = document.getElementById('tableBody');
-            if (_currentTableView === 'card' && container) {
-                container.style.opacity = '0.4';
-                container.style.pointerEvents = 'none';
-            } else if (tbody) {
-                tbody.style.opacity = '0.4';
-            }
             if (serverBrowseMode) {
                 refreshServerBrowseData(p, true);
-                return;
-            }
-            requestAnimationFrame(() => {
+            } else {
                 renderTableBody();
-                if (container) { container.style.opacity = ''; container.style.pointerEvents = ''; }
-                if (tbody) { tbody.style.opacity = ''; }
-                // Scroll to top of data section
-                document.getElementById('dataContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            });
+            }
+            // Scroll to top of data section
+            document.getElementById('dataContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function updateSelectedCountInfo() {
