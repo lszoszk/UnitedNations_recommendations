@@ -2691,7 +2691,7 @@
 
         <div class="filters-section" id="filtersSection">
             <div class="filters-header">
-                <h3>🔍 Filters</h3>
+                <h3>Filters</h3>
                 <span class="filter-count" id="filterCount">Showing all records</span>
             </div>
 
@@ -2701,7 +2701,7 @@
                     <span class="filter-query-icon">🔎</span>
                     <div style="position:relative; flex:1;">
                         <input type="text" id="filterText" class="filter-query-input"
-                            placeholder="Search recommendations..." style="padding-right:36px; width:100%; box-sizing:border-box;">
+                            placeholder="e.g. freedom of expression" style="padding-right:36px; width:100%; box-sizing:border-box;">
                         <button onclick="document.getElementById('filterSearchHelp').classList.toggle('hidden')" title="Search syntax help" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:22px; height:22px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Filter search help">?</button>
                     </div>
                     <div id="filterSearchHelp" class="hidden" style="position:absolute; top:calc(100% + 6px); right:0; z-index:100; background:#fff; border:1px solid #dde; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:14px 16px; width:340px; font-size:12px; line-height:1.6; color:#334;">
@@ -2768,6 +2768,34 @@
                             <div class="chip-select-dropdown"></div>
                         </div>
                         <select id="filterRegion" multiple size="4" style="display:none !important;"></select>
+                    </div>
+                    <div class="filter-group">
+                        <div class="filter-label">
+                            <label>Theme</label>
+                            <div style="display:flex; gap:4px; align-items:center;">
+                                <button class="clear-btn" onclick="if(_chipSelects['filterTheme']) _chipSelects['filterTheme']._openExpandedModal()" title="Browse all themes" style="font-size:13px;">⊞</button>
+                                <button class="clear-btn" onclick="clearFilter('filterTheme')">Clear</button>
+                            </div>
+                        </div>
+                        <div class="chip-select-wrap" data-select-id="filterTheme" data-chip-class="chip-body" onclick="this.querySelector('.chip-select-input').focus()">
+                            <input type="text" class="chip-select-input" placeholder="Type to search themes..." autocomplete="off" spellcheck="false">
+                            <div class="chip-select-dropdown"></div>
+                        </div>
+                        <select id="filterTheme" multiple size="4" style="display:none !important;"></select>
+                    </div>
+                    <div class="filter-group">
+                        <div class="filter-label">
+                            <label>Affected Persons</label>
+                            <div style="display:flex; gap:4px; align-items:center;">
+                                <button class="clear-btn" onclick="if(_chipSelects['filterAffectedPersons']) _chipSelects['filterAffectedPersons']._openExpandedModal()" title="Browse all groups" style="font-size:13px;">⊞</button>
+                                <button class="clear-btn" onclick="clearFilter('filterAffectedPersons')">Clear</button>
+                            </div>
+                        </div>
+                        <div class="chip-select-wrap" data-select-id="filterAffectedPersons" data-chip-class="chip-region" onclick="this.querySelector('.chip-select-input').focus()">
+                            <input type="text" class="chip-select-input" placeholder="Type to search groups..." autocomplete="off" spellcheck="false">
+                            <div class="chip-select-dropdown"></div>
+                        </div>
+                        <select id="filterAffectedPersons" multiple size="4" style="display:none !important;"></select>
                     </div>
                     <div class="filter-group">
                         <div class="filter-label">
@@ -4559,6 +4587,33 @@
         const _hadUrlState = _restoreUrlState();
         updateRecentUI();
 
+        // ── Rotating placeholder examples ──
+        (function() {
+            const examples = [
+                'e.g. freedom of expression',
+                'e.g. children AND education',
+                'e.g. gender-based violence',
+                'e.g. climate change OR environment',
+                'e.g. disability rights',
+                'e.g. refugees AND housing',
+                'e.g. indigenous peoples',
+                'e.g. "right to health"',
+                'e.g. police brutality NOT military',
+                'e.g. internet OR online OR digital',
+                'e.g. forced labour',
+                'e.g. women AND discrimination'
+            ];
+            let idx = 0;
+            const input = document.getElementById('filterText');
+            if (input) {
+                setInterval(() => {
+                    if (document.activeElement === input || input.value) return;
+                    idx = (idx + 1) % examples.length;
+                    input.placeholder = examples[idx];
+                }, 4000);
+            }
+        })();
+
         // ── Returning user auto-load (if enabled in settings) ──
         if (shouldAutoLoadDemoData()) {
             loadBundledSampleData(false);
@@ -5485,6 +5540,9 @@
             populateSelect('filterCountry', facets.countries || []);
             populateSelect('filterBody', (facets.bodies || []).map(b => b.replace(/^-+\s*/, '').trim()).filter(Boolean));
             populateSelect('filterRegion', facets.regions || []);
+            const _clean = s => s.replace(/^-+\s*/, '').trim();
+            populateSelect('filterTheme', (facets.themes || []).map(_clean).filter(t => t && t.length > 2).sort());
+            populateSelect('filterAffectedPersons', (facets.affected_persons || []).map(_clean).filter(t => t && t.length > 2).sort());
             const cleanTypes = (facets.types || [])
                 .map(t => t.replace(/^-+\s*/, '').trim())
                 .filter(t => t && t.length > 2 && !/^[0-9a-f-]{20,}$/i.test(t) && !/^\W+$/.test(t));
@@ -5503,6 +5561,8 @@
                 countries: getSelectedValues('filterCountry'),
                 bodies: getSelectedValues('filterBody'),
                 regions: getSelectedValues('filterRegion'),
+                themes: getSelectedValues('filterTheme'),
+                affectedPersons: getSelectedValues('filterAffectedPersons'),
                 annotationType: (() => {
                     const value = document.getElementById('filterType').value;
                     return value && value !== 'All' ? [value] : [];
@@ -5608,6 +5668,8 @@
             appendCsvQueryParam(params, 'countries', filters.countries);
             appendCsvQueryParam(params, 'bodies', filters.bodies);
             appendCsvQueryParam(params, 'regions', filters.regions);
+            appendCsvQueryParam(params, 'themes', filters.themes);
+            appendCsvQueryParam(params, 'affected_persons', filters.affectedPersons);
             appendCsvQueryParam(params, 'annotation_type', filters.annotationType);
             if (filters.yearStart) params.set('year_start', String(filters.yearStart));
             if (filters.yearEnd) params.set('year_end', String(filters.yearEnd));
@@ -5851,11 +5913,9 @@
             const _vmTotal = Number(summary.total_records || 0);
             const _vmSearchTerm = (document.getElementById('filterText')?.value || '').trim();
             if (_vmTotal === 0) {
-                document.getElementById('filterCount').innerHTML = `<span style="color:#c62828;">0 results</span> — try different terms`;
-            } else if (_vmSearchTerm) {
-                document.getElementById('filterCount').innerHTML = `<strong>${_vmTotal.toLocaleString()}</strong> records matching <em>'${escapeHtml(_vmSearchTerm.length > 25 ? _vmSearchTerm.slice(0,23) + '…' : _vmSearchTerm)}'</em>`;
+                document.getElementById('filterCount').innerHTML = `<span style="color:#c62828;">0 hits</span> — try different terms`;
             } else {
-                document.getElementById('filterCount').textContent = `${_vmTotal.toLocaleString()} matching records`;
+                document.getElementById('filterCount').textContent = `${_vmTotal.toLocaleString()} hits`;
             }
             document.getElementById('kpiTotal').textContent = Number(summary.total_records || 0).toLocaleString();
             document.getElementById('kpiCountries').textContent = Number(summary.countries_count || 0).toLocaleString();
@@ -6927,9 +6987,14 @@
                 .sort();
             const years = rawData.map(r => r._year).filter(y => y && y > 1990 && y < 2100);
 
+            const themes = [...new Set(rawData.flatMap(r => r._themesArray || []))].map(_cleanDash).filter(t => t && t.length > 2).sort();
+            const affectedPersons = [...new Set(rawData.flatMap(r => r._affectedPersonsArray || []))].map(_cleanDash).filter(t => t && t.length > 2).sort();
+
             populateSelect('filterCountry', countries.slice(0, 250));
             populateSelect('filterBody', bodies);
             populateSelect('filterRegion', regions);
+            populateSelect('filterTheme', themes);
+            populateSelect('filterAffectedPersons', affectedPersons);
             populateSelect('filterType', ['All', ...types]);
 
             if (years.length) {
@@ -7220,23 +7285,31 @@
 
         function buildFilterLabel(st) {
             const parts = [];
-            if (st.textQuery) parts.push(st.textQuery.length > 20 ? st.textQuery.slice(0,18) + '…' : st.textQuery);
+            if (st.textQuery) parts.push(st.textQuery.length > 25 ? st.textQuery.slice(0,23) + '…' : st.textQuery);
             if (st.countries?.length) parts.push(st.countries.length <= 2 ? st.countries.map(c => c.replace(/^-\s*/, '').split(/\s*\(/)[0].trim()).join(', ') : `${st.countries.length} countries`);
             if (st.bodies?.length) parts.push(st.bodies.length <= 2 ? st.bodies.map(b => b.replace(/^-\s*/, '').trim()).join(', ') : `${st.bodies.length} bodies`);
             if (st.regions?.length) parts.push(st.regions.join(', '));
-            if (st.annotationType?.length) parts.push(st.annotationType[0]);
-            if (st.yearStart && st.yearEnd) parts.push(`${st.yearStart}-${st.yearEnd}`);
-            else if (st.yearStart) parts.push(`from ${st.yearStart}`);
-            else if (st.yearEnd) parts.push(`to ${st.yearEnd}`);
+            if (st.annotationType?.length) parts.push(st.annotationType[0].replace(/^-\s*/, ''));
+            // Only show year if it's not the default full range
+            const defMin = serverBrowseMode ? (serverState.facets?.min_year || 2006) : (rawData.length ? Math.min(...rawData.map(r => r._year).filter(y => y > 1990)) : 2006);
+            const defMax = serverBrowseMode ? (serverState.facets?.max_year || 2026) : (rawData.length ? Math.max(...rawData.map(r => r._year).filter(y => y > 1990)) : 2026);
+            const yearNarrow = (st.yearStart && String(st.yearStart) !== String(defMin)) || (st.yearEnd && String(st.yearEnd) !== String(defMax));
+            if (yearNarrow && st.yearStart && st.yearEnd) parts.push(`${st.yearStart}-${st.yearEnd}`);
+            else if (yearNarrow && st.yearStart) parts.push(`from ${st.yearStart}`);
+            else if (yearNarrow && st.yearEnd) parts.push(`to ${st.yearEnd}`);
             const label = parts.join(' + ') || 'All records';
             return label.length > 55 ? label.slice(0, 53) + '…' : label;
         }
 
         function saveRecentFilter() {
             const state = getServerFilterState();
-            // Skip if no filters active
+            // Check if year range is the default (not a meaningful filter)
+            const defMinYear = serverBrowseMode ? (serverState.facets?.min_year || null) : (rawData.length ? Math.min(...rawData.map(r => r._year).filter(y => y > 1990)) : null);
+            const defMaxYear = serverBrowseMode ? (serverState.facets?.max_year || null) : (rawData.length ? Math.max(...rawData.map(r => r._year).filter(y => y > 1990)) : null);
+            const yearIsDefault = (!state.yearStart || String(state.yearStart) === String(defMinYear)) && (!state.yearEnd || String(state.yearEnd) === String(defMaxYear));
+            // Skip if no real filters active (ignore default year range)
             const hasFilter = state.textQuery || state.countries.length || state.bodies.length ||
-                state.regions.length || state.annotationType.length || state.yearStart || state.yearEnd;
+                state.regions.length || state.annotationType.length || !yearIsDefault;
             if (!hasFilter) return;
             const key = JSON.stringify(state);
             let list = _loadRecent().filter(r => JSON.stringify(r.state) !== key);
@@ -7250,6 +7323,8 @@
             _restoreMultiSelect('filterCountry', state.countries || []);
             _restoreMultiSelect('filterBody', state.bodies || []);
             _restoreMultiSelect('filterRegion', state.regions || []);
+            _restoreMultiSelect('filterTheme', state.themes || []);
+            _restoreMultiSelect('filterAffectedPersons', state.affectedPersons || []);
             const typeEl = document.getElementById('filterType');
             if (typeEl) typeEl.value = state.annotationType?.[0] || 'All';
             const ys = document.getElementById('filterYearStart');
@@ -7331,6 +7406,10 @@
             bodies.forEach(b => filters.push({ type: 'body', label: b.replace(/^-+\s*/, ''), filterId: 'filterBody', value: b }));
             const regions = getSelectedValues('filterRegion');
             regions.forEach(r => filters.push({ type: 'region', label: r, filterId: 'filterRegion', value: r }));
+            const themes = getSelectedValues('filterTheme');
+            themes.forEach(t => filters.push({ type: 'theme', label: t.replace(/^-+\s*/, ''), filterId: 'filterTheme', value: t }));
+            const affPers = getSelectedValues('filterAffectedPersons');
+            affPers.forEach(a => filters.push({ type: 'affected', label: a.replace(/^-+\s*/, ''), filterId: 'filterAffectedPersons', value: a }));
             const typeVal = document.getElementById('filterType').value;
             if (typeVal && typeVal !== 'All') {
                 filters.push({ type: 'type', label: typeVal.replace(/^-+\s*/, ''), filterId: 'filterType', value: typeVal });
@@ -7367,7 +7446,7 @@
             }
             container.innerHTML = filters.map((f, i) => {
                 const cls = `chip-${f.type}`;
-                const icon = { country: '🌍', body: '🏛️', region: '📍', type: '📋', year: '📅', text: '🔎' }[f.type] || '';
+                const icon = { country: '🌍', body: '🏛️', region: '📍', theme: '🏷️', affected: '👥', type: '📋', year: '📅', text: '🔎' }[f.type] || '';
                 return `<span class="filter-chip ${cls}" data-idx="${i}">${icon} ${escapeHtml(f.label)}<button class="chip-remove" data-idx="${i}" title="Remove this filter">×</button></span>`;
             }).join('');
             if (clearBtn) clearBtn.style.display = filters.length > 1 ? '' : 'none';
@@ -7501,6 +7580,8 @@
                 const countries = getSelectedValues('filterCountry');
                 const bodies = getSelectedValues('filterBody');
                 const regions = getSelectedValues('filterRegion');
+                const themes = getSelectedValues('filterTheme');
+                const affectedPersons = getSelectedValues('filterAffectedPersons');
                 const type = document.getElementById('filterType').value;
                 const yearStart = parseInt(document.getElementById('filterYearStart').value) || 0;
                 const yearEnd = parseInt(document.getElementById('filterYearEnd').value) || 9999;
@@ -7512,10 +7593,14 @@
                     return;
                 }
 
+                const _cleanDash = s => (s || '').replace(/^-+\s*/, '').trim().toLowerCase();
+
                 filteredData = rawData.filter(r => {
                     if (countries.length && !countries.some(c => r._countriesArray.includes(c))) return false;
                     if (bodies.length && !bodies.includes(r._body)) return false;
                     if (regions.length && !regions.some(reg => r._regionsArray.includes(reg))) return false;
+                    if (themes.length && !themes.some(t => (r._themesArray || []).some(rt => _cleanDash(rt) === _cleanDash(t) || rt.includes(t) || t.includes(rt)))) return false;
+                    if (affectedPersons.length && !affectedPersons.some(ap => (r._affectedPersonsArray || []).some(ra => _cleanDash(ra) === _cleanDash(ap) || ra.includes(ap) || ap.includes(ra)))) return false;
                     if (type && type !== 'All' && r._type !== type) return false;
                     if (r._year && (r._year < yearStart || r._year > yearEnd)) return false;
                     if (!recordMatchesSearch(r, ['_text'], textSearchState)) return false;
@@ -7535,6 +7620,8 @@
             clearFilter('filterCountry');
             clearFilter('filterBody');
             clearFilter('filterRegion');
+            clearFilter('filterTheme');
+            clearFilter('filterAffectedPersons');
             document.getElementById('filterType').selectedIndex = 0;
             document.getElementById('filterText').value = '';
 
@@ -7591,14 +7678,11 @@
             const filterCountEl = document.getElementById('filterCount');
             const searchTerm = (document.getElementById('filterText')?.value || '').trim();
             if (filteredData.length === rawData.length) {
-                filterCountEl.textContent = `Showing all ${rawData.length.toLocaleString()} records`;
+                filterCountEl.textContent = `${rawData.length.toLocaleString()} records`;
             } else if (filteredData.length === 0) {
-                filterCountEl.innerHTML = `<span style="color:#c62828;">0 results</span> of ${rawData.length.toLocaleString()}`;
+                filterCountEl.innerHTML = `<span style="color:#c62828;">0 hits</span>`;
             } else {
-                const pct = ((filteredData.length / rawData.length) * 100).toFixed(1);
-                filterCountEl.innerHTML = searchTerm
-                    ? `<strong>${filteredData.length.toLocaleString()}</strong> of ${rawData.length.toLocaleString()} matching <em>'${escapeHtml(searchTerm.length > 25 ? searchTerm.slice(0,23) + '…' : searchTerm)}'</em>`
-                    : `${filteredData.length.toLocaleString()} of ${rawData.length.toLocaleString()} records (${pct}%)`;
+                filterCountEl.textContent = `${filteredData.length.toLocaleString()} hits`;
             }
 
             if (!hasData) {
