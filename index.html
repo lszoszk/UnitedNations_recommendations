@@ -2996,41 +2996,35 @@
     <!-- Training Pane -->
     <div class="training-pane" id="trainingPane">
         <div class="training-pane-header">
-            <h2>🤖 Train Classifier</h2>
+            <h2>🏷️ Zero-Shot Classifier</h2>
             <button class="training-pane-close" onclick="closeTrainingPane()">&times;</button>
         </div>
         <div class="training-pane-body">
-            <!-- Quick Start: Load Example -->
+            <!-- How it works -->
             <div class="training-section" style="background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%); border: 1px solid #c5d5f0; border-radius: 10px; padding: 16px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                    <span style="font-size: 22px;">📘</span>
+                    <span style="font-size: 22px;">🧠</span>
                     <div>
-                        <div style="font-weight: 600; font-size: 14px; color: #1a3a5c;">Quick Start: Load a Pre-trained Example</div>
-                        <div style="font-size: 12px; color: #526783; margin-top: 2px;">See how the classifier works with real labeled data before creating your own.</div>
+                        <div style="font-weight: 600; font-size: 14px; color: #1a3a5c;">Zero-Shot Classification (No Training Needed)</div>
+                        <div style="font-size: 12px; color: #526783; margin-top: 2px;">Define your categories, then classify. The AI model understands meaning — no labeled examples required.</div>
                     </div>
                 </div>
-                <button class="btn btn-primary" onclick="loadRuleOfLawExample()" style="padding: 10px 20px; font-size: 13px;">
-                    Load "Rule of Law" Example (30 labeled samples, 7 categories)
-                </button>
-                <div style="font-size: 11px; color: #667; margin-top: 6px;">
-                    Based on 6,225 classified UN recommendations. Categories: Access to justice, Legality, Equality, Constitutional review, Legal certainty, Prevention of abuse of power, Unrelated.
+                <div style="font-size: 11px; color: #667; line-height: 1.6;">
+                    Powered by <strong>Transformers.js</strong> running entirely in your browser. The model (~70 MB) is downloaded once and cached.
+                    Works offline after first load. No data leaves your computer.
                 </div>
             </div>
 
-            <!-- Hidden: Task Type (defaults to classification) -->
-            <div class="task-type-options" style="display:none;">
-                <div class="task-type-btn selected" onclick="selectTaskType('classification')" id="taskTypeClassification">
-                    <div class="icon">🏷️</div>
-                    <div class="title">Multi-Label Classification</div>
-                    <div class="desc">Assign categories to text</div>
+            <!-- Quick Start: Load Example Categories -->
+            <div class="training-section" style="padding: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 16px;">📘</span>
+                    <div style="font-weight: 600; font-size: 13px; color: #1a3a5c;">Quick Start</div>
                 </div>
-                <div class="task-type-btn" onclick="selectTaskType('extraction')" id="taskTypeExtraction">
-                    <div class="icon">🔍</div>
-                    <div class="title">Text Extraction</div>
-                    <div class="desc">Extract patterns from text</div>
-                </div>
+                <button class="btn btn-secondary" onclick="loadRuleOfLawCategories()" style="padding: 8px 16px; font-size: 12px;">
+                    Load "Rule of Law" categories (Venice Commission taxonomy)
+                </button>
             </div>
-            <div class="task-help" id="taskTypeHelp" style="display:none;"></div>
 
             <!-- Step 1: Define Categories -->
             <div class="training-section" id="categorySection">
@@ -3040,12 +3034,69 @@
                     <button class="btn btn-primary" onclick="addCategory()">Add</button>
                 </div>
                 <div class="category-list" id="categoryList"></div>
-                <p style="font-size: 11px; color: #666; margin-top: 8px;">Add categories for your classification task. The special category <code>excluded</code> is auto-added and learned by the model, but ignored in statistics.</p>
+                <p style="font-size: 11px; color: #666; margin-top: 8px;">Add categories that describe what your records are about. The model will match each record to the most relevant categories by meaning.</p>
             </div>
 
-            <!-- Step 2: Label Samples -->
-            <div class="training-section" id="labelingSection">
-                <h3 id="step3Title"><span class="step-number">2</span> Label Training Samples</h3>
+            <!-- Step 2: Classify -->
+            <div class="training-section">
+                <h3><span class="step-number">2</span> Classify</h3>
+                <div id="trainingControls">
+                    <!-- Device benchmark info -->
+                    <div id="deviceBenchmarkInfo" class="hidden" style="background: #f0f7ff; border: 1px solid #d0e3f7; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: #2c4a6e; line-height: 1.5;">
+                        <div id="deviceBenchmarkText">Benchmarking your device...</div>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                        <button class="btn btn-purple" onclick="applyZeroShot()" id="applyBtn" style="flex: 3; padding: 12px;">
+                            ✨ Classify Current Filter
+                        </button>
+                        <button class="btn btn-secondary" onclick="applyPredictionToCurrentSample()" id="applyCurrentBtn" disabled style="flex: 1; padding: 12px; font-size: 11px;">
+                            🎯 Test on 1 Record
+                        </button>
+                    </div>
+                    <div class="training-progress hidden" id="trainingProgress">
+                        <div class="progress-label" id="trainingStatusText">Classifying...</div>
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar-fill" id="trainingProgressFill" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-pct" id="trainingProgressPct">0%</div>
+                    </div>
+                    <div class="benchmark-box hidden" id="benchmarkBox">
+                        <h4>Classification Results</h4>
+                        <div class="benchmark-grid" id="benchmarkGrid"></div>
+                        <div class="benchmark-note" id="benchmarkNote"></div>
+                    </div>
+                    <!-- Advanced: threshold + fallback methods -->
+                    <details style="margin-top: 12px;">
+                        <summary style="cursor: pointer; font-size: 12px; color: #667; user-select: none;">Advanced settings</summary>
+                        <div style="margin-top: 10px; padding: 12px; background: #f8f9fb; border-radius: 8px;">
+                            <div class="method-row">
+                                <div class="method-label" id="methodLabel">Classification method</div>
+                                <select id="classifierMethod" onchange="onClassifierMethodChange()">
+                                    <option value="zero_shot" selected>Zero-Shot NLI (Transformers.js, recommended)</option>
+                                    <option value="tfidf_centroid">TF-IDF centroid (requires labeled samples)</option>
+                                    <option value="keyword_overlap">Keyword overlap (requires labeled samples)</option>
+                                    <option value="char_ngram_centroid">Character n-gram centroid (requires labeled samples)</option>
+                                </select>
+                                <div class="method-hint" id="classifierMethodHint">AI-powered semantic classification. No training data needed — just define categories.</div>
+                            </div>
+                            <div class="threshold-row">
+                                <div>
+                                    <div class="threshold-label">Prediction threshold</div>
+                                    <div class="threshold-hint">Lower = more labels (higher recall). Higher = fewer labels (higher precision).</div>
+                                </div>
+                                <div class="threshold-controls">
+                                    <input type="range" id="thresholdSlider" min="0.01" max="0.95" step="0.01" value="0.50" oninput="onThresholdInput()">
+                                    <span class="threshold-value" id="thresholdValue">0.50</span>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Labeling section (hidden for zero-shot, shown for trained methods) -->
+            <div class="training-section hidden" id="labelingSection">
+                <h3 id="step3Title">Label Training Samples (for trained methods)</h3>
                 <div class="sample-nav">
                     <div class="sample-nav-info">
                         <span id="labeledCount">0</span> / <span id="totalSamples">0</span> labeled
@@ -3056,89 +3107,27 @@
                         <button onclick="nextSample()" id="nextSampleBtn">Next →</button>
                         <button onclick="clearCurrentSampleLabels()" class="btn btn-secondary" style="padding: 8px 12px;">🧹 Clear</button>
                         <div style="display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px 2px 8px; background: #f8f9fb;">
-                            <label for="sampleCountInput" style="font-size: 11px; color: #667; white-space: nowrap; cursor: help;" title="How many random records to load for labeling. More samples = better model, but more labeling work. 20 is a good starting point.">Samples:</label>
+                            <label for="sampleCountInput" style="font-size: 11px; color: #667; white-space: nowrap;">Samples:</label>
                             <input type="number" id="sampleCountInput" value="20" min="5" max="200" step="5" style="width: 52px; padding: 5px 4px; border: 1px solid #dde; border-radius: 4px; text-align: center; font-size: 12px;">
                         </div>
                         <button onclick="getRandomSamples()" class="btn btn-secondary" style="padding: 8px 12px;">🔄 Load Samples</button>
                     </div>
                 </div>
-                <div style="font-size: 11px; color: #666; margin-bottom: 8px; line-height: 1.5;">
-                    Load random samples, then tag each one with the categories that apply. Start with <strong>20 samples</strong> — you can always load more later.
-                </div>
                 <div id="sampleContainer"></div>
-            </div>
-
-            <!-- Step 3: Train & Apply -->
-            <div class="training-section">
-                <h3 id="step4Title"><span class="step-number">3</span> Train & Apply</h3>
-                <div id="trainingControls">
-                    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
-                        <button class="btn btn-purple" onclick="trainModel()" id="trainBtn" style="flex: 2; padding: 12px;">
-                            🚀 Train Model
-                        </button>
-                        <button class="btn btn-success" onclick="applyPredictions()" id="applyBtn" disabled style="flex: 2; padding: 12px;">
-                            ✨ Apply to All Data
-                        </button>
-                        <button class="btn btn-secondary" onclick="applyPredictionToCurrentSample()" id="applyCurrentBtn" disabled style="flex: 1; padding: 12px; font-size: 11px;">
-                            🎯 Test on Current
-                        </button>
-                    </div>
-                    <div class="training-progress hidden" id="trainingProgress">
-                        <div class="progress-label" id="trainingStatusText">Training in progress...</div>
-                        <div class="progress-bar-wrapper">
-                            <div class="progress-bar-fill" id="trainingProgressFill" style="width: 0%"></div>
-                        </div>
-                        <div class="progress-pct" id="trainingProgressPct">0%</div>
-                    </div>
-                    <div class="benchmark-box hidden" id="benchmarkBox">
-                        <h4>Benchmark (Hold-out Test Data)</h4>
-                        <div class="benchmark-grid" id="benchmarkGrid"></div>
-                        <div class="benchmark-note" id="benchmarkNote"></div>
-                    </div>
-                    <!-- Advanced settings (collapsed by default) -->
-                    <details style="margin-top: 12px;">
-                        <summary style="cursor: pointer; font-size: 12px; color: #667; user-select: none;">Advanced settings</summary>
-                        <div style="margin-top: 10px; padding: 12px; background: #f8f9fb; border-radius: 8px;">
-                            <div class="method-row">
-                                <div class="method-label" id="methodLabel">Classification method</div>
-                                <select id="classifierMethod" onchange="onClassifierMethodChange()">
-                                    <option value="tfidf_centroid">TextSetFit (TF-IDF centroid, recommended)</option>
-                                    <option value="keyword_overlap">NaiveTextToMultiOption (keyword overlap)</option>
-                                    <option value="char_ngram_centroid">TextFastText (character n-gram centroid)</option>
-                                    <option value="setfit_backend">SetFit (HF backend — requires server)</option>
-                                </select>
-                                <div class="method-hint" id="classifierMethodHint">Balanced precision/recall with sparse text vectors.</div>
-                                <div class="method-status" id="classifierBackendStatus">Checking SetFit backend availability...</div>
-                            </div>
-                            <div class="threshold-row">
-                                <div>
-                                    <div class="threshold-label">Prediction threshold</div>
-                                    <div class="threshold-hint">Lower = more labels (higher recall). Higher = fewer labels (higher precision).</div>
-                                </div>
-                                <div class="threshold-controls">
-                                    <input type="range" id="thresholdSlider" min="0.01" max="0.95" step="0.01" value="0.15" oninput="onThresholdInput()">
-                                    <span class="threshold-value" id="thresholdValue">0.15</span>
-                                </div>
-                            </div>
-                        </div>
-                    </details>
-                </div>
             </div>
 
             <!-- Saved Models (collapsed) -->
             <div class="training-section">
                 <details>
-                    <summary style="cursor: pointer; font-weight: 600; font-size: 14px; color: #2c3e50; user-select: none;">Saved Models & Packages</summary>
+                    <summary style="cursor: pointer; font-weight: 600; font-size: 14px; color: #2c3e50; user-select: none;">Saved Models</summary>
                 <div class="model-list" id="modelList">
                     <p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No saved models yet</p>
                 </div>
                 <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                    <input type="text" id="modelNameInput" placeholder="Model/package name..." style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; flex: 1; min-width: 220px;">
+                    <input type="text" id="modelNameInput" placeholder="Model name..." style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; flex: 1; min-width: 220px;">
                     <button class="btn btn-secondary" id="modelSaveBtn" onclick="saveCurrentModel()" style="padding: 10px 16px;">Save</button>
-                    <button class="btn btn-secondary" onclick="document.getElementById('setfitPackageInput').click()" style="padding: 10px 16px;">Upload SetFit ZIP</button>
-                    <input type="file" id="setfitPackageInput" accept=".zip,application/zip" style="display: none;" onchange="handleSetFitPackageSelected(event)">
                 </div>
-                <div id="modelStorageHint" style="font-size: 11px; color: #666; margin-top: 8px;">Local TF-IDF and keyword models are saved only in this browser. SetFit models are downloaded as ZIP files to your computer; the server copy is temporary and only lasts for the current session.</div>
+                <div id="modelStorageHint" style="font-size: 11px; color: #666; margin-top: 8px;">Trained TF-IDF and keyword models are saved in this browser's local storage.</div>
                 </details>
             </div>
         </div>
@@ -3256,12 +3245,7 @@
             return buildApiUrl(vmBaseUrl, '/api/data/full');
         }
 
-        function resolveSetFitApiBase(vmBaseUrl) {
-            const explicitUrl = String(readSearchParam('setfit_api') || window.UNHR_DASHBOARD_CONFIG?.setfitApiBase || '').trim();
-            if (explicitUrl) return explicitUrl.replace(/\/+$/, '');
-            if (vmBaseUrl) return buildApiUrl(vmBaseUrl, '/api/setfit');
-            return 'http://127.0.0.1:8765/api/setfit';
-        }
+        // SetFit API removed — zero-shot classification runs entirely in the browser
 
         const VM_BASE_URL = resolveVmBaseUrl();
         const DATASET_API_URL = resolveDatasetApiUrl(VM_BASE_URL);
@@ -3273,7 +3257,7 @@
         const DATASET_RECORDS_URL = buildApiUrl(VM_BASE_URL, '/api/data/records');
         const DATASET_EXPORT_URL = buildApiUrl(VM_BASE_URL, '/api/data/export');
         const DATASET_ANALYTICS_URL = buildApiUrl(VM_BASE_URL, '/api/data/analytics');
-        const SETFIT_API_BASE = resolveSetFitApiBase(VM_BASE_URL);
+        // (SetFit API base removed)
 
         const invalidCountryTokens = new Set([
             '', 'all', 'all countries', 'global', 'international', 'multiple countries',
@@ -3380,40 +3364,115 @@
             samples: [],
             currentSampleIndex: 0,
             labeledSamples: new Map(), // sampleId -> [labels]
-            method: 'tfidf_centroid',
+            method: 'zero_shot',
             model: null,
             vocabulary: {},
             idf: {},
             categoryVectors: {},
-            benchmark: null,
-            setfitHealth: { checked: false, online: false, setfitReady: false, device: 'cpu', message: '' },
-            setfitBenchmarkContext: null
+            benchmark: null
         };
-        let setfitSessionModels = [];
 
         const classifierMethodMeta = {
+            zero_shot: {
+                label: 'Zero-Shot NLI (Transformers.js)',
+                hint: 'AI-powered semantic classification. No training data needed — just define categories.',
+                defaultThreshold: 0.50
+            },
             tfidf_centroid: {
-                label: 'TextSetFit (TF-IDF centroid)',
-                hint: 'Balanced precision/recall with sparse text vectors.',
+                label: 'TF-IDF centroid',
+                hint: 'Balanced precision/recall with sparse text vectors. Requires labeled samples.',
                 defaultThreshold: 0.15
             },
             keyword_overlap: {
-                label: 'NaiveTextToMultiOption (keyword overlap)',
-                hint: 'Fast baseline using overlap with category-specific keywords.',
+                label: 'Keyword overlap',
+                hint: 'Fast baseline using overlap with category-specific keywords. Requires labeled samples.',
                 defaultThreshold: 0.08
             },
             char_ngram_centroid: {
-                label: 'TextFastText (character n-gram centroid)',
-                hint: 'More tolerant to noisy spelling and short snippets.',
+                label: 'Character n-gram centroid',
+                hint: 'More tolerant to noisy spelling and short snippets. Requires labeled samples.',
                 defaultThreshold: 0.16
-            },
-            setfit_backend: {
-                label: 'SetFit (HF backend)',
-                hint: 'Hugging Face SetFit — requires a running Python API server (multilingual, most accurate).',
-                defaultThreshold: 0.35,
-                requiresBackend: true
             }
         };
+
+        // ========== TRANSFORMERS.JS ZERO-SHOT ENGINE ==========
+        let _zeroShotPipeline = null;
+        let _zeroShotLoading = false;
+        let _deviceBenchmark = null; // { msPerRecord, maxRecommended, device }
+        const ZERO_SHOT_MODEL = 'Xenova/nli-deberta-v3-xsmall';
+        const ZERO_SHOT_HARD_CAP = 5000;
+
+        async function loadZeroShotPipeline(onProgress) {
+            if (_zeroShotPipeline) return _zeroShotPipeline;
+            if (_zeroShotLoading) {
+                // Wait for the other load to finish
+                while (_zeroShotLoading) await delay(200);
+                return _zeroShotPipeline;
+            }
+            _zeroShotLoading = true;
+            try {
+                const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.1');
+                _zeroShotPipeline = await pipeline('zero-shot-classification', ZERO_SHOT_MODEL, {
+                    progress_callback: onProgress || (() => {})
+                });
+                return _zeroShotPipeline;
+            } finally {
+                _zeroShotLoading = false;
+            }
+        }
+
+        async function runDeviceBenchmark(pipe, categories) {
+            const testSentences = [
+                'The state should ensure access to justice for all citizens regardless of social status.',
+                'Measures to prevent torture and ill-treatment in detention facilities must be strengthened.',
+                'The committee recommends legislative reforms to protect freedom of expression.'
+            ];
+            const labels = categories.length > 0 ? categories.slice(0, 6) : ['Human rights', 'Legal reform', 'Social protection'];
+            const start = performance.now();
+            for (const sent of testSentences) {
+                await pipe(sent, labels, { multi_label: true });
+            }
+            const elapsed = performance.now() - start;
+            const msPerRecord = elapsed / testSentences.length;
+            // Scale by number of categories (NLI does one forward pass per category)
+            const catScale = categories.length > 0 ? categories.length / labels.length : 1;
+            const adjustedMs = msPerRecord * catScale;
+
+            // Determine max records for reasonable UX (< 3 min)
+            const maxTime = 180000; // 3 minutes
+            const maxRecommended = Math.min(ZERO_SHOT_HARD_CAP, Math.max(50, Math.floor(maxTime / adjustedMs)));
+
+            _deviceBenchmark = {
+                msPerRecord: Math.round(adjustedMs),
+                maxRecommended,
+                device: navigator.gpu ? 'WebGPU available' : 'CPU'
+            };
+            return _deviceBenchmark;
+        }
+
+        function formatDuration(ms) {
+            if (ms < 1000) return 'less than 1 second';
+            if (ms < 60000) return `~${Math.round(ms / 1000)} seconds`;
+            const mins = Math.round(ms / 60000);
+            return `~${mins} minute${mins > 1 ? 's' : ''}`;
+        }
+
+        function updateDeviceBenchmarkUI(benchmark, recordCount) {
+            const el = document.getElementById('deviceBenchmarkInfo');
+            const textEl = document.getElementById('deviceBenchmarkText');
+            if (!el || !textEl) return;
+            el.classList.remove('hidden');
+            const estimatedMs = benchmark.msPerRecord * recordCount;
+            const estimatedStr = formatDuration(estimatedMs);
+            const tooMany = recordCount > benchmark.maxRecommended;
+            el.style.borderColor = tooMany ? '#f0c040' : '#d0e3f7';
+            el.style.background = tooMany ? '#fffbe6' : '#f0f7ff';
+            textEl.innerHTML = `<strong>Your device:</strong> ${benchmark.msPerRecord}ms/record (${benchmark.device}). ` +
+                `<strong>Current filter:</strong> ${recordCount.toLocaleString()} records — estimated ${estimatedStr}.` +
+                (tooMany
+                    ? `<br><span style="color:#b8860b;">⚠ Recommended max: ${benchmark.maxRecommended.toLocaleString()} records. Narrow your filters for best results, or be prepared to wait.</span>`
+                    : ` Recommended max: ${benchmark.maxRecommended.toLocaleString()}.`);
+        }
 
         function normalizeLabelName(label) {
             return String(label || '').trim().toLowerCase();
@@ -6084,8 +6143,7 @@
             document.getElementById('tabsSection').classList.remove('hidden');
             activateTab(preferredActiveTab || 'overview');
 
-            // Load backend status and saved models
-            checkSetFitBackend(false);
+            // Load saved models
             loadSavedModels();
             updateDashboard();
             requestAnimationFrame(() => {
@@ -6138,13 +6196,10 @@
                 vocabulary: {},
                 idf: {},
                 categoryVectors: {},
-                benchmark: null,
-                setfitHealth: { checked: false, online: false, setfitReady: false, device: 'cpu', message: '' },
-                setfitBenchmarkContext: null
+                benchmark: null
             };
-            setThresholdUI(0.15);
-            setClassifierMethodUI('tfidf_centroid');
-            updateSetFitBackendStatus(trainingState.setfitHealth || { checked: false, online: false, setfitReady: false, device: 'cpu', message: '' });
+            setThresholdUI(0.50);
+            setClassifierMethodUI('zero_shot');
             updateModelStorageControls();
 
             document.getElementById('uploadSection').classList.remove('hidden');
@@ -6163,9 +6218,8 @@
             updateTaskTypeUI();
             document.getElementById('trainingProgress').classList.add('hidden');
             document.getElementById('benchmarkBox').classList.add('hidden');
-            setThresholdUI(0.15);
-            setClassifierMethodUI('tfidf_centroid');
-            updateSetFitBackendStatus(trainingState.setfitHealth || { checked: false, online: false, setfitReady: false, device: 'cpu', message: '' });
+            setThresholdUI(0.50);
+            setClassifierMethodUI('zero_shot');
             updateModelStorageControls();
             const radarGrid = document.getElementById('themeRadarGrid');
             if (radarGrid) radarGrid.innerHTML = '';
@@ -7003,11 +7057,7 @@
             },
             // Themes tab: Body heatmap (year+body stacked bar)
             bodyHeatmap:        (label, datasetLabel) => r => String(r._year) === String(label) && (r._body || '').replace(/^-+\s*/, '').includes(datasetLabel),
-            // Overview tab: Bigrams (horizontal bar, bigram text)
-            bigrams:            label => r => {
-                const text = (r._text || '').toLowerCase();
-                return text.includes(label.toLowerCase());
-            },
+            // Overview tab: Bigrams — drilldown disabled (text search too unreliable)
             // Overview tab: Text length by body (horizontal bar)
             textLength:         label => r => (r._body || '').replace(/^-+\s*/, '').trim() === label.trim(),
             // Labels tab charts
@@ -7058,7 +7108,6 @@
             escCcprTrend:       (label, ds) => `${ds} in ${label}`,
             rightsScatter:      (label, ds) => `${ds.replace(/^\d+\.\s*/, '')} in ${label}`,
             bodyHeatmap:        (label, ds) => `${ds} recommendations from ${label}`,
-            bigrams:            label => `Recommendations containing "${label}"`,
             textLength:         label => `Recommendations by ${label}`,
             labelDistribution:  label => `Records labeled: ${label}`,
             labelYearly:        label => `Labeled records from ${label}`,
@@ -7133,7 +7182,6 @@
             themeTrends:        (label, ds) => ({ year_start: label, year_end: label, themes: ds }),
             escCcprTrend:       label => ({ year_start: label, year_end: label }),
             bodyHeatmap:        (label, ds) => ({ year_start: label, year_end: label, bodies: '- ' + ds }),
-            bigrams:            label => ({ text_query: label }),
             textLength:         label => ({ bodies: '- ' + label }),
         };
 
@@ -8563,6 +8611,7 @@
                         indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
+                        onClick: null,
                         plugins: {
                             legend: { display: false },
                             tooltip: defaultTooltip
@@ -8602,6 +8651,7 @@
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: null,
                     plugins: {
                         legend: { display: false },
                         tooltip: defaultTooltip
@@ -9997,235 +10047,12 @@
             }
         }
 
-        function getSetFitOptionEl() {
-            return document.querySelector('#classifierMethod option[value="setfit_backend"]');
-        }
-
-        function updateSetFitBackendStatus(health, showPopup = false) {
-            const statusEl = document.getElementById('classifierBackendStatus');
-            const option = getSetFitOptionEl();
-            const available = !!(health.online && health.setfitReady);
-            if (option) option.disabled = !available;
-
-            if (!statusEl) return;
-            statusEl.classList.remove('online', 'offline');
-            if (available) {
-                statusEl.classList.add('online');
-                statusEl.textContent = `SetFit backend online (${(health.device || 'cpu').toUpperCase()}). Models are downloaded as ZIP; server copy is temporary.`;
-                if (trainingState.model?.engine === 'setfit_backend') {
-                    document.getElementById('applyBtn').disabled = false;
-                    document.getElementById('applyCurrentBtn').disabled = false;
-                }
-                return;
-            }
-
-            statusEl.classList.add('offline');
-            if (!health.checked) {
-                statusEl.textContent = 'Checking SetFit backend...';
-            } else if (!health.online) {
-                statusEl.innerHTML = 'SetFit backend offline — requires a running Python API server. <strong>The 3 local methods above work without any server.</strong>';
-            } else if (!health.setfitReady) {
-                statusEl.innerHTML = `SetFit backend connected but missing dependencies. ${escapeHtml(health.message || '')} <strong>Fix: run <code>pip install setfit</code> on the server.</strong>`.trim();
-            } else {
-                statusEl.textContent = 'SetFit backend unavailable.';
-            }
-
-            if (showPopup) {
-                alert('SetFit backend is unavailable.\n\nSetFit requires a Python API server running locally or on a VM. The 3 local methods (TextSetFit, NaiveText, TextFastText) work directly in your browser without any server.');
-            }
-
-            if (trainingState.model?.engine === 'setfit_backend') {
-                document.getElementById('applyBtn').disabled = true;
-                document.getElementById('applyCurrentBtn').disabled = true;
-            }
-        }
-
-        async function checkSetFitBackend(showPopup = false) {
-            const fallback = {
-                checked: true,
-                online: false,
-                setfitReady: false,
-                device: 'cpu',
-                message: 'Backend is not reachable'
-            };
-
-            try {
-                const resp = await fetchWithTimeout(`${SETFIT_API_BASE}/health`, { method: 'GET' }, 5000);
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                const body = await resp.json();
-                const health = {
-                    checked: true,
-                    online: true,
-                    setfitReady: !!(body.ok && body.setfit_ready),
-                    device: body.device || 'cpu',
-                    message: body.message || ''
-                };
-                trainingState.setfitHealth = health;
-                updateSetFitBackendStatus(health, showPopup && !health.setfitReady);
-                return health;
-            } catch (err) {
-                const health = { ...fallback, message: String(err?.message || err) };
-                trainingState.setfitHealth = health;
-                updateSetFitBackendStatus(health, showPopup);
-                return health;
-            }
-        }
-
-        async function setfitApiRequest(path, options = {}, timeoutMs = 35000) {
-            const response = await fetchWithTimeout(`${SETFIT_API_BASE}${path}`, options, timeoutMs);
-            const raw = await response.text();
-            let body = {};
-            try {
-                body = raw ? JSON.parse(raw) : {};
-            } catch {
-                body = { detail: raw || 'Unknown response' };
-            }
-            if (!response.ok) {
-                throw new Error(body.detail || `SetFit backend request failed (${response.status})`);
-            }
-            return body;
-        }
-
-        function sanitizeFilename(name) {
-            const normalized = String(name || 'setfit-model')
-                .trim()
-                .replace(/[^A-Za-z0-9._-]+/g, '-')
-                .replace(/-{2,}/g, '-')
-                .replace(/^[-._]+|[-._]+$/g, '');
-            return normalized || 'setfit-model';
-        }
-
-        function parseDownloadFilename(headerValue) {
-            if (!headerValue) return '';
-            const utf8Match = headerValue.match(/filename\*=UTF-8''([^;]+)/i);
-            if (utf8Match && utf8Match[1]) {
-                return decodeURIComponent(utf8Match[1]).trim();
-            }
-            const basicMatch = headerValue.match(/filename="?([^";]+)"?/i);
-            return basicMatch && basicMatch[1] ? basicMatch[1].trim() : '';
-        }
-
-        function buildSetFitSessionModel(apiModel, override = {}) {
-            const createdAt = apiModel.training_summary?.created_at || apiModel.created_at || new Date().toISOString();
-            const displayName = String(apiModel.display_name || override.name || apiModel.model_id || 'SetFit Model');
-            return {
-                id: String(apiModel.model_id),
-                name: displayName,
-                displayName,
-                engine: 'setfit_backend',
-                method: 'setfit_backend',
-                categories: Array.isArray(apiModel.categories) ? [...apiModel.categories] : [],
-                threshold: Number.isFinite(Number(apiModel.threshold))
-                    ? Number(apiModel.threshold)
-                    : (classifierMethodMeta.setfit_backend.defaultThreshold || 0.35),
-                createdAt,
-                sampleCount: Number(apiModel.training_summary?.train_size || apiModel.train_size || 0),
-                benchmark: apiModel.benchmark || null,
-                backendModelId: String(apiModel.model_id),
-                downloadPath: apiModel.download_path || `/api/setfit/models/${encodeURIComponent(String(apiModel.model_id))}/download`,
-                downloadFilename: apiModel.download_filename || `${sanitizeFilename(displayName)}.zip`,
-                backendMeta: {
-                    model_id_used: apiModel.training_summary?.model_id_used || apiModel.model_id_used || 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
-                    device: apiModel.training_summary?.device || apiModel.device || 'cpu',
-                    trained_at: createdAt,
-                    expires_at: apiModel.model_expires_at || apiModel.expires_at || null,
-                    source: override.source || apiModel.source || 'session'
-                }
-            };
-        }
-
-        function upsertSetFitSessionModel(model) {
-            setfitSessionModels = [
-                ...setfitSessionModels.filter(existing => String(existing.id) !== String(model.id)),
-                { ...model }
-            ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        }
-
-        function findSetFitSessionModel(modelId) {
-            return setfitSessionModels.find(model => String(model.id) === String(modelId)) || null;
-        }
-
-        function removeSetFitSessionModel(modelId) {
-            setfitSessionModels = setfitSessionModels.filter(model => String(model.id) !== String(modelId));
-        }
-
-        async function startSetFitTrainingJob(payload) {
-            return setfitApiRequest('/train', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }, 15000);
-        }
-
-        async function waitForSetFitTrainingJob(jobId, onProgress) {
-            const started = Date.now();
-            while (true) {
-                const status = await setfitApiRequest(`/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' }, 10000);
-                if (typeof onProgress === 'function') onProgress(status);
-                if (status.status === 'completed') {
-                    return status;
-                }
-                if (status.status === 'failed') {
-                    throw new Error(status.error || status.message || 'SetFit training failed.');
-                }
-                if (Date.now() - started > 30 * 60 * 1000) {
-                    throw new Error('Timed out while waiting for SetFit training on the VM.');
-                }
-                await delay(2500);
-            }
-        }
-
-        async function downloadSetFitPackage(modelId, preferredName = '') {
-            const response = await fetchWithTimeout(
-                `${SETFIT_API_BASE}/models/${encodeURIComponent(modelId)}/download`,
-                { method: 'GET' },
-                60000
-            );
-            const raw = await response.blob();
-            if (!response.ok) {
-                const detail = await raw.text().catch(() => '');
-                throw new Error(detail || `Download failed (${response.status})`);
-            }
-            const headerFilename = parseDownloadFilename(response.headers.get('content-disposition'));
-            const sessionModel = findSetFitSessionModel(modelId);
-            const downloadName = headerFilename
-                || (preferredName ? `${sanitizeFilename(preferredName)}.zip` : '')
-                || sessionModel?.downloadFilename
-                || `${sanitizeFilename(sessionModel?.name || modelId)}.zip`;
-            const objectUrl = URL.createObjectURL(raw);
-            const link = document.createElement('a');
-            link.href = objectUrl;
-            link.download = downloadName;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-            return { filename: downloadName };
-        }
-
-        async function uploadSetFitPackage(file) {
-            const formData = new FormData();
-            formData.append('model_file', file, file.name || 'setfit-model.zip');
-            return setfitApiRequest('/upload', {
-                method: 'POST',
-                body: formData
-            }, 300000);
-        }
-
         function updateModelStorageControls() {
             const saveBtn = document.getElementById('modelSaveBtn');
             const storageHint = document.getElementById('modelStorageHint');
             if (!saveBtn || !storageHint) return;
-
-            const currentMethod = trainingState.model?.method || trainingState.method || getClassifierMethodFromUI();
-            const currentEngine = trainingState.model?.engine || null;
-            if (currentMethod === 'setfit_backend' || currentEngine === 'setfit_backend') {
-                saveBtn.textContent = currentEngine === 'setfit_backend' ? 'Download ZIP' : 'Save / Download';
-                storageHint.textContent = 'SetFit models are downloaded as ZIP files to your computer. The server copy is temporary and only lasts for the current session.';
-            } else {
-                saveBtn.textContent = 'Save';
-                storageHint.textContent = 'Local TF-IDF and keyword models are saved only in this browser.';
-            }
+            saveBtn.textContent = 'Save';
+            storageHint.textContent = 'Trained TF-IDF and keyword models are saved in this browser\'s local storage.';
         }
 
         function setStepTitle(id, stepNum, text) {
@@ -10235,46 +10062,13 @@
         }
 
         function updateTaskTypeUI() {
-            const isExtraction = trainingState.taskType === 'extraction';
-            document.getElementById('taskTypeClassification').classList.toggle('selected', !isExtraction);
-            document.getElementById('taskTypeExtraction').classList.toggle('selected', isExtraction);
-
-            setStepTitle('step2Title', 1, isExtraction ? 'Define Extraction Targets' : 'Define Categories');
-            setStepTitle('step3Title', 2, isExtraction ? 'Label Samples (Target Present?)' : 'Label Training Samples');
-            setStepTitle('step4Title', 3, isExtraction ? 'Train & Apply Extractor' : 'Train & Apply');
-
-            const methodLabel = document.getElementById('methodLabel');
-            if (methodLabel) methodLabel.textContent = isExtraction ? 'Extraction method (concept detection)' : 'Classification method';
-
-            const input = document.getElementById('newCategoryInput');
-            if (input) input.placeholder = isExtraction ? 'Enter target concept...' : 'Enter category name...';
-
-            const trainBtn = document.getElementById('trainBtn');
-            const applyBtn = document.getElementById('applyBtn');
-            const applyCurrentBtn = document.getElementById('applyCurrentBtn');
-            if (trainBtn) trainBtn.innerHTML = isExtraction ? '🚀 Train Extractor' : '🚀 Train Model';
-            if (applyBtn) applyBtn.innerHTML = isExtraction ? '✨ Apply Extractor to All Data' : '✨ Apply to All Data';
-            if (applyCurrentBtn) applyCurrentBtn.innerHTML = isExtraction ? '🎯 Extract on Current Sample' : '🎯 Apply to Current Sample';
-
-            const taskHelp = document.getElementById('taskTypeHelp');
-            if (taskHelp) {
-                taskHelp.innerHTML = isExtraction
-                    ? '<strong>Text Extraction mode (clarification):</strong> this mode currently learns to detect whether predefined targets/concepts are present in a recommendation. Output is concept labels per record, not exact character-level spans.'
-                    : '<strong>Classification mode:</strong> the model learns from your examples and assigns one or more labels to each recommendation.';
-            }
+            // Minimal — task type is always classification now
         }
 
         async function openTrainingPane() {
             document.getElementById('trainingPane').classList.add('open');
-            if (serverBrowseMode && !rawData.length) {
-                await getRandomSamples();
-            } else if (trainingState.samples.length === 0) {
-                await getRandomSamples();
-            }
             ensureExcludedCategory();
-            updateTaskTypeUI();
-            await checkSetFitBackend(false);
-            setClassifierMethodUI(trainingState.model?.method || trainingState.method || 'tfidf_centroid');
+            setClassifierMethodUI(trainingState.model?.method || trainingState.method || 'zero_shot');
             setThresholdUI(trainingState.model?.threshold ?? getThresholdFromUI());
             renderCategories();
             updateLabelingUI();
@@ -10294,44 +10088,36 @@
 
         function setClassifierMethodUI(method) {
             const sel = document.getElementById('classifierMethod');
-            let normalized = classifierMethodMeta[method] ? method : 'tfidf_centroid';
-            const needsBackend = !!classifierMethodMeta[normalized]?.requiresBackend;
-            if (needsBackend && !(trainingState.setfitHealth.online && trainingState.setfitHealth.setfitReady)) {
-                normalized = 'tfidf_centroid';
-            }
+            let normalized = classifierMethodMeta[method] ? method : 'zero_shot';
             if (sel) sel.value = normalized;
             trainingState.method = normalized;
             const hint = document.getElementById('classifierMethodHint');
             if (hint) hint.textContent = classifierMethodMeta[normalized].hint;
-            updateSetFitBackendStatus(trainingState.setfitHealth || { checked: false });
+            // Show/hide labeling section based on method
+            const labelingSection = document.getElementById('labelingSection');
+            if (labelingSection) {
+                labelingSection.classList.toggle('hidden', normalized === 'zero_shot');
+            }
             updateModelStorageControls();
         }
 
         function getClassifierMethodFromUI() {
             const sel = document.getElementById('classifierMethod');
-            const value = sel?.value || trainingState.method || 'tfidf_centroid';
-            return classifierMethodMeta[value] ? value : 'tfidf_centroid';
+            const value = sel?.value || trainingState.method || 'zero_shot';
+            return classifierMethodMeta[value] ? value : 'zero_shot';
         }
 
-        async function onClassifierMethodChange() {
-            let method = getClassifierMethodFromUI();
-            if (method === 'setfit_backend') {
-                const health = await checkSetFitBackend(true);
-                if (!(health.online && health.setfitReady)) {
-                    method = 'tfidf_centroid';
-                }
-            }
+        function onClassifierMethodChange() {
+            const method = getClassifierMethodFromUI();
             setClassifierMethodUI(method);
             if (trainingState.model && trainingState.model.method !== method) {
                 trainingState.model = null;
                 trainingState.benchmark = null;
-                trainingState.setfitBenchmarkContext = null;
                 renderBenchmark(null);
-                document.getElementById('applyBtn').disabled = true;
                 document.getElementById('applyCurrentBtn').disabled = true;
-                setThresholdUI(classifierMethodMeta[method]?.defaultThreshold || 0.15);
+                setThresholdUI(classifierMethodMeta[method]?.defaultThreshold || 0.50);
             } else if (!trainingState.model) {
-                setThresholdUI(classifierMethodMeta[method]?.defaultThreshold || 0.15);
+                setThresholdUI(classifierMethodMeta[method]?.defaultThreshold || 0.50);
             }
             updateModelStorageControls();
         }
@@ -10474,6 +10260,16 @@
 
             updateLabelingUI();
             alert('Rule of Law example loaded: 30 pre-labeled samples across 7 categories.\n\nYou can now click "Train Model" to see the classifier in action, or browse the labeled samples to understand how tagging works.');
+        }
+
+        function loadRuleOfLawCategories() {
+            trainingState.categories = [...RULE_OF_LAW_EXAMPLE.categories];
+            ensureExcludedCategory();
+            renderCategories();
+            setClassifierMethodUI('zero_shot');
+            alert('Rule of Law categories loaded (Venice Commission taxonomy):\n\n' +
+                trainingState.categories.filter(c => !isExcludedCategory(c)).join(', ') +
+                '\n\nClick "Classify Current Filter" to run zero-shot classification on your data.');
         }
 
         function getSampleCountFromUI() {
@@ -10851,7 +10647,12 @@
         }
 
         function predictLabelsForText(text, model) {
-            const method = model?.method || 'tfidf_centroid';
+            const method = model?.method || 'zero_shot';
+            if (method === 'zero_shot') {
+                // Zero-shot is async — this sync function is for trained methods only
+                console.warn('predictLabelsForText called for zero_shot — use predictZeroShotBatch instead');
+                return [];
+            }
             if (method === 'keyword_overlap') {
                 return predictWithKeywordOverlap(text, model);
             }
@@ -10860,6 +10661,31 @@
 
         function predictLabelsForRecord(record) {
             return predictLabelsForText(record._text, trainingState.model);
+        }
+
+        async function predictZeroShotBatch(pipe, texts, categories, threshold, onProgress) {
+            const results = [];
+            for (let i = 0; i < texts.length; i++) {
+                const text = texts[i].text || '';
+                if (!text.trim()) {
+                    results.push({ id: texts[i].id, labels: [], scores: {} });
+                    continue;
+                }
+                // Truncate very long texts to first 512 chars for speed
+                const truncated = text.length > 512 ? text.slice(0, 512) : text;
+                const output = await pipe(truncated, categories, { multi_label: true });
+                const labels = [];
+                const scores = {};
+                for (let j = 0; j < output.labels.length; j++) {
+                    scores[output.labels[j]] = output.scores[j];
+                    if (output.scores[j] >= threshold) {
+                        labels.push(output.labels[j]);
+                    }
+                }
+                results.push({ id: texts[i].id, labels, scores });
+                if (onProgress) onProgress(i + 1, texts.length);
+            }
+            return results;
         }
 
         function getThresholdFromUI() {
@@ -11018,39 +10844,6 @@
             return evaluateMetricsFromExamplesWithLabelMap(testExamples, categories, predictionMap);
         }
 
-        async function predictSetFitBatch(backendModelId, textItems, threshold, topK = 3) {
-            if (!backendModelId) {
-                throw new Error('Missing backend model id.');
-            }
-            const payload = {
-                model_id: backendModelId,
-                texts: textItems.map(t => ({ id: String(t.id), text: String(t.text || '') })),
-                threshold,
-                top_k: topK
-            };
-            const res = await setfitApiRequest('/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }, 45000);
-            return Array.isArray(res.predictions) ? res.predictions : [];
-        }
-
-        async function evaluateSetFitOnExamples(model, testExamples, categories) {
-            if (!testExamples.length) return null;
-            const predictions = await predictSetFitBatch(
-                model.backendModelId,
-                testExamples.map(ex => ({ id: ex.id, text: ex.text })),
-                model.threshold,
-                3
-            );
-            const predictionMap = new Map();
-            predictions.forEach(p => {
-                predictionMap.set(String(p.id), Array.isArray(p.labels) ? p.labels : []);
-            });
-            return evaluateMetricsFromExamplesWithLabelMap(testExamples, categories, predictionMap);
-        }
-
         function renderBenchmark(benchmark) {
             const box = document.getElementById('benchmarkBox');
             const grid = document.getElementById('benchmarkGrid');
@@ -11083,38 +10876,23 @@
         }
 
         async function refreshBenchmarkForCurrentModel() {
-            if (!trainingState.model) {
+            if (!trainingState.model || trainingState.model.method === 'zero_shot') {
                 renderBenchmark(null);
                 return;
             }
 
-            const ctx = trainingState.setfitBenchmarkContext;
-            let evalMetrics = null;
-            let trainSize = 0;
-            let testSize = 0;
-
-            if (trainingState.model.engine === 'setfit_backend') {
-                if (!ctx || !ctx.testExamples || !ctx.testExamples.length) {
-                    renderBenchmark(null);
-                    return;
-                }
-                evalMetrics = await evaluateSetFitOnExamples(trainingState.model, ctx.testExamples, trainingState.categories);
-                trainSize = Number(ctx.trainSize) || 0;
-                testSize = Number(evalMetrics?.testSize ?? ctx.testExamples.length) || 0;
-            } else {
-                const examples = collectLabeledExamples();
-                if (examples.length < 2) {
-                    renderBenchmark(null);
-                    return;
-                }
-                const split = splitLabeledExamples(examples, 0.25);
-                evalMetrics = evaluateModelOnExamples(trainingState.model, split.test, trainingState.categories);
-                trainSize = split.train.length;
-                testSize = Number(evalMetrics?.testSize ?? split.test.length) || 0;
+            const examples = collectLabeledExamples();
+            if (examples.length < 2) {
+                renderBenchmark(null);
+                return;
             }
+            const split = splitLabeledExamples(examples, 0.25);
+            const evalMetrics = evaluateModelOnExamples(trainingState.model, split.test, trainingState.categories);
+            const trainSize = split.train.length;
+            const testSize = Number(evalMetrics?.testSize ?? split.test.length) || 0;
 
             trainingState.benchmark = evalMetrics
-                ? { ...evalMetrics, trainSize: trainSize, testSize: testSize }
+                ? { ...evalMetrics, trainSize, testSize }
                 : null;
             renderBenchmark(trainingState.benchmark);
         }
@@ -11125,35 +10903,27 @@
             const method = getClassifierMethodFromUI();
             trainingState.method = method;
             ensureExcludedCategory();
-            const isExtraction = trainingState.taskType === 'extraction';
-            const conceptWord = isExtraction ? 'target concept' : 'category';
-            const modelWord = isExtraction ? 'extractor' : 'model';
+
+            if (method === 'zero_shot') {
+                alert('Zero-shot classification does not require training. Click "Classify Current Filter" instead.');
+                return;
+            }
 
             if (getStatisticsCategories(trainingState.categories).length < 1) {
-                alert(`Please add at least 1 ${conceptWord} besides "${EXCLUDED_LABEL}"`);
+                alert('Please add at least 1 category besides "excluded"');
                 return;
             }
 
             if (labeledCount < 5) {
-                alert(`Please label at least 5 samples before training the ${modelWord}`);
+                alert('Please label at least 5 samples before training');
                 return;
             }
 
-            const trainBtn = document.getElementById('trainBtn');
-            trainBtn.disabled = true;
-            trainBtn.innerHTML = `<span class="spinner-small"></span> Training ${isExtraction ? 'extractor' : 'model'}...`;
-
+            const trainBtn = document.getElementById('applyCurrentBtn');
             document.getElementById('trainingProgress').classList.remove('hidden');
             document.getElementById('benchmarkBox').classList.add('hidden');
 
             try {
-                if (method === 'setfit_backend') {
-                    const health = await checkSetFitBackend(true);
-                    if (!(health.online && health.setfitReady)) {
-                        throw new Error('SetFit backend is unavailable. Start the local API and try again.');
-                    }
-                }
-
                 const split = splitLabeledExamples(labeledExamples, 0.25);
                 const trainExamples = split.train;
                 const testExamples = split.test;
@@ -11172,73 +10942,10 @@
                     method,
                     categories: [...trainingState.categories],
                     threshold,
-                    engine: method === 'setfit_backend' ? 'setfit_backend' : 'local'
+                    engine: 'local'
                 };
 
-                if (method === 'setfit_backend') {
-                    const modelNameInput = document.getElementById('modelNameInput');
-                    const desiredName = modelNameInput?.value.trim() || `SetFit ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`;
-                    setTrainingProgress(28, 'Queueing SetFit training on the VM...');
-                    await delay(80);
-                    const trainJob = await startSetFitTrainingJob({
-                        categories: trainingState.categories,
-                        train_examples: trainExamples.map(ex => ({ id: String(ex.id), text: ex.text || '', labels: ex.labels || [] })),
-                        test_examples: testExamples.map(ex => ({ id: String(ex.id), text: ex.text || '', labels: ex.labels || [] })),
-                        threshold,
-                        training_config: {
-                            model_id: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
-                            multi_target_strategy: 'one-vs-rest'
-                        },
-                        display_name: desiredName
-                    });
-                    const trainRes = await waitForSetFitTrainingJob(trainJob.job_id, status => {
-                        const pct = Number.isFinite(Number(status.progress_pct)) ? Number(status.progress_pct) : 60;
-                        setTrainingProgress(Math.max(28, Math.min(98, pct)), status.message || 'Training SetFit on the VM...');
-                    });
-
-                    const sessionModel = buildSetFitSessionModel(trainRes, { name: desiredName, source: 'train' });
-                    upsertSetFitSessionModel(sessionModel);
-
-                    model.backendModelId = sessionModel.backendModelId;
-                    model.name = sessionModel.name;
-                    model.displayName = sessionModel.displayName;
-                    model.downloadPath = sessionModel.downloadPath;
-                    model.downloadFilename = sessionModel.downloadFilename;
-                    model.backendMeta = { ...sessionModel.backendMeta };
-
-                    trainingState.setfitBenchmarkContext = {
-                        testExamples: testExamples,
-                        trainSize: trainExamples.length
-                    };
-                    trainingState.model = model;
-                    trainingState.benchmark = trainRes.benchmark
-                        ? {
-                            ...trainRes.benchmark,
-                            trainSize: trainRes.benchmark.trainSize ?? trainExamples.length,
-                            testSize: trainRes.benchmark.testSize ?? testExamples.length
-                        }
-                        : null;
-                    if (!trainingState.benchmark && testExamples.length) {
-                        const fallbackMetrics = await evaluateSetFitOnExamples(trainingState.model, testExamples, trainingState.categories);
-                        trainingState.benchmark = fallbackMetrics
-                            ? { ...fallbackMetrics, trainSize: trainExamples.length, testSize: testExamples.length }
-                            : null;
-                    }
-                    renderBenchmark(trainingState.benchmark);
-                    loadSavedModels();
-
-                    setTrainingProgress(96, 'Downloading SetFit ZIP package to your computer...');
-                    try {
-                        const downloadResult = await downloadSetFitPackage(sessionModel.id, desiredName);
-                        sessionModel.downloadFilename = downloadResult.filename || sessionModel.downloadFilename;
-                        upsertSetFitSessionModel(sessionModel);
-                        trainingState.model.downloadFilename = sessionModel.downloadFilename;
-                        loadSavedModels();
-                    } catch (downloadErr) {
-                        console.warn('Automatic SetFit ZIP download failed:', downloadErr);
-                        alert('SetFit training finished, but the ZIP package could not be downloaded automatically. Use "Download ZIP" in Saved Models to save it to your computer.');
-                    }
-                } else if (method === 'keyword_overlap') {
+                if (method === 'keyword_overlap') {
                     setTrainingProgress(48, 'Building keyword profiles...');
                     await delay(80);
                     const keywordProfiles = buildKeywordProfiles(trainingDocs, trainingLabels, trainingState.categories);
@@ -11266,24 +10973,17 @@
                 setTrainingProgress(80, 'Finalizing model...');
                 await delay(100);
 
-                if (method !== 'setfit_backend') {
-                    trainingState.model = model;
-                    trainingState.setfitBenchmarkContext = null;
-                }
+                trainingState.model = model;
                 setThresholdUI(trainingState.model.threshold);
                 setClassifierMethodUI(trainingState.model.method);
 
-                if (method !== 'setfit_backend') {
-                    const evalMetrics = evaluateModelOnExamples(trainingState.model, testExamples, trainingState.categories);
-                    trainingState.benchmark = evalMetrics
-                        ? { ...evalMetrics, trainSize: trainExamples.length, testSize: evalMetrics.testSize ?? testExamples.length }
-                        : null;
-                    renderBenchmark(trainingState.benchmark);
-                }
+                const evalMetrics = evaluateModelOnExamples(trainingState.model, testExamples, trainingState.categories);
+                trainingState.benchmark = evalMetrics
+                    ? { ...evalMetrics, trainSize: trainExamples.length, testSize: evalMetrics.testSize ?? testExamples.length }
+                    : null;
+                renderBenchmark(trainingState.benchmark);
 
                 setTrainingProgress(100, 'Training complete!');
-
-                document.getElementById('applyBtn').disabled = false;
                 document.getElementById('applyCurrentBtn').disabled = false;
                 loadSavedModels();
                 updateModelStorageControls();
@@ -11296,7 +10996,151 @@
                 console.error('Training error:', err);
                 alert('Training failed: ' + err.message);
             } finally {
-                trainBtn.disabled = false;
+                updateTaskTypeUI();
+            }
+        }
+
+        // ========== ZERO-SHOT CLASSIFICATION ==========
+        async function applyZeroShot() {
+            const categories = getStatisticsCategories(trainingState.categories);
+            if (categories.length < 1) {
+                alert('Please add at least 1 category before classifying.');
+                return;
+            }
+
+            const data = rawData.length ? rawData : filteredData;
+            if (!data.length) {
+                alert('No data loaded. Please load a dataset first.');
+                return;
+            }
+
+            // Determine records to classify
+            const records = filteredData.length ? filteredData : data;
+            const total = records.length;
+
+            if (total > ZERO_SHOT_HARD_CAP) {
+                const proceed = confirm(
+                    `Your current filter has ${total.toLocaleString()} records, which exceeds the maximum of ${ZERO_SHOT_HARD_CAP.toLocaleString()} for in-browser classification.\n\n` +
+                    `Only the first ${ZERO_SHOT_HARD_CAP.toLocaleString()} records will be classified. Narrow your filters for full coverage.\n\nProceed?`
+                );
+                if (!proceed) return;
+            }
+
+            const applyBtn = document.getElementById('applyBtn');
+            const applyCurrentBtn = document.getElementById('applyCurrentBtn');
+            applyBtn.disabled = true;
+            applyCurrentBtn.disabled = true;
+            applyBtn.innerHTML = '<span class="spinner-small"></span> Loading model...';
+
+            document.getElementById('trainingProgress').classList.remove('hidden');
+            setTrainingProgress(5, 'Loading zero-shot model (~70 MB, cached after first use)...');
+
+            try {
+                const pipe = await loadZeroShotPipeline((progress) => {
+                    if (progress.status === 'progress' && progress.progress) {
+                        const pct = Math.round(progress.progress);
+                        setTrainingProgress(Math.min(pct * 0.3, 30), `Downloading model... ${pct}%`);
+                    }
+                });
+
+                // Run device benchmark
+                setTrainingProgress(32, 'Benchmarking your device...');
+                const benchmark = await runDeviceBenchmark(pipe, categories);
+                const classifyCount = Math.min(total, ZERO_SHOT_HARD_CAP);
+                updateDeviceBenchmarkUI(benchmark, classifyCount);
+
+                if (classifyCount > benchmark.maxRecommended) {
+                    const estimatedMs = benchmark.msPerRecord * classifyCount;
+                    const proceed = confirm(
+                        `Your device can process ~${benchmark.msPerRecord}ms per record.\n` +
+                        `Classifying ${classifyCount.toLocaleString()} records will take ${formatDuration(estimatedMs)}.\n\n` +
+                        `Recommended maximum: ${benchmark.maxRecommended.toLocaleString()} records.\n\n` +
+                        `Proceed anyway?`
+                    );
+                    if (!proceed) {
+                        applyBtn.disabled = false;
+                        applyCurrentBtn.disabled = false;
+                        applyBtn.innerHTML = '✨ Classify Current Filter';
+                        document.getElementById('trainingProgress').classList.add('hidden');
+                        return;
+                    }
+                }
+
+                // Classify records
+                const threshold = getThresholdFromUI();
+                const toClassify = records.slice(0, ZERO_SHOT_HARD_CAP);
+                const startTime = performance.now();
+
+                setTrainingProgress(35, `Classifying 0 / ${classifyCount.toLocaleString()}...`);
+
+                const batchTexts = toClassify.map(r => ({
+                    id: getRecordStableKey(r) || r._id,
+                    text: r._text || ''
+                }));
+
+                const predictions = await predictZeroShotBatch(pipe, batchTexts, categories, threshold, (done, totalItems) => {
+                    const pct = 35 + Math.round((done / totalItems) * 60);
+                    const elapsed = performance.now() - startTime;
+                    const avgMs = elapsed / done;
+                    const remaining = (totalItems - done) * avgMs;
+                    setTrainingProgress(pct, `Classifying ${done.toLocaleString()} / ${totalItems.toLocaleString()}... (${formatDuration(remaining)} remaining)`);
+                });
+
+                // Apply predictions to records
+                const predMap = new Map(predictions.map(p => [String(p.id), p.labels]));
+                toClassify.forEach(record => {
+                    record._predictedLabels = predMap.get(String(getRecordStableKey(record) || record._id)) || [];
+                });
+
+                // Update filtered data
+                filteredData = filteredData.map(fd => {
+                    const original = recordMap.get(String(fd._id)) || recordMap.get(getSampleKey(fd));
+                    return original ? { ...fd, _predictedLabels: original._predictedLabels } : fd;
+                });
+
+                // Store model reference
+                trainingState.model = {
+                    method: 'zero_shot',
+                    engine: 'zero_shot',
+                    categories: [...trainingState.categories],
+                    threshold
+                };
+
+                const elapsed = performance.now() - startTime;
+                const classifiedCount = predictions.filter(p => p.labels.length > 0).length;
+                setTrainingProgress(100, `Done! ${classifiedCount.toLocaleString()} of ${classifyCount.toLocaleString()} records classified (${formatDuration(elapsed)})`);
+
+                // Show summary
+                const grid = document.getElementById('benchmarkGrid');
+                const box = document.getElementById('benchmarkBox');
+                if (grid && box) {
+                    const catCounts = {};
+                    categories.forEach(c => catCounts[c] = 0);
+                    predictions.forEach(p => p.labels.forEach(l => { if (catCounts[l] !== undefined) catCounts[l]++; }));
+                    grid.innerHTML = Object.entries(catCounts)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([cat, count]) => `<div class="benchmark-cell"><div class="benchmark-value">${count.toLocaleString()}</div><div class="benchmark-label">${escapeHtml(cat)}</div></div>`)
+                        .join('');
+                    const note = document.getElementById('benchmarkNote');
+                    if (note) note.textContent = `${classifiedCount.toLocaleString()} records matched at least one category (threshold: ${threshold.toFixed(2)})`;
+                    box.classList.remove('hidden');
+                }
+
+                updateAllCharts();
+                buildDataTable();
+                applyCurrentBtn.disabled = false;
+
+                setTimeout(() => {
+                    document.getElementById('trainingProgress').classList.add('hidden');
+                    closeTrainingPane();
+                }, 2000);
+
+            } catch (err) {
+                console.error('Zero-shot classification error:', err);
+                alert('Classification failed: ' + err.message);
+            } finally {
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = '✨ Classify Current Filter';
                 updateTaskTypeUI();
             }
         }
@@ -11335,29 +11179,9 @@
                 const pageSourceRows = Array.isArray(payload.records) ? payload.records : [];
                 const batchRecords = pageSourceRows.map((row, idx) => normalizeRecord(row, normalizedOffset + idx));
 
-                if (trainingState.model.engine === 'setfit_backend') {
-                    const predictionBatchSize = 200;
-                    const predMap = new Map();
-                    for (let i = 0; i < batchRecords.length; i += predictionBatchSize) {
-                        const predictionChunk = batchRecords.slice(i, i + predictionBatchSize);
-                        const predictions = await predictSetFitBatch(
-                            trainingState.model.backendModelId,
-                            predictionChunk.map(record => ({ id: getRecordStableKey(record) || record._id, text: record._text || '' })),
-                            trainingState.model.threshold,
-                            3
-                        );
-                        predictions.forEach(prediction => {
-                            predMap.set(String(prediction.id), Array.isArray(prediction.labels) ? prediction.labels : []);
-                        });
-                    }
-                    batchRecords.forEach((record, idx) => {
-                        pageSourceRows[idx]._predictedLabels = predMap.get(String(getRecordStableKey(record) || record._id)) || [];
-                    });
-                } else {
-                    batchRecords.forEach((record, idx) => {
-                        pageSourceRows[idx]._predictedLabels = predictLabelsForRecord(record);
-                    });
-                }
+                batchRecords.forEach((record, idx) => {
+                    pageSourceRows[idx]._predictedLabels = predictLabelsForRecord(record);
+                });
 
                 sourceRows.push(...pageSourceRows);
                 normalizedOffset += batchRecords.length;
@@ -11380,28 +11204,15 @@
         }
 
         async function applyPredictions() {
+            // For trained models (TF-IDF, keyword, n-gram) — apply to all loaded data
             if (!trainingState.model) {
                 alert('Please train a model first');
                 return;
             }
 
-            const benchmark = trainingState.benchmark;
-            if (!benchmark || !Number.isFinite(Number(benchmark.testSize)) || Number(benchmark.testSize) < 1) {
-                alert('Benchmark scores are not available yet. Train the model and confirm benchmark results before applying to all records.');
-                return;
+            if (trainingState.model.method === 'zero_shot') {
+                return applyZeroShot();
             }
-
-            const summary = [
-                `Test items: ${benchmark.testSize}`,
-                `Micro F1: ${(Number(benchmark.microF1 || 0) * 100).toFixed(1)}%`,
-                `Macro F1: ${(Number(benchmark.macroF1 || 0) * 100).toFixed(1)}%`,
-                `Exact Match: ${(Number(benchmark.exactMatch || 0) * 100).toFixed(1)}%`
-            ].join('\n');
-            const serverModeNote = serverBrowseMode
-                ? '\n\nThis will download the full current VM filter into the browser so the classifier can label the whole dataset.'
-                : '';
-            const proceed = confirm(`Review benchmark before applying:\n\n${summary}${serverModeNote}\n\nProceed to apply this model to all records?`);
-            if (!proceed) return;
 
             const applyBtn = document.getElementById('applyBtn');
             const applyCurrentBtn = document.getElementById('applyCurrentBtn');
@@ -11412,38 +11223,15 @@
             document.getElementById('trainingProgress').classList.remove('hidden');
 
             try {
-                if (serverBrowseMode && !rawData.length) {
-                    await applyPredictionsToServerDataset();
-                    setTrainingProgress(100, 'Predictions complete! Full dataset loaded into the browser.');
-                    setTimeout(() => {
-                        document.getElementById('trainingProgress').classList.add('hidden');
-                        closeTrainingPane();
-                    }, 1000);
-                    return;
-                }
-
-                const total = rawData.length;
-                const batchSize = trainingState.model.engine === 'setfit_backend' ? 200 : 500;
+                const data = rawData.length ? rawData : filteredData;
+                const total = data.length;
+                const batchSize = 500;
 
                 for (let i = 0; i < total; i += batchSize) {
-                    const batch = rawData.slice(i, i + batchSize);
-
-                    if (trainingState.model.engine === 'setfit_backend') {
-                        const predictions = await predictSetFitBatch(
-                            trainingState.model.backendModelId,
-                            batch.map(record => ({ id: getRecordStableKey(record) || record._id, text: record._text || '' })),
-                            trainingState.model.threshold,
-                            3
-                        );
-                        const predMap = new Map(predictions.map(p => [String(p.id), Array.isArray(p.labels) ? p.labels : []]));
-                        batch.forEach(record => {
-                            record._predictedLabels = predMap.get(String(getRecordStableKey(record) || record._id)) || [];
-                        });
-                    } else {
-                        batch.forEach(record => {
-                            record._predictedLabels = predictLabelsForRecord(record);
-                        });
-                    }
+                    const batch = data.slice(i, i + batchSize);
+                    batch.forEach(record => {
+                        record._predictedLabels = predictLabelsForRecord(record);
+                    });
 
                     const pct = Math.round((i + batchSize) / total * 100);
                     setTrainingProgress(Math.min(pct, 100), `Predicting... ${Math.min(i + batchSize, total).toLocaleString()} / ${total.toLocaleString()}`);
@@ -11452,7 +11240,6 @@
 
                 setTrainingProgress(100, 'Predictions complete!');
 
-                // Update filtered data
                 filteredData = filteredData.map(fd => {
                     const original = recordMap.get(String(fd._id)) || recordMap.get(getSampleKey(fd));
                     return original ? { ...fd, _predictedLabels: original._predictedLabels } : fd;
@@ -11472,6 +11259,7 @@
             } finally {
                 applyBtn.disabled = false;
                 applyCurrentBtn.disabled = false;
+                applyBtn.innerHTML = '✨ Classify Current Filter';
                 updateTaskTypeUI();
             }
         }
@@ -11482,41 +11270,57 @@
 
         async function applyPredictionToCurrentSampleAsync() {
             try {
-                if (!trainingState.model) {
-                    alert('Please train or load a model first');
+                const categories = getStatisticsCategories(trainingState.categories);
+                if (categories.length < 1) {
+                    alert('Please add at least 1 category first');
                     return;
                 }
 
-                const sample = trainingState.samples[trainingState.currentSampleIndex];
-                if (!sample) {
-                    alert('No current sample to classify');
-                    return;
-                }
-
-                const record = recordMap.get(getSampleKey(sample)) || sample;
-                if (!record) {
-                    alert('Current sample not found in data');
-                    return;
-                }
-
-                if (trainingState.model.engine === 'setfit_backend') {
-                    const preds = await predictSetFitBatch(
-                        trainingState.model.backendModelId,
-                        [{ id: getRecordStableKey(record) || record._id, text: record._text || '' }],
-                        trainingState.model.threshold,
-                        3
-                    );
-                    record._predictedLabels = (preds[0] && Array.isArray(preds[0].labels)) ? preds[0].labels : [];
+                // For zero-shot, pick a random record from filtered data if no training samples
+                let record;
+                if (trainingState.samples.length > 0) {
+                    const sample = trainingState.samples[trainingState.currentSampleIndex];
+                    if (!sample) { alert('No current sample'); return; }
+                    record = recordMap.get(getSampleKey(sample)) || sample;
                 } else {
+                    const pool = filteredData.length ? filteredData : rawData;
+                    if (!pool.length) { alert('No data loaded'); return; }
+                    record = pool[Math.floor(Math.random() * pool.length)];
+                }
+
+                const method = getClassifierMethodFromUI();
+                const threshold = getThresholdFromUI();
+
+                if (method === 'zero_shot') {
+                    const btn = document.getElementById('applyCurrentBtn');
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-small"></span>';
+                    try {
+                        const pipe = await loadZeroShotPipeline();
+                        const results = await predictZeroShotBatch(pipe, [{ id: record._id, text: record._text || '' }], categories, threshold);
+                        record._predictedLabels = results[0]?.labels || [];
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = '🎯 Test on 1 Record';
+                    }
+                } else {
+                    if (!trainingState.model) { alert('Train a model first (or switch to zero-shot)'); return; }
                     record._predictedLabels = predictLabelsForRecord(record);
                 }
+
+                // Show result in alert
+                const labels = record._predictedLabels;
+                alert(`Classified: "${(record._text || '').slice(0, 120)}..."\n\nLabels: ${labels.length ? labels.join(', ') : '(none above threshold)'}`);
+
                 filteredData = filteredData.map(fd => getSampleKey(fd) === getSampleKey(record) ? { ...fd, _predictedLabels: record._predictedLabels } : fd);
-                trainingState.samples = trainingState.samples.map(existing => (
-                    getSampleKey(existing) === getSampleKey(record)
-                        ? { ...existing, _predictedLabels: record._predictedLabels }
-                        : existing
-                ));
-                updateLabelingUI();
+                if (trainingState.samples.length > 0) {
+                    trainingState.samples = trainingState.samples.map(existing => (
+                        getSampleKey(existing) === getSampleKey(record)
+                            ? { ...existing, _predictedLabels: record._predictedLabels }
+                            : existing
+                    ));
+                    updateLabelingUI();
+                }
                 updateAllCharts();
                 buildDataTable();
             } catch (err) {
@@ -11532,34 +11336,13 @@
                 return;
             }
 
-            const nameInput = document.getElementById('modelNameInput');
-            const preferredName = nameInput.value.trim() || trainingState.model.displayName || trainingState.model.name || `Model ${Date.now()}`;
-            const saveBtn = document.getElementById('modelSaveBtn');
-
-            if (trainingState.model.engine === 'setfit_backend') {
-                if (!trainingState.model.backendModelId) {
-                    alert('Current SetFit model is not ready for download yet.');
-                    return;
-                }
-                saveBtn.disabled = true;
-                try {
-                    const downloadResult = await downloadSetFitPackage(trainingState.model.backendModelId, preferredName);
-                    const sessionModel = findSetFitSessionModel(trainingState.model.backendModelId);
-                    if (sessionModel) {
-                        sessionModel.downloadFilename = downloadResult.filename || sessionModel.downloadFilename;
-                        upsertSetFitSessionModel(sessionModel);
-                    }
-                    trainingState.model.downloadFilename = downloadResult.filename || trainingState.model.downloadFilename;
-                    loadSavedModels();
-                    alert('SetFit ZIP downloaded to your computer.');
-                } catch (err) {
-                    alert('Failed to download SetFit ZIP: ' + (err?.message || err));
-                } finally {
-                    saveBtn.disabled = false;
-                    updateModelStorageControls();
-                }
+            if (trainingState.model.method === 'zero_shot') {
+                alert('Zero-shot models don\'t need saving — they run on-the-fly from your categories. Your categories are preserved in the training pane.');
                 return;
             }
+
+            const nameInput = document.getElementById('modelNameInput');
+            const preferredName = nameInput.value.trim() || trainingState.model.displayName || trainingState.model.name || `Model ${Date.now()}`;
 
             const savedModels = JSON.parse(localStorage.getItem('trainedModels') || '[]');
             savedModels.push({
@@ -11584,62 +11367,30 @@
             alert('Model saved successfully!');
         }
 
-        async function downloadSessionSetFitPackage(modelId) {
-            const model = findSetFitSessionModel(modelId);
-            if (!model) {
-                alert('SetFit session model not found.');
-                return;
-            }
-            try {
-                const downloadResult = await downloadSetFitPackage(modelId, model.name);
-                model.downloadFilename = downloadResult.filename || model.downloadFilename;
-                upsertSetFitSessionModel(model);
-                if (trainingState.model?.backendModelId === model.backendModelId) {
-                    trainingState.model.downloadFilename = model.downloadFilename;
-                }
-                loadSavedModels();
-            } catch (err) {
-                alert('Failed to download SetFit ZIP: ' + (err?.message || err));
-            }
-        }
-
         function loadSavedModels() {
             const savedModels = JSON.parse(localStorage.getItem('trainedModels') || '[]')
                 .map(m => ({ ...m, engine: m.engine || 'local' }));
             const list = document.getElementById('modelList');
-            const combined = [
-                ...savedModels.map(m => ({ ...m, _origin: 'local' })),
-                ...setfitSessionModels.map(m => ({ ...m, _origin: 'setfit_session' }))
-            ];
 
-            if (combined.length === 0) {
-                list.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No saved models yet. Local browser models and current-session SetFit ZIP packages will appear here.</p>';
+            if (savedModels.length === 0) {
+                list.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No saved models yet. Train a TF-IDF or keyword model and save it here.</p>';
                 updateModelStorageControls();
                 return;
             }
 
-            list.innerHTML = combined.map(m => {
+            list.innerHTML = savedModels.map(m => {
                 const createdAt = m.createdAt ? new Date(m.createdAt) : null;
                 const createdLabel = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleDateString('en-GB') : 'n/a';
                 const methodLabel = classifierMethodMeta[m.method || 'tfidf_centroid']?.label || (m.method || 'tfidf_centroid');
-                const originLabel = m._origin === 'setfit_session' ? 'temporary on VM' : 'saved in browser';
-                const expiryLabel = m._origin === 'setfit_session' && m.backendMeta?.expires_at
-                    ? ` • expires ${new Date(m.backendMeta.expires_at).toLocaleString('en-GB')}`
-                    : '';
                 return `
                     <div class="model-item">
                         <div class="model-info">
                             <div class="model-name">${escapeHtml(m.name)}</div>
-                            <div class="model-meta">${(m.categories || []).length} categories • ${escapeHtml(methodLabel)} • ${createdLabel} • ${originLabel}${escapeHtml(expiryLabel)}</div>
+                            <div class="model-meta">${(m.categories || []).length} categories • ${escapeHtml(methodLabel)} • ${createdLabel}</div>
                         </div>
                         <div class="model-actions">
-                            ${m._origin === 'setfit_session'
-                                ? `<button class="apply-model" onclick="applySessionSetFitModel('${escapeJs(String(m.id))}')">Apply</button>
-                                   <button class="download-model" onclick="downloadSessionSetFitPackage('${escapeJs(String(m.id))}')">Download</button>
-                                   <button class="delete-model" onclick="deleteSessionSetFitModel('${escapeJs(String(m.id))}')">Remove</button>`
-                                : `<button class="apply-model" onclick="applyStoredModel(${m.id})">Apply</button>
-                                   <button class="delete-model" onclick="deleteModel(${m.id})">Delete</button>`
-                            }
+                            <button class="apply-model" onclick="applyStoredModel(${m.id})">Apply</button>
+                            <button class="delete-model" onclick="deleteModel(${m.id})">Delete</button>
                         </div>
                     </div>
                 `;
@@ -11670,85 +11421,14 @@
             trainingState.model.threshold = Number.isFinite(Number(trainingState.model.threshold))
                 ? Number(trainingState.model.threshold)
                 : 0.15;
-            trainingState.setfitBenchmarkContext = null;
 
             setClassifierMethodUI(trainingState.method);
             setThresholdUI(trainingState.model.threshold);
             renderCategories();
             renderBenchmark(trainingState.benchmark);
-            document.getElementById('applyBtn').disabled = false;
             document.getElementById('applyCurrentBtn').disabled = false;
             updateModelStorageControls();
-            alert('Model loaded! Click "Apply to All Data" to run predictions.');
-        }
-
-        function applySessionSetFitModel(modelId) {
-            const model = findSetFitSessionModel(modelId);
-            if (!model) {
-                alert('SetFit session model not found.');
-                return;
-            }
-
-            trainingState.model = {
-                method: 'setfit_backend',
-                engine: 'setfit_backend',
-                categories: Array.isArray(model.categories) ? [...model.categories] : [],
-                threshold: Number.isFinite(Number(model.threshold)) ? Number(model.threshold) : (classifierMethodMeta.setfit_backend.defaultThreshold || 0.35),
-                backendModelId: model.backendModelId || model.id,
-                name: model.name,
-                displayName: model.displayName || model.name,
-                downloadPath: model.downloadPath,
-                downloadFilename: model.downloadFilename,
-                backendMeta: { ...(model.backendMeta || {}) }
-            };
-            trainingState.categories = [...trainingState.model.categories];
-            ensureExcludedCategory();
-            trainingState.model.categories = [...trainingState.categories];
-            trainingState.method = 'setfit_backend';
-            trainingState.benchmark = model.benchmark || null;
-            trainingState.setfitBenchmarkContext = null;
-
-            setClassifierMethodUI('setfit_backend');
-            setThresholdUI(trainingState.model.threshold);
-            renderCategories();
-            renderBenchmark(trainingState.benchmark);
-            document.getElementById('applyBtn').disabled = false;
-            document.getElementById('applyCurrentBtn').disabled = false;
-            updateModelStorageControls();
-            alert('SetFit package loaded for this session. Click "Apply to All Data" to run predictions.');
-        }
-
-        async function handleSetFitPackageSelected(event) {
-            const file = event?.target?.files?.[0];
-            if (event?.target) event.target.value = '';
-            if (!file) return;
-
-            try {
-                const health = await checkSetFitBackend(true);
-                if (!(health.online && health.setfitReady)) return;
-
-                document.getElementById('trainingProgress').classList.remove('hidden');
-                setTrainingProgress(18, `Uploading ${file.name} to the VM...`);
-                const uploadRes = await uploadSetFitPackage(file);
-                setTrainingProgress(82, 'Preparing uploaded SetFit package for this session...');
-
-                const sessionModel = buildSetFitSessionModel(uploadRes, { name: file.name.replace(/\.zip$/i, ''), source: 'upload' });
-                upsertSetFitSessionModel(sessionModel);
-                loadSavedModels();
-                applySessionSetFitModel(sessionModel.id);
-                const nameInput = document.getElementById('modelNameInput');
-                if (nameInput) nameInput.value = sessionModel.name;
-                setTrainingProgress(100, 'SetFit package uploaded and ready to use.');
-                setTimeout(() => {
-                    document.getElementById('trainingProgress').classList.add('hidden');
-                }, 1200);
-            } catch (err) {
-                console.error('SetFit ZIP upload error:', err);
-                document.getElementById('trainingProgress').classList.add('hidden');
-                alert('Failed to upload SetFit ZIP: ' + (err?.message || err));
-            } finally {
-                updateModelStorageControls();
-            }
+            alert('Model loaded! Click "Classify Current Filter" to run predictions.');
         }
 
         function deleteModel(modelId) {
@@ -11757,27 +11437,6 @@
             let savedModels = JSON.parse(localStorage.getItem('trainedModels') || '[]');
             savedModels = savedModels.filter(m => m.id !== modelId);
             localStorage.setItem('trainedModels', JSON.stringify(savedModels));
-            loadSavedModels();
-            updateModelStorageControls();
-        }
-
-        async function deleteSessionSetFitModel(modelId) {
-            if (!confirm('Remove this temporary SetFit model from the VM session?')) return;
-            try {
-                await setfitApiRequest(`/models/${encodeURIComponent(modelId)}`, { method: 'DELETE' }, 10000);
-            } catch (err) {
-                alert('Failed to remove temporary SetFit model: ' + (err?.message || err));
-                return;
-            }
-            removeSetFitSessionModel(modelId);
-            if (trainingState.model?.backendModelId === modelId) {
-                trainingState.model = null;
-                trainingState.benchmark = null;
-                trainingState.setfitBenchmarkContext = null;
-                renderBenchmark(null);
-                document.getElementById('applyBtn').disabled = true;
-                document.getElementById('applyCurrentBtn').disabled = true;
-            }
             loadSavedModels();
             updateModelStorageControls();
         }
