@@ -2516,6 +2516,31 @@
             margin-right: 4px;
             margin-bottom: 2px;
         }
+        .pred-badge-wrap { display: inline-flex; align-items: center; gap: 2px; position: relative; margin-right: 4px; }
+        .pred-correct-btn {
+            display: none; background: none; border: 1px solid #dde; border-radius: 50%;
+            width: 18px; height: 18px; font-size: 10px; color: #999; cursor: pointer;
+            align-items: center; justify-content: center; line-height: 1; padding: 0;
+        }
+        .pred-badge-wrap:hover .pred-correct-btn { display: inline-flex; }
+        .pred-correct-btn:hover { background: #fee; color: #c44; border-color: #c44; }
+        .correction-picker {
+            position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
+            background: #fff; border: 1px solid #d4e4f7; border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.14); padding: 6px 0;
+            min-width: 180px; max-width: 260px;
+        }
+        .correction-picker-title { padding: 4px 12px; font-size: 11px; color: #667; font-weight: 600; }
+        .correction-opt {
+            display: block; width: 100%; text-align: left; padding: 6px 12px;
+            border: none; background: none; font-size: 12px; color: #334; cursor: pointer;
+        }
+        .correction-opt:hover { background: #eef6ff; }
+        .correction-toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: #2d5a87; color: #fff; padding: 8px 18px; border-radius: 8px;
+            font-size: 13px; z-index: 2000; animation: fadeIn 0.2s;
+        }
 
         @media (max-width: 768px) {
             .chart-row { grid-template-columns: 1fr; }
@@ -3312,6 +3337,7 @@
                             <input type="number" id="sampleCountInput" value="20" min="5" max="200" step="5" style="width:48px; padding:5px 4px; border:1px solid #dde; border-radius:4px; text-align:center; font-size:12px;">
                         </div>
                         <button onclick="getRandomSamples()" class="btn btn-primary" style="padding:8px 14px;">Get Random Records</button>
+                        <button onclick="getUncertainSamples()" class="btn btn-secondary" style="padding:8px 14px;" id="suggestUncertainBtn" title="Use the model to find records it is most confused about — labeling these improves accuracy the fastest">🎯 Suggest Records to Label</button>
                     </div>
                 </div>
                 <div id="sampleContainer"></div>
@@ -10804,6 +10830,16 @@
                 html += `<div class="rec-card-themes-bar">${themes.map(t => `<span class="rec-theme-badge">${escapeHtml(t)}</span>`).join('')}${moreThemes ? `<span class="rec-theme-badge" style="color:#8899aa;">${moreThemes}</span>` : ''}</div>`;
             }
 
+            // ── Predicted labels with feedback ──
+            if (r._predictedLabels && r._predictedLabels.length) {
+                html += `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; align-items:center;">`;
+                html += `<span style="font-size:10px; color:#8899aa; margin-right:2px;">AI:</span>`;
+                r._predictedLabels.forEach(label => {
+                    html += `<span class="pred-badge-wrap"><span class="pred-badge">${escapeHtml(label)}</span><button class="pred-correct-btn" onclick="event.stopPropagation(); _openCorrectionPicker(${r._id}, this)" title="Wrong? Click to correct">✕</button></span>`;
+                });
+                html += `</div>`;
+            }
+
             // ── Text ──
             html += `<div class="rec-card-text" id="card-short-${r._id}">${highlightedShort}</div>`;
             if (truncated) {
@@ -10817,6 +10853,89 @@
             html += `<button class="copy-btn" onclick="copyFormattedCitation(${r._id}, this)">Cite</button>`;
             html += `</div></div>`;
             return html;
+        }
+
+        // ── Prediction correction (online learning feedback) ──
+        let _activeCorrectionPicker = null;
+
+        function _openCorrectionPicker(recordId, btnEl) {
+            // Close any existing picker
+            if (_activeCorrectionPicker) { _activeCorrectionPicker.remove(); _activeCorrectionPicker = null; }
+            const cats = (trainingState.categories || []).filter(c => !isExcludedCategory(c));
+            if (!cats.length) { alert('Define categories in the Trainer first.'); return; }
+
+            const picker = document.createElement('div');
+            picker.className = 'correction-picker';
+            picker.innerHTML = `<div class="correction-picker-title">Correct label:</div>` +
+                cats.map(c => `<button class="correction-opt" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join('');
+
+            btnEl.closest('.pred-badge-wrap').appendChild(picker);
+            _activeCorrectionPicker = picker;
+
+            picker.querySelectorAll('.correction-opt').forEach(opt => {
+                opt.onclick = (e) => {
+                    e.stopPropagation();
+                    _correctPrediction(recordId, opt.dataset.cat);
+                    picker.remove();
+                    _activeCorrectionPicker = null;
+                };
+            });
+
+            // Close on outside click
+            setTimeout(() => {
+                const closer = (e) => {
+                    if (!picker.contains(e.target)) { picker.remove(); _activeCorrectionPicker = null; document.removeEventListener('click', closer); }
+                };
+                document.addEventListener('click', closer);
+            }, 10);
+        }
+
+        function _correctPrediction(recordId, correctLabel) {
+            // Find record
+            const record = recordMap.get(String(recordId))
+                || (serverBrowseMode ? _infScroll.records : rawData).find(r => r._id === recordId);
+            if (!record) return;
+
+            const oldLabels = record._predictedLabels || [];
+            const text = record._text || '';
+
+            // Update NB model: untrain old labels, train correct one
+            if (trainingState.nbModel) {
+                oldLabels.forEach(old => { if (!isExcludedCategory(old)) trainingState.nbModel.untrain(text, old); });
+                trainingState.nbModel.train(text, correctLabel);
+            }
+
+            // Store correction as manual label
+            const sampleKey = getSampleKey(record);
+            trainingState.labeledSamples.set(sampleKey, [correctLabel]);
+
+            // Update record's visible predictions
+            record._predictedLabels = [correctLabel];
+
+            // Track corrections count
+            if (!trainingState._correctionCount) trainingState._correctionCount = 0;
+            trainingState._correctionCount++;
+
+            // Re-render the card
+            const cardEl = document.querySelector(`.rec-card:has(#card-short-${recordId})`);
+            if (cardEl) {
+                const searchState = parseSearchQuery(document.getElementById('tableSearch')?.value || '');
+                cardEl.outerHTML = _renderSingleCard(record, searchState);
+            }
+
+            // Toast
+            _showCorrectionToast(trainingState._correctionCount);
+        }
+
+        function _showCorrectionToast(count) {
+            const existing = document.querySelector('.correction-toast');
+            if (existing) existing.remove();
+            const hint = count >= 10 ? ` — consider retraining RF for best accuracy` : '';
+            const toast = document.createElement('div');
+            toast.className = 'correction-toast';
+            toast.textContent = `Learned! Model updated (${count} correction${count > 1 ? 's' : ''})${hint}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         }
 
         function _renderSingleRow(r, searchState) {
@@ -11846,6 +11965,38 @@
             updateWorkflowStepper(1);
         }
 
+        function getUncertainSamples() {
+            if (!trainingState.nbModel) {
+                alert('Train a model first (Step 3 → Train Model), then come back here to get smart suggestions.');
+                return;
+            }
+            const requestedCount = getSampleCountFromUI();
+            const pool = (filteredData.length ? filteredData : rawData).filter(r => r._text);
+            const labeledKeys = new Set(trainingState.labeledSamples.keys());
+
+            // Score all unlabeled records by uncertainty
+            const scored = [];
+            for (const r of pool) {
+                const key = getSampleKey(r);
+                if (labeledKeys.has(key)) continue;
+                const uncertainty = trainingState.nbModel.getUncertainty(r._text);
+                scored.push({ record: r, uncertainty });
+            }
+            scored.sort((a, b) => b.uncertainty - a.uncertainty);
+
+            const samples = scored.slice(0, requestedCount).map(s => s.record);
+            if (!samples.length) {
+                alert('No unlabeled records found. All records have been labeled or no data is loaded.');
+                return;
+            }
+
+            trainingState.samples = samples;
+            trainingState.currentSampleIndex = 0;
+            trainingState._uncertaintyScores = scored.slice(0, requestedCount).map(s => s.uncertainty);
+            updateLabelingUI();
+            updateLabeledInfo();
+        }
+
         async function getRandomSamples() {
             const requestedCount = getSampleCountFromUI();
 
@@ -11994,6 +12145,9 @@
                     <div class="sample-header">
                         <span class="sample-id">Sample #${trainingState.currentSampleIndex + 1} (ID: ${escapeHtml(String(displayId))})</span>
                         <span class="sample-status" style="color: ${sampleStatusColor};">${sampleStatusText}</span>
+                        ${trainingState._uncertaintyScores && trainingState._uncertaintyScores[trainingState.currentSampleIndex] !== undefined
+                            ? `<span style="font-size:11px; color:#c77800; background:#fff8e1; padding:2px 8px; border-radius:10px;">🎯 Model confidence: ${((1 - trainingState._uncertaintyScores[trainingState.currentSampleIndex]) * 100).toFixed(0)}% — your label helps the most here</span>`
+                            : ''}
                     </div>
                     <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
                         <button type="button" class="sample-exclude-btn ${isExcluded ? 'active' : ''}" onclick="toggleExcludeCurrentSample()">
@@ -12402,6 +12556,102 @@
             return predictions.slice(0, 3).map(p => p.cat);
         }
 
+        // ── Online Naive Bayes Classifier ──
+        // Learns incrementally from each correction — no retrain needed.
+        // Multinomial NB with Laplace smoothing over word counts.
+        function NaiveBayesOnline(categories) {
+            this.cats = categories.filter(c => !isExcludedCategory(c));
+            this.wordCounts = {};   // { cat: { word: count } }
+            this.catCounts = {};    // { cat: totalWords }
+            this.docCounts = {};    // { cat: numDocs }
+            this.vocab = new Set();
+            this.totalDocs = 0;
+            this.cats.forEach(c => { this.wordCounts[c] = {}; this.catCounts[c] = 0; this.docCounts[c] = 0; });
+        }
+
+        NaiveBayesOnline.prototype._tokenize = function(text) {
+            return String(text || '').toLowerCase().replace(/[^a-z0-9\u00C0-\u024F]+/g, ' ').trim().split(/\s+/).filter(w => w.length > 2);
+        };
+
+        NaiveBayesOnline.prototype.train = function(text, category) {
+            if (!this.wordCounts[category]) { this.wordCounts[category] = {}; this.catCounts[category] = 0; this.docCounts[category] = 0; }
+            const words = this._tokenize(text);
+            words.forEach(w => {
+                this.vocab.add(w);
+                this.wordCounts[category][w] = (this.wordCounts[category][w] || 0) + 1;
+                this.catCounts[category]++;
+            });
+            this.docCounts[category]++;
+            this.totalDocs++;
+        };
+
+        NaiveBayesOnline.prototype.untrain = function(text, category) {
+            if (!this.wordCounts[category]) return;
+            const words = this._tokenize(text);
+            words.forEach(w => {
+                if (this.wordCounts[category][w]) {
+                    this.wordCounts[category][w]--;
+                    this.catCounts[category]--;
+                    if (this.wordCounts[category][w] <= 0) delete this.wordCounts[category][w];
+                }
+            });
+            if (this.docCounts[category] > 0) this.docCounts[category]--;
+            if (this.totalDocs > 0) this.totalDocs--;
+        };
+
+        NaiveBayesOnline.prototype.predict = function(text) {
+            const words = this._tokenize(text);
+            const V = Math.max(this.vocab.size, 1);
+            const results = [];
+            for (const cat of this.cats) {
+                const totalW = this.catCounts[cat] || 0;
+                // log prior: P(cat) with smoothing
+                let logP = Math.log((this.docCounts[cat] + 1) / (this.totalDocs + this.cats.length));
+                // log likelihood: P(word|cat) with Laplace smoothing
+                for (const w of words) {
+                    const wc = (this.wordCounts[cat] && this.wordCounts[cat][w]) || 0;
+                    logP += Math.log((wc + 1) / (totalW + V));
+                }
+                results.push({ cat, logP });
+            }
+            // Convert log-probs to probabilities via softmax
+            const maxLogP = Math.max(...results.map(r => r.logP));
+            let sumExp = 0;
+            results.forEach(r => { r.exp = Math.exp(r.logP - maxLogP); sumExp += r.exp; });
+            results.forEach(r => { r.prob = r.exp / sumExp; });
+            results.sort((a, b) => b.prob - a.prob);
+            return results;
+        };
+
+        NaiveBayesOnline.prototype.batchTrain = function(examples) {
+            for (const ex of examples) {
+                const labels = (ex.labels || []).filter(l => !isExcludedCategory(l));
+                for (const label of labels) {
+                    this.train(ex.text, label);
+                }
+            }
+        };
+
+        NaiveBayesOnline.prototype.getUncertainty = function(text) {
+            const preds = this.predict(text);
+            if (!preds.length) return 1;
+            return 1 - preds[0].prob;
+        };
+
+        NaiveBayesOnline.prototype.toJSON = function() {
+            return { cats: this.cats, wordCounts: this.wordCounts, catCounts: this.catCounts, docCounts: this.docCounts, vocab: [...this.vocab], totalDocs: this.totalDocs };
+        };
+
+        NaiveBayesOnline.fromJSON = function(data) {
+            const nb = new NaiveBayesOnline(data.cats || []);
+            nb.wordCounts = data.wordCounts || {};
+            nb.catCounts = data.catCounts || {};
+            nb.docCounts = data.docCounts || {};
+            nb.vocab = new Set(data.vocab || []);
+            nb.totalDocs = data.totalDocs || 0;
+            return nb;
+        };
+
         function predictLabelsForText(text, model) {
             const method = model?.method || 'tfidf_centroid';
             if (method === 'keyword_overlap') {
@@ -12747,6 +12997,15 @@
                     : null;
                 renderBenchmark(trainingState.benchmark);
 
+                // Auto-initialize Online Naive Bayes alongside the main model
+                try {
+                    const nbCats = getStatisticsCategories(trainingState.categories);
+                    trainingState.nbModel = new NaiveBayesOnline(nbCats);
+                    trainingState.nbModel.batchTrain(trainExamples);
+                    trainingState._correctionCount = 0;
+                    console.log('NaiveBayes online model initialized with', trainExamples.length, 'examples');
+                } catch (e) { console.warn('NB init failed:', e); }
+
                 setTrainingProgress(100, 'Training complete!');
                 document.getElementById('applyCurrentBtn').disabled = false;
                 loadSavedModels();
@@ -13050,7 +13309,8 @@
                 threshold: trainingState.model.threshold,
                 createdAt: new Date().toISOString(),
                 sampleCount: collectLabeledExamples().length,
-                benchmark: trainingState.benchmark
+                benchmark: trainingState.benchmark,
+                nbModel: trainingState.nbModel ? trainingState.nbModel.toJSON() : null
             });
 
             localStorage.setItem('trainedModels', JSON.stringify(savedModels));
@@ -13114,6 +13374,12 @@
             trainingState.model.threshold = Number.isFinite(Number(trainingState.model.threshold))
                 ? Number(trainingState.model.threshold)
                 : 0.15;
+
+            // Restore NB model if saved
+            if (model.nbModel) {
+                try { trainingState.nbModel = NaiveBayesOnline.fromJSON(model.nbModel); trainingState._correctionCount = 0; }
+                catch (e) { console.warn('Failed to restore NB model:', e); }
+            }
 
             setClassifierMethodUI(trainingState.method);
             setThresholdUI(trainingState.model.threshold);
