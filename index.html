@@ -381,7 +381,7 @@
             transition: opacity 0.2s;
         }
         .footer-logos a:hover { opacity: 1; }
-        .footer-logos img, .footer-logos svg { height: 32px; width: auto; }
+        .footer-logos img, .footer-logos svg { height: 32px; width: auto; pointer-events: none; }
         .footer-supported {
             font-size: 11px;
             color: #94a3b8;
@@ -2519,12 +2519,7 @@
             ⚠️ <strong>Large Dataset Mode:</strong> For performance, charts analyze <span id="sampleSize">50,000</span> sampled records. Statistics and exports use the full dataset.
         </div>
 
-        <div class="hidden" id="veniceCommissionNotice" style="background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%); border: 1px solid #c4d4f0; border-radius: 10px; padding: 16px 20px; margin: 8px 0 4px; font-size: 13px; line-height: 1.6; color: #2c3e5a;">
-            <strong style="color: #1a3a5c;">📋 Rule of Law Taxonomy</strong><br>
-            This dataset uses a classification taxonomy developed by the <strong>Venice Commission</strong> (European Commission for Democracy through Law) in the
-            <a href="https://www.venice.coe.int/webforms/documents/default.aspx?pdffile=CDL-AD(2025)002-e" target="_blank" rel="noopener" style="color:#4a6fa5; text-decoration:underline;">Updated Rule of Law Checklist (CDL-AD(2025)002)</a>.
-            The checklist identifies core elements of the rule of law — legality, legal certainty, prevention of abuse of power, equality and non-discrimination, and access to justice — as a framework for assessing compliance with rule of law standards. Here, this taxonomy is applied to classify UN human rights recommendations sourced from the <a href="https://uhri.ohchr.org" target="_blank" rel="noopener" style="color:#4a6fa5; text-decoration:underline;">Universal Human Rights Index</a>.
-        </div>
+        <!-- Venice Commission notice moved to Labels tab -->
 
         <div class="filters-section" id="filtersSection">
             <div class="filters-header">
@@ -2890,6 +2885,12 @@
                 </div>
             </div>
             <div id="labelsChartsContent">
+            <div class="hidden" id="veniceCommissionNotice" style="background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%); border: 1px solid #c4d4f0; border-radius: 10px; padding: 16px 20px; margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #2c3e5a;">
+                <strong style="color: #1a3a5c;">📋 Rule of Law Taxonomy</strong><br>
+                This dataset uses a classification taxonomy developed by the <strong>Venice Commission</strong> (European Commission for Democracy through Law) in the
+                <a href="https://www.venice.coe.int/webforms/documents/default.aspx?pdffile=CDL-AD(2025)002-e" target="_blank" rel="noopener" style="color:#4a6fa5; text-decoration:underline;">Updated Rule of Law Checklist (CDL-AD(2025)002)</a>.
+                The checklist identifies core elements of the rule of law — legality, legal certainty, prevention of abuse of power, equality and non-discrimination, and access to justice — as a framework for assessing compliance with rule of law standards. Here, this taxonomy is applied to classify UN human rights recommendations sourced from the <a href="https://uhri.ohchr.org" target="_blank" rel="noopener" style="color:#4a6fa5; text-decoration:underline;">Universal Human Rights Index</a>.
+            </div>
             <div class="chart-row">
                 <div class="chart-card">
                     <h3>Assigned Label Statistics (Current Filter)</h3>
@@ -2902,7 +2903,7 @@
                     <div class="chart-container"><canvas id="chartLabelCoverage"></canvas></div>
                 </div>
                 <div class="chart-card">
-                    <h3>Label Distribution</h3>
+                    <h3>Label Distribution <span style="font-weight:400; font-size:12px; color:#8899aa;">(from your dataset's "My Labels" column)</span></h3>
                     <div class="chart-container tall"><canvas id="chartLabelDistribution"></canvas></div>
                 </div>
             </div>
