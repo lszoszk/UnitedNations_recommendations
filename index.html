@@ -1948,6 +1948,9 @@
             justify-content: center;
             font-size: 12px;
         }
+        .wf-step { transition: background .2s, color .2s, border-color .2s; }
+        .wf-active { background: #e8f0fe !important; border-color: #a0c0e8 !important; color: #1a3a5c !important; font-weight: 600 !important; }
+        .wf-done { background: #e8f8e8 !important; border-color: #a8d8a8 !important; color: #2a5a2a !important; }
 
         /* Task Type Selection */
         .task-type-options {
@@ -2127,7 +2130,7 @@
         }
         .sample-nav-info { font-size: 13px; color: var(--primary); font-weight: 600; }
         .sample-nav-btns { display: flex; gap: 8px; }
-        .sample-nav-btns button {
+        .sample-nav-btns button:not(.btn-primary) {
             padding: 8px 16px;
             border: 1px solid var(--border);
             background: white;
@@ -2135,7 +2138,7 @@
             cursor: pointer;
             font-size: 13px;
         }
-        .sample-nav-btns button:hover:not(:disabled) { background: var(--border); }
+        .sample-nav-btns button:not(.btn-primary):hover:not(:disabled) { background: var(--border); }
         .sample-nav-btns button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Training Progress */
@@ -2612,7 +2615,7 @@
                     Useful when you need to tag thousands of records by topic, compliance status, or any custom scheme.
                 </div>
             </div>
-            <button class="btn btn-purple" id="trainClassifierBtn" onclick="openTrainingPane()">Open Trainer</button>
+            <button class="btn btn-purple" id="trainClassifierBtn" onclick="openTrainingPane()">Open Labeling Tool</button>
         </div>
 
         <div class="kpi-grid hidden" id="kpiSection">
@@ -2881,9 +2884,9 @@
                     <button class="btn btn-primary" onclick="loadBundledSampleData()" style="padding: 10px 24px; font-size: 13px;">
                         Load Rule of Law Sample (6,225 pre-labeled records)
                     </button>
-                    <span style="color: #8899aa; font-size: 12px;">or train your own:</span>
+                    <span style="color: #8899aa; font-size: 12px;">or label your own:</span>
                     <button class="btn btn-purple" onclick="openTrainingPane()" style="padding: 8px 20px; font-size: 12px;">
-                        Open Trainer
+                        Open Labeling Tool
                     </button>
                 </div>
             </div>
@@ -2993,163 +2996,201 @@
         </div>
     </div>
 
-    <!-- Training Pane -->
+    <!-- Labeling Tool Pane -->
     <div class="training-pane" id="trainingPane">
         <div class="training-pane-header">
-            <h2>🏷️ Zero-Shot Classifier</h2>
+            <h2>Labeling Tool</h2>
             <button class="training-pane-close" onclick="closeTrainingPane()">&times;</button>
         </div>
         <div class="training-pane-body">
-            <!-- How it works -->
-            <div class="training-section" style="background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%); border: 1px solid #c5d5f0; border-radius: 10px; padding: 16px;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                    <span style="font-size: 22px;">🧠</span>
-                    <div>
-                        <div style="font-weight: 600; font-size: 14px; color: #1a3a5c;">Zero-Shot Classification (No Training Needed)</div>
-                        <div style="font-size: 12px; color: #526783; margin-top: 2px;">Define your categories, then classify. The AI model understands meaning — no labeled examples required.</div>
-                    </div>
-                </div>
-                <div style="font-size: 11px; color: #667; line-height: 1.6;">
-                    Powered by <strong>Transformers.js</strong> running entirely in your browser. The model (~70 MB) is downloaded once and cached.
-                    <br><span style="color: #8a6d3b;">First use takes 3-5 minutes (one-time compilation). After that, the model loads in seconds.</span>
-                    Works offline after first load. No data leaves your computer.
-                </div>
+            <!-- Workflow stepper -->
+            <div style="display:flex; gap:4px; margin-bottom:14px; font-size:11px; color:#667;">
+                <div id="wfStep1" class="wf-step wf-active" style="flex:1; text-align:center; padding:6px 4px; border-radius:6px; background:#e8f0fe; border:1px solid #c5d5f0; font-weight:600; color:#1a3a5c;">1. Categories</div>
+                <div id="wfStep2" class="wf-step" style="flex:1; text-align:center; padding:6px 4px; border-radius:6px; background:#f4f5f7; border:1px solid #e0e0e0;">2. Read &amp; Tag</div>
+                <div id="wfStep3" class="wf-step" style="flex:1; text-align:center; padding:6px 4px; border-radius:6px; background:#f4f5f7; border:1px solid #e0e0e0;">3. Export</div>
             </div>
 
-            <!-- Quick Start: Load Example Categories -->
-            <div class="training-section" style="padding: 12px;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <span style="font-size: 16px;">📘</span>
-                    <div style="font-weight: 600; font-size: 13px; color: #1a3a5c;">Quick Start</div>
-                </div>
-                <button class="btn btn-secondary" onclick="loadRuleOfLawCategories()" style="padding: 8px 16px; font-size: 12px;">
-                    Load "Rule of Law" categories (Venice Commission taxonomy)
-                </button>
+            <!-- Compact info -->
+            <div style="background:#f8f9fb; border:1px solid #e4e8ec; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:12px; color:#556; line-height:1.6;">
+                Tag UN recommendations with your own categories, then download the results.
+                <br><strong>Your data stays in your browser</strong> — nothing is sent to any server.
+                <br><span style="color:#4a90d9; cursor:pointer;" onclick="loadRuleOfLawCategories()">Try the demo with pre-tagged examples &rarr;</span>
             </div>
 
             <!-- Step 1: Define Categories -->
             <div class="training-section" id="categorySection">
-                <h3 id="step2Title"><span class="step-number">1</span> Define Categories</h3>
+                <h3 id="step2Title"><span class="step-number">1</span> What topics are you looking for?</h3>
+                <p style="font-size:12px; color:#556; margin-bottom:8px; line-height:1.5;">
+                    Type the topics you want to tag recommendations with. You can add as many as you need.
+                </p>
                 <div class="category-input-row">
-                    <input type="text" id="newCategoryInput" placeholder="Enter category name..." onkeypress="if(event.key==='Enter')addCategory()">
+                    <input type="text" id="newCategoryInput" placeholder="e.g. Access to justice, Freedom of expression…" onkeypress="if(event.key==='Enter')addCategory()">
                     <button class="btn btn-primary" onclick="addCategory()">Add</button>
                 </div>
                 <div class="category-list" id="categoryList"></div>
-                <p style="font-size: 11px; color: #666; margin-top: 8px;">Add categories that describe what your records are about. The model will match each record to the most relevant categories by meaning.</p>
+                <details style="margin-top:8px;" id="communityTaxonomyDetails">
+                    <summary style="cursor:pointer; font-size:12px; color:#4a90d9; font-weight:600;" onclick="loadCommunityTaxonomyList()">Or browse community taxonomies</summary>
+                    <div id="communityTaxonomyList" style="margin-top:8px;">
+                        <div style="text-align:center; padding:12px; color:#889; font-size:12px;">Loading taxonomies...</div>
+                    </div>
+                </details>
             </div>
 
-            <!-- Step 2: Classify -->
-            <div class="training-section">
-                <h3><span class="step-number">2</span> Classify</h3>
-                <div id="trainingControls">
-                    <!-- Dataset scope info -->
-                    <div id="classifyScopeInfo" style="background: #f0f7ff; border: 1px solid #d0e3f7; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: #2c4a6e; line-height: 1.5;">
-                        <div id="classifyScopeText">Loading dataset info...</div>
-                    </div>
-                    <!-- Device benchmark info (shown after first run) -->
-                    <div id="deviceBenchmarkInfo" class="hidden" style="background: #f0f7ff; border: 1px solid #d0e3f7; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: #2c4a6e; line-height: 1.5;">
-                        <div id="deviceBenchmarkText">Benchmarking your device...</div>
-                    </div>
-                    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
-                        <button class="btn btn-purple" onclick="applyZeroShot()" id="applyBtn" style="flex: 3; padding: 12px;">
-                            ✨ Classify Current Filter
-                        </button>
-                        <button class="btn btn-secondary" onclick="applyPredictionToCurrentSample()" id="applyCurrentBtn" disabled style="flex: 1; padding: 12px; font-size: 11px;">
-                            🎯 Test on 1 Record
-                        </button>
-                    </div>
-                    <div class="training-progress hidden" id="trainingProgress">
-                        <div class="progress-label" id="trainingStatusText">Classifying...</div>
-                        <div class="progress-bar-wrapper">
-                            <div class="progress-bar-fill" id="trainingProgressFill" style="width: 0%"></div>
-                        </div>
-                        <div class="progress-pct" id="trainingProgressPct">0%</div>
-                    </div>
-                    <div class="benchmark-box hidden" id="benchmarkBox">
-                        <h4>Classification Results</h4>
-                        <div class="benchmark-grid" id="benchmarkGrid"></div>
-                        <div class="benchmark-note" id="benchmarkNote"></div>
-                    </div>
-                    <!-- Hybrid flow: refine zero-shot with TF-IDF -->
-                    <div id="hybridRefineBox" class="hidden" style="background: #f0faf0; border: 1px solid #b8e0b8; border-radius: 8px; padding: 12px 14px; margin-top: 10px; font-size: 12px; line-height: 1.6;">
-                        <div style="font-weight: 600; color: #2a5a2a; margin-bottom: 6px;">Improve accuracy with labeled examples</div>
-                        <p style="margin: 0 0 8px; color: #3a6a3a;">
-                            Zero-shot gave initial labels. Now review &amp; correct a sample in Step 3 below, then click <strong>Retrain with TF-IDF</strong> to build a faster, more accurate model based on your corrections.
-                        </p>
-                        <button class="btn btn-secondary" onclick="hybridRetrainTfidf()" id="hybridRetrainBtn" style="padding: 8px 16px;">
-                            Retrain with TF-IDF (using corrected labels)
-                        </button>
-                        <span id="hybridRetrainHint" style="font-size: 11px; color: #667; margin-left: 8px;"></span>
-                    </div>
-                    <!-- Advanced: threshold + fallback methods -->
-                    <details style="margin-top: 12px;">
-                        <summary style="cursor: pointer; font-size: 12px; color: #667; user-select: none;">Advanced settings</summary>
-                        <div style="margin-top: 10px; padding: 12px; background: #f8f9fb; border-radius: 8px;">
-                            <div class="method-row">
-                                <div class="method-label" id="methodLabel">Classification method</div>
-                                <select id="classifierMethod" onchange="onClassifierMethodChange()">
-                                    <option value="zero_shot" selected>Zero-Shot NLI (Transformers.js, recommended)</option>
-                                    <option value="tfidf_centroid">TF-IDF centroid (requires labeled samples)</option>
-                                    <option value="keyword_overlap">Keyword overlap (requires labeled samples)</option>
-                                    <option value="char_ngram_centroid">Character n-gram centroid (requires labeled samples)</option>
-                                </select>
-                                <div class="method-hint" id="classifierMethodHint">AI-powered semantic classification. No training data needed — just define categories.</div>
-                            </div>
-                            <div class="threshold-row">
-                                <div>
-                                    <div class="threshold-label">Prediction threshold</div>
-                                    <div class="threshold-hint">Lower = more labels (higher recall). Higher = fewer labels (higher precision).</div>
-                                </div>
-                                <div class="threshold-controls">
-                                    <input type="range" id="thresholdSlider" min="0.01" max="0.95" step="0.01" value="0.50" oninput="onThresholdInput()">
-                                    <span class="threshold-value" id="thresholdValue">0.50</span>
-                                </div>
-                            </div>
-                        </div>
-                    </details>
-                </div>
-            </div>
-
-            <!-- Labeling / Review section — always visible -->
+            <!-- Step 2: Read & Tag -->
             <div class="training-section" id="labelingSection">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                    <span style="background: #1e3a5f; color: white; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;">3</span>
-                    <h3 id="step3Title" style="margin: 0;">Label &amp; Review Samples</h3>
-                </div>
-                <p style="font-size: 12px; color: #667; margin: 0 0 10px 34px;" id="step3Hint">
-                    Load a random sample to manually label records, or review zero-shot classification results.
+                <h3><span class="step-number">2</span> Read &amp; Tag Records</h3>
+                <p style="font-size:12px; color:#556; margin-bottom:10px; line-height:1.5;" id="step3Hint">
+                    Read each recommendation and tick the categories that apply. Mark irrelevant records as "excluded". The more you tag, the better the results.
                 </p>
                 <div class="sample-nav">
                     <div class="sample-nav-info">
-                        <span id="labeledCount">0</span> / <span id="totalSamples">0</span> labeled
-                        • <span id="excludedCount">0</span> excluded
+                        <span id="labeledCount">0</span> / <span id="totalSamples">0</span> tagged
+                        &middot; <span id="excludedCount">0</span> excluded
                     </div>
                     <div class="sample-nav-btns">
-                        <button onclick="prevSample()" id="prevSampleBtn">← Previous</button>
-                        <button onclick="nextSample()" id="nextSampleBtn">Next →</button>
-                        <button onclick="clearCurrentSampleLabels()" class="btn btn-secondary" style="padding: 8px 12px;">🧹 Clear</button>
-                        <div style="display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px 2px 8px; background: #f8f9fb;">
-                            <label for="sampleCountInput" style="font-size: 11px; color: #667; white-space: nowrap;">Samples:</label>
-                            <input type="number" id="sampleCountInput" value="20" min="5" max="200" step="5" style="width: 52px; padding: 5px 4px; border: 1px solid #dde; border-radius: 4px; text-align: center; font-size: 12px;">
+                        <button onclick="prevSample()" id="prevSampleBtn">&larr; Prev</button>
+                        <button onclick="nextSample()" id="nextSampleBtn">Next &rarr;</button>
+                        <button onclick="clearCurrentSampleLabels()" class="btn btn-secondary" style="padding:8px 10px;">Clear</button>
+                        <button onclick="resetAllSamples()" class="btn btn-secondary" style="padding:8px 10px; color:#c62828; font-size:10px;" title="Remove all samples and start fresh">Reset All</button>
+                        <div style="display:inline-flex; align-items:center; gap:4px; border:1px solid var(--border); border-radius:6px; padding:2px 4px 2px 8px; background:#f8f9fb;">
+                            <label for="sampleCountInput" style="font-size:11px; color:#667; white-space:nowrap;">How many:</label>
+                            <input type="number" id="sampleCountInput" value="20" min="5" max="200" step="5" style="width:48px; padding:5px 4px; border:1px solid #dde; border-radius:4px; text-align:center; font-size:12px;">
                         </div>
-                        <button onclick="getRandomSamples()" class="btn btn-secondary" style="padding: 8px 12px;">🔄 Load Samples</button>
+                        <button onclick="getRandomSamples()" class="btn btn-primary" style="padding:8px 14px;">Get Random Records</button>
                     </div>
                 </div>
                 <div id="sampleContainer"></div>
             </div>
 
-            <!-- Saved Models (collapsed) -->
-            <div class="training-section">
-                <details>
-                    <summary style="cursor: pointer; font-weight: 600; font-size: 14px; color: #2c3e50; user-select: none;">Saved Models</summary>
-                <div class="model-list" id="modelList">
-                    <p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No saved models yet</p>
+            <!-- Step 3: Export & Use -->
+            <div class="training-section" id="useLabelsSection">
+                <h3><span class="step-number">3</span> Export &amp; Use Your Tags</h3>
+                <div id="labeledExamplesInfo" style="background:#f0f7ff; border:1px solid #d0e3f7; border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:12px; color:#2c4a6e; line-height:1.5;">
+                    <span id="labeledExamplesCount">0</span> records tagged so far.
+                    <span id="classifyScopeText" style="display:inline;"></span>
                 </div>
-                <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                    <input type="text" id="modelNameInput" placeholder="Model name..." style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; flex: 1; min-width: 220px;">
-                    <button class="btn btn-secondary" id="modelSaveBtn" onclick="saveCurrentModel()" style="padding: 10px 16px;">Save</button>
-                </div>
-                <div id="modelStorageHint" style="font-size: 11px; color: #666; margin-top: 8px;">Trained TF-IDF and keyword models are saved in this browser's local storage.</div>
+
+                <!-- Primary: Download -->
+                <button class="btn btn-primary" onclick="exportClassifiedData()" style="padding:10px 20px; font-size:13px; width:100%; margin-bottom:8px;">
+                    Download tagged data as spreadsheet (XLSX)
+                </button>
+
+                <!-- Secondary: Quick classify with TF-IDF -->
+                <details style="margin-top:4px;" id="quickClassifyDetails">
+                    <summary style="cursor:pointer; font-size:12px; color:#2c4a6e; font-weight:600;">Auto-tag remaining records (based on your examples)</summary>
+                    <div style="margin-top:8px; padding:12px; background:#f8f9fb; border-radius:8px; font-size:12px; line-height:1.5;">
+                        <p style="margin:0 0 8px; color:#556;">
+                            The tool learns from your tagged examples and tries to tag the rest automatically. Works best when you have tagged 10+ records per category.
+                        </p>
+                        <div id="classifyScopeInfo" style="background:#fff; border:1px solid #e0e3e8; border-radius:6px; padding:8px 12px; margin-bottom:8px; font-size:11px; color:#556;"></div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <button class="btn btn-purple" onclick="trainAndApplyTfidf()" id="applyBtn" style="padding:10px 20px;">
+                                Auto-tag all records
+                            </button>
+                            <button class="btn btn-secondary" onclick="applyPredictionToCurrentSample()" id="applyCurrentBtn" style="padding:10px 14px; font-size:11px;">
+                                Preview on 1 record
+                            </button>
+                        </div>
+                        <div class="training-progress hidden" id="trainingProgress">
+                            <div class="progress-label" id="trainingStatusText">Auto-tagging…</div>
+                            <div class="progress-bar-wrapper">
+                                <div class="progress-bar-fill" id="trainingProgressFill" style="width:0%"></div>
+                            </div>
+                            <div class="progress-pct" id="trainingProgressPct">0%</div>
+                        </div>
+                        <!-- Results action box (shown after auto-tagging completes) -->
+                        <div id="classifyResultsBox" class="hidden" style="background:linear-gradient(135deg,#f0f7ff 0%,#e6f0fa 100%); border:1px solid #c0d8f0; border-radius:8px; padding:12px; margin-top:8px;">
+                            <div id="classifyResultsSummary" style="font-size:12px; color:#2c4a6e; line-height:1.5; margin-bottom:8px;"></div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button class="btn btn-primary" onclick="exportClassifiedData()" style="padding:7px 14px; font-size:12px;">
+                                    Download all (XLSX)
+                                </button>
+                                <button class="btn btn-secondary" onclick="goToMyLabelsTab()" style="padding:7px 14px; font-size:12px;">
+                                    View in My Labels
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Quality metrics (collapsed by default) -->
+                        <details class="hidden" id="benchmarkBox" style="margin-top:8px;">
+                            <summary style="cursor:pointer; font-size:11px; color:#667;">Quality metrics (accuracy details)</summary>
+                            <div style="margin-top:6px; padding:8px; background:#fff; border-radius:6px;">
+                                <div class="benchmark-grid" id="benchmarkGrid"></div>
+                                <div class="benchmark-note" id="benchmarkNote"></div>
+                            </div>
+                        </details>
+                        <!-- Advanced: method + threshold -->
+                        <details style="margin-top:8px;">
+                            <summary style="cursor:pointer; font-size:11px; color:#667;">Advanced settings</summary>
+                            <div style="margin-top:6px; padding:8px; background:#fff; border-radius:6px;">
+                                <div class="method-row">
+                                    <div class="method-label" id="methodLabel">Method</div>
+                                    <select id="classifierMethod" onchange="onClassifierMethodChange()">
+                                        <option value="tfidf_centroid" selected>TF-IDF centroid (recommended)</option>
+                                        <option value="random_forest">Random Forest</option>
+                                        <option value="keyword_overlap">Keyword overlap</option>
+                                        <option value="char_ngram_centroid">Char n-gram centroid</option>
+                                    </select>
+                                    <div class="method-hint" id="classifierMethodHint">Matches records by text similarity to your labeled examples.</div>
+                                </div>
+                                <div class="threshold-row">
+                                    <div>
+                                        <div class="threshold-label">Prediction threshold</div>
+                                        <div class="threshold-hint">Lower = more labels. Higher = fewer, more confident.</div>
+                                    </div>
+                                    <div class="threshold-controls">
+                                        <input type="range" id="thresholdSlider" min="0.01" max="0.95" step="0.01" value="0.15" oninput="onThresholdInput()">
+                                        <span class="threshold-value" id="thresholdValue">0.15</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </details>
+
+                <!-- Tertiary: External tools -->
+                <details style="margin-top:8px;">
+                    <summary style="cursor:pointer; font-size:12px; color:#2c4a6e; font-weight:600;">Need higher accuracy? Use AI platforms</summary>
+                    <div style="margin-top:8px; padding:12px; background:#f8f9fb; border-radius:8px; font-size:12px; line-height:1.6; color:#445;">
+                        <p style="margin:0 0 8px;">Download your tagged spreadsheet and upload it to these platforms for more accurate results:</p>
+                        <ul style="margin:0 0 8px; padding-left:20px;">
+                            <li><strong>HuggingFace AutoTrain</strong> — upload your spreadsheet, get an AI model in minutes (no coding)</li>
+                            <li><strong>Google AI Studio</strong> — use Google Gemini to tag records by showing it your examples</li>
+                            <li><strong>Google Colab</strong> — free computing power for custom scripts (requires some coding)</li>
+                        </ul>
+                        <p style="margin:0; color:#667;">After tagging externally, save your results as XLSX with a <code style="background:#e8f0fe; padding:1px 5px; border-radius:3px;">My Labels</code> column and upload it back here to visualize.</p>
+                    </div>
+                </details>
+
+                <!-- Share taxonomy -->
+                <details style="margin-top:8px;">
+                    <summary style="cursor:pointer; font-size:12px; color:#2c4a6e; font-weight:600;">Share this taxonomy with the community</summary>
+                    <div style="margin-top:8px; padding:12px; background:#f8f9fb; border-radius:8px; font-size:12px; line-height:1.6; color:#445;">
+                        <p style="margin:0 0 8px;">Share your categories and tagged examples so others can reuse your work.</p>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="btn btn-primary" onclick="exportTaxonomyJSON()" style="padding:7px 14px; font-size:12px;">
+                                Download taxonomy (JSON)
+                            </button>
+                            <button class="btn btn-secondary" onclick="openTaxonomySubmission()" style="padding:7px 14px; font-size:12px;">
+                                Submit to community repo
+                            </button>
+                        </div>
+                        <p style="margin:8px 0 0; color:#667; font-size:11px;">The JSON file contains your categories and tagged examples. Submit it via GitHub to make it available to everyone.</p>
+                    </div>
+                </details>
+
+                <!-- Saved Models (collapsed) -->
+                <details style="margin-top:8px;">
+                    <summary style="cursor:pointer; font-size:12px; color:#667;">Saved models</summary>
+                    <div style="margin-top:6px; padding:10px; background:#f8f9fb; border-radius:8px;">
+                        <div class="model-list" id="modelList">
+                            <p style="color:#666; font-size:12px; text-align:center; padding:12px;">No saved models yet</p>
+                        </div>
+                        <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+                            <input type="text" id="modelNameInput" placeholder="Model name…" style="padding:7px; border:1px solid var(--border); border-radius:6px; flex:1; min-width:140px; font-size:12px;">
+                            <button class="btn btn-secondary" id="modelSaveBtn" onclick="saveCurrentModel()" style="padding:7px 12px; font-size:12px;">Save</button>
+                        </div>
+                        <div id="modelStorageHint" style="font-size:11px; color:#666; margin-top:4px;">Models are saved in this browser's local storage.</div>
+                    </div>
                 </details>
             </div>
         </div>
@@ -3267,7 +3308,7 @@
             return buildApiUrl(vmBaseUrl, '/api/data/full');
         }
 
-        // SetFit API removed — zero-shot classification runs entirely in the browser
+        // Classification runs entirely in the browser (TF-IDF based)
 
         const VM_BASE_URL = resolveVmBaseUrl();
         const DATASET_API_URL = resolveDatasetApiUrl(VM_BASE_URL);
@@ -3386,7 +3427,7 @@
             samples: [],
             currentSampleIndex: 0,
             labeledSamples: new Map(), // sampleId -> [labels]
-            method: 'zero_shot',
+            method: 'tfidf_centroid',
             model: null,
             vocabulary: {},
             idf: {},
@@ -3395,11 +3436,6 @@
         };
 
         const classifierMethodMeta = {
-            zero_shot: {
-                label: 'Zero-Shot NLI (Transformers.js)',
-                hint: 'AI-powered semantic classification. No training data needed — just define categories.',
-                defaultThreshold: 0.50
-            },
             tfidf_centroid: {
                 label: 'TF-IDF centroid',
                 hint: 'Balanced precision/recall with sparse text vectors. Requires labeled samples.',
@@ -3414,81 +3450,23 @@
                 label: 'Character n-gram centroid',
                 hint: 'More tolerant to noisy spelling and short snippets. Requires labeled samples.',
                 defaultThreshold: 0.16
+            },
+            random_forest: {
+                label: 'Random Forest',
+                hint: 'Ensemble of decision trees. Best with 30+ labeled examples per category — may overfit with fewer.',
+                defaultThreshold: 0.35
             }
         };
 
-        // ========== TRANSFORMERS.JS ZERO-SHOT ENGINE ==========
-        let _zeroShotPipeline = null;
-        let _zeroShotLoading = false;
-
-        function releaseZeroShotPipeline() {
-            if (_zeroShotPipeline) {
-                try { _zeroShotPipeline.dispose?.(); } catch (e) {}
-                _zeroShotPipeline = null;
-            }
-        }
-        let _deviceBenchmark = null; // { msPerRecord, maxRecommended, device }
-        const ZERO_SHOT_MODEL = 'Xenova/nli-deberta-v3-xsmall';
-        const ZERO_SHOT_HARD_CAP = 5000;
-
-        async function loadZeroShotPipeline(onProgress) {
-            if (_zeroShotPipeline) return _zeroShotPipeline;
-            if (_zeroShotLoading) {
-                // Wait for the other load to finish
-                while (_zeroShotLoading) await delay(200);
-                return _zeroShotPipeline;
-            }
-            _zeroShotLoading = true;
-            try {
-                const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.1');
-                // Prefer WebGPU (huge speedup on Apple Silicon, modern GPUs) → fall back to WASM
-                let device = 'wasm';
-                if (navigator.gpu) {
-                    try {
-                        const adapter = await navigator.gpu.requestAdapter();
-                        if (adapter) device = 'webgpu';
-                    } catch (e) { /* WebGPU not available, use WASM */ }
-                }
-                _zeroShotPipeline = await pipeline('zero-shot-classification', ZERO_SHOT_MODEL, {
-                    device,
-                    progress_callback: onProgress || (() => {})
-                });
-                return _zeroShotPipeline;
-            } finally {
-                _zeroShotLoading = false;
-            }
-        }
-
-        function formatDuration(ms) {
-            if (ms < 1000) return 'less than 1 second';
-            if (ms < 60000) return `~${Math.round(ms / 1000)} seconds`;
-            const mins = Math.round(ms / 60000);
-            return `~${mins} minute${mins > 1 ? 's' : ''}`;
-        }
-
-        function updateDeviceBenchmarkUI(benchmark, recordCount) {
-            const el = document.getElementById('deviceBenchmarkInfo');
-            const textEl = document.getElementById('deviceBenchmarkText');
-            if (!el || !textEl) return;
-            el.classList.remove('hidden');
-            const estimatedMs = benchmark.msPerRecord * recordCount;
-            const estimatedStr = formatDuration(estimatedMs);
-            const tooMany = recordCount > benchmark.maxRecommended;
-            el.style.borderColor = tooMany ? '#f0c040' : '#d0e3f7';
-            el.style.background = tooMany ? '#fffbe6' : '#f0f7ff';
-            textEl.innerHTML = `<strong>Your device:</strong> ${benchmark.msPerRecord}ms/record (${benchmark.device}). ` +
-                `<strong>Current filter:</strong> ${recordCount.toLocaleString()} records — estimated ${estimatedStr}.` +
-                (tooMany
-                    ? `<br><span style="color:#b8860b;">⚠ Recommended max: ${benchmark.maxRecommended.toLocaleString()} records. Narrow your filters for best results, or be prepared to wait.</span>`
-                    : ` Recommended max: ${benchmark.maxRecommended.toLocaleString()}.`);
-        }
-
+        // ========== CLASSIFICATION ENGINE ==========
+        // TF-IDF and keyword-based classification — lightweight, no ML dependencies.
         function normalizeLabelName(label) {
             return String(label || '').trim().toLowerCase();
         }
 
+        const EXCLUDED_ALIASES = new Set([EXCLUDED_LABEL, 'unrelated']);
         function isExcludedCategory(label) {
-            return normalizeLabelName(label) === EXCLUDED_LABEL;
+            return EXCLUDED_ALIASES.has(normalizeLabelName(label));
         }
 
         /**
@@ -6226,7 +6204,7 @@
                 benchmark: null
             };
             setThresholdUI(0.50);
-            setClassifierMethodUI('zero_shot');
+            setClassifierMethodUI('tfidf_centroid');
             updateModelStorageControls();
 
             document.getElementById('uploadSection').classList.remove('hidden');
@@ -6246,7 +6224,7 @@
             document.getElementById('trainingProgress').classList.add('hidden');
             document.getElementById('benchmarkBox').classList.add('hidden');
             setThresholdUI(0.50);
-            setClassifierMethodUI('zero_shot');
+            setClassifierMethodUI('tfidf_centroid');
             updateModelStorageControls();
             const radarGrid = document.getElementById('themeRadarGrid');
             if (radarGrid) radarGrid.innerHTML = '';
@@ -10062,6 +10040,102 @@
             return String(str).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$');
         }
 
+        // ========== WORKFLOW STEPPER & ACTIONS ==========
+        function updateWorkflowStepper(activeStep) {
+            for (let i = 1; i <= 3; i++) {
+                const el = document.getElementById('wfStep' + i);
+                if (!el) continue;
+                el.classList.remove('wf-active', 'wf-done');
+                if (i < activeStep) el.classList.add('wf-done');
+                else if (i === activeStep) el.classList.add('wf-active');
+            }
+        }
+
+        function isSyntheticRecord(record) {
+            return record && (record._source === 'Rule of Law example' || (record._id >= 900000 && !record._countries && !record._year));
+        }
+
+        function exportClassifiedData() {
+            // Collect rows from two sources:
+            // 1. Manually tagged real records (from the labeling tool — excludes demo/synthetic)
+            // 2. Auto-classified records (from prediction)
+            const rows = [];
+            const seen = new Set();
+
+            // Source 1: manually tagged real records
+            trainingState.labeledSamples.forEach((labels, sampleKey) => {
+                const cleaned = sanitizeSampleLabels(labels);
+                if (!cleaned.length) return;
+                const record = recordMap.get(String(sampleKey))
+                    || trainingState.samples.find(s => getSampleKey(s) === String(sampleKey));
+                if (!record) return;
+                if (isSyntheticRecord(record)) return; // skip demo examples
+                const id = record._id || sampleKey;
+                if (seen.has(id)) return;
+                seen.add(id);
+                rows.push({
+                    Country: record._countries || '',
+                    Year: record._year || '',
+                    Body: (record._body || '').replace(/^-\s*/, ''),
+                    Type: (record._type || '').replace(/^-\s*/, ''),
+                    'My Labels': cleaned.filter(l => !isExcludedCategory(l)).join(', '),
+                    Source: 'manual',
+                    Themes: record._themes || '',
+                    'Affected Persons': record._affectedPersons || '',
+                    Regions: record._regions || '',
+                    SDGs: record._sdgs || '',
+                    Citation: record._citation || '',
+                    Symbol: record._symbol || '',
+                    Text: record._text || '',
+                    'UHRI Link': typeof getUhriUrl === 'function' ? getUhriUrl(record) : '',
+                    'UN Doc Link': typeof getUnDocsUrl === 'function' ? getUnDocsUrl(record) : ''
+                });
+            });
+
+            // Source 2: auto-classified records
+            const data = filteredData.length ? filteredData : rawData;
+            data.forEach(r => {
+                if (!r._predictedLabels || !r._predictedLabels.length) return;
+                if (isSyntheticRecord(r)) return;
+                const id = r._id;
+                if (seen.has(id)) return;
+                seen.add(id);
+                rows.push({
+                    Country: r._countries || '',
+                    Year: r._year || '',
+                    Body: (r._body || '').replace(/^-\s*/, ''),
+                    Type: (r._type || '').replace(/^-\s*/, ''),
+                    'My Labels': (r._predictedLabels || []).join(', '),
+                    Source: 'auto',
+                    Themes: r._themes || '',
+                    'Affected Persons': r._affectedPersons || '',
+                    Regions: r._regions || '',
+                    SDGs: r._sdgs || '',
+                    Citation: r._citation || '',
+                    Symbol: r._symbol || '',
+                    Text: r._text || '',
+                    'UHRI Link': typeof getUhriUrl === 'function' ? getUhriUrl(r) : '',
+                    'UN Doc Link': typeof getUnDocsUrl === 'function' ? getUnDocsUrl(r) : ''
+                });
+            });
+
+            if (!rows.length) {
+                alert('No real records to export.\n\nThe demo examples are not included in the export — load actual data first (Quick Demo or connect to a server), then tag records in Step 2.');
+                return;
+            }
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Tagged');
+            const cats = (trainingState.categories || []).join('_').slice(0, 30).replace(/[^a-zA-Z0-9_]/g, '') || 'labels';
+            XLSX.writeFile(wb, `tagged_${cats}_${rows.length}records.xlsx`);
+        }
+
+        function goToMyLabelsTab() {
+            closeTrainingPane();
+            const labelsTab = document.querySelector('.tab[data-tab="labels"]');
+            if (labelsTab) labelsTab.click();
+        }
+
         // ========== TRAINING PANE ==========
         async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
             const ctrl = new AbortController();
@@ -10095,7 +10169,7 @@
         async function openTrainingPane() {
             document.getElementById('trainingPane').classList.add('open');
             ensureExcludedCategory();
-            setClassifierMethodUI(trainingState.model?.method || trainingState.method || 'zero_shot');
+            setClassifierMethodUI(trainingState.model?.method || trainingState.method || 'tfidf_centroid');
             setThresholdUI(trainingState.model?.threshold ?? getThresholdFromUI());
             renderCategories();
             updateLabelingUI();
@@ -10103,6 +10177,10 @@
             updateModelStorageControls();
             loadSavedModels();
             updateClassifyScopeInfo();
+            // Set workflow step based on current state
+            const hasLabels = (filteredData || rawData || []).some(r => r._predictedLabels && r._predictedLabels.length > 0);
+            const hasCats = getStatisticsCategories(trainingState.categories).length > 0;
+            updateWorkflowStepper(hasLabels ? 3 : hasCats ? 2 : 1);
         }
 
         function closeTrainingPane() {
@@ -10116,36 +10194,19 @@
 
         function setClassifierMethodUI(method) {
             const sel = document.getElementById('classifierMethod');
-            let normalized = classifierMethodMeta[method] ? method : 'zero_shot';
+            let normalized = classifierMethodMeta[method] ? method : 'tfidf_centroid';
             if (sel) sel.value = normalized;
             trainingState.method = normalized;
             const hint = document.getElementById('classifierMethodHint');
             if (hint) hint.textContent = classifierMethodMeta[normalized].hint;
-            // Labeling section is always available (for review/correction in zero-shot, for training in other methods)
-            const labelingSection = document.getElementById('labelingSection');
-            if (labelingSection) {
-                labelingSection.classList.remove('hidden');
-            }
-            // Update title and hint based on method
-            const step3Title = document.getElementById('step3Title');
-            const step3Hint = document.getElementById('step3Hint');
-            if (step3Title) {
-                step3Title.textContent = normalized === 'zero_shot'
-                    ? 'Label & Review Samples'
-                    : 'Label Training Samples';
-            }
-            if (step3Hint) {
-                step3Hint.textContent = normalized === 'zero_shot'
-                    ? 'Load a random sample to manually label records, or review zero-shot classification results.'
-                    : 'Label a random sample so the model can learn your categories. More labeled examples = better accuracy.';
-            }
+            // Labeling section is always visible
             updateModelStorageControls();
         }
 
         function getClassifierMethodFromUI() {
             const sel = document.getElementById('classifierMethod');
-            const value = sel?.value || trainingState.method || 'zero_shot';
-            return classifierMethodMeta[value] ? value : 'zero_shot';
+            const value = sel?.value || trainingState.method || 'tfidf_centroid';
+            return classifierMethodMeta[value] ? value : 'tfidf_centroid';
         }
 
         function onClassifierMethodChange() {
@@ -10208,6 +10269,7 @@
             input.value = '';
             renderCategories();
             updateLabelingUI();
+            updateWorkflowStepper(2);
         }
 
         function removeCategory(name) {
@@ -10256,7 +10318,7 @@
             params.set('sample_size', String(sampleSize));
             const payload = await fetchServerJson(
                 `${DATASET_SAMPLE_URL}?${params.toString()}`,
-                'Unable to load training samples from the VM'
+                'Unable to load records from the VM'
             );
             const sampleRecords = (payload.records || []).map((row, idx) => normalizeRecord(row, idx));
             registerRecords(sampleRecords);
@@ -10304,13 +10366,163 @@
         }
 
         function loadRuleOfLawCategories() {
+            // Load categories
             trainingState.categories = [...RULE_OF_LAW_EXAMPLE.categories];
             ensureExcludedCategory();
             renderCategories();
-            setClassifierMethodUI('zero_shot');
-            alert('Rule of Law categories loaded (Venice Commission taxonomy):\n\n' +
-                trainingState.categories.filter(c => !isExcludedCategory(c)).join(', ') +
-                '\n\nClick "Classify Current Filter" to run zero-shot classification on your data.');
+            setClassifierMethodUI('tfidf_centroid');
+
+            // Also load pre-labeled samples so users see how labeling works
+            const samples = RULE_OF_LAW_EXAMPLE.examples.map((ex, i) => ({
+                _id: 900000 + i,
+                _text: ex.text,
+                _countries: '',
+                _body: '',
+                _year: '',
+                _type: '',
+                _themes: '',
+                _source: 'Rule of Law example'
+            }));
+            registerRecords(samples);
+            trainingState.samples = samples;
+            trainingState.currentSampleIndex = 0;
+
+            for (let i = 0; i < RULE_OF_LAW_EXAMPLE.examples.length; i++) {
+                const ex = RULE_OF_LAW_EXAMPLE.examples[i];
+                const key = getSampleKey(samples[i]);
+                trainingState.labeledSamples.set(key, [...ex.labels]);
+            }
+
+            updateLabelingUI();
+            updateWorkflowStepper(2);
+            updateLabeledExamplesInfo();
+
+            alert('Rule of Law taxonomy loaded with ' + RULE_OF_LAW_EXAMPLE.examples.length + ' pre-labeled examples.\n\n' +
+                'Browse the samples in Step 2 to see how labeling works, then go to Step 3 to classify or export.');
+        }
+
+        // ========== COMMUNITY TAXONOMY BROWSER ==========
+        const TAXONOMY_REPO_BASE = 'https://raw.githubusercontent.com/lszoszk/uhri-taxonomies/main';
+        const TAXONOMY_REPO_URL = 'https://github.com/lszoszk/uhri-taxonomies';
+        let _communityTaxonomiesLoaded = false;
+
+        async function loadCommunityTaxonomyList() {
+            if (_communityTaxonomiesLoaded) return;
+            const container = document.getElementById('communityTaxonomyList');
+            try {
+                const resp = await fetch(TAXONOMY_REPO_BASE + '/index.json');
+                if (!resp.ok) throw new Error('Failed to fetch taxonomy index');
+                const taxonomies = await resp.json();
+                _communityTaxonomiesLoaded = true;
+
+                if (!taxonomies.length) {
+                    container.innerHTML = '<p style="color:#889; font-size:12px; text-align:center; padding:8px;">No community taxonomies available yet.</p>';
+                    return;
+                }
+
+                container.innerHTML = taxonomies.map(t => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; margin-bottom:6px; background:#fff; border:1px solid #e0e3e8; border-radius:8px; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='#fff'" onclick="loadCommunityTaxonomy('${t.file}')">
+                        <div>
+                            <div style="font-weight:600; font-size:13px; color:#1a3a5c;">${t.name}</div>
+                            <div style="font-size:11px; color:#667; margin-top:2px;">${t.description.slice(0, 100)}${t.description.length > 100 ? '...' : ''}</div>
+                            <div style="font-size:10px; color:#99a; margin-top:3px;">by ${t.author} &middot; ${t.categories} categories &middot; ${t.examples} tagged examples</div>
+                        </div>
+                        <div style="color:#4a90d9; font-size:18px; flex-shrink:0; margin-left:12px;">&#8594;</div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load taxonomy list:', err);
+                container.innerHTML = `
+                    <div style="padding:10px; font-size:12px; color:#556;">
+                        <p>Could not load community taxonomies from GitHub.</p>
+                        <button class="btn btn-secondary" onclick="loadRuleOfLawCategories()" style="padding:6px 14px; font-size:11px; margin-top:4px;">
+                            Load built-in "Rule of Law" taxonomy instead
+                        </button>
+                    </div>`;
+            }
+        }
+
+        async function loadCommunityTaxonomy(file) {
+            try {
+                const resp = await fetch(TAXONOMY_REPO_BASE + '/' + file);
+                if (!resp.ok) throw new Error('Failed to fetch taxonomy');
+                const taxonomy = await resp.json();
+
+                // Load categories
+                trainingState.categories = [...taxonomy.categories];
+                ensureExcludedCategory();
+                renderCategories();
+                setClassifierMethodUI('tfidf_centroid');
+
+                // Load tagged examples as samples
+                if (taxonomy.examples && taxonomy.examples.length > 0) {
+                    const samples = taxonomy.examples.map((ex, i) => ({
+                        _id: 800000 + i,
+                        _text: ex.text,
+                        _countries: '',
+                        _body: '',
+                        _year: '',
+                        _type: '',
+                        _themes: '',
+                        _source: taxonomy.name
+                    }));
+                    registerRecords(samples);
+                    trainingState.samples = samples;
+                    trainingState.currentSampleIndex = 0;
+
+                    for (let i = 0; i < taxonomy.examples.length; i++) {
+                        const ex = taxonomy.examples[i];
+                        const key = getSampleKey(samples[i]);
+                        trainingState.labeledSamples.set(key, [...ex.labels]);
+                    }
+                }
+
+                updateLabelingUI();
+                updateWorkflowStepper(taxonomy.examples?.length ? 2 : 1);
+                updateLabeledExamplesInfo();
+
+                // Close the details
+                document.getElementById('communityTaxonomyDetails').removeAttribute('open');
+
+                alert(`"${taxonomy.name}" loaded with ${taxonomy.categories.length} categories` +
+                    (taxonomy.examples?.length ? ` and ${taxonomy.examples.length} tagged examples.` : '.') +
+                    '\n\nBrowse the samples in Step 2, then go to Step 3 to export or auto-tag.');
+            } catch (err) {
+                alert('Failed to load taxonomy: ' + err.message);
+            }
+        }
+
+        function exportTaxonomyJSON() {
+            const categories = getStatisticsCategories(trainingState.categories);
+            if (categories.length < 1) {
+                alert('Add at least one category first.');
+                return;
+            }
+
+            const examples = collectLabeledExamples();
+            const taxonomy = {
+                id: categories.join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50),
+                name: prompt('Name for this taxonomy:', categories.slice(0, 3).join(', ') + (categories.length > 3 ? '...' : '')) || 'My Taxonomy',
+                author: prompt('Your name or organization:', '') || 'Anonymous',
+                description: prompt('Brief description (what topics does this cover?):', '') || '',
+                license: 'CC BY 4.0',
+                categories: categories,
+                examples: examples.map(ex => ({ text: ex.text, labels: ex.labels }))
+            };
+
+            const blob = new Blob([JSON.stringify(taxonomy, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `taxonomy-${taxonomy.id}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function openTaxonomySubmission() {
+            window.open(TAXONOMY_REPO_URL + '/issues/new?template=new-taxonomy.md&title=' +
+                encodeURIComponent('[Taxonomy] ' + (trainingState.categories.slice(0, 3).join(', '))),
+                '_blank');
         }
 
         function getSampleCountFromUI() {
@@ -10318,6 +10530,45 @@
             const val = parseInt(input?.value, 10);
             if (!val || val < 1) return 20;
             return Math.max(5, Math.min(200, val));
+        }
+
+        function getCategoryCounts() {
+            const counts = {};
+            trainingState.categories.forEach(c => counts[c] = 0);
+            trainingState.labeledSamples.forEach((labels) => {
+                labels.forEach(l => {
+                    if (counts[l] !== undefined) counts[l]++;
+                });
+            });
+            return counts;
+        }
+
+        function getCategorySaturationColor(count) {
+            // 0 = not started, 1-4 = low, 5-9 = medium, 10+ = good
+            if (count === 0) return '';
+            if (count < 5) return 'rgba(255, 152, 0, 0.12)';  // orange tint
+            if (count < 10) return 'rgba(33, 150, 243, 0.12)'; // blue tint
+            return 'rgba(76, 175, 80, 0.12)';                   // green tint
+        }
+
+        function getCategorySaturationBorder(count) {
+            if (count === 0) return '';
+            if (count < 5) return '#ff9800';
+            if (count < 10) return '#2196f3';
+            return '#4caf50';
+        }
+
+        function resetAllSamples() {
+            if (trainingState.labeledSamples.size > 0 &&
+                !confirm('This will remove all ' + trainingState.samples.length + ' samples and ' + trainingState.labeledSamples.size + ' tags. Continue?')) {
+                return;
+            }
+            trainingState.samples = [];
+            trainingState.labeledSamples.clear();
+            trainingState.currentSampleIndex = 0;
+            updateLabelingUI();
+            updateLabeledExamplesInfo();
+            updateWorkflowStepper(1);
         }
 
         async function getRandomSamples() {
@@ -10341,14 +10592,27 @@
                 updateLabelingUI();
                 return;
             }
+            // Collect IDs of already-loaded samples to avoid duplicates
+            const existingIds = new Set(trainingState.samples.map(s => s._id));
             const sampleSize = Math.min(requestedCount, pool.length);
-            const indices = new Set();
-            while (indices.size < sampleSize) {
-                indices.add(Math.floor(Math.random() * pool.length));
+            const candidates = [];
+            const maxAttempts = sampleSize * 10;
+            let attempts = 0;
+            while (candidates.length < sampleSize && attempts < maxAttempts) {
+                const idx = Math.floor(Math.random() * pool.length);
+                const record = pool[idx];
+                if (!existingIds.has(record._id)) {
+                    candidates.push(record);
+                    existingIds.add(record._id);
+                }
+                attempts++;
             }
-            trainingState.samples = [...indices].map(i => pool[i]);
-            trainingState.currentSampleIndex = 0;
+            // Append new samples to existing ones
+            trainingState.samples = trainingState.samples.concat(candidates);
+            trainingState.currentSampleIndex = trainingState.samples.length - candidates.length;
+            registerRecords(candidates);
             updateLabelingUI();
+            updateWorkflowStepper(2);
         }
 
         function prevSample() {
@@ -10420,7 +10684,7 @@
             const sample = getCurrentSample();
 
             if (!sample) {
-                container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Click "New Samples" to load training samples</p>';
+                container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Click "Get Random Records" above to start tagging</p>';
                 document.getElementById('labeledCount').textContent = '0';
                 document.getElementById('totalSamples').textContent = '0';
                 document.getElementById('excludedCount').textContent = '0';
@@ -10458,18 +10722,26 @@
                     }
                     ${isExcluded ? '<div style="font-size:11px;color:#9e3b4a;margin-bottom:10px;">This item is used to train the special <code>excluded</code> category and ignored in statistics.</div>' : ''}
                     <div class="sample-labels">
-                        ${trainingState.categories.length > 0
-                            ? trainingState.categories.map((cat, idx) => `
-                                <button
-                                    type="button"
-                                    class="label-checkbox ${sampleLabels.includes(cat) ? 'checked' : ''}"
+                        ${(() => {
+                            if (!trainingState.categories.length) return '<p style="color: #666; font-size: 12px;">Add categories first (Step 1)</p>';
+                            const counts = getCategoryCounts();
+                            return trainingState.categories.map((cat, idx) => {
+                                const count = counts[cat] || 0;
+                                const isChecked = sampleLabels.includes(cat);
+                                const isExcl = isExcludedCategory(cat);
+                                const satBg = !isChecked && !isExcl ? getCategorySaturationColor(count) : '';
+                                const satBorder = !isChecked && !isExcl ? getCategorySaturationBorder(count) : '';
+                                const badge = !isExcl && count > 0 ? `<span style="font-size:9px;opacity:0.7;margin-left:3px;">(${count})</span>` : '';
+                                const style = satBg ? `background:${satBg};${satBorder ? 'border-color:' + satBorder + ';' : ''}` : '';
+                                return `<button type="button"
+                                    class="label-checkbox ${isChecked ? 'checked' : ''}"
                                     onclick="toggleCurrentSampleLabel(${idx})"
-                                    aria-pressed="${sampleLabels.includes(cat) ? 'true' : 'false'}">
-                                    ${escapeHtml(cat)}
-                                </button>
-                            `).join('')
-                            : '<p style="color: #666; font-size: 12px;">Add categories first (Step 2)</p>'
-                        }
+                                    ${style ? 'style="' + style + '"' : ''}
+                                    aria-pressed="${isChecked ? 'true' : 'false'}">
+                                    ${escapeHtml(cat)}${badge}
+                                </button>`;
+                            }).join('');
+                        })()}
                     </div>
                 </div>
             `;
@@ -10687,46 +10959,165 @@
             return predictions.slice(0, 3).map(p => p.cat);
         }
 
-        function predictLabelsForText(text, model) {
-            const method = model?.method || 'zero_shot';
-            if (method === 'zero_shot') {
-                // Zero-shot is async — this sync function is for trained methods only
-                console.warn('predictLabelsForText called for zero_shot — use predictZeroShotBatch instead');
-                return [];
+        // ========== RANDOM FOREST CLASSIFIER ==========
+        // Pure JS implementation: one-vs-rest binary forests over TF-IDF features.
+
+        function rfBootstrapIndices(n) {
+            const idx = new Array(n);
+            for (let i = 0; i < n; i++) idx[i] = Math.floor(Math.random() * n);
+            return idx;
+        }
+
+        function rfGini(y, indices) {
+            if (!indices.length) return 0;
+            let pos = 0;
+            for (let i = 0; i < indices.length; i++) if (y[indices[i]] === 1) pos++;
+            const p = pos / indices.length;
+            return 1 - p * p - (1 - p) * (1 - p);
+        }
+
+        function rfBuildTree(X, y, indices, nFeatures, maxDepth, minLeaf, depth) {
+            if (depth >= maxDepth || indices.length <= minLeaf) {
+                let pos = 0;
+                for (let i = 0; i < indices.length; i++) if (y[indices[i]] === 1) pos++;
+                return { p: indices.length ? pos / indices.length : 0 };
             }
+            const giniParent = rfGini(y, indices);
+            if (giniParent === 0) {
+                return { p: y[indices[0]] };
+            }
+
+            // Random feature subset: sqrt(nFeatures)
+            const m = Math.max(1, Math.floor(Math.sqrt(nFeatures)));
+            const pool = [];
+            for (let i = 0; i < nFeatures; i++) pool.push(i);
+            const subset = [];
+            for (let i = 0; i < m && pool.length; i++) {
+                const r = Math.floor(Math.random() * pool.length);
+                subset.push(pool[r]);
+                pool[r] = pool[pool.length - 1];
+                pool.pop();
+            }
+
+            let bestF = -1, bestT = 0, bestGain = 0, bestL = null, bestR = null;
+
+            for (const f of subset) {
+                // Collect unique sorted values for this feature
+                const vals = new Set();
+                for (const i of indices) vals.add(X[i][f]);
+                const sorted = [...vals].sort((a, b) => a - b);
+
+                for (let v = 0; v < sorted.length - 1; v++) {
+                    const thresh = (sorted[v] + sorted[v + 1]) / 2;
+                    const left = [], right = [];
+                    for (const i of indices) {
+                        if (X[i][f] <= thresh) left.push(i); else right.push(i);
+                    }
+                    if (left.length < minLeaf || right.length < minLeaf) continue;
+                    const gain = giniParent
+                        - (left.length / indices.length) * rfGini(y, left)
+                        - (right.length / indices.length) * rfGini(y, right);
+                    if (gain > bestGain) {
+                        bestGain = gain; bestF = f; bestT = thresh;
+                        bestL = left; bestR = right;
+                    }
+                }
+            }
+
+            if (bestF === -1) {
+                let pos = 0;
+                for (const i of indices) if (y[i] === 1) pos++;
+                return { p: pos / indices.length };
+            }
+
+            return {
+                f: bestF, t: bestT,
+                l: rfBuildTree(X, y, bestL, nFeatures, maxDepth, minLeaf, depth + 1),
+                r: rfBuildTree(X, y, bestR, nFeatures, maxDepth, minLeaf, depth + 1)
+            };
+        }
+
+        function rfPredictTree(tree, x) {
+            if ('p' in tree && !('f' in tree)) return tree.p;
+            return x[tree.f] <= tree.t ? rfPredictTree(tree.l, x) : rfPredictTree(tree.r, x);
+        }
+
+        function buildRandomForest(vectors, labelsByDoc, categories, idf) {
+            const nTrees = 80;
+            const maxDepth = 10;
+            const minLeaf = 1;
+
+            // Collect all feature terms, rank by variance, keep top 500
+            const allKeys = new Set();
+            vectors.forEach(v => Object.keys(v).forEach(k => allKeys.add(k)));
+            const featureList = [...allKeys];
+            const maxF = Math.min(featureList.length, 500);
+            const variances = featureList.map(f => {
+                let sum = 0, sum2 = 0;
+                for (const v of vectors) { const val = v[f] || 0; sum += val; sum2 += val * val; }
+                const mean = sum / vectors.length;
+                return { f, v: sum2 / vectors.length - mean * mean };
+            });
+            variances.sort((a, b) => b.v - a.v);
+            const features = variances.slice(0, maxF).map(x => x.f);
+
+            // Dense matrix
+            const X = vectors.map(v => features.map(f => v[f] || 0));
+            const n = X.length;
+
+            const forests = {};
+            const statsCategories = getStatisticsCategories(categories);
+            statsCategories.forEach(cat => {
+                const y = labelsByDoc.map(labels => labels.includes(cat) ? 1 : 0);
+                if (!y.some(v => v === 1)) return;
+                const trees = [];
+                for (let t = 0; t < nTrees; t++) {
+                    const idx = rfBootstrapIndices(n);
+                    trees.push(rfBuildTree(X, y, idx, features.length, maxDepth, minLeaf, 0));
+                }
+                forests[cat] = trees;
+            });
+
+            return { forests, features };
+        }
+
+        function predictWithRandomForest(text, model) {
+            const tokenizer = getTokenizerForMethod(model.method);
+            const tokens = tokenizer(text);
+            const tf = {};
+            tokens.forEach(t => { tf[t] = (tf[t] || 0) + 1; });
+            const total = tokens.length || 1;
+            Object.keys(tf).forEach(t => { tf[t] /= total; });
+
+            const features = model.rfFeatures || [];
+            const idf = model.idf || {};
+            const x = features.map(f => (tf[f] || 0) * (idf[f] || 1));
+
+            const predictions = [];
+            Object.entries(model.rfForests || {}).forEach(([cat, trees]) => {
+                let sum = 0;
+                for (const tree of trees) sum += rfPredictTree(tree, x);
+                const prob = sum / trees.length;
+                if (prob >= model.threshold) predictions.push({ cat, score: prob });
+            });
+
+            predictions.sort((a, b) => b.score - a.score);
+            return predictions.slice(0, 3).map(p => p.cat);
+        }
+
+        function predictLabelsForText(text, model) {
+            const method = model?.method || 'tfidf_centroid';
             if (method === 'keyword_overlap') {
                 return predictWithKeywordOverlap(text, model);
+            }
+            if (method === 'random_forest') {
+                return predictWithRandomForest(text, model);
             }
             return predictWithCentroids(text, model);
         }
 
         function predictLabelsForRecord(record) {
             return predictLabelsForText(getClassificationText(record), trainingState.model);
-        }
-
-        async function predictZeroShotBatch(pipe, texts, categories, threshold, onProgress) {
-            const results = [];
-            for (let i = 0; i < texts.length; i++) {
-                const text = texts[i].text || '';
-                if (!text.trim()) {
-                    results.push({ id: texts[i].id, labels: [], scores: {} });
-                    continue;
-                }
-                // Truncate very long texts for speed (600 chars to allow for metadata prefix)
-                const truncated = text.length > 600 ? text.slice(0, 600) : text;
-                const output = await pipe(truncated, categories, { multi_label: true });
-                const labels = [];
-                const scores = {};
-                for (let j = 0; j < output.labels.length; j++) {
-                    scores[output.labels[j]] = output.scores[j];
-                    if (output.scores[j] >= threshold) {
-                        labels.push(output.labels[j]);
-                    }
-                }
-                results.push({ id: texts[i].id, labels, scores });
-                if (onProgress) onProgress(i + 1, texts.length);
-            }
-            return results;
         }
 
         function getThresholdFromUI() {
@@ -10898,26 +11289,50 @@
             }
 
             box.classList.remove('hidden');
+
+            // Compute an overall quality score (average of micro F1 and exact match)
+            const overallPct = ((benchmark.microF1 + benchmark.exactMatch) / 2 * 100).toFixed(0);
+            const qualityWord = overallPct >= 70 ? 'Good' : overallPct >= 50 ? 'Fair' : 'Low';
+            const qualityColor = overallPct >= 70 ? '#2e7d32' : overallPct >= 50 ? '#e65100' : '#c62828';
+
             grid.innerHTML = `
-                <div class="benchmark-item"><div class="benchmark-value">${benchmark.trainSize}</div><div class="benchmark-label">Train Items</div></div>
-                <div class="benchmark-item"><div class="benchmark-value">${benchmark.testSize}</div><div class="benchmark-label">Test Items</div></div>
-                <div class="benchmark-item"><div class="benchmark-value">${(benchmark.microPrecision * 100).toFixed(1)}%</div><div class="benchmark-label">Micro Precision</div></div>
-                <div class="benchmark-item"><div class="benchmark-value">${(benchmark.microRecall * 100).toFixed(1)}%</div><div class="benchmark-label">Micro Recall</div></div>
-                <div class="benchmark-item"><div class="benchmark-value">${(benchmark.microF1 * 100).toFixed(1)}%</div><div class="benchmark-label">Micro F1</div></div>
-                <div class="benchmark-item"><div class="benchmark-value">${(benchmark.macroF1 * 100).toFixed(1)}%</div><div class="benchmark-label">Macro F1</div></div>
-                <div class="benchmark-item"><div class="benchmark-value">${(benchmark.exactMatch * 100).toFixed(1)}%</div><div class="benchmark-label">Exact Match</div></div>
-                <div class="benchmark-item"><div class="benchmark-value">${(benchmark.avgJaccard * 100).toFixed(1)}%</div><div class="benchmark-label">Avg Jaccard</div></div>
+                <div style="grid-column: 1 / -1; text-align:center; margin-bottom:6px;">
+                    <div style="font-size:22px; font-weight:700; color:${qualityColor};">${overallPct}% — ${qualityWord}</div>
+                    <div style="font-size:11px; color:#667;">Overall quality (higher = better). Tag more records to improve.</div>
+                </div>
+                <div class="benchmark-item" title="How many of the auto-assigned tags were correct?">
+                    <div class="benchmark-value">${(benchmark.microPrecision * 100).toFixed(1)}%</div>
+                    <div class="benchmark-label">Precision</div>
+                    <div style="font-size:9px; color:#889; margin-top:2px;">Tags that were correct</div>
+                </div>
+                <div class="benchmark-item" title="How many tags that should have been assigned were actually found?">
+                    <div class="benchmark-value">${(benchmark.microRecall * 100).toFixed(1)}%</div>
+                    <div class="benchmark-label">Recall</div>
+                    <div style="font-size:9px; color:#889; margin-top:2px;">Tags that were found</div>
+                </div>
+                <div class="benchmark-item" title="Balance between precision and recall — the main quality measure">
+                    <div class="benchmark-value">${(benchmark.microF1 * 100).toFixed(1)}%</div>
+                    <div class="benchmark-label">F1 Score</div>
+                    <div style="font-size:9px; color:#889; margin-top:2px;">Overall balance</div>
+                </div>
+                <div class="benchmark-item" title="How often did the tool get ALL tags exactly right for a record?">
+                    <div class="benchmark-value">${(benchmark.exactMatch * 100).toFixed(1)}%</div>
+                    <div class="benchmark-label">Exact Match</div>
+                    <div style="font-size:9px; color:#889; margin-top:2px;">All tags correct</div>
+                </div>
+                <div style="grid-column: 1 / -1; font-size:11px; color:#778; margin-top:4px; line-height:1.5;">
+                    Tested on <strong>${benchmark.testSize}</strong> records (held out from your ${benchmark.trainSize + benchmark.testSize} tagged examples).
+                    <strong>Precision</strong> = "of tags assigned, how many were right?"
+                    <strong>Recall</strong> = "of tags that should exist, how many were found?"
+                </div>
             `;
             const threshold = trainingState.model?.threshold;
-            const thresholdNote = Number.isFinite(threshold) ? ` Threshold: ${threshold.toFixed(2)}.` : '';
-            const method = trainingState.model?.method || trainingState.method || 'tfidf_centroid';
-            const methodLabel = classifierMethodMeta[method]?.label || method;
-            const excludedInCurrentSample = trainingState.samples.filter(s => isSampleExcluded(s)).length;
-            note.textContent = `Benchmark uses a deterministic hold-out split from labeled samples. The "excluded" label is ignored in metrics. Method: ${methodLabel}.${thresholdNote} Excluded-labeled in current sample set: ${excludedInCurrentSample}.`;
+            const thresholdNote = Number.isFinite(threshold) ? ` Sensitivity: ${threshold.toFixed(2)}.` : '';
+            note.textContent = `${thresholdNote}`;
         }
 
         async function refreshBenchmarkForCurrentModel() {
-            if (!trainingState.model || trainingState.model.method === 'zero_shot') {
+            if (!trainingState.model || trainingState.model.method === 'tfidf_centroid') {
                 renderBenchmark(null);
                 return;
             }
@@ -10944,11 +11359,6 @@
             const method = getClassifierMethodFromUI();
             trainingState.method = method;
             ensureExcludedCategory();
-
-            if (method === 'zero_shot') {
-                alert('Zero-shot classification does not require training. Click "Classify Current Filter" instead.');
-                return;
-            }
 
             if (getStatisticsCategories(trainingState.categories).length < 1) {
                 alert('Please add at least 1 category besides "excluded"');
@@ -10995,6 +11405,22 @@
                         throw new Error('No keyword profiles could be built. Label more diverse samples.');
                     }
                     model.keywordProfiles = keywordProfiles;
+                } else if (method === 'random_forest') {
+                    setTrainingProgress(30, 'Computing TF-IDF features...');
+                    await delay(80);
+                    const { vectors, idf, vocabulary } = computeTfIdf(trainingDocs);
+                    model.idf = idf;
+                    trainingState.idf = idf;
+                    trainingState.vocabulary = vocabulary;
+
+                    setTrainingProgress(55, 'Training Random Forest (80 trees)...');
+                    await delay(80);
+                    const rf = buildRandomForest(vectors, trainingLabels, trainingState.categories, idf);
+                    if (!Object.keys(rf.forests).length) {
+                        throw new Error('No forest could be built. Label more samples for your categories.');
+                    }
+                    model.rfForests = rf.forests;
+                    model.rfFeatures = rf.features;
                 } else {
                     const tokenizer = getTokenizerForMethod(method);
                     setTrainingProgress(42, method === 'char_ngram_centroid' ? 'Computing character n-gram TF-IDF...' : 'Computing TF-IDF...');
@@ -11041,242 +11467,68 @@
             }
         }
 
-        // ========== ZERO-SHOT CLASSIFICATION ==========
+        // ========== CLASSIFICATION ==========
 
         function updateClassifyScopeInfo() {
-            const el = document.getElementById('classifyScopeText');
+            const el = document.getElementById('classifyScopeInfo');
             if (!el) return;
             const data = rawData.length ? rawData : filteredData;
             const totalDataset = serverBrowseMode ? Number(serverState.summary?.total_records || serverState.totalRecords || 0) : data.length;
             const filtered = filteredData.length || totalDataset;
             const isFiltered = filtered < totalDataset;
-            const classifiable = Math.min(filtered, ZERO_SHOT_HARD_CAP);
             el.innerHTML =
-                `<strong>Dataset:</strong> ${totalDataset.toLocaleString()} total records` +
-                (isFiltered ? ` — <strong>current filter: ${filtered.toLocaleString()} records</strong>` : '') +
-                `<br><strong>Will classify:</strong> ${classifiable.toLocaleString()} records` +
-                (filtered > ZERO_SHOT_HARD_CAP
-                    ? ` <span style="color:#b8860b;">(max ${ZERO_SHOT_HARD_CAP.toLocaleString()} — narrow filters for full coverage)</span>`
-                    : '') +
-                (_deviceBenchmark
-                    ? `<br><strong>Your device:</strong> ${_deviceBenchmark.msPerRecord}ms/record (${_deviceBenchmark.device}) — estimated ${formatDuration(_deviceBenchmark.msPerRecord * classifiable)}`
-                    : '');
+                `<strong>Dataset:</strong> ${totalDataset.toLocaleString()} records` +
+                (isFiltered ? ` — <strong>current filter: ${filtered.toLocaleString()}</strong>` : '') +
+                `. Will classify all filtered records using your labeled examples.`;
         }
 
-        async function applyZeroShot() {
-            const categories = getStatisticsCategories(trainingState.categories);
-            if (categories.length < 1) {
-                alert('Please add at least 1 category before classifying.');
+        function updateLabeledExamplesInfo() {
+            const el = document.getElementById('labeledExamplesCount');
+            if (!el) return;
+            const examples = collectLabeledExamples();
+            el.textContent = examples.length;
+
+            // Show per-category breakdown with saturation indicators
+            const scopeEl = document.getElementById('classifyScopeText');
+            if (scopeEl && examples.length > 0) {
+                const counts = getCategoryCounts();
+                const cats = getStatisticsCategories(trainingState.categories);
+                const parts = cats.map(c => {
+                    const n = counts[c] || 0;
+                    const color = n >= 10 ? '#4caf50' : n >= 5 ? '#2196f3' : n > 0 ? '#ff9800' : '#ccc';
+                    const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:3px;vertical-align:middle;"></span>`;
+                    return `${dot}${c}: ${n}`;
+                });
+                scopeEl.innerHTML = '<br><span style="font-size:11px;">' + parts.join(' &middot; ') + '</span>' +
+                    '<br><span style="font-size:10px;color:#889;">10+ = good coverage</span>';
+            }
+        }
+
+        async function trainAndApplyTfidf() {
+            const examples = collectLabeledExamples();
+            if (examples.length < 3) {
+                alert('Label at least 3 records in Step 2 before classifying. Go to Step 2, click "Load Samples", and assign labels.');
                 return;
             }
-
-            const data = rawData.length ? rawData : filteredData;
-            if (!data.length) {
-                alert('No data loaded. Please load a dataset first.');
-                return;
-            }
-
-            // Determine records to classify
-            const records = filteredData.length ? filteredData : data;
-            const total = records.length;
-
-            if (total > ZERO_SHOT_HARD_CAP) {
-                const proceed = confirm(
-                    `Your current filter has ${total.toLocaleString()} records, which exceeds the maximum of ${ZERO_SHOT_HARD_CAP.toLocaleString()} for in-browser classification.\n\n` +
-                    `Only the first ${ZERO_SHOT_HARD_CAP.toLocaleString()} records will be classified. Narrow your filters for full coverage.\n\nProceed?`
-                );
-                if (!proceed) return;
-            }
-
-            const applyBtn = document.getElementById('applyBtn');
-            const applyCurrentBtn = document.getElementById('applyCurrentBtn');
-            applyBtn.disabled = true;
-            applyCurrentBtn.disabled = true;
-            applyBtn.innerHTML = '<span class="spinner-small"></span> Loading model...';
-            document.getElementById('hybridRefineBox')?.classList.add('hidden');
-
-            document.getElementById('trainingProgress').classList.remove('hidden');
-            setTrainingProgress(5, 'Loading AI model (~70 MB). First load takes 3-5 minutes (compiled & cached for instant future use)...');
-
-            try {
-                // ── Load model with progress ──
-                let _dlFiles = {}, _dlDone = false, _initStartTime = null;
-                const pipePromise = loadZeroShotPipeline((progress) => {
-                    if (progress.status === 'progress' && progress.file) {
-                        _dlFiles[progress.file] = progress.progress || 0;
-                        const files = Object.values(_dlFiles);
-                        const avgPct = Math.round(files.reduce((a, b) => a + b, 0) / Math.max(files.length, 1));
-                        setTrainingProgress(Math.min(5 + avgPct * 0.15, 20), `Downloading model files... ${avgPct}%`);
-                    } else if (progress.status === 'done') {
-                        _dlDone = true;
-                        _initStartTime = performance.now();
-                        setTrainingProgress(20, 'Download complete — initializing model...');
-                    } else if (progress.status === 'initiate') {
-                        setTrainingProgress(Math.min(8, 20), `Preparing ${progress.file || 'model'}...`);
-                    }
-                });
-                // Animate progress and show elapsed time during model init (can take 3-5 min on first load)
-                const initInterval = setInterval(() => {
-                    if (_dlDone && _initStartTime) {
-                        const el = document.getElementById('trainingProgressFill');
-                        const current = el ? parseFloat(el.style.width) || 20 : 20;
-                        const elapsedSec = Math.round((performance.now() - _initStartTime) / 1000);
-                        const mins = Math.floor(elapsedSec / 60);
-                        const secs = elapsedSec % 60;
-                        const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-                        let msg;
-                        if (elapsedSec < 10) {
-                            msg = `Initializing AI model... (${timeStr})`;
-                        } else if (elapsedSec < 60) {
-                            msg = `Compiling model for your browser... (${timeStr}) — first load takes 3-5 minutes, then it's cached`;
-                        } else if (elapsedSec < 180) {
-                            msg = `Still compiling... (${timeStr}) — this is normal! The model is being optimized for your device. Next time it will load in seconds.`;
-                        } else {
-                            msg = `Almost there... (${timeStr}) — the model is large (~70 MB) and needs one-time compilation. Please don't close this tab.`;
-                        }
-                        // Slowly animate from 20% to 28% over ~5 minutes
-                        const targetPct = Math.min(20 + (elapsedSec / 300) * 8, 28);
-                        setTrainingProgress(Math.max(current, targetPct), msg);
-                    }
-                }, 1000);
-                const pipe = await pipePromise;
-                clearInterval(initInterval);
-                const backendUsed = pipe.model?.device || (navigator.gpu ? 'WebGPU' : 'WASM/CPU');
-                setTrainingProgress(28, `Model ready (${backendUsed}).`);
-
-                // ── Test on 10 real examples to benchmark ──
-                setTrainingProgress(30, 'Testing on 10 sample records to estimate speed...');
-                const sampleSize = Math.min(10, records.length);
-                const sampleIndices = [];
-                const step = Math.max(1, Math.floor(records.length / sampleSize));
-                for (let i = 0; i < sampleSize; i++) sampleIndices.push(Math.min(i * step, records.length - 1));
-                const sampleTexts = sampleIndices.map(idx => ({
-                    id: getRecordStableKey(records[idx]) || records[idx]._id,
-                    text: getClassificationText(records[idx]).slice(0, 600)
-                }));
-
-                const benchStart = performance.now();
-                await predictZeroShotBatch(pipe, sampleTexts, categories, 0.5, (done, t) => {
-                    setTrainingProgress(30 + Math.round((done / t) * 5), `Testing ${done}/${t} sample records...`);
-                });
-                const benchElapsed = performance.now() - benchStart;
-                const msPerRecord = Math.round(benchElapsed / sampleSize);
-                const catScale = 1; // already tested with real categories
-
-                const maxTime = 600000; // 10 minutes
-                const maxRecommended = Math.min(ZERO_SHOT_HARD_CAP, Math.max(50, Math.floor(maxTime / msPerRecord)));
-                const actualDevice = _zeroShotPipeline?.device || (navigator.gpu ? 'WebGPU' : 'CPU/WASM');
-                _deviceBenchmark = { msPerRecord, maxRecommended, device: actualDevice };
-
-                const classifyCount = Math.min(total, ZERO_SHOT_HARD_CAP);
-                updateClassifyScopeInfo();
-                updateDeviceBenchmarkUI(_deviceBenchmark, classifyCount);
-
-                if (classifyCount > maxRecommended) {
-                    const estimatedMs = msPerRecord * classifyCount;
-                    const proceed = confirm(
-                        `Based on 10 test records, your device processes ~${msPerRecord}ms per record.\n` +
-                        `Classifying ${classifyCount.toLocaleString()} records will take ${formatDuration(estimatedMs)}.\n\n` +
-                        `Recommended maximum for smooth experience: ${maxRecommended.toLocaleString()} records.\n\n` +
-                        `Proceed anyway?`
-                    );
-                    if (!proceed) {
-                        applyBtn.disabled = false;
-                        applyCurrentBtn.disabled = false;
-                        applyBtn.innerHTML = '✨ Classify Current Filter';
-                        document.getElementById('trainingProgress').classList.add('hidden');
-                        return;
-                    }
-                }
-
-                // ── Classify all records ──
+            setClassifierMethodUI(getClassifierMethodFromUI() || 'tfidf_centroid');
+            trainingState.method = getClassifierMethodFromUI();
+            await trainModel();
+            if (trainingState.model) {
+                await applyPredictions();
+                // Show results
+                const data = filteredData.length ? filteredData : rawData;
+                const classified = data.filter(r => r._predictedLabels && r._predictedLabels.length > 0).length;
+                const categories = getStatisticsCategories(trainingState.categories);
                 const threshold = getThresholdFromUI();
-                const toClassify = records.slice(0, ZERO_SHOT_HARD_CAP);
-                const startTime = performance.now();
-
-                setTrainingProgress(35, `Classifying 0 / ${classifyCount.toLocaleString()}...`);
-
-                const batchTexts = toClassify.map(r => ({
-                    id: getRecordStableKey(r) || r._id,
-                    text: getClassificationText(r)
-                }));
-
-                const predictions = await predictZeroShotBatch(pipe, batchTexts, categories, threshold, (done, totalItems) => {
-                    const pct = 35 + Math.round((done / totalItems) * 60);
-                    const elapsed = performance.now() - startTime;
-                    const avgMs = elapsed / done;
-                    const remaining = (totalItems - done) * avgMs;
-                    setTrainingProgress(pct, `Classifying ${done.toLocaleString()} / ${totalItems.toLocaleString()}... (${formatDuration(remaining)} remaining)`);
-                });
-
-                // Apply predictions to records
-                const predMap = new Map(predictions.map(p => [String(p.id), p.labels]));
-                toClassify.forEach(record => {
-                    record._predictedLabels = predMap.get(String(getRecordStableKey(record) || record._id)) || [];
-                });
-
-                // Update filtered data
-                filteredData = filteredData.map(fd => {
-                    const original = recordMap.get(String(fd._id)) || recordMap.get(getSampleKey(fd));
-                    return original ? { ...fd, _predictedLabels: original._predictedLabels } : fd;
-                });
-
-                // Store model reference
-                trainingState.model = {
-                    method: 'zero_shot',
-                    engine: 'zero_shot',
-                    categories: [...trainingState.categories],
-                    threshold
-                };
-
-                const elapsed = performance.now() - startTime;
-                const classifiedCount = predictions.filter(p => p.labels.length > 0).length;
-                setTrainingProgress(100, `Done! ${classifiedCount.toLocaleString()} of ${classifyCount.toLocaleString()} records classified (${formatDuration(elapsed)})`);
-
-                // Show summary
-                const grid = document.getElementById('benchmarkGrid');
-                const box = document.getElementById('benchmarkBox');
-                if (grid && box) {
-                    const catCounts = {};
-                    categories.forEach(c => catCounts[c] = 0);
-                    predictions.forEach(p => p.labels.forEach(l => { if (catCounts[l] !== undefined) catCounts[l]++; }));
-                    grid.innerHTML = Object.entries(catCounts)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([cat, count]) => `<div class="benchmark-cell"><div class="benchmark-value">${count.toLocaleString()}</div><div class="benchmark-label">${escapeHtml(cat)}</div></div>`)
-                        .join('');
-                    const note = document.getElementById('benchmarkNote');
-                    if (note) note.textContent = `${classifiedCount.toLocaleString()} records matched at least one category (threshold: ${threshold.toFixed(2)})`;
-                    box.classList.remove('hidden');
+                const resultsBox = document.getElementById('classifyResultsBox');
+                if (resultsBox) {
+                    const pct = data.length > 0 ? Math.round((classified / data.length) * 100) : 0;
+                    document.getElementById('classifyResultsSummary').innerHTML =
+                        `<strong>${classified.toLocaleString()}</strong> of ${data.length.toLocaleString()} records labeled (${pct}% coverage).`;
+                    resultsBox.classList.remove('hidden');
                 }
-
-                // Show hybrid refine option
-                const hybridBox = document.getElementById('hybridRefineBox');
-                if (hybridBox) {
-                    hybridBox.classList.remove('hidden');
-                    const hint = document.getElementById('hybridRetrainHint');
-                    if (hint) hint.textContent = 'Review & correct labels in Step 3 first, then retrain for better accuracy.';
-                }
-
-                // Release model to free memory (~200-400 MB WASM heap)
-                releaseZeroShotPipeline();
-
-                updateAllCharts();
-                buildDataTable();
-                applyCurrentBtn.disabled = false;
-                updateClassifyScopeInfo();
-
-                setTimeout(() => {
-                    document.getElementById('trainingProgress').classList.add('hidden');
-                }, 3000);
-
-            } catch (err) {
-                console.error('Zero-shot classification error:', err);
-                releaseZeroShotPipeline();
-                alert('Classification failed: ' + err.message);
-            } finally {
-                applyBtn.disabled = false;
-                applyBtn.innerHTML = '✨ Classify Current Filter';
-                updateTaskTypeUI();
+                updateWorkflowStepper(3);
+                updateLabeledExamplesInfo();
             }
         }
 
@@ -11287,13 +11539,13 @@
         }
 
         async function hybridRetrainTfidf() {
-            // Collect all labeled examples (from manual review + zero-shot predictions)
+            // Collect all labeled examples (from manual labeling)
             const labeledExamples = collectLabeledExamples();
             if (labeledExamples.length < 5) {
                 alert(
                     'Not enough labeled examples to retrain.\n\n' +
-                    'Go to Step 3 "Label & Review Samples", click "Load Samples", ' +
-                    'review/correct the zero-shot labels on at least 5 records, then try again.'
+                    'Go to Step 2 "Label Samples", click "Load Samples", ' +
+                    'label at least 5 records, then try again.'
                 );
                 return;
             }
@@ -11306,7 +11558,7 @@
             // After training, offer to re-apply
             if (trainingState.model && trainingState.model.engine === 'local') {
                 const hint = document.getElementById('hybridRetrainHint');
-                if (hint) hint.textContent = `TF-IDF model trained on ${labeledExamples.length} examples. Use "Classify Current Filter" to re-classify with the improved model.`;
+                if (hint) hint.textContent = `TF-IDF model trained on ${labeledExamples.length} examples. Use "Auto-Classify" to re-classify with the improved model.`;
             }
         }
 
@@ -11369,10 +11621,6 @@
                 return;
             }
 
-            if (trainingState.model.method === 'zero_shot') {
-                return applyZeroShot();
-            }
-
             const applyBtn = document.getElementById('applyBtn');
             const applyCurrentBtn = document.getElementById('applyCurrentBtn');
             applyBtn.disabled = true;
@@ -11418,7 +11666,7 @@
             } finally {
                 applyBtn.disabled = false;
                 applyCurrentBtn.disabled = false;
-                applyBtn.innerHTML = '✨ Classify Current Filter';
+                applyBtn.innerHTML = '🏷️ Auto-Classify Current Filter';
                 updateTaskTypeUI();
             }
         }
@@ -11435,7 +11683,7 @@
                     return;
                 }
 
-                // For zero-shot, pick a random record from filtered data if no training samples
+                // Pick a random record from filtered data if no training samples
                 let record;
                 if (trainingState.samples.length > 0) {
                     const sample = trainingState.samples[trainingState.currentSampleIndex];
@@ -11450,22 +11698,11 @@
                 const method = getClassifierMethodFromUI();
                 const threshold = getThresholdFromUI();
 
-                if (method === 'zero_shot') {
-                    const btn = document.getElementById('applyCurrentBtn');
-                    btn.disabled = true;
-                    btn.innerHTML = '<span class="spinner-small"></span>';
-                    try {
-                        const pipe = await loadZeroShotPipeline();
-                        const results = await predictZeroShotBatch(pipe, [{ id: record._id, text: getClassificationText(record) }], categories, threshold);
-                        record._predictedLabels = results[0]?.labels || [];
-                    } finally {
-                        btn.disabled = false;
-                        btn.innerHTML = '🎯 Test on 1 Record';
-                    }
-                } else {
-                    if (!trainingState.model) { alert('Train a model first (or switch to zero-shot)'); return; }
-                    record._predictedLabels = predictLabelsForRecord(record);
+                if (!trainingState.model) {
+                    alert('Train a model first. Go to Step 3, click "Train & classify all".');
+                    return;
                 }
+                record._predictedLabels = predictLabelsForRecord(record);
 
                 // Show result in alert
                 const labels = record._predictedLabels;
@@ -11495,8 +11732,8 @@
                 return;
             }
 
-            if (trainingState.model.method === 'zero_shot') {
-                alert('Zero-shot models don\'t need saving — they run on-the-fly from your categories. Your categories are preserved in the training pane.');
+            if (!trainingState.model.engine || trainingState.model.engine !== 'local') {
+                alert('This model type cannot be saved. Only TF-IDF models trained on labeled examples can be saved.');
                 return;
             }
 
@@ -11587,7 +11824,7 @@
             renderBenchmark(trainingState.benchmark);
             document.getElementById('applyCurrentBtn').disabled = false;
             updateModelStorageControls();
-            alert('Model loaded! Click "Classify Current Filter" to run predictions.');
+            alert('Model loaded! Go to Step 3 to auto-classify or export your data.');
         }
 
         function deleteModel(modelId) {
