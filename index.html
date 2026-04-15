@@ -2639,30 +2639,29 @@
             </div>
         </div>
 
-        <div class="loading hidden" id="loadingIndicator">
-            <div class="spinner"></div>
-            <span id="loadingText">Processing your data...</span>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-        </div>
-
         <div class="data-info hidden" id="dataInfo">
             <span id="dataStatusIndicator" style="display:inline-flex; align-items:center; gap:5px; font-weight:600; font-size:12px;">
-                <span id="dataStatusDot" style="width:8px; height:8px; border-radius:50%; background:#4caf50;"></span>
-                <span id="dataStatusText">Ready</span>
+                <span id="dataStatusDot" style="width:8px; height:8px; border-radius:50%; background:#ff9800;"></span>
+                <span id="dataStatusText">Connecting...</span>
             </span>
             <span class="data-info-sep">·</span>
-            <span id="infoDatasetCutoff" style="font-size:12px; color:#546071;">-</span>
+            <span id="infoDatasetCutoff" style="font-size:12px; color:#546071;"></span>
             <span class="data-info-sep">·</span>
-            <span style="font-size:11px; color:#8899aa; cursor:help;" title="Dataset is automatically updated on the 1st of each month via the OHCHR Universal Human Rights Index API.">Updated monthly from UHRI</span>
-            <!-- hidden fields kept for JS compatibility -->
+            <span style="font-size:11px; color:#8899aa;">Updated monthly from <a href="https://uhri.ohchr.org/en" target="_blank" rel="noopener" style="color:#4a90d9; text-decoration:none;" title="OHCHR Universal Human Rights Index — the official UN database of human rights recommendations">OHCHR (UHRI)</a></span>
             <span id="infoFileName" style="display:none;"></span>
             <span id="infoFormat" style="display:none;"></span>
             <span id="infoRecords" style="display:none;"></span>
             <span id="infoDatasetCutoffWrap" style="display:none;"></span>
             <span id="infoDatasetCutoffLabel" style="display:none;"></span>
             <span id="infoUpdateNotice" style="display:none;"></span>
+        </div>
+
+        <div class="loading hidden" id="loadingIndicator">
+            <div class="spinner"></div>
+            <span id="loadingText">Processing your data...</span>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
         </div>
 
         <div class="server-mode-banner hidden" id="serverModeBanner">
@@ -5915,9 +5914,13 @@
             const _vmTotal = Number(summary.total_records || 0);
             const _vmSearchTerm = (document.getElementById('filterText')?.value || '').trim();
             if (_vmTotal === 0) {
-                document.getElementById('filterCount').innerHTML = `<span style="color:#c62828;">0 hits</span> — try different terms`;
+                document.getElementById('filterCount').innerHTML = _vmSearchTerm
+                    ? `<span style="color:#c62828;">0 hits</span> for '${escapeHtml(_vmSearchTerm.length > 20 ? _vmSearchTerm.slice(0,18) + '…' : _vmSearchTerm)}'`
+                    : `<span style="color:#c62828;">0 hits</span>`;
             } else {
-                document.getElementById('filterCount').textContent = `${_vmTotal.toLocaleString()} hits`;
+                document.getElementById('filterCount').innerHTML = _vmSearchTerm
+                    ? `${_vmTotal.toLocaleString()} hits for <em>'${escapeHtml(_vmSearchTerm.length > 20 ? _vmSearchTerm.slice(0,18) + '…' : _vmSearchTerm)}'</em>`
+                    : `${_vmTotal.toLocaleString()} hits`;
             }
             document.getElementById('kpiTotal').textContent = Number(summary.total_records || 0).toLocaleString();
             document.getElementById('kpiCountries').textContent = Number(summary.countries_count || 0).toLocaleString();
@@ -6073,8 +6076,8 @@
             } catch (err) {
                 console.error('Server browse load failed:', err);
                 setVmLoadingNotice(false);
+                _setDataStatus('error', 'Server unreachable');
                 if (background) {
-                    // Let the caller (loadOverviewBootstrapThenServerBrowse) handle fallback
                     throw err;
                 } else if (showErrors) {
                     alert('Failed to browse the VM dataset.\n\n' + (err?.message || err));
@@ -6102,7 +6105,8 @@
                 document.getElementById('loadingIndicator').classList.remove('hidden');
                 uploadSection.classList.add('hidden');
                 setProgress(8, 'Connecting to VM browse API...');
-                _setDataStatus('connecting', 'Connecting...');
+                document.getElementById('dataInfo').classList.remove('hidden');
+                _setDataStatus('connecting', 'Connecting — please wait...');
                 setVmLoadingNotice(true, 'Connecting to the VM and loading data. Please wait until this notice disappears before using all tabs.');
             } else if (bootstrapAnalyticsReady) {
                 setStatusBanner({
@@ -7685,9 +7689,13 @@
             if (filteredData.length === rawData.length) {
                 filterCountEl.textContent = `${rawData.length.toLocaleString()} records`;
             } else if (filteredData.length === 0) {
-                filterCountEl.innerHTML = `<span style="color:#c62828;">0 hits</span>`;
+                filterCountEl.innerHTML = searchTerm
+                    ? `<span style="color:#c62828;">0 hits</span> for '${escapeHtml(searchTerm.length > 20 ? searchTerm.slice(0,18) + '…' : searchTerm)}'`
+                    : `<span style="color:#c62828;">0 hits</span>`;
             } else {
-                filterCountEl.textContent = `${filteredData.length.toLocaleString()} hits`;
+                filterCountEl.innerHTML = searchTerm
+                    ? `${filteredData.length.toLocaleString()} hits for <em>'${escapeHtml(searchTerm.length > 20 ? searchTerm.slice(0,18) + '…' : searchTerm)}'</em>`
+                    : `${filteredData.length.toLocaleString()} hits`;
             }
 
             if (!hasData) {
