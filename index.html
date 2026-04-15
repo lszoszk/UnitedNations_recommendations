@@ -4348,8 +4348,8 @@
             const parsed = new Date(raw);
             if (!Number.isNaN(parsed.getTime())) {
                 return includeTime
-                    ? parsed.toLocaleString()
-                    : parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                    ? parsed.toLocaleString('en-GB')
+                    : parsed.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
             }
             return raw;
         }
@@ -11620,11 +11620,11 @@
 
             list.innerHTML = combined.map(m => {
                 const createdAt = m.createdAt ? new Date(m.createdAt) : null;
-                const createdLabel = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleDateString() : 'n/a';
+                const createdLabel = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleDateString('en-GB') : 'n/a';
                 const methodLabel = classifierMethodMeta[m.method || 'tfidf_centroid']?.label || (m.method || 'tfidf_centroid');
                 const originLabel = m._origin === 'setfit_session' ? 'temporary on VM' : 'saved in browser';
                 const expiryLabel = m._origin === 'setfit_session' && m.backendMeta?.expires_at
-                    ? ` • expires ${new Date(m.backendMeta.expires_at).toLocaleString()}`
+                    ? ` • expires ${new Date(m.backendMeta.expires_at).toLocaleString('en-GB')}`
                     : '';
                 return `
                     <div class="model-item">
