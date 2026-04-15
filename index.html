@@ -1588,6 +1588,8 @@
             padding: 8px 20px; cursor: pointer; font-size: 13px; font-weight: 600;
         }
         .drilldown-more button:hover { background: var(--secondary); }
+        .drilldown-expand-link { color: #4a6fa5; text-decoration: none; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .drilldown-expand-link:hover { text-decoration: underline; }
         .inline-btn {
             margin-left: 6px;
             border: 1px solid #c7d5ef;
@@ -2493,6 +2495,13 @@
             ⚠️ <strong>Large Dataset Mode:</strong> For performance, charts analyze <span id="sampleSize">50,000</span> sampled records. Statistics and exports use the full dataset.
         </div>
 
+        <div class="hidden" id="veniceCommissionNotice" style="background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%); border: 1px solid #c4d4f0; border-radius: 10px; padding: 16px 20px; margin: 8px 0 4px; font-size: 13px; line-height: 1.6; color: #2c3e5a;">
+            <strong style="color: #1a3a5c;">📋 Rule of Law Taxonomy</strong><br>
+            This dataset uses a classification taxonomy developed by the <strong>Venice Commission</strong> (European Commission for Democracy through Law) in the
+            <a href="https://www.venice.coe.int/webforms/documents/default.aspx?pdffile=CDL-AD(2025)002-e" target="_blank" rel="noopener" style="color:#4a6fa5; text-decoration:underline;">Updated Rule of Law Checklist (CDL-AD(2025)002)</a>.
+            The checklist identifies core elements of the rule of law — legality, legal certainty, prevention of abuse of power, equality and non-discrimination, and access to justice — as a framework for assessing compliance with rule of law standards. Here, this taxonomy is applied to classify UN human rights recommendations sourced from the <a href="https://uhri.ohchr.org" target="_blank" rel="noopener" style="color:#4a6fa5; text-decoration:underline;">Universal Human Rights Index</a>.
+        </div>
+
         <div class="filters-section" id="filtersSection">
             <div class="filters-header">
                 <h3>🔍 Filters</h3>
@@ -2836,6 +2845,24 @@
 
         <!-- Labels Tab -->
         <div class="charts-section" id="tab-labels">
+            <div id="labelsEmptyState" class="hidden" style="text-align:center; padding: 60px 24px; max-width: 560px; margin: 0 auto;">
+                <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.6;">🏷️</div>
+                <h3 style="color: #1a3a5c; margin: 0 0 12px;">No Labels Yet</h3>
+                <p style="color: #526783; font-size: 14px; line-height: 1.6; margin: 0 0 20px;">
+                    This tab shows analytics for records that have been classified with labels.
+                    Labels appear here after you <strong>train a classifier</strong> and apply it to your dataset.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                    <button class="btn btn-purple" onclick="openTrainingPane()" style="padding: 10px 24px; font-size: 13px;">
+                        Open Trainer to Get Started
+                    </button>
+                    <span style="color: #8899aa; font-size: 12px;">or try a ready-made example:</span>
+                    <button class="btn btn-primary" onclick="openTrainingPane(); setTimeout(loadRuleOfLawExample, 300);" style="padding: 8px 20px; font-size: 12px;">
+                        Load "Rule of Law" Example (30 labeled samples, 7 categories)
+                    </button>
+                </div>
+            </div>
+            <div id="labelsChartsContent">
             <div class="chart-row">
                 <div class="chart-card">
                     <h3>Assigned Label Statistics (Current Filter)</h3>
@@ -2894,6 +2921,7 @@
                     <div class="chart-container tall"><canvas id="chartLabelBodyScatter"></canvas></div>
                 </div>
             </div>
+            </div><!-- /labelsChartsContent -->
         </div>
 
     </div>
@@ -4674,17 +4702,24 @@
                 return;
             }
             if (tabName === 'labels') {
-                updateLabelCoverageChart();
-                updateLabelDistributionChart();
-                updateLabelTrendsChart();
-                updateLabelPairsChart();
-                updateLabelBigramsChart();
-                updateLabelStatsGrid();
-                updateLabelYearlyChart();
-                updateLabelBodiesChart();
-                updateLabelThemeTrendsChart();
-                updateLabelEscCcprChart();
-                updateLabelBodyScatterChart();
+                const hasLabels = (chartData || []).some(r => r._predictedLabels && r._predictedLabels.length > 0);
+                const emptyEl = document.getElementById('labelsEmptyState');
+                const chartsEl = document.getElementById('labelsChartsContent');
+                if (emptyEl) emptyEl.classList.toggle('hidden', hasLabels);
+                if (chartsEl) chartsEl.classList.toggle('hidden', !hasLabels);
+                if (hasLabels) {
+                    updateLabelCoverageChart();
+                    updateLabelDistributionChart();
+                    updateLabelTrendsChart();
+                    updateLabelPairsChart();
+                    updateLabelBigramsChart();
+                    updateLabelStatsGrid();
+                    updateLabelYearlyChart();
+                    updateLabelBodiesChart();
+                    updateLabelThemeTrendsChart();
+                    updateLabelEscCcprChart();
+                    updateLabelBodyScatterChart();
+                }
                 return;
             }
             if (tabName === 'data') {
@@ -5516,6 +5551,8 @@
                     { type: blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
                 );
                 await processFile(file, 'sample');
+                const vcNotice = document.getElementById('veniceCommissionNotice');
+                if (vcNotice) vcNotice.classList.remove('hidden');
             } catch (err) {
                 console.error('Bundled sample load failed:', err);
                 if (showErrors) {
@@ -5952,6 +5989,8 @@
             document.getElementById('infoFormat').textContent = fileFormat;
             document.getElementById('infoRecords').textContent = rawData.length.toLocaleString();
             updateDatasetMetadataUI();
+            const vcNotice = document.getElementById('veniceCommissionNotice');
+            if (vcNotice) vcNotice.classList.add('hidden');
 
             if (rawData.length > MAX_CHART_RECORDS) {
                 document.getElementById('sampleNotice').classList.remove('hidden');
@@ -6867,6 +6906,62 @@
             bodyScatter:        label => r => (r._body || '').replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim(),
             regionComparison:   label => r => (r._regionsArray || []).some(rg => rg.replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim()),
             topCountries:       label => r => (r._countriesArray || []).some(c => c.replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim()),
+            // Themes tab: Theme Trends line chart (click year+theme)
+            themeTrends:        (label, datasetLabel) => r => String(r._year) === String(label) && (r._themesArray || []).some(t => t.replace(/^-+\s*/, '').trim().startsWith(datasetLabel.trim().substring(0, 20))),
+            // Themes tab: ESC vs CCPR stacked bar (click a year+dataset)
+            escCcprTrend:       (label, datasetLabel) => r => {
+                if (String(r._year) !== String(label)) return false;
+                const isEsc = datasetLabel.includes('ESC');
+                return (r._rightThemeKeys || []).some(key => {
+                    const meta = rightsThemeLookup[key];
+                    return meta && (isEsc ? meta.family === 'ESCR' : meta.family === 'CCPR');
+                });
+            },
+            // Themes tab: Rights scatter (click a point → year+rights category)
+            rightsScatter:      (label, datasetLabel) => r => {
+                if (String(r._year) !== String(label)) return false;
+                const cleanDs = datasetLabel.replace(/^\d+\.\s*/, '');
+                if (cleanDs.startsWith('Other ESCR')) return (r._rightThemeKeys || []).some(k => { const m = rightsThemeLookup[k]; return m && m.family === 'ESCR'; });
+                if (cleanDs.startsWith('Other CCPR')) return (r._rightThemeKeys || []).some(k => { const m = rightsThemeLookup[k]; return m && m.family === 'CCPR'; });
+                return (r._rightThemeKeys || []).some(key => { const m = rightsThemeLookup[key]; return m && m.label === cleanDs; });
+            },
+            // Themes tab: Body heatmap (year+body stacked bar)
+            bodyHeatmap:        (label, datasetLabel) => r => String(r._year) === String(label) && (r._body || '').replace(/^-+\s*/, '').includes(datasetLabel),
+            // Overview tab: Bigrams (horizontal bar, bigram text)
+            bigrams:            label => r => {
+                const text = (r._text || '').toLowerCase();
+                return text.includes(label.toLowerCase());
+            },
+            // Overview tab: Text length by body (horizontal bar)
+            textLength:         label => r => (r._body || '').replace(/^-+\s*/, '').trim() === label.trim(),
+            // Labels tab charts
+            labelDistribution:  label => r => normalizePredictedLabelsForStats(r._predictedLabels || []).includes(label),
+            labelYearly:        label => r => String(r._year) === String(label) && (r._predictedLabels || []).length > 0,
+            labelBodies:        label => r => (r._body || '').replace('- ', '').trim() === label.trim() && (r._predictedLabels || []).length > 0,
+            labelTrends:        (label, datasetLabel) => r => String(r._year) === String(label) && (r._themesArray || []).some(t => t.replace('- ', '').slice(0, 30) === datasetLabel.slice(0, 30)) && (r._predictedLabels || []).length > 0,
+            labelEscCcpr:       (label, datasetLabel) => r => {
+                if (String(r._year) !== String(label) || !(r._predictedLabels || []).length) return false;
+                const isEsc = datasetLabel.includes('ESC');
+                return (r._rightThemeKeys || []).some(key => { const m = rightsThemeLookup[key]; return m && (isEsc ? m.family === 'ESCR' : m.family === 'CCPR'); });
+            },
+            labelBodyScatter:   (label, datasetLabel) => r => {
+                const cleanDs = datasetLabel.replace('- ', '').trim();
+                return String(r._year) === String(label) && (r._body || '').replace('- ', '').trim() === cleanDs && (r._predictedLabels || []).length > 0;
+            },
+            labelPairs:         label => r => {
+                const labels = normalizePredictedLabelsForStats(r._predictedLabels || []);
+                const pair = label.split(' + ');
+                return pair.length === 2 && labels.includes(pair[0]) && labels.includes(pair[1]);
+            },
+            labelBigrams:       label => r => {
+                if (!(r._predictedLabels || []).length) return false;
+                return (r._text || '').toLowerCase().includes(label.toLowerCase());
+            },
+            labelCoverage:      label => r => {
+                const hasL = (r._predictedLabels || []).length > 0;
+                return label.includes('With') ? hasL : !hasL;
+            },
+            labelThemeTrends:   (label, datasetLabel) => r => String(r._year) === String(label) && (r._themesArray || []).some(t => t.replace('- ', '').slice(0, 30) === datasetLabel.slice(0, 30)) && (r._predictedLabels || []).length > 0,
         };
 
         // Drill-down descriptions for the panel title
@@ -6883,6 +6978,22 @@
             bodyScatter:        label => `Recommendations by ${label}`,
             regionComparison:   label => `Recommendations for ${label}`,
             topCountries:       label => `Recommendations for ${label}`,
+            themeTrends:        (label, ds) => `${ds} recommendations from ${label}`,
+            escCcprTrend:       (label, ds) => `${ds} in ${label}`,
+            rightsScatter:      (label, ds) => `${ds.replace(/^\d+\.\s*/, '')} in ${label}`,
+            bodyHeatmap:        (label, ds) => `${ds} recommendations from ${label}`,
+            bigrams:            label => `Recommendations containing "${label}"`,
+            textLength:         label => `Recommendations by ${label}`,
+            labelDistribution:  label => `Records labeled: ${label}`,
+            labelYearly:        label => `Labeled records from ${label}`,
+            labelBodies:        label => `Labeled records by ${label}`,
+            labelTrends:        (label, ds) => `Labeled ${ds} records from ${label}`,
+            labelEscCcpr:       (label, ds) => `Labeled ${ds} in ${label}`,
+            labelBodyScatter:   (label, ds) => `Labeled ${ds} records from ${label}`,
+            labelPairs:         label => `Records with labels: ${label}`,
+            labelBigrams:       label => `Labeled records containing "${label}"`,
+            labelCoverage:      label => label.includes('With') ? 'Records with assigned labels' : 'Records without assigned labels',
+            labelThemeTrends:   (label, ds) => `Labeled ${ds} records from ${label}`,
         };
 
         // Find which chart key a Chart.js instance belongs to
@@ -6900,8 +7011,14 @@
             const chartKey = getChartKey(chart);
             if (!chartKey || !chartDrilldownMap[chartKey]) return;
 
-            const label = chart.data.labels?.[el.index];
+            let label = chart.data.labels?.[el.index];
             const datasetLabel = chart.data.datasets?.[el.datasetIndex]?.label || '';
+
+            // For scatter charts, labels array is empty — derive label from the clicked point or dataset
+            if (!label && chart.config.type === 'scatter') {
+                const pt = chart.data.datasets?.[el.datasetIndex]?.data?.[el.index];
+                label = pt?.x != null ? String(Math.round(pt.x)) : datasetLabel;
+            }
             if (!label) return;
 
             // Use full (untruncated) label for API params when available
@@ -6937,6 +7054,11 @@
             bodyScatter:        label => ({ bodies: '- ' + label }),
             topCountries:       label => ({ countries: resolveCountryForApi(label) }),
             mapCountry:         label => ({ countries: label }),
+            themeTrends:        (label, ds) => ({ year_start: label, year_end: label, themes: ds }),
+            escCcprTrend:       label => ({ year_start: label, year_end: label }),
+            bodyHeatmap:        (label, ds) => ({ year_start: label, year_end: label, bodies: '- ' + ds }),
+            bigrams:            label => ({ text_query: label }),
+            textLength:         label => ({ bodies: '- ' + label }),
         };
 
         async function openDrilldown(title, filterFn, label, datasetLabel) {
@@ -7030,10 +7152,9 @@
                 const undocs = getUnDocsUrl(rec);
 
                 html += `<div class="drilldown-rec">`;
-                html += `<div class="drilldown-text" id="${uid}-short">${escapeHtml(shortText)}${truncated ? '<span style="color:#999">...</span>' : ''}</div>`;
+                html += `<div class="drilldown-text" id="${uid}-short">${escapeHtml(shortText)}${truncated ? `<span style="color:#999">... </span><a href="javascript:void(0)" id="${uid}-btn" onclick="toggleDrilldownText('${uid}')" class="drilldown-expand-link">more</a>` : ''}</div>`;
                 if (truncated) {
-                    html += `<div class="drilldown-text hidden" id="${uid}-full">${escapeHtml(fullText)}</div>`;
-                    html += `<button class="copy-btn" id="${uid}-btn" onclick="toggleDrilldownText('${uid}')" style="font-size:11px; margin-bottom:4px;">Read full text</button>`;
+                    html += `<div class="drilldown-text hidden" id="${uid}-full">${escapeHtml(fullText)} <a href="javascript:void(0)" id="${uid}-btn2" onclick="toggleDrilldownText('${uid}')" class="drilldown-expand-link">less</a></div>`;
                 }
                 html += `<div class="drilldown-meta">`;
                 if (body_) html += `<span><strong>${escapeHtml(body_)}</strong></span>`;
@@ -7072,12 +7193,10 @@
         function toggleDrilldownText(uid) {
             const short = document.getElementById(`${uid}-short`);
             const full = document.getElementById(`${uid}-full`);
-            const btn = document.getElementById(`${uid}-btn`);
-            if (!short || !full || !btn) return;
+            if (!short || !full) return;
             const isExpanded = !full.classList.contains('hidden');
             short.classList.toggle('hidden', !isExpanded);
             full.classList.toggle('hidden', isExpanded);
-            btn.textContent = isExpanded ? 'Read full text' : 'Collapse';
         }
 
         // Show record detail inside the drilldown overlay (replacing the list)
