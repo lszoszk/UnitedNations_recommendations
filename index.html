@@ -7016,9 +7016,12 @@
 
             let html = shown === 0 ? '' : body.innerHTML.replace(/<div class="drilldown-more">[\s\S]*?<\/div>$/, '');
 
-            batch.forEach(rec => {
-                const text = (rec._text || '').substring(0, 400);
-                const textMore = (rec._text || '').length > 400 ? '...' : '';
+            batch.forEach((rec, idx) => {
+                const fullText = rec._text || '';
+                const maxLen = 400;
+                const truncated = fullText.length > maxLen;
+                const shortText = truncated ? fullText.substring(0, maxLen) : fullText;
+                const uid = `dd-${shown + idx}`;
                 const body_ = (rec._body || '').replace(/^-+\s*/, '').trim();
                 const country = (rec._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
                 const year = rec._year || '';
@@ -7027,7 +7030,11 @@
                 const undocs = getUnDocsUrl(rec);
 
                 html += `<div class="drilldown-rec">`;
-                html += `<div class="drilldown-text">${escapeHtml(text)}${textMore ? '<span style="color:#999">...</span>' : ''}</div>`;
+                html += `<div class="drilldown-text" id="${uid}-short">${escapeHtml(shortText)}${truncated ? '<span style="color:#999">...</span>' : ''}</div>`;
+                if (truncated) {
+                    html += `<div class="drilldown-text hidden" id="${uid}-full">${escapeHtml(fullText)}</div>`;
+                    html += `<button class="copy-btn" id="${uid}-btn" onclick="toggleDrilldownText('${uid}')" style="font-size:11px; margin-bottom:4px;">Read full text</button>`;
+                }
                 html += `<div class="drilldown-meta">`;
                 if (body_) html += `<span><strong>${escapeHtml(body_)}</strong></span>`;
                 if (country) html += `<span>${escapeHtml(country)}</span>`;
@@ -7060,6 +7067,17 @@
             }
 
             body.innerHTML = html;
+        }
+
+        function toggleDrilldownText(uid) {
+            const short = document.getElementById(`${uid}-short`);
+            const full = document.getElementById(`${uid}-full`);
+            const btn = document.getElementById(`${uid}-btn`);
+            if (!short || !full || !btn) return;
+            const isExpanded = !full.classList.contains('hidden');
+            short.classList.toggle('hidden', !isExpanded);
+            full.classList.toggle('hidden', isExpanded);
+            btn.textContent = isExpanded ? 'Read full text' : 'Collapse';
         }
 
         // Show record detail inside the drilldown overlay (replacing the list)
