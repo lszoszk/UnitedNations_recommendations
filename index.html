@@ -2677,9 +2677,7 @@
                         <span>Search</span>
                     </button>
                 </div>
-                <div class="filter-query-help" style="font-size:12px; color:#667; margin-top:4px;">
-                    Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>
-                </div>
+                <!-- Search syntax info is in the ? popover -->
             </div>
 
             <!-- Collapsible facet filters -->
@@ -5433,9 +5431,12 @@
         function populateServerFacets() {
             const facets = serverState.facets || {};
             populateSelect('filterCountry', facets.countries || []);
-            populateSelect('filterBody', facets.bodies || []);
+            populateSelect('filterBody', (facets.bodies || []).map(b => b.replace(/^-+\s*/, '').trim()).filter(Boolean));
             populateSelect('filterRegion', facets.regions || []);
-            populateSelect('filterType', ['All', ...(facets.types || [])]);
+            const cleanTypes = (facets.types || [])
+                .map(t => t.replace(/^-+\s*/, '').trim())
+                .filter(t => t && t.length > 2 && !/^[0-9a-f-]{20,}$/i.test(t) && !/^\W+$/.test(t));
+            populateSelect('filterType', ['All', ...cleanTypes]);
             if (Number.isFinite(facets.min_year)) {
                 document.getElementById('filterYearStart').value = facets.min_year;
             }
@@ -6864,10 +6865,14 @@
                 populateServerFacets();
                 return;
             }
-            const countries = [...new Set(rawData.flatMap(r => r._countriesArray))].filter(Boolean).sort();
-            const bodies = [...new Set(rawData.map(r => r._body).filter(Boolean))].sort();
-            const regions = [...new Set(rawData.flatMap(r => r._regionsArray))].filter(Boolean).sort();
-            const types = [...new Set(rawData.map(r => r._type).filter(Boolean))].sort();
+            const _cleanDash = s => s.replace(/^-+\s*/, '').trim();
+            const countries = [...new Set(rawData.flatMap(r => r._countriesArray))].filter(Boolean).map(_cleanDash).filter(Boolean).sort();
+            const bodies = [...new Set(rawData.map(r => r._body).filter(Boolean))].map(_cleanDash).filter(Boolean).sort();
+            const regions = [...new Set(rawData.flatMap(r => r._regionsArray))].filter(Boolean).map(_cleanDash).filter(Boolean).sort();
+            const types = [...new Set(rawData.map(r => r._type).filter(Boolean))]
+                .map(t => t.replace(/^-+\s*/, '').trim())
+                .filter(t => t && t.length > 2 && !/^[0-9a-f-]{20,}$/i.test(t) && !/^\W+$/.test(t))
+                .sort();
             const years = rawData.map(r => r._year).filter(y => y && y > 1990 && y < 2100);
 
             populateSelect('filterCountry', countries.slice(0, 250));
@@ -7176,10 +7181,7 @@
             } else if (!ys && ye) {
                 filters.push({ type: 'year', label: `Until ${ye}`, filterId: '_year', value: ye });
             }
-            const textVal = document.getElementById('filterText').value.trim();
-            if (textVal) {
-                filters.push({ type: 'text', label: textVal.length > 30 ? textVal.slice(0, 28) + '…' : textVal, filterId: 'filterText', value: textVal });
-            }
+            // Text query is shown in the filter count badge — no chip needed
             return filters;
         }
 
