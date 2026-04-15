@@ -3322,22 +3322,39 @@
                 <p style="font-size:12px; color:#556; margin-bottom:10px; line-height:1.5;" id="step3Hint">
                     Read each recommendation and tick the categories that apply. Mark irrelevant records as "excluded". The more you tag, the better the results.
                 </p>
-                <div class="sample-nav">
-                    <div class="sample-nav-info">
-                        <span id="labeledCount">0</span> / <span id="totalSamples">0</span> tagged
-                        &middot; <span id="excludedCount">0</span> excluded
+                <div class="sample-nav" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <!-- Compact stepper -->
+                    <div style="display:inline-flex; align-items:center; gap:2px; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#f8f9fb;">
+                        <button onclick="prevSample()" id="prevSampleBtn" style="border:none; background:none; padding:8px 10px; cursor:pointer; font-size:14px; color:#4a5568;">←</button>
+                        <span style="padding:4px 8px; font-size:13px; font-weight:500; color:#334; min-width:50px; text-align:center;"><span id="labeledCount">0</span>/<span id="totalSamples">0</span></span>
+                        <button onclick="nextSample()" id="nextSampleBtn" style="border:none; background:none; padding:8px 10px; cursor:pointer; font-size:14px; color:#4a5568;">→</button>
                     </div>
-                    <div class="sample-nav-btns">
-                        <button onclick="prevSample()" id="prevSampleBtn">&larr; Prev</button>
-                        <button onclick="nextSample()" id="nextSampleBtn">Next &rarr;</button>
-                        <button onclick="clearCurrentSampleLabels()" class="btn btn-secondary" style="padding:8px 10px;">Clear</button>
-                        <button onclick="resetAllSamples()" class="btn btn-secondary" style="padding:8px 10px; color:#c62828; font-size:10px;" title="Remove all samples and start fresh">Reset All</button>
-                        <div style="display:inline-flex; align-items:center; gap:4px; border:1px solid var(--border); border-radius:6px; padding:2px 4px 2px 8px; background:#f8f9fb;">
-                            <label for="sampleCountInput" style="font-size:11px; color:#667; white-space:nowrap;">How many:</label>
-                            <input type="number" id="sampleCountInput" value="20" min="5" max="200" step="5" style="width:48px; padding:5px 4px; border:1px solid #dde; border-radius:4px; text-align:center; font-size:12px;">
+
+                    <!-- Smart single button: Get Records (dropdown for options) -->
+                    <div style="position:relative; display:inline-block;" id="getRecordsWrap">
+                        <button onclick="_loadSamples()" class="btn btn-primary" style="padding:8px 14px;" id="getRecordsMainBtn">Get Records</button>
+                    </div>
+
+                    <!-- Tag count (appears after labeling starts) -->
+                    <span style="font-size:12px; color:#667;" id="tagCountHint"></span>
+
+                    <!-- Hidden elements kept for JS compatibility -->
+                    <span id="excludedCount" style="display:none;">0</span>
+                    <input type="number" id="sampleCountInput" value="20" min="5" max="200" step="5" style="display:none;">
+
+                    <!-- Overflow menu for rarely-used actions -->
+                    <div style="position:relative; display:inline-block;">
+                        <button onclick="document.getElementById('sampleOverflow').classList.toggle('hidden')" style="background:none; border:1px solid #dde; border-radius:6px; padding:6px 8px; cursor:pointer; color:#667; font-size:13px;" title="More options">···</button>
+                        <div id="sampleOverflow" class="hidden" style="position:absolute; top:calc(100% + 4px); right:0; background:#fff; border:1px solid #dde; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.12); padding:4px 0; z-index:50; min-width:200px;">
+                            <button onclick="getUncertainSamples(); document.getElementById('sampleOverflow').classList.add('hidden');" style="display:block; width:100%; text-align:left; padding:8px 14px; border:none; background:none; cursor:pointer; font-size:12px;" id="suggestUncertainBtn">🎯 Suggest uncertain records</button>
+                            <button onclick="clearCurrentSampleLabels(); document.getElementById('sampleOverflow').classList.add('hidden');" style="display:block; width:100%; text-align:left; padding:8px 14px; border:none; background:none; cursor:pointer; font-size:12px;">Clear current labels</button>
+                            <button onclick="resetAllSamples(); document.getElementById('sampleOverflow').classList.add('hidden');" style="display:block; width:100%; text-align:left; padding:8px 14px; border:none; background:none; cursor:pointer; font-size:12px; color:#c62828;">Reset all samples</button>
+                            <hr style="margin:4px 0; border:none; border-top:1px solid #eef;">
+                            <div style="padding:6px 14px; display:flex; align-items:center; gap:6px;">
+                                <label style="font-size:11px; color:#667;">Records per batch:</label>
+                                <input type="number" value="20" min="5" max="200" step="5" style="width:48px; padding:4px; border:1px solid #dde; border-radius:4px; text-align:center; font-size:12px;" onchange="document.getElementById('sampleCountInput').value=this.value">
+                            </div>
                         </div>
-                        <button onclick="getRandomSamples()" class="btn btn-primary" style="padding:8px 14px;">Get Random Records</button>
-                        <button onclick="getUncertainSamples()" class="btn btn-secondary" style="padding:8px 14px;" id="suggestUncertainBtn" title="Use the model to find records it is most confused about — labeling these improves accuracy the fastest">🎯 Suggest Records to Label</button>
                     </div>
                 </div>
                 <div id="sampleContainer"></div>
@@ -11965,6 +11982,25 @@
             updateWorkflowStepper(1);
         }
 
+        // Smart sample loader: uses active learning if model exists, random otherwise
+        function _loadSamples() {
+            if (trainingState.nbModel) {
+                getUncertainSamples();
+                document.getElementById('getRecordsMainBtn').innerHTML = '🎯 Get Records';
+            } else {
+                getRandomSamples();
+            }
+        }
+
+        function _updateTagCountHint() {
+            const el = document.getElementById('tagCountHint');
+            if (!el) return;
+            const labeled = trainingState.labeledSamples.size;
+            const excluded = [...trainingState.labeledSamples.values()].filter(l => l.some(isExcludedCategory)).length;
+            if (labeled === 0) { el.textContent = ''; return; }
+            el.textContent = `${labeled} tagged${excluded ? ` · ${excluded} excluded` : ''}`;
+        }
+
         function getUncertainSamples() {
             if (!trainingState.nbModel) {
                 alert('Train a model first (Step 3 → Train Model), then come back here to get smart suggestions.');
@@ -12199,6 +12235,7 @@
             document.getElementById('labeledCount').textContent = labeledCount;
             document.getElementById('totalSamples').textContent = totalSamples;
             document.getElementById('excludedCount').textContent = excludedCount;
+            _updateTagCountHint();
 
             // Show expand link only if text actually overflows
             const textBox = document.getElementById('sampleTextBox');
@@ -13028,14 +13065,14 @@
         function updateClassifyScopeInfo() {
             const el = document.getElementById('classifyScopeInfo');
             if (!el) return;
-            const data = rawData.length ? rawData : filteredData;
-            const totalDataset = serverBrowseMode ? Number(serverState.summary?.total_records || serverState.totalRecords || 0) : data.length;
-            const filtered = filteredData.length || totalDataset;
-            const isFiltered = filtered < totalDataset;
-            el.innerHTML =
-                `<strong>Dataset:</strong> ${totalDataset.toLocaleString()} records` +
-                (isFiltered ? ` — <strong>current filter: ${filtered.toLocaleString()}</strong>` : '') +
-                `. Will classify all filtered records using your labeled examples.`;
+            const totalVm = serverBrowseMode ? Number(serverState.totalRecords || 0) : 0;
+            const totalLocal = rawData.length || filteredData.length;
+            const total = totalVm || totalLocal;
+            if (serverBrowseMode && totalVm) {
+                el.innerHTML = `Will classify <strong>all ${totalVm.toLocaleString()} matching records</strong> from the server using your labeled examples.`;
+            } else {
+                el.innerHTML = `Will classify <strong>all ${total.toLocaleString()} records</strong> using your labeled examples.`;
+            }
         }
 
         function updateLabeledExamplesInfo() {
@@ -13086,6 +13123,62 @@
                 updateWorkflowStepper(3);
                 updateLabeledExamplesInfo();
             }
+        }
+
+        function _showPostClassificationSuggestions() {
+            const data = filteredData.length ? filteredData : rawData;
+            const classified = data.filter(r => r._predictedLabels && r._predictedLabels.length > 0).length;
+            const total = data.length;
+            const pct = total > 0 ? Math.round((classified / total) * 100) : 0;
+
+            // Assess model quality from benchmark
+            const bm = trainingState.benchmark;
+            const f1 = bm?.macroF1 ?? bm?.f1 ?? 0;
+            const accuracy = bm?.accuracy ?? 0;
+            const needsMoreLabels = f1 < 0.5 || accuracy < 0.6;
+
+            // Build suggestion UI
+            const resultsBox = document.getElementById('classifyResultsBox');
+            if (!resultsBox) return;
+
+            let html = `<div style="background:#e8f5e9; border:1px solid #a5d6a7; border-radius:10px; padding:16px 20px; margin-top:12px;">`;
+            html += `<div style="font-size:15px; font-weight:600; color:#2e7d32; margin-bottom:8px;">✅ Classification complete!</div>`;
+            html += `<div style="font-size:13px; color:#334; margin-bottom:12px;"><strong>${classified.toLocaleString()}</strong> of ${total.toLocaleString()} records classified (${pct}% coverage)`;
+            if (bm) html += ` · F1: ${(f1 * 100).toFixed(0)}% · Accuracy: ${(accuracy * 100).toFixed(0)}%`;
+            html += `</div>`;
+
+            html += `<div style="font-size:13px; font-weight:600; color:#1e3a5f; margin-bottom:8px;">What next?</div>`;
+            html += `<div style="display:flex; flex-direction:column; gap:8px;">`;
+
+            if (needsMoreLabels) {
+                // Model quality is low — suggest more labeling
+                html += `<button class="btn btn-primary" onclick="updateWorkflowStepper(2); getUncertainSamples();" style="text-align:left; padding:10px 14px;">
+                    <strong>🎯 Label more records to improve accuracy</strong><br>
+                    <span style="font-weight:400; font-size:12px; opacity:0.85;">F1 is ${(f1 * 100).toFixed(0)}% — the model will suggest the most useful records to label</span>
+                </button>`;
+                html += `<button class="btn btn-secondary" onclick="closeTrainingPane(); activateTab('labels');" style="text-align:left; padding:10px 14px;">
+                    📊 Browse results in My Labels tab
+                </button>`;
+            } else {
+                // Model quality is decent — suggest exploring results
+                html += `<button class="btn btn-primary" onclick="closeTrainingPane(); activateTab('labels');" style="text-align:left; padding:10px 14px;">
+                    <strong>📊 Explore results in My Labels tab</strong><br>
+                    <span style="font-weight:400; font-size:12px; opacity:0.85;">See distribution charts and browse classified records</span>
+                </button>`;
+                html += `<button class="btn btn-secondary" onclick="updateWorkflowStepper(2); getUncertainSamples();" style="text-align:left; padding:10px 14px;">
+                    🎯 Improve accuracy — label uncertain records and retrain
+                </button>`;
+            }
+
+            html += `<button class="btn btn-secondary" onclick="exportClassifiedData();" style="text-align:left; padding:10px 14px;">
+                ⬇️ Export classified data as XLSX
+            </button>`;
+            html += `</div></div>`;
+
+            resultsBox.innerHTML = html;
+            resultsBox.classList.remove('hidden');
+            // Scroll to show the results
+            resultsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         function setTrainingProgress(pct, text) {
@@ -13172,6 +13265,7 @@
 
         async function applyPredictions() {
             // For trained models (TF-IDF, keyword, n-gram) — apply to all loaded data
+            // In server mode: fetch ALL matching records from VM first
             if (!trainingState.model) {
                 alert('Please train a model first');
                 return;
@@ -13186,6 +13280,14 @@
             document.getElementById('trainingProgress').classList.remove('hidden');
 
             try {
+                // In server mode, fetch ALL filtered records from VM first
+                if (serverBrowseMode && DATASET_RECORDS_URL && (!rawData.length || rawData.length < (serverState.totalRecords || 0))) {
+                    setTrainingProgress(5, 'Loading all filtered records from VM...');
+                    await applyPredictionsToServerDataset();
+                    _showPostClassificationSuggestions();
+                    return;
+                }
+
                 const data = rawData.length ? rawData : filteredData;
                 const total = data.length;
                 const batchSize = 500;
@@ -13213,8 +13315,8 @@
 
                 setTimeout(() => {
                     document.getElementById('trainingProgress').classList.add('hidden');
-                    closeTrainingPane();
-                }, 1000);
+                    _showPostClassificationSuggestions();
+                }, 800);
 
             } catch (err) {
                 console.error('Prediction error:', err);
