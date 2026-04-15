@@ -3440,8 +3440,17 @@
             }
             _zeroShotLoading = true;
             try {
-                const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.1');
+                const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.1');
+                // Prefer WebGPU (huge speedup on Apple Silicon, modern GPUs) → fall back to WASM
+                let device = 'wasm';
+                if (navigator.gpu) {
+                    try {
+                        const adapter = await navigator.gpu.requestAdapter();
+                        if (adapter) device = 'webgpu';
+                    } catch (e) { /* WebGPU not available, use WASM */ }
+                }
                 _zeroShotPipeline = await pipeline('zero-shot-classification', ZERO_SHOT_MODEL, {
+                    device,
                     progress_callback: onProgress || (() => {})
                 });
                 return _zeroShotPipeline;
@@ -11114,7 +11123,8 @@
                 }, 1000);
                 const pipe = await pipePromise;
                 clearInterval(initInterval);
-                setTrainingProgress(28, 'Model ready.');
+                const backendUsed = pipe.model?.device || (navigator.gpu ? 'WebGPU' : 'WASM/CPU');
+                setTrainingProgress(28, `Model ready (${backendUsed}).`);
 
                 // ── Test on 10 real examples to benchmark ──
                 setTrainingProgress(30, 'Testing on 10 sample records to estimate speed...');
@@ -11135,9 +11145,10 @@
                 const msPerRecord = Math.round(benchElapsed / sampleSize);
                 const catScale = 1; // already tested with real categories
 
-                const maxTime = 180000; // 3 minutes
+                const maxTime = 600000; // 10 minutes
                 const maxRecommended = Math.min(ZERO_SHOT_HARD_CAP, Math.max(50, Math.floor(maxTime / msPerRecord)));
-                _deviceBenchmark = { msPerRecord, maxRecommended, device: navigator.gpu ? 'WebGPU available' : 'CPU' };
+                const actualDevice = _zeroShotPipeline?.device || (navigator.gpu ? 'WebGPU' : 'CPU/WASM');
+                _deviceBenchmark = { msPerRecord, maxRecommended, device: actualDevice };
 
                 const classifyCount = Math.min(total, ZERO_SHOT_HARD_CAP);
                 updateClassifyScopeInfo();
