@@ -537,6 +537,7 @@
             animation: fadeIn 0.3s ease;
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         .coach-card {
             background: #fff;
             border-radius: 16px;
@@ -1874,16 +1875,17 @@
         /* Info Bar */
         .data-info {
             background: #f5f7f9;
-            padding: 8px 16px;
+            padding: 7px 16px;
             border-radius: 6px;
             margin-bottom: 16px;
             display: flex;
-            justify-content: flex-start;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 6px 18px;
+            gap: 10px;
             border: 1px solid #e2e6ea;
+            font-size: 12px;
+            color: #546071;
         }
+        .data-info-sep { color: #ccd; }
         .data-info-item { display: flex; align-items: center; gap: 5px; }
         .data-info-label { font-size: 11px; color: #8899aa; }
         .data-info-value { font-size: 12px; font-weight: 500; color: #546071; }
@@ -2646,27 +2648,21 @@
         </div>
 
         <div class="data-info hidden" id="dataInfo">
-            <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: center;">
-                <div class="data-info-item">
-                    <span class="data-info-label">File:</span>
-                    <span class="data-info-value" id="infoFileName">-</span>
-                </div>
-                <div class="data-info-item">
-                    <span class="data-info-label">Format:</span>
-                    <span class="data-info-value" id="infoFormat">-</span>
-                </div>
-                <div class="data-info-item">
-                    <span class="data-info-label">Total Records:</span>
-                    <span class="data-info-value" id="infoRecords">-</span>
-                </div>
-                <div class="data-info-item hidden" id="infoDatasetCutoffWrap">
-                    <span class="data-info-label" id="infoDatasetCutoffLabel">Dataset Downloaded:</span>
-                    <span class="data-info-value" id="infoDatasetCutoff">-</span>
-                </div>
-                <div class="data-info-item" id="infoUpdateNotice" title="This dataset is automatically updated on the 1st of each month via the OHCHR Universal Human Rights Index API. New recommendations are merged into the existing dataset and the analysis database is rebuilt automatically.">
-                    <span style="cursor:help; color:#5a7089; font-size:12px;">&#x2139;&#xFE0F; Updated monthly from OHCHR UHRI</span>
-                </div>
-            </div>
+            <span id="dataStatusIndicator" style="display:inline-flex; align-items:center; gap:5px; font-weight:600; font-size:12px;">
+                <span id="dataStatusDot" style="width:8px; height:8px; border-radius:50%; background:#4caf50;"></span>
+                <span id="dataStatusText">Ready</span>
+            </span>
+            <span class="data-info-sep">·</span>
+            <span id="infoDatasetCutoff" style="font-size:12px; color:#546071;">-</span>
+            <span class="data-info-sep">·</span>
+            <span style="font-size:11px; color:#8899aa; cursor:help;" title="Dataset is automatically updated on the 1st of each month via the OHCHR Universal Human Rights Index API.">Updated monthly from UHRI</span>
+            <!-- hidden fields kept for JS compatibility -->
+            <span id="infoFileName" style="display:none;"></span>
+            <span id="infoFormat" style="display:none;"></span>
+            <span id="infoRecords" style="display:none;"></span>
+            <span id="infoDatasetCutoffWrap" style="display:none;"></span>
+            <span id="infoDatasetCutoffLabel" style="display:none;"></span>
+            <span id="infoUpdateNotice" style="display:none;"></span>
         </div>
 
         <div class="server-mode-banner hidden" id="serverModeBanner">
@@ -4920,28 +4916,20 @@
         }
 
         function updateDatasetMetadataUI() {
-            const wrap = document.getElementById('infoDatasetCutoffWrap');
-            const label = document.getElementById('infoDatasetCutoffLabel');
             const value = document.getElementById('infoDatasetCutoff');
-            if (!wrap || !label || !value) return;
+            if (!value) return;
 
             if (datasetMetadata.downloadedAt) {
-                wrap.classList.remove('hidden');
-                label.textContent = 'Dataset Downloaded:';
-                value.textContent = `${formatDatasetDate(datasetMetadata.downloadedAt)} (analysis cutoff)`;
+                value.textContent = `Last update: ${formatDatasetDate(datasetMetadata.downloadedAt)}`;
                 return;
             }
 
             if (activeDataSource === 'vm_api' && datasetMetadata.modifiedAt) {
-                wrap.classList.remove('hidden');
-                label.textContent = 'Dataset File Updated:';
-                value.textContent = formatDatasetDate(datasetMetadata.modifiedAt, true);
+                value.textContent = `Last update: ${formatDatasetDate(datasetMetadata.modifiedAt, true)}`;
                 return;
             }
 
-            wrap.classList.add('hidden');
-            label.textContent = 'Dataset Downloaded:';
-            value.textContent = '-';
+            value.textContent = '';
         }
 
         async function fetchRemoteDatasetHealth(timeoutMs = 10000) {
@@ -5166,6 +5154,20 @@
                 analyticsLoading: {},
                 analyticsFilterKey: ''
             };
+        }
+
+        function _setDataStatus(state, label) {
+            const dot = document.getElementById('dataStatusDot');
+            const text = document.getElementById('dataStatusText');
+            if (!dot || !text) return;
+            const colors = { connecting: '#ff9800', connected: '#4caf50', ready: '#4caf50', loading: '#ff9800', error: '#c62828', local: '#4a90d9' };
+            dot.style.background = colors[state] || '#999';
+            if (state === 'connecting') {
+                dot.style.animation = 'pulse 1.2s infinite';
+            } else {
+                dot.style.animation = 'none';
+            }
+            text.textContent = label || state;
         }
 
         function setStatusBanner({ visible = false, title = 'Server browse mode is active', message = '', showAnalysisButton = false } = {}) {
@@ -5990,6 +5992,7 @@
                 );
 
                 serverState.loaded = true;
+                _setDataStatus('connected', 'Connected — search ready');
                 serverState.summary = summary;
                 serverState.page = recordPayload.page || page;
                 serverState.pageSize = recordPayload.page_size || ROWS_PER_PAGE;
@@ -6099,6 +6102,7 @@
                 document.getElementById('loadingIndicator').classList.remove('hidden');
                 uploadSection.classList.add('hidden');
                 setProgress(8, 'Connecting to VM browse API...');
+                _setDataStatus('connecting', 'Connecting...');
                 setVmLoadingNotice(true, 'Connecting to the VM and loading data. Please wait until this notice disappears before using all tabs.');
             } else if (bootstrapAnalyticsReady) {
                 setStatusBanner({
@@ -6846,6 +6850,7 @@
             document.getElementById('infoFileName').textContent = fileName;
             document.getElementById('infoFormat').textContent = fileFormat;
             document.getElementById('infoRecords').textContent = rawData.length.toLocaleString();
+            _setDataStatus('local', `${rawData.length.toLocaleString()} records loaded`);
             updateAllRecordCounts(rawData.length);
             updateDatasetMetadataUI();
             const vcNotice = document.getElementById('veniceCommissionNotice');
