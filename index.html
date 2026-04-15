@@ -5048,7 +5048,7 @@
             appendCsvQueryParam(params, 'annotation_type', filters.annotationType);
             if (filters.yearStart) params.set('year_start', String(filters.yearStart));
             if (filters.yearEnd) params.set('year_end', String(filters.yearEnd));
-            if (filters.textQuery) params.set('text_query', convertTextQueryForServer(filters.textQuery));
+            if (filters.textQuery) params.set('text_query', filters.textQuery);
 
             if (options.includePagination !== false) {
                 params.set('page', String(options.page || currentPage || 1));
