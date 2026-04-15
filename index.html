@@ -4377,16 +4377,170 @@
             }, 400);
         });
 
-        // Server-mode search: re-fetch records with text_filter param
+        // ── Infinite scroll for server mode ──
+        const _infScroll = {
+            records: [],         // accumulated records across pages
+            nextPage: 2,         // next page to fetch
+            totalPages: 1,
+            totalRecords: 0,
+            loading: false,
+            searchTerm: '',
+            observer: null,
+            prefetchedRecords: null, // pre-loaded next batch
+            prefetchedPage: null,
+        };
         let _serverSearchAbort = null;
-        async function _serverSearchRefresh(searchTerm, page) {
+
+        function _infScrollReset(records, totalPages, totalRecords, searchTerm) {
+            _infScroll.records = [...records];
+            _infScroll.nextPage = 2;
+            _infScroll.totalPages = totalPages;
+            _infScroll.totalRecords = totalRecords;
+            _infScroll.loading = false;
+            _infScroll.searchTerm = searchTerm || '';
+            _infScroll.prefetchedRecords = null;
+            _infScroll.prefetchedPage = null;
+            // Prefetch page 2 in background
+            if (totalPages > 1) _infScrollPrefetch(2);
+        }
+
+        async function _infScrollFetchPage(page) {
+            const opts = {
+                page,
+                includePagination: true,
+                textFilter: _infScroll.searchTerm || undefined,
+                pageSize: ROWS_PER_PAGE
+            };
+            const params = buildServerQueryParams(opts);
+            const url = `${DATASET_RECORDS_URL}?${params.toString()}`;
+            const resp = await fetch(url, { cache: 'no-store' });
+            if (!resp.ok) throw new Error(`${resp.status}`);
+            const data = await resp.json();
+            return (data.records || []).map((row, idx) =>
+                normalizeRecord(row, idx + ((page - 1) * (data.page_size || ROWS_PER_PAGE)))
+            );
+        }
+
+        async function _infScrollPrefetch(page) {
+            if (page > _infScroll.totalPages) return;
+            try {
+                const records = await _infScrollFetchPage(page);
+                // Only store if still relevant
+                if (_infScroll.nextPage === page) {
+                    _infScroll.prefetchedRecords = records;
+                    _infScroll.prefetchedPage = page;
+                }
+            } catch {}
+        }
+
+        async function _infScrollLoadMore() {
+            if (_infScroll.loading || _infScroll.nextPage > _infScroll.totalPages) return;
+            _infScroll.loading = true;
+            _updateInfScrollSentinel('loading');
+
+            try {
+                let newRecords;
+                if (_infScroll.prefetchedRecords && _infScroll.prefetchedPage === _infScroll.nextPage) {
+                    // Use prefetched data — instant
+                    newRecords = _infScroll.prefetchedRecords;
+                    _infScroll.prefetchedRecords = null;
+                    _infScroll.prefetchedPage = null;
+                } else {
+                    newRecords = await _infScrollFetchPage(_infScroll.nextPage);
+                }
+
+                _infScroll.records.push(...newRecords);
+                _infScroll.nextPage++;
+                registerRecords(newRecords);
+
+                // Append cards/rows to DOM (avoid full re-render)
+                const searchState = parseSearchQuery(document.getElementById('tableSearch').value);
+                _appendRecordsToView(newRecords, searchState);
+                _updateInfScrollInfo();
+
+                // Prefetch the next page
+                if (_infScroll.nextPage <= _infScroll.totalPages) {
+                    _infScrollPrefetch(_infScroll.nextPage);
+                }
+            } catch (err) {
+                console.warn('Infinite scroll load failed:', err);
+            } finally {
+                _infScroll.loading = false;
+                _updateInfScrollSentinel(_infScroll.nextPage > _infScroll.totalPages ? 'done' : 'idle');
+            }
+        }
+
+        function _appendRecordsToView(records, searchState) {
+            // Append to card view
+            const container = document.getElementById('cardListView');
+            if (container && _currentTableView === 'card') {
+                const sentinel = document.getElementById('infScrollSentinel');
+                const fragment = document.createDocumentFragment();
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = records.map(r => _renderSingleCard(r, searchState)).join('');
+                while (wrapper.firstChild) fragment.appendChild(wrapper.firstChild);
+                if (sentinel) container.insertBefore(fragment, sentinel);
+                else container.appendChild(fragment);
+            }
+            // Append to table view
+            const tbody = document.getElementById('tableBody');
+            if (tbody && _currentTableView === 'table') {
+                const fragment = document.createDocumentFragment();
+                const wrapper = document.createElement('tbody');
+                wrapper.innerHTML = records.map(r => _renderSingleRow(r, searchState)).join('');
+                while (wrapper.firstChild) fragment.appendChild(wrapper.firstChild);
+                tbody.appendChild(fragment);
+            }
+            // Update lastRenderedPageData
+            lastRenderedPageData = _infScroll.records;
+        }
+
+        function _updateInfScrollSentinel(state) {
+            const el = document.getElementById('infScrollSentinel');
+            if (!el) return;
+            if (state === 'loading') {
+                el.innerHTML = '<div style="padding:20px; text-align:center; color:#667; font-size:13px;">Loading more recommendations...</div>';
+            } else if (state === 'done') {
+                el.innerHTML = `<div style="padding:16px; text-align:center; color:#8899aa; font-size:12px;">All ${_infScroll.totalRecords.toLocaleString()} records loaded</div>`;
+            } else {
+                el.innerHTML = '';
+            }
+        }
+
+        function _updateInfScrollInfo() {
+            const infoEl = document.getElementById('tableInfo');
+            if (!infoEl || !serverBrowseMode) return;
+            const loaded = _infScroll.records.length;
+            const total = _infScroll.totalRecords;
+            const baseTotal = serverState.totalRecords || total;
+            if (_serverSearchFilter) {
+                const pct = baseTotal ? ((total / baseTotal) * 100).toFixed(1) : '0.0';
+                infoEl.innerHTML = `<span style="background:#e8f0fe; color:#1a56db; padding:2px 8px; border-radius:4px; font-weight:500;">${total.toLocaleString()} hits</span> <span style="color:#667;">(${pct}% of ${baseTotal.toLocaleString()}) — showing ${loaded.toLocaleString()}</span>`;
+            } else {
+                infoEl.textContent = `Showing ${loaded.toLocaleString()} of ${total.toLocaleString()}`;
+            }
+        }
+
+        function _setupInfScrollObserver() {
+            if (_infScroll.observer) _infScroll.observer.disconnect();
+            const sentinel = document.getElementById('infScrollSentinel');
+            if (!sentinel) return;
+            _infScroll.observer = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting && serverBrowseMode) {
+                    _infScrollLoadMore();
+                }
+            }, { rootMargin: '400px' }); // trigger 400px before reaching bottom
+            _infScroll.observer.observe(sentinel);
+        }
+
+        // Server-mode search: reset infinite scroll and re-fetch page 1
+        async function _serverSearchRefresh(searchTerm) {
             if (!DATASET_RECORDS_URL) return;
-            // Abort any in-flight search request
             if (_serverSearchAbort) { try { _serverSearchAbort.abort(); } catch {} }
             _serverSearchAbort = new AbortController();
 
             const opts = {
-                page,
+                page: 1,
                 includePagination: true,
                 textFilter: searchTerm || undefined,
                 pageSize: ROWS_PER_PAGE
@@ -4394,7 +4548,6 @@
             const params = buildServerQueryParams(opts);
             const url = `${DATASET_RECORDS_URL}?${params.toString()}`;
 
-            // Fade out
             const target = _currentTableView === 'card'
                 ? document.getElementById('cardListView')
                 : document.getElementById('classicTableView');
@@ -4408,51 +4561,25 @@
                 if (!resp.ok) throw new Error(`${resp.status}`);
                 const data = await resp.json();
 
-                serverState.page = data.page || page;
+                const records = (data.records || []).map((row, idx) =>
+                    normalizeRecord(row, idx)
+                );
+                serverState.page = 1;
                 serverState.pageSize = data.page_size || ROWS_PER_PAGE;
                 serverState.searchTotalPages = data.total_pages || 1;
                 serverState.searchTotalRecords = data.total_records || 0;
-                serverState.records = (data.records || []).map((row, idx) =>
-                    normalizeRecord(row, idx + ((data.page - 1) * (data.page_size || ROWS_PER_PAGE)))
-                );
-                currentPage = serverState.page;
-                filteredData = serverState.records;
-                registerRecords(serverState.records);
+                serverState.records = records;
+                filteredData = records;
+                registerRecords(records);
+
+                _infScrollReset(records, data.total_pages || 1, data.total_records || 0, searchTerm);
                 buildDataTable();
-                // Prefetch next page
-                _serverPrefetchNext(searchTerm, serverState.page + 1, serverState.searchTotalPages);
             } catch (err) {
-                if (err.name === 'AbortError') return; // superseded by newer search
+                if (err.name === 'AbortError') return;
                 console.warn('Server search failed:', err);
             } finally {
                 if (target) { target.style.opacity = '1'; }
             }
-        }
-
-        // Server-mode prefetch cache
-        let _serverPrefetchedPage = { page: null, records: null, searchTerm: null };
-        async function _serverPrefetchNext(searchTerm, nextPage, totalPages) {
-            if (nextPage > totalPages) { _serverPrefetchedPage = { page: null, records: null, searchTerm: null }; return; }
-            try {
-                const opts = {
-                    page: nextPage,
-                    includePagination: true,
-                    textFilter: searchTerm || undefined,
-                    pageSize: ROWS_PER_PAGE
-                };
-                const params = buildServerQueryParams(opts);
-                const url = `${DATASET_RECORDS_URL}?${params.toString()}`;
-                const resp = await fetch(url, { cache: 'no-store' });
-                if (!resp.ok) return;
-                const data = await resp.json();
-                _serverPrefetchedPage = {
-                    page: nextPage,
-                    searchTerm: searchTerm || '',
-                    records: (data.records || []).map((row, idx) =>
-                        normalizeRecord(row, idx + ((nextPage - 1) * (data.page_size || ROWS_PER_PAGE)))
-                    )
-                };
-            } catch {}
         }
 
         function setProgress(pct, text) {
@@ -5470,6 +5597,9 @@
                 serverState.totalRecords = recordPayload.total_records || 0;
                 serverState.records = normalizedRecords;
                 serverState.mapCountryCounts = Array.isArray(mapPayload?.country_counts) ? mapPayload.country_counts : [];
+                // Initialize infinite scroll with first page
+                _serverSearchFilter = '';
+                _infScrollReset(normalizedRecords, recordPayload.total_pages || 1, recordPayload.total_records || 0, '');
                 if (filterChanged) {
                     const hadBootstrapAnalytics = bootstrapAnalyticsReady && serverState.analytics;
                     if (hadBootstrapAnalytics) {
@@ -9569,11 +9699,12 @@
                 return;
             }
 
-            const sourceData = serverBrowseMode ? serverState.records : filteredData;
+            // In server mode, use accumulated infinite-scroll records
+            const sourceData = serverBrowseMode ? _infScroll.records : filteredData;
             let data = sourceData;
-            // In server mode with active search, server already filtered — skip local filtering
+            // In server mode, server already filtered — skip local filtering
             const serverSearchActive = serverBrowseMode && _serverSearchFilter;
-            if (!serverSearchActive && searchState.type !== 'none') {
+            if (!serverBrowseMode && searchState.type !== 'none') {
                 data = data.filter(r => recordMatchesSearch(r, cols, searchState));
             }
 
@@ -9588,18 +9719,22 @@
                 });
             }
 
-            const totalPages = serverBrowseMode
-                ? (serverSearchActive ? (serverState.searchTotalPages || 1) : (serverState.totalPages || 1))
-                : Math.ceil(data.length / ROWS_PER_PAGE);
-            if (!serverBrowseMode && totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
-            const start = serverBrowseMode ? ((serverState.page - 1) * serverState.pageSize) : ((currentPage - 1) * ROWS_PER_PAGE);
-            // Use prefetch cache if available for the current page
-            let pageData;
-            if (!serverBrowseMode && _prefetchCache.page === currentPage && _prefetchCache.searchKey === _getPrefetchSearchKey()) {
-                pageData = _prefetchCache.data;
-                _prefetchCache = { page: null, data: null, searchKey: null };
+            let totalPages, start, pageData;
+            if (serverBrowseMode) {
+                // Infinite scroll: show ALL accumulated records, no pagination
+                totalPages = 1; // pagination not used
+                start = 0;
+                pageData = data;
             } else {
-                pageData = serverBrowseMode ? data : data.slice(start, start + ROWS_PER_PAGE);
+                totalPages = Math.ceil(data.length / ROWS_PER_PAGE);
+                if (totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
+                start = (currentPage - 1) * ROWS_PER_PAGE;
+                if (_prefetchCache.page === currentPage && _prefetchCache.searchKey === _getPrefetchSearchKey()) {
+                    pageData = _prefetchCache.data;
+                    _prefetchCache = { page: null, data: null, searchKey: null };
+                } else {
+                    pageData = data.slice(start, start + ROWS_PER_PAGE);
+                }
             }
             lastRenderedPageData = pageData;
 
@@ -9663,26 +9798,8 @@
             const isSearchActive = searchState.type !== 'none' && searchState.type !== 'invalid';
             const infoEl = document.getElementById('tableInfo');
             if (serverBrowseMode) {
-                const baseTotalRecords = serverState.totalRecords || 0;
-                if (serverSearchActive) {
-                    // Server-side search is active: show hits relative to the full VM subset
-                    const searchTotal = serverState.searchTotalRecords || 0;
-                    const searchPages = serverState.searchTotalPages || 1;
-                    const pct = baseTotalRecords ? ((searchTotal / baseTotalRecords) * 100).toFixed(1) : '0.0';
-                    const pageStart = searchTotal ? start + 1 : 0;
-                    const pageEnd = searchTotal ? Math.min(start + serverState.pageSize, searchTotal) : 0;
-                    infoEl.innerHTML = `<span style="background:#e8f0fe; color:#1a56db; padding:2px 8px; border-radius:4px; font-weight:500;">${searchTotal.toLocaleString()} hits</span> <span style="color:#667;">(${pct}% of ${baseTotalRecords.toLocaleString()}) — page ${serverState.page} of ${searchPages}</span>`;
-                } else if (isSearchActive) {
-                    // Local search only (shouldn't happen much now, but fallback)
-                    const pct = sourceData.length ? ((data.length / sourceData.length) * 100).toFixed(1) : '0.0';
-                    infoEl.innerHTML = `<span style="background:#e8f0fe; color:#1a56db; padding:2px 8px; border-radius:4px; font-weight:500;">${data.length.toLocaleString()} hits</span> <span style="color:#667;">(${pct}% of page) | ${baseTotalRecords.toLocaleString()} total VM matches${modeSuffix}</span>`;
-                } else {
-                    const pageStart = baseTotalRecords ? start + 1 : 0;
-                    const pageEnd = baseTotalRecords ? start + serverState.records.length : 0;
-                    infoEl.textContent = baseTotalRecords
-                        ? `Showing ${pageStart}-${pageEnd} of ${baseTotalRecords.toLocaleString()} | page ${serverState.page} of ${serverState.totalPages}${modeSuffix}`
-                        : `Showing 0 records${modeSuffix}`;
-                }
+                // Infinite scroll info — use _updateInfScrollInfo for consistency
+                _updateInfScrollInfo();
             } else {
                 if (isSearchActive) {
                     const totalSource = (serverBrowseMode ? serverState.records : filteredData).length;
@@ -9702,8 +9819,14 @@
             }
             updateSelectedCountInfo();
             renderCardView(pageData, searchState);
-            renderPagination(totalPages);
-            // Prefetch next page in background for smooth transitions
+            if (serverBrowseMode) {
+                // Infinite scroll: hide pagination, set up observer
+                document.getElementById('pagination').innerHTML = '';
+                setTimeout(_setupInfScrollObserver, 100);
+            } else {
+                renderPagination(totalPages);
+            }
+            // Prefetch next page in background for smooth transitions (local mode)
             if (!serverBrowseMode) {
                 setTimeout(prefetchNextPage, 100);
             }
@@ -9771,50 +9894,80 @@
                 </div>`;
             }
 
-            container.innerHTML = toolbarHtml + pageData.map(r => {
-                const fullText = r._text || '';
-                const maxLen = 600;
-                const truncated = fullText.length > maxLen;
-                const shortText = truncated ? fullText.substring(0, maxLen) : fullText;
-                const highlightedShort = highlightSearch(shortText, searchState) + (truncated ? '<span style="color:#999">...</span>' : '');
-                const highlightedFull = highlightSearch(fullText, searchState);
+            const sentinelHtml = serverBrowseMode ? '<div id="infScrollSentinel"></div>' : '';
+            container.innerHTML = toolbarHtml + pageData.map(r => _renderSingleCard(r, searchState)).join('') + sentinelHtml;
+        }
 
-                const body_ = (r._body || '').replace(/^-+\s*/, '').trim();
-                const country = (r._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
-                const year = r._year || '';
-                const type = (r._type || '').replace(/^-+\s*/, '').trim();
-                const themes = (r._themesArray || []).slice(0, 4).map(t => t.replace(/^-+\s*/, '').trim()).filter(Boolean);
-                const moreThemes = (r._themesArray || []).length > 4 ? ` +${(r._themesArray || []).length - 4} more` : '';
-                const uhri = getUhriUrl(r);
-                const undocs = getUnDocsUrl(r);
-                const checked = selectedRowIds.has(String(r._id)) ? 'checked' : '';
+        function _renderSingleCard(r, searchState) {
+            const fullText = r._text || '';
+            const maxLen = 600;
+            const truncated = fullText.length > maxLen;
+            const shortText = truncated ? fullText.substring(0, maxLen) : fullText;
+            const highlightedShort = highlightSearch(shortText, searchState) + (truncated ? '<span style="color:#999">...</span>' : '');
+            const highlightedFull = highlightSearch(fullText, searchState);
 
-                let html = `<div class="rec-card">`;
-                html += `<input type="checkbox" class="rec-card-select" onchange="toggleRowSelection(${r._id}, this.checked)" ${checked}>`;
-                // Short (truncated) view
-                html += `<div class="rec-card-text" id="card-short-${r._id}">${highlightedShort}</div>`;
-                // Full (expanded) view — hidden by default
-                if (truncated) {
-                    html += `<div class="rec-card-text hidden" id="card-full-${r._id}">${highlightedFull}</div>`;
-                    html += `<button class="copy-btn" id="card-toggle-${r._id}" onclick="toggleCardText(${r._id})" style="margin-bottom:8px; font-size:11px;">Read full text</button>`;
+            const body_ = (r._body || '').replace(/^-+\s*/, '').trim();
+            const country = (r._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
+            const year = r._year || '';
+            const type = (r._type || '').replace(/^-+\s*/, '').trim();
+            const themes = (r._themesArray || []).slice(0, 4).map(t => t.replace(/^-+\s*/, '').trim()).filter(Boolean);
+            const moreThemes = (r._themesArray || []).length > 4 ? ` +${(r._themesArray || []).length - 4} more` : '';
+            const uhri = getUhriUrl(r);
+            const undocs = getUnDocsUrl(r);
+            const checked = selectedRowIds.has(String(r._id)) ? 'checked' : '';
+
+            let html = `<div class="rec-card">`;
+            html += `<input type="checkbox" class="rec-card-select" onchange="toggleRowSelection(${r._id}, this.checked)" ${checked}>`;
+            html += `<div class="rec-card-text" id="card-short-${r._id}">${highlightedShort}</div>`;
+            if (truncated) {
+                html += `<div class="rec-card-text hidden" id="card-full-${r._id}">${highlightedFull}</div>`;
+                html += `<button class="copy-btn" id="card-toggle-${r._id}" onclick="toggleCardText(${r._id})" style="margin-bottom:8px; font-size:11px;">Read full text</button>`;
+            }
+            html += `<div class="rec-card-meta">`;
+            if (body_) html += `<span class="rec-meta-tag body">${escapeHtml(body_)}</span>`;
+            if (country) html += `<span class="rec-meta-tag country">${escapeHtml(country)}</span>`;
+            if (year) html += `<span class="rec-meta-tag year">${year}</span>`;
+            if (type) html += `<span class="rec-meta-tag type">${escapeHtml(type)}</span>`;
+            html += `</div>`;
+            if (themes.length) {
+                html += `<div class="rec-card-themes">${themes.map(t => escapeHtml(t)).join(' · ')}${moreThemes}</div>`;
+            }
+            html += `<div class="rec-card-actions">`;
+            if (uhri) html += `<a href="${uhri}" target="_blank" rel="noopener" class="source-link uhri-link">UHRI</a>`;
+            if (undocs) html += `<a href="${undocs}" target="_blank" rel="noopener" class="source-link undocs-link">UN Doc</a>`;
+            html += `<button class="copy-btn" onclick="showRecordDetail(${r._id})">Details</button>`;
+            html += `<button class="copy-btn" onclick="copyFormattedCitation(${r._id}, this)">Cite</button>`;
+            html += `</div></div>`;
+            return html;
+        }
+
+        function _renderSingleRow(r, searchState) {
+            const rowCols = getTableColumns().map(c => {
+                const key = c.key;
+                if (key === '_select') {
+                    const checked = selectedRowIds.has(String(r._id)) ? 'checked' : '';
+                    return `<td><input type="checkbox" onchange="toggleRowSelection(${r._id}, this.checked)" ${checked}></td>`;
                 }
-                html += `<div class="rec-card-meta">`;
-                if (body_) html += `<span class="rec-meta-tag body">${escapeHtml(body_)}</span>`;
-                if (country) html += `<span class="rec-meta-tag country">${escapeHtml(country)}</span>`;
-                if (year) html += `<span class="rec-meta-tag year">${year}</span>`;
-                if (type) html += `<span class="rec-meta-tag type">${escapeHtml(type)}</span>`;
-                html += `</div>`;
-                if (themes.length) {
-                    html += `<div class="rec-card-themes">${themes.map(t => escapeHtml(t)).join(' · ')}${moreThemes}</div>`;
+                if (key === '_predictedLabels' && r._predictedLabels && r._predictedLabels.length) {
+                    return `<td>${r._predictedLabels.map(l => `<span class="pred-badge">${highlightSearch(l, searchState)}</span>`).join('')}</td>`;
                 }
-                html += `<div class="rec-card-actions">`;
-                if (uhri) html += `<a href="${uhri}" target="_blank" rel="noopener" class="source-link uhri-link">UHRI</a>`;
-                if (undocs) html += `<a href="${undocs}" target="_blank" rel="noopener" class="source-link undocs-link">UN Doc</a>`;
-                html += `<button class="copy-btn" onclick="showRecordDetail(${r._id})">Details</button>`;
-                html += `<button class="copy-btn" onclick="copyFormattedCitation(${r._id}, this)">Cite</button>`;
-                html += `</div></div>`;
-                return html;
-            }).join('');
+                if (key === '_text') return renderTextCell(r._text, searchState, r._id, '_text', 1300);
+                if (key === '_themes') return renderTextCell(r._themes, searchState, r._id, '_themes', 260);
+                if (key === '_source') {
+                    const uhri = getUhriUrl(r);
+                    const undocs = getUnDocsUrl(r);
+                    let h = '<td class="source-cell"><div class="source-links">';
+                    if (uhri) h += `<a href="${uhri}" target="_blank" rel="noopener" class="source-link uhri-link" title="UHRI">UHRI</a>`;
+                    if (undocs) h += `<a href="${undocs}" target="_blank" rel="noopener" class="source-link undocs-link">UN Doc</a>`;
+                    if (!uhri && !undocs) h += '<span style="color:#aaa">—</span>';
+                    return h + '</div></td>';
+                }
+                if (key === '_actions') {
+                    return `<td><div class="copy-actions"><button class="copy-btn" onclick="showRecordDetail(${r._id})">Details</button><button class="copy-btn" onclick="copyFormattedCitation(${r._id}, this)">Cite</button></div></td>`;
+                }
+                return `<td>${highlightSearch(getCellValue(r, key), searchState)}</td>`;
+            });
+            return `<tr>${rowCols.join('')}</tr>`;
         }
 
         function renderPagination(total) {
@@ -9886,34 +10039,8 @@
             }
 
             if (serverBrowseMode) {
-                // Check if we have a prefetched page from server
-                const searchTerm = _serverSearchFilter || '';
-                if (_serverPrefetchedPage.page === p && _serverPrefetchedPage.searchTerm === searchTerm && _serverPrefetchedPage.records) {
-                    // Use prefetch cache — instant page turn
-                    serverState.page = p;
-                    serverState.records = _serverPrefetchedPage.records;
-                    filteredData = _serverPrefetchedPage.records;
-                    registerRecords(_serverPrefetchedPage.records);
-                    _serverPrefetchedPage = { page: null, records: null, searchTerm: null };
-                    buildDataTable();
-                    if (target) { target.style.opacity = '1'; }
-                    // Prefetch the NEXT page in background
-                    const totalPg = _serverSearchFilter ? (serverState.searchTotalPages || 1) : (serverState.totalPages || 1);
-                    _serverPrefetchNext(searchTerm, p + 1, totalPg);
-                } else if (_serverSearchFilter) {
-                    // Server search active — re-query with text_filter
-                    _serverSearchRefresh(_serverSearchFilter, p).then(() => {
-                        if (target) { target.style.opacity = '1'; }
-                    }).catch(() => {
-                        if (target) { target.style.opacity = '1'; }
-                    });
-                } else {
-                    refreshServerBrowseData(p, true).then(() => {
-                        if (target) { target.style.opacity = '1'; }
-                    }).catch(() => {
-                        if (target) { target.style.opacity = '1'; }
-                    });
-                }
+                // Server mode uses infinite scroll — goToPage not used
+                if (target) { target.style.opacity = '1'; }
             } else {
                 requestAnimationFrame(() => {
                     renderTableBody();
