@@ -2838,10 +2838,25 @@
         <div class="data-table-section" id="tab-data">
             <div class="table-controls">
                 <div class="search-wrap">
-                    <input type="text" class="search-box" id="tableSearch" placeholder="🔍 Search recommendations (plain text, &quot;exact phrase&quot;, or /regex/i)...">
+                    <div style="position:relative; flex:1;">
+                        <input type="text" class="search-box" id="tableSearch" placeholder="Search recommendations..." style="padding-right:36px;">
+                        <button onclick="document.getElementById('searchHelpPopover').classList.toggle('hidden')" title="Search syntax help" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:22px; height:22px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Search help">?</button>
+                        <div id="searchHelpPopover" class="hidden" style="position:absolute; top:calc(100% + 6px); right:0; z-index:100; background:#fff; border:1px solid #dde; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:14px 16px; width:340px; font-size:12px; line-height:1.6; color:#334;">
+                            <div style="font-weight:600; margin-bottom:8px; font-size:13px;">Search syntax</div>
+                            <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">plain text</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">asylum seekers</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">OR (any term)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">internet OR online OR digital</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">AND (all terms)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">torture AND children</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">NOT (exclude)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">torture NOT sexual</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">"exact phrase"</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">"freedom of expression"</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">regex</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">/child(ren)?/i</code></td></tr>
+                            </table>
+                            <div style="margin-top:8px; padding-top:8px; border-top:1px solid #eef; color:#889; font-size:11px;">Operators must be UPPERCASE. Hyphens are normalized automatically (asylum seekers = asylum-seekers).</div>
+                        </div>
+                    </div>
                     <div class="search-hint">
                         <label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>
-                        Regex: <code>/pattern/i</code> or <code>re:pattern</code>
+                        Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -3549,12 +3564,16 @@
             const panel = document.getElementById('settingsPanel');
             if (panel) panel.classList.toggle('open');
         }
-        // Close settings panel on outside click
+        // Close settings panel and search help popover on outside click
         document.addEventListener('click', function(e) {
             const panel = document.getElementById('settingsPanel');
             const gear = document.getElementById('settingsGearBtn');
             if (panel && panel.classList.contains('open') && !panel.contains(e.target) && e.target !== gear) {
                 panel.classList.remove('open');
+            }
+            const searchHelp = document.getElementById('searchHelpPopover');
+            if (searchHelp && !searchHelp.classList.contains('hidden') && !searchHelp.contains(e.target) && !e.target.closest('[aria-label="Search help"]')) {
+                searchHelp.classList.add('hidden');
             }
         });
 
@@ -4901,8 +4920,8 @@
             }
             if (searchHint) {
                 searchHint.innerHTML = serverBrowseMode
-                    ? '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Server mode: this search filters the <strong>currently loaded page</strong>. Use <strong>Search Text</strong> above for dataset-wide filtering.'
-                    : '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Regex is supported: use <code>/pattern/i</code> or <code>re:pattern</code> (case-insensitive by default).';
+                    ? '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Server mode: filters the <strong>loaded page</strong>. Use <strong>Search Text</strong> above for full dataset.'
+                    : '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>';
             }
             if (mapNote) {
                 mapNote.textContent = serverBrowseMode
@@ -9531,19 +9550,34 @@
             }).join('');
 
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${getTableColumns().length}" style="color:#666;">No matching records found.</td></tr>`;
+                const searchVal = document.getElementById('tableSearch').value.trim();
+                const isGlobalSearch = searchState.type !== 'none';
+                const hasFilters = filteredData.length < rawData.length;
+                let hint = '';
+                if (isGlobalSearch && hasFilters) {
+                    hint = '<br><span style="font-size:12px;">Try clearing some dashboard filters, or broaden your search terms.</span>';
+                } else if (isGlobalSearch) {
+                    hint = '<br><span style="font-size:12px;">Try different keywords, or use <strong>OR</strong> to match alternatives (e.g. <code>internet OR online</code>).</span>';
+                } else if (sourceData.length === 0 && !serverBrowseMode) {
+                    hint = '<br><span style="font-size:12px;">No data loaded. Use <strong>Quick Demo</strong> or connect to a server to load recommendations.</span>';
+                }
+                tbody.innerHTML = `<tr><td colspan="${getTableColumns().length}" style="text-align:center; padding:32px 16px;">
+                    <div style="color:#526783; font-size:14px; font-weight:500;">No matching records found</div>
+                    <div style="color:#8899aa; margin-top:6px;">${isGlobalSearch ? 'Search: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code>' : 'No records match the current filters.'}${hint}</div>
+                </td></tr>`;
             }
 
             const modeSuffix = searchState.type === 'regex' ? ' | regex mode' : '';
             const isSearchActive = searchState.type !== 'none' && searchState.type !== 'invalid';
+            const infoEl = document.getElementById('tableInfo');
             if (serverBrowseMode) {
                 const pageStart = serverState.totalRecords ? start + 1 : 0;
                 const pageEnd = serverState.totalRecords ? start + serverState.records.length : 0;
                 if (isSearchActive) {
                     const pct = sourceData.length ? ((data.length / sourceData.length) * 100).toFixed(1) : '0.0';
-                    document.getElementById('tableInfo').textContent = `${data.length.toLocaleString()} hits (${pct}% of page) | ${serverState.totalRecords.toLocaleString()} total VM matches${modeSuffix}`;
+                    infoEl.innerHTML = `<span style="background:#e8f0fe; color:#1a56db; padding:2px 8px; border-radius:4px; font-weight:500;">${data.length.toLocaleString()} hits</span> <span style="color:#667;">(${pct}% of page) | ${serverState.totalRecords.toLocaleString()} total VM matches${modeSuffix}</span>`;
                 } else {
-                    document.getElementById('tableInfo').textContent = serverState.totalRecords
+                    infoEl.textContent = serverState.totalRecords
                         ? `Showing ${pageStart}-${pageEnd} of ${serverState.totalRecords.toLocaleString()} | server page ${serverState.page} of ${serverState.totalPages}${modeSuffix}`
                         : `Showing 0 records${modeSuffix}`;
                 }
@@ -9551,9 +9585,9 @@
                 if (isSearchActive) {
                     const totalSource = (serverBrowseMode ? serverState.records : filteredData).length;
                     const pct = totalSource ? ((data.length / totalSource) * 100).toFixed(1) : '0.0';
-                    document.getElementById('tableInfo').textContent = `${data.length.toLocaleString()} hits (${pct}% of ${totalSource.toLocaleString()}) — showing ${start + 1}-${Math.min(start + ROWS_PER_PAGE, data.length)}${modeSuffix}`;
+                    infoEl.innerHTML = `<span style="background:#e8f0fe; color:#1a56db; padding:2px 8px; border-radius:4px; font-weight:500;">${data.length.toLocaleString()} hits</span> <span style="color:#667;">(${pct}% of ${totalSource.toLocaleString()}) — page ${currentPage}${modeSuffix}</span>`;
                 } else {
-                    document.getElementById('tableInfo').textContent = data.length
+                    infoEl.textContent = data.length
                         ? `Showing ${start + 1}-${Math.min(start + ROWS_PER_PAGE, data.length)} of ${data.length.toLocaleString()}${modeSuffix}`
                         : `Showing 0 records${modeSuffix}`;
                 }
@@ -9612,7 +9646,16 @@
             if (!container || _currentTableView !== 'card') return;
 
             if (!pageData.length) {
-                container.innerHTML = '<div style="padding:24px; text-align:center; color:#8899aa;">No matching records found.</div>';
+                const searchVal = (document.getElementById('tableSearch')?.value || '').trim();
+                const isSearching = searchVal.length > 0;
+                let hint = isSearching
+                    ? '<div style="margin-top:8px; font-size:12px; color:#8899aa;">Try different keywords, or use <strong>OR</strong> to match alternatives (e.g. <code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">internet OR online</code>).</div>'
+                    : '';
+                container.innerHTML = `<div style="padding:32px 24px; text-align:center;">
+                    <div style="color:#526783; font-size:14px; font-weight:500;">No matching records found</div>
+                    ${isSearching ? '<div style="margin-top:6px; color:#8899aa;">Search: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code></div>' : ''}
+                    ${hint}
+                </div>`;
                 return;
             }
 
