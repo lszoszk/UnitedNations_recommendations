@@ -3011,6 +3011,7 @@
                 </div>
                 <div style="font-size: 11px; color: #667; line-height: 1.6;">
                     Powered by <strong>Transformers.js</strong> running entirely in your browser. The model (~70 MB) is downloaded once and cached.
+                    <br><span style="color: #8a6d3b;">First use takes 3-5 minutes (one-time compilation). After that, the model loads in seconds.</span>
                     Works offline after first load. No data leaves your computer.
                 </div>
             </div>
@@ -11068,7 +11069,7 @@
             document.getElementById('hybridRefineBox')?.classList.add('hidden');
 
             document.getElementById('trainingProgress').classList.remove('hidden');
-            setTrainingProgress(5, 'Loading zero-shot model (~70 MB, cached after first use)...');
+            setTrainingProgress(5, 'Loading AI model (~70 MB). First load takes 3-5 minutes (compiled & cached for instant future use)...');
 
             try {
                 // ── Load model with progress ──
@@ -11087,22 +11088,28 @@
                         setTrainingProgress(Math.min(8, 20), `Preparing ${progress.file || 'model'}...`);
                     }
                 });
-                // Animate progress and show elapsed time during model init
+                // Animate progress and show elapsed time during model init (can take 3-5 min on first load)
                 const initInterval = setInterval(() => {
                     if (_dlDone && _initStartTime) {
                         const el = document.getElementById('trainingProgressFill');
                         const current = el ? parseFloat(el.style.width) || 20 : 20;
                         const elapsedSec = Math.round((performance.now() - _initStartTime) / 1000);
-                        const msg = elapsedSec < 15
-                            ? `Initializing model... (${elapsedSec}s)`
-                            : elapsedSec < 60
-                            ? `Compiling WASM runtime... (${elapsedSec}s — first load is slow, subsequent loads are instant)`
-                            : `Still initializing... (${elapsedSec}s — this is normal for first load, the model is being compiled for your browser)`;
-                        if (current < 28) {
-                            setTrainingProgress(Math.min(current + 0.3, 28), msg);
+                        const mins = Math.floor(elapsedSec / 60);
+                        const secs = elapsedSec % 60;
+                        const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                        let msg;
+                        if (elapsedSec < 10) {
+                            msg = `Initializing AI model... (${timeStr})`;
+                        } else if (elapsedSec < 60) {
+                            msg = `Compiling model for your browser... (${timeStr}) — first load takes 3-5 minutes, then it's cached`;
+                        } else if (elapsedSec < 180) {
+                            msg = `Still compiling... (${timeStr}) — this is normal! The model is being optimized for your device. Next time it will load in seconds.`;
                         } else {
-                            setTrainingProgress(current, msg);
+                            msg = `Almost there... (${timeStr}) — the model is large (~70 MB) and needs one-time compilation. Please don't close this tab.`;
                         }
+                        // Slowly animate from 20% to 28% over ~5 minutes
+                        const targetPct = Math.min(20 + (elapsedSec / 300) * 8, 28);
+                        setTrainingProgress(Math.max(current, targetPct), msg);
                     }
                 }, 1000);
                 const pipe = await pipePromise;
