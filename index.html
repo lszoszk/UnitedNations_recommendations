@@ -4351,6 +4351,9 @@
             if (e.target.files[0]) processFile(e.target.files[0], 'upload');
         });
 
+        // ── Restore URL state (filters, tab, search from hash) ──
+        const _hadUrlState = _restoreUrlState();
+
         // ── Returning user auto-load (if enabled in settings) ──
         if (shouldAutoLoadDemoData()) {
             loadBundledSampleData(false);
@@ -4358,6 +4361,9 @@
             // User opted into auto-load — skip landing page
             loadOverviewBootstrapThenServerBrowse(false);
         } else if (shouldAutoLoadRemoteData()) {
+            loadOverviewBootstrapThenServerBrowse(false);
+        } else if (_hadUrlState && DATASET_API_URL) {
+            // URL has filter state but no auto-load — connect and apply
             loadOverviewBootstrapThenServerBrowse(false);
         }
 
@@ -4367,10 +4373,11 @@
             clearTimeout(searchDebounceTimer);
             searchDebounceTimer = setTimeout(() => {
                 currentPage = 1;
+                _pushUrlState();
                 if (serverBrowseMode) {
                     const query = (e.target.value || '').trim();
                     _serverSearchFilter = query;
-                    _serverSearchRefresh(query, 1);
+                    _serverSearchRefresh(query);
                 } else {
                     renderTableBody();
                 }
@@ -4966,7 +4973,122 @@
 
         function bindTabSwitching() {
             document.querySelectorAll('.tab').forEach(tab => {
-                tab.onclick = () => activateTab(tab.dataset.tab);
+                tab.onclick = () => {
+                    activateTab(tab.dataset.tab);
+                    _pushUrlState();
+                };
+            });
+        }
+
+        // ── Shareable URL state ──
+        // Encodes filters, tab, and search into the URL hash so users can
+        // bookmark and share specific views.
+        // Format: #tab=data&q=asylum+seekers&country=PL,DE&body=CRC&year=2020-2024&search=child
+        let _urlStatePushTimer = null;
+
+        function _pushUrlState() {
+            clearTimeout(_urlStatePushTimer);
+            _urlStatePushTimer = setTimeout(() => {
+                const params = new URLSearchParams();
+                const tab = preferredActiveTab || 'overview';
+                if (tab !== 'overview') params.set('tab', tab);
+
+                // Main filters
+                const filters = getServerFilterState();
+                if (filters.textQuery) params.set('q', filters.textQuery);
+                if (filters.countries.length) params.set('country', filters.countries.join(','));
+                if (filters.bodies.length) params.set('body', filters.bodies.join(','));
+                if (filters.regions.length) params.set('region', filters.regions.join(','));
+                if (filters.annotationType.length) params.set('type', filters.annotationType.join(','));
+                if (filters.yearStart) params.set('year_from', String(filters.yearStart));
+                if (filters.yearEnd) params.set('year_to', String(filters.yearEnd));
+
+                // Data tab search
+                const tableSearch = (document.getElementById('tableSearch')?.value || '').trim();
+                if (tableSearch) params.set('search', tableSearch);
+
+                const hash = params.toString();
+                const newUrl = hash ? `#${hash}` : window.location.pathname + window.location.search;
+                if (window.location.hash.slice(1) !== hash) {
+                    history.replaceState(null, '', newUrl);
+                }
+            }, 300);
+        }
+
+        function _restoreUrlState() {
+            const hash = window.location.hash.slice(1);
+            if (!hash) return false;
+            try {
+                const params = new URLSearchParams(hash);
+                let restored = false;
+
+                // Restore main filter text
+                const q = params.get('q');
+                if (q) {
+                    const el = document.getElementById('filterText');
+                    if (el) { el.value = q; restored = true; }
+                }
+
+                // Restore country
+                const country = params.get('country');
+                if (country) {
+                    _restoreMultiSelect('filterCountry', country.split(','));
+                    restored = true;
+                }
+
+                // Restore body
+                const body = params.get('body');
+                if (body) {
+                    _restoreMultiSelect('filterBody', body.split(','));
+                    restored = true;
+                }
+
+                // Restore region
+                const region = params.get('region');
+                if (region) {
+                    _restoreMultiSelect('filterRegion', region.split(','));
+                    restored = true;
+                }
+
+                // Restore type
+                const type = params.get('type');
+                if (type) {
+                    const el = document.getElementById('filterType');
+                    if (el) { el.value = type; restored = true; }
+                }
+
+                // Restore year range
+                const yearFrom = params.get('year_from');
+                const yearTo = params.get('year_to');
+                if (yearFrom) { const el = document.getElementById('filterYearStart'); if (el) { el.value = yearFrom; restored = true; } }
+                if (yearTo) { const el = document.getElementById('filterYearEnd'); if (el) { el.value = yearTo; restored = true; } }
+
+                // Restore Data tab search
+                const search = params.get('search');
+                if (search) {
+                    const el = document.getElementById('tableSearch');
+                    if (el) { el.value = search; _serverSearchFilter = search; }
+                }
+
+                // Restore active tab
+                const tab = params.get('tab');
+                if (tab) {
+                    setTimeout(() => activateTab(tab), 100);
+                }
+
+                return restored;
+            } catch (e) {
+                console.warn('Failed to restore URL state:', e);
+                return false;
+            }
+        }
+
+        function _restoreMultiSelect(selectId, values) {
+            const el = document.getElementById(selectId);
+            if (!el) return;
+            // For multi-select elements, set selected options
+            Array.from(el.options).forEach(opt => {
+                opt.selected = values.includes(opt.value);
             });
         }
 
@@ -6768,6 +6890,7 @@
             const btn = document.getElementById('applyFiltersBtn');
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-small"></span> Applying...';
+            _pushUrlState();
 
             if (serverBrowseMode) {
                 currentPage = 1;
