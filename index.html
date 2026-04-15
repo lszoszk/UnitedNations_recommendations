@@ -357,7 +357,7 @@
         /* Footer acknowledgment */
         .site-footer {
             text-align: center;
-            padding: 14px 20px;
+            padding: 24px 20px 20px;
             font-size: 12px;
             color: #64748b;
             background: #f1f5f9;
@@ -366,6 +366,30 @@
         }
         .site-footer a { color: #2563eb; text-decoration: none; }
         .site-footer a:hover { text-decoration: underline; }
+        .footer-logos {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 36px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .footer-logos a {
+            display: inline-flex;
+            align-items: center;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .footer-logos a:hover { opacity: 1; }
+        .footer-logos img, .footer-logos svg { height: 32px; width: auto; }
+        .footer-supported {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-top: 14px;
+            font-weight: 500;
+        }
 
         /* Explore CTA — dominant single button */
         .landing-explore-cta {
@@ -11746,6 +11770,18 @@
         Developed by &Lstrok;ukasz Szoszkiewicz under a <a href="https://reconstitution.eu" target="_blank" rel="noopener">re:constitution</a> fellowship
         (<a href="https://democracy-reporting.org/en/office/global" target="_blank" rel="noopener">Democracy Reporting International</a>),
         implemented at <a href="https://huridocs.org" target="_blank" rel="noopener">HURIDOCS</a>.
+        <div class="footer-supported">Supported by</div>
+        <div class="footer-logos">
+            <a href="https://prawo.amu.edu.pl/en" target="_blank" rel="noopener" title="Adam Mickiewicz University — Faculty of Law and Administration">
+                <img src="logo-uam.png" alt="UAM Faculty of Law and Administration" style="height:36px">
+            </a>
+            <a href="https://democracy-reporting.org" target="_blank" rel="noopener" title="Democracy Reporting International">
+                <img src="logo-dri.svg" alt="Democracy Reporting International" style="height:36px">
+            </a>
+            <a href="https://huridocs.org" target="_blank" rel="noopener" title="HURIDOCS — Human Rights Information and Documentation Systems">
+                <img src="logo-huridocs.png" alt="HURIDOCS" style="height:30px">
+            </a>
+        </div>
     </footer>
 </body>
 </html>
