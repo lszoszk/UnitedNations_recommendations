@@ -4716,7 +4716,7 @@
                 analysisBtn.disabled = false;
             }
             if (exportAllBtn) {
-                exportAllBtn.textContent = serverBrowseMode ? '⬇ Export current page XLSX' : '⬇ Export all XLSX';
+                exportAllBtn.textContent = serverBrowseMode ? '⬇ Export current page XLSX' : '⬇ Export all (filtered) XLSX';
             }
             if (tableSearch) {
                 tableSearch.placeholder = serverBrowseMode
@@ -9206,6 +9206,29 @@
             renderTableBody();
         }
 
+        function toggleCardText(id) {
+            const short = document.getElementById(`card-short-${id}`);
+            const full = document.getElementById(`card-full-${id}`);
+            const btn = document.getElementById(`card-toggle-${id}`);
+            if (!short || !full || !btn) return;
+            const isExpanded = !full.classList.contains('hidden');
+            short.classList.toggle('hidden', !isExpanded);
+            full.classList.toggle('hidden', isExpanded);
+            btn.textContent = isExpanded ? 'Read full text' : 'Collapse';
+        }
+
+        function expandAllCards() {
+            document.querySelectorAll('[id^="card-full-"]').forEach(el => el.classList.remove('hidden'));
+            document.querySelectorAll('[id^="card-short-"]').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="card-toggle-"]').forEach(btn => btn.textContent = 'Collapse');
+        }
+
+        function collapseAllCards() {
+            document.querySelectorAll('[id^="card-full-"]').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="card-short-"]').forEach(el => el.classList.remove('hidden'));
+            document.querySelectorAll('[id^="card-toggle-"]').forEach(btn => btn.textContent = 'Read full text');
+        }
+
         function renderCardView(pageData, searchState) {
             const container = document.getElementById('cardListView');
             if (!container || _currentTableView !== 'card') return;
@@ -9215,12 +9238,23 @@
                 return;
             }
 
-            container.innerHTML = pageData.map(r => {
+            // Expand/collapse all toolbar
+            const hasTruncated = pageData.some(r => (r._text || '').length > 600);
+            let toolbarHtml = '';
+            if (hasTruncated) {
+                toolbarHtml = `<div style="display:flex; gap:8px; margin-bottom:10px; justify-content:flex-end;">
+                    <button class="copy-btn" onclick="expandAllCards()" style="font-size:11px;">Expand all</button>
+                    <button class="copy-btn" onclick="collapseAllCards()" style="font-size:11px;">Collapse all</button>
+                </div>`;
+            }
+
+            container.innerHTML = toolbarHtml + pageData.map(r => {
                 const fullText = r._text || '';
                 const maxLen = 600;
                 const truncated = fullText.length > maxLen;
-                const displayText = truncated ? fullText.substring(0, maxLen) : fullText;
-                const highlighted = highlightSearch(displayText, searchState) + (truncated ? '<span style="color:#999">...</span>' : '');
+                const shortText = truncated ? fullText.substring(0, maxLen) : fullText;
+                const highlightedShort = highlightSearch(shortText, searchState) + (truncated ? '<span style="color:#999">...</span>' : '');
+                const highlightedFull = highlightSearch(fullText, searchState);
 
                 const body_ = (r._body || '').replace(/^-+\s*/, '').trim();
                 const country = (r._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
@@ -9234,8 +9268,13 @@
 
                 let html = `<div class="rec-card">`;
                 html += `<input type="checkbox" class="rec-card-select" onchange="toggleRowSelection(${r._id}, this.checked)" ${checked}>`;
-                html += `<div class="rec-card-text">${highlighted}</div>`;
-                if (truncated) html += `<button class="copy-btn" onclick="showRecordDetail(${r._id})" style="margin-bottom:8px; font-size:11px;">Read full text</button>`;
+                // Short (truncated) view
+                html += `<div class="rec-card-text" id="card-short-${r._id}">${highlightedShort}</div>`;
+                // Full (expanded) view — hidden by default
+                if (truncated) {
+                    html += `<div class="rec-card-text hidden" id="card-full-${r._id}">${highlightedFull}</div>`;
+                    html += `<button class="copy-btn" id="card-toggle-${r._id}" onclick="toggleCardText(${r._id})" style="margin-bottom:8px; font-size:11px;">Read full text</button>`;
+                }
                 html += `<div class="rec-card-meta">`;
                 if (body_) html += `<span class="rec-meta-tag body">${escapeHtml(body_)}</span>`;
                 if (country) html += `<span class="rec-meta-tag country">${escapeHtml(country)}</span>`;
@@ -9276,11 +9315,26 @@
 
         function goToPage(p) {
             currentPage = p;
+            // Visual feedback: briefly show loading state
+            const container = document.getElementById('cardListView');
+            const tbody = document.getElementById('tableBody');
+            if (_currentTableView === 'card' && container) {
+                container.style.opacity = '0.4';
+                container.style.pointerEvents = 'none';
+            } else if (tbody) {
+                tbody.style.opacity = '0.4';
+            }
             if (serverBrowseMode) {
                 refreshServerBrowseData(p, true);
                 return;
             }
-            renderTableBody();
+            requestAnimationFrame(() => {
+                renderTableBody();
+                if (container) { container.style.opacity = ''; container.style.pointerEvents = ''; }
+                if (tbody) { tbody.style.opacity = ''; }
+                // Scroll to top of data section
+                document.getElementById('dataContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
         }
 
         function updateSelectedCountInfo() {
@@ -9571,7 +9625,9 @@
                 'My Labels': (r._predictedLabels || []).join(', '),
                 Themes: r._themes || '',
                 Citation: r._citation || '',
-                Text: r._text || ''
+                Text: r._text || '',
+                'UHRI Link': getUhriUrl(r),
+                'UN Doc Link': getUnDocsUrl(r)
             }));
 
             const ws = XLSX.utils.json_to_sheet(rows);
@@ -9624,7 +9680,9 @@
                 'My Labels': (r._predictedLabels || []).join(', '),
                 Themes: r._themes || '',
                 Citation: r._citation || '',
-                Text: r._text || ''
+                Text: r._text || '',
+                'UHRI Link': getUhriUrl(r),
+                'UN Doc Link': getUnDocsUrl(r)
             }));
 
             const ws = XLSX.utils.json_to_sheet(rows);
