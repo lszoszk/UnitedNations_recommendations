@@ -880,6 +880,7 @@
             border-radius: 10px;
             padding: 4px 4px 4px 14px;
             transition: border-color .2s, box-shadow .2s;
+            position: relative;
         }
         .filter-query-input-wrap:focus-within {
             border-color: var(--accent);
@@ -2656,12 +2657,14 @@
 
             <!-- Prominent search query bar -->
             <div class="filter-query-bar">
-                <div class="filter-query-input-wrap" style="position:relative;">
+                <div class="filter-query-input-wrap">
                     <span class="filter-query-icon">🔎</span>
-                    <input type="text" id="filterText" class="filter-query-input"
-                        placeholder="Search recommendations..." style="padding-right:40px;">
-                    <button onclick="document.getElementById('filterSearchHelp').classList.toggle('hidden')" title="Search syntax help" style="position:absolute; right:110px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:24px; height:24px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Filter search help">?</button>
-                    <div id="filterSearchHelp" class="hidden" style="position:absolute; top:calc(100% + 6px); right:60px; z-index:100; background:#fff; border:1px solid #dde; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:14px 16px; width:340px; font-size:12px; line-height:1.6; color:#334;">
+                    <div style="position:relative; flex:1;">
+                        <input type="text" id="filterText" class="filter-query-input"
+                            placeholder="Search recommendations..." style="padding-right:36px; width:100%; box-sizing:border-box;">
+                        <button onclick="document.getElementById('filterSearchHelp').classList.toggle('hidden')" title="Search syntax help" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:22px; height:22px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Filter search help">?</button>
+                    </div>
+                    <div id="filterSearchHelp" class="hidden" style="position:absolute; top:calc(100% + 6px); right:0; z-index:100; background:#fff; border:1px solid #dde; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:14px 16px; width:340px; font-size:12px; line-height:1.6; color:#334;">
                         <div style="font-weight:600; margin-bottom:8px; font-size:13px;">Search syntax</div>
                         <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
                             <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">plain text</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">asylum seekers</code></td></tr>
