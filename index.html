@@ -5083,7 +5083,7 @@
             return params;
         }
 
-        async function fetchServerJson(url, errorPrefix, timeoutMs = 15000) {
+        async function fetchServerJson(url, errorPrefix, timeoutMs = 30000) {
             const ctrl = new AbortController();
             const timer = setTimeout(() => ctrl.abort(), timeoutMs);
             let response;
@@ -5364,8 +5364,10 @@
                 const recordParams = buildServerQueryParams({ page, includePagination: true });
                 const recordsUrl = `${DATASET_RECORDS_URL}?${recordParams.toString()}`;
 
-                const [summary, recordPayload, mapPayload] = await Promise.all([
-                    fetchServerJson(summaryUrl, 'Unable to load server summary'),
+                // Run summary first (lightweight), then records+map in parallel.
+                // Avoids overwhelming the 2-worker server with 3 heavy queries at once.
+                const summary = await fetchServerJson(summaryUrl, 'Unable to load server summary');
+                const [recordPayload, mapPayload] = await Promise.all([
                     fetchServerJson(recordsUrl, 'Unable to load server records'),
                     fetchServerJson(`${DATASET_MAP_URL}?${baseParams.toString()}`, 'Unable to load server map data')
                 ]);
