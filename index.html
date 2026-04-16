@@ -10750,8 +10750,13 @@
         }
 
         function expandAllCards() {
-            document.querySelectorAll('[id^="card-full-"]').forEach(el => el.classList.remove('hidden'));
-            document.querySelectorAll('[id^="card-short-"]').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="card-full-"]').forEach(el => {
+                el.classList.remove('hidden');
+                // Only hide the short version if the full version exists
+                const id = el.id.replace('card-full-', '');
+                const short = document.getElementById('card-short-' + id);
+                if (short) short.classList.add('hidden');
+            });
             document.querySelectorAll('[id^="card-toggle-"]').forEach(btn => btn.textContent = 'Collapse');
         }
 
