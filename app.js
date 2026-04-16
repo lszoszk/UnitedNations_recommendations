@@ -2129,7 +2129,7 @@
         function populateServerFacets() {
             const facets = serverState.facets || {};
             populateSelect('filterCountry', facets.countries || []);
-            populateSelect('filterBody', (facets.bodies || []).map(b => b.replace(/^-+\s*/, '').trim()).filter(Boolean));
+            populateSelect('filterBody', [...new Set((facets.bodies || []).map(_standardizeBody).filter(Boolean))].sort());
             populateSelect('filterRegion', facets.regions || []);
             const _clean = s => s.replace(/^-+\s*/, '').trim();
             populateSelect('filterTheme', (facets.themes || []).map(_clean).filter(t => t && t.length > 2).sort());
@@ -3030,6 +3030,39 @@
             }
         }
 
+        // Standardize body names: full names → abbreviations
+        const _bodyAbbreviations = {
+            'committee on economic, social and cultural rights': 'CESCR',
+            'committee on migrant workers': 'CMW',
+            'committee on the elimination of discrimination against women': 'CEDAW',
+            'committee on the rights of the child': 'CRC',
+            'committee on the elimination of racial discrimination': 'CERD',
+            'committee against torture': 'CAT',
+            'committee on enforced disappearances': 'CED',
+            'committee on the rights of persons with disabilities': 'CRPD',
+            'human rights committee': 'CCPR',
+            'subcommittee on prevention of torture': 'SPT',
+            'universal periodic review': 'UPR',
+            'special rapporteur on the situation of human rights in the palestinian territory occupied since 1967': 'SR Palestine',
+            'special rapporteur on human rights in cambodia': 'SR Cambodia',
+            'special rapporteur on the issue of human rights obligations relating to the enjoyment of a safe, clean, healthy and sustainable environment': 'SR Environment',
+            'special rapporteur on the situation of human rights in afghanistan': 'SR Afghanistan',
+            'special rapporteur on the situation of human rights in the islamic republic of iran': 'SR Iran',
+            'independent expert appointed by the secretary-general on the situation of human rights in somalia': 'IE Somalia',
+            'independent expert on the situation of human rights in central african republic': 'IE Central African Republic',
+            'independent expert on the situation of human rights in mali': 'IE Mali',
+            'sr on the situation of human rights in eritrea': 'SR Eritrea',
+            'sr on the situation of human rights in myanmar': 'SR Myanmar',
+            'sr on the situation of human rights in the democratic people republic of korea': 'SR DPRK',
+        };
+
+        function _standardizeBody(raw) {
+            const cleaned = (raw || '').replace(/^-+\s*/, '').trim();
+            if (!cleaned) return '';
+            const lower = cleaned.toLowerCase();
+            return _bodyAbbreviations[lower] || cleaned;
+        }
+
         function normalizeRecord(row, idx) {
             const n = {};
             for (let key in row) n[key] = row[key];
@@ -3038,7 +3071,7 @@
 
             n._countries = toStr(row['Countries'] || row['Countries Concerned']);
             n._countriesArray = toArr(row['Countries'] || row['Countries Concerned']);
-            n._body = toStr(row['Body'] || row['Reccomending Body'] || row['Recommending Body']);
+            n._body = _standardizeBody(toStr(row['Body'] || row['Reccomending Body'] || row['Recommending Body']));
             n._pubDate = row['PublicationDate'] || row['Document Publication Date'] || row['date'] || '';
             n._year = extractYear(n._pubDate);
             n._type = row['AnnotationType'] || row['Type'] || '';
@@ -3164,7 +3197,8 @@
         }
 
         function getUhriUrl(rec) {
-            if (rec._annotationId) return `https://uhri.ohchr.org/en/search/annotation/${rec._annotationId}`;
+            // Annotation-based URLs don't work (UHRI returns 404 page despite HTTP 200)
+            // Only document-based URLs work reliably
             if (rec._documentId) return `https://uhri.ohchr.org/en/document/${rec._documentId}`;
             return '';
         }
@@ -10081,18 +10115,19 @@
         let _compareInited = false;
 
         function _initCompareSelects() {
-            // Always re-populate from current filtered data (not raw/facets)
+            // Populate from filtered data (local mode) or infinite scroll records (server mode)
             const _c = s => _countryLabel(s.replace(/^-+\s*/, '').trim());
-            const _cb = s => s.replace(/^-+\s*/, '').trim();
-            const pool = filteredData.length ? filteredData : (rawData.length ? rawData : []);
+            const pool = serverBrowseMode
+                ? (_infScroll.records.length ? _infScroll.records : (serverState.records || []))
+                : (filteredData.length ? filteredData : rawData);
             if (pool.length) {
                 const countries = [...new Set(pool.flatMap(r => (r._countriesArray || []).map(_c)))].filter(Boolean).sort();
-                const bodies = [...new Set(pool.map(r => r._body).filter(Boolean))].map(_cb).filter(Boolean).sort();
+                const bodies = [...new Set(pool.map(r => _standardizeBody(r._body)).filter(Boolean))].sort();
                 populateSelect('compareCountry', countries);
                 populateSelect('compareBody', bodies);
             } else if (serverBrowseMode && serverState.facets) {
                 populateSelect('compareCountry', (serverState.facets.countries || []).map(c => _countryLabel(c)).filter(Boolean).sort());
-                populateSelect('compareBody', (serverState.facets.bodies || []).map(_cb).filter(Boolean).sort());
+                populateSelect('compareBody', [...new Set((serverState.facets.bodies || []).map(_standardizeBody).filter(Boolean))].sort());
             }
             _initChipSelects();
 
