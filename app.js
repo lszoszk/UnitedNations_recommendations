@@ -1096,6 +1096,85 @@
         const BUNDLED_SAMPLE_PATH = './sample-data/rule-of-law-6225.xlsx';
         const BUNDLED_SAMPLE_NAME = 'rule-of-law-6225.xlsx';
         const OVERVIEW_BOOTSTRAP_PATH = './sample-data/overview-bootstrap.json';
+
+        // ── localStorage caches for facets + bootstrap analytics (perf optimization) ──
+        const FACETS_STORAGE_KEY = 'un_hr_dashboard_facets_v1';
+        const FACETS_TTL_MS = 24 * 60 * 60 * 1000; // 24h safety cap
+        const BOOTSTRAP_STORAGE_KEY = 'un_hr_dashboard_bootstrap_v1';
+        const BOOTSTRAP_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7d safety cap when no ETag
+
+        function loadFacetsFromCache(vmBase) {
+            try {
+                const raw = localStorage.getItem(FACETS_STORAGE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || parsed.vm !== vmBase) return null;
+                if (Date.now() - (parsed.cachedAt || 0) > FACETS_TTL_MS) return null;
+                return { modifiedAt: parsed.modifiedAt || '', facets: parsed.facets || null };
+            } catch { return null; }
+        }
+
+        function saveFacetsToCache(vmBase, modifiedAt, facets) {
+            try {
+                localStorage.setItem(FACETS_STORAGE_KEY, JSON.stringify({
+                    vm: vmBase, modifiedAt: modifiedAt || '', facets, cachedAt: Date.now()
+                }));
+            } catch {}
+        }
+
+        function loadBootstrapFromCache() {
+            try {
+                const raw = localStorage.getItem(BOOTSTRAP_STORAGE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || !parsed.body) return null;
+                if (Date.now() - (parsed.cachedAt || 0) > BOOTSTRAP_MAX_AGE_MS) return null;
+                return parsed; // { etag, body, cachedAt }
+            } catch { return null; }
+        }
+
+        function saveBootstrapToCache(etag, body) {
+            try {
+                localStorage.setItem(BOOTSTRAP_STORAGE_KEY, JSON.stringify({
+                    etag: etag || '', body, cachedAt: Date.now()
+                }));
+            } catch {
+                // quota exceeded — drop cache silently so load isn't blocked
+                try { localStorage.removeItem(BOOTSTRAP_STORAGE_KEY); } catch {}
+            }
+        }
+
+        // ── Optimistic UI helpers: mark charts/table as "updating" until fresh data lands ──
+        function markSectionStale(section = 'all') {
+            if (section === 'all' || section === 'charts') {
+                document.querySelectorAll('.chart-card').forEach(el => el.classList.add('chart-stale'));
+                document.querySelectorAll('.kpi-value').forEach(el => el.classList.add('kpi-stale'));
+            }
+            if (section === 'all' || section === 'table') {
+                const tbody = document.getElementById('tableBody');
+                if (tbody && !tbody.dataset.skeletonActive) {
+                    const cols = (tbody.querySelector('tr')?.children.length) || 6;
+                    const skeletonRow = `<tr class="skeleton-row">${'<td></td>'.repeat(cols)}</tr>`;
+                    tbody.dataset.skeletonActive = '1';
+                    tbody.innerHTML = skeletonRow.repeat(5);
+                }
+            }
+        }
+
+        function markSectionFresh(section = 'all') {
+            if (section === 'all' || section === 'charts') {
+                document.querySelectorAll('.chart-card.chart-stale').forEach(el => el.classList.remove('chart-stale'));
+                document.querySelectorAll('.kpi-value.kpi-stale').forEach(el => el.classList.remove('kpi-stale'));
+            }
+            if (section === 'all' || section === 'table') {
+                const tbody = document.getElementById('tableBody');
+                if (tbody && tbody.dataset.skeletonActive) {
+                    delete tbody.dataset.skeletonActive;
+                    // Actual rows are re-populated by buildDataTable() after records arrive.
+                }
+            }
+        }
+
         loadSavedUIMode();
         loadCustomWidgetsFromStorage();
         // updateTaskTypeUI() call removed
@@ -1520,11 +1599,28 @@
         }
 
         async function fetchOverviewBootstrap() {
-            const response = await fetch(OVERVIEW_BOOTSTRAP_PATH, { cache: 'no-store' });
-            if (!response.ok) {
-                throw new Error(`Unable to fetch overview bootstrap JSON (${response.status})`);
+            const cached = loadBootstrapFromCache();
+            const headers = cached?.etag ? { 'If-None-Match': cached.etag } : {};
+            try {
+                const response = await fetch(OVERVIEW_BOOTSTRAP_PATH, { cache: 'default', headers });
+                if (response.status === 304 && cached) {
+                    return cached.body;
+                }
+                if (!response.ok) {
+                    if (cached) return cached.body; // last-resort fallback to stale cache
+                    throw new Error(`Unable to fetch overview bootstrap JSON (${response.status})`);
+                }
+                const body = await response.json();
+                const etag = response.headers.get('ETag');
+                saveBootstrapToCache(etag, body);
+                return body;
+            } catch (err) {
+                if (cached) {
+                    console.debug('Bootstrap fetch failed; using cached copy:', err);
+                    return cached.body;
+                }
+                throw err;
             }
-            return await response.json();
         }
 
         function applyOverviewBootstrap(payload = {}) {
@@ -2528,42 +2624,21 @@
                 const summaryUrl = `${DATASET_SUMMARY_URL}?${baseParams.toString()}`;
                 const recordParams = buildServerQueryParams({ page, includePagination: true });
                 const recordsUrl = `${DATASET_RECORDS_URL}?${recordParams.toString()}`;
+                const mapUrl = `${DATASET_MAP_URL}?${baseParams.toString()}`;
 
-                // Run summary first (lightweight), then records+map in parallel.
-                // Avoids overwhelming the 2-worker server with 3 heavy queries at once.
-                const summary = await fetchServerJson(summaryUrl, 'Unable to load server summary');
-                const [recordPayload, mapPayload] = await Promise.all([
-                    fetchServerJson(recordsUrl, 'Unable to load server records'),
-                    fetchServerJson(`${DATASET_MAP_URL}?${baseParams.toString()}`, 'Unable to load server map data')
-                ]);
+                // Fire all 3 in parallel and render progressively (each arrives independently).
+                // Tradeoff: 2-worker server will queue the 3rd request; wall-clock still
+                // improves vs. sequential, but watch p95 under sustained load.
+                const summaryP = fetchServerJson(summaryUrl, 'Unable to load server summary');
+                const recordsP = fetchServerJson(recordsUrl, 'Unable to load server records');
+                const mapP = fetchServerJson(mapUrl, 'Unable to load server map data');
 
-                const normalizedRecords = (recordPayload.records || []).map((row, idx) =>
-                    normalizeRecord(row, idx + ((recordPayload.page - 1) * (recordPayload.page_size || ROWS_PER_PAGE)))
-                );
-
-                serverState.loaded = true;
-                _setDataStatus('connected', 'Connected — search ready');
-                serverState.summary = summary;
-                serverState.page = recordPayload.page || page;
-                serverState.pageSize = recordPayload.page_size || ROWS_PER_PAGE;
-                serverState.totalPages = recordPayload.total_pages || 1;
-                serverState.totalRecords = recordPayload.total_records || 0;
-                serverState.records = normalizedRecords;
-                serverState.mapCountryCounts = Array.isArray(mapPayload?.country_counts) ? mapPayload.country_counts : [];
-                // Initialize infinite scroll with first page
-                _serverSearchFilter = '';
-                _infScrollReset(normalizedRecords, recordPayload.total_pages || 1, recordPayload.total_records || 0, '');
+                // Analytics reset (filterChanged) must happen synchronously so progressive
+                // renderers don't read stale analytics mid-flight.
                 if (filterChanged) {
                     const hadBootstrapAnalytics = bootstrapAnalyticsReady && serverState.analytics;
-                    if (hadBootstrapAnalytics) {
-                        // Preserve pre-computed bootstrap analytics as initial values;
-                        // they'll be replaced when VM analytics arrive
-                    } else {
-                        serverState.analytics = {
-                            trends: null,
-                            themes: null,
-                            text: null
-                        };
+                    if (!hadBootstrapAnalytics) {
+                        serverState.analytics = { trends: null, themes: null, text: null };
                     }
                     serverState.analyticsLoading = {};
                 }
@@ -2573,27 +2648,73 @@
                     setServerBrowseMode(true);
                 }
 
-                currentPage = serverState.page;
-                filteredData = normalizedRecords;
-                chartData = normalizedRecords;
-                rawData = [];
-                recordMap = new Map();
-                registerRecords(normalizedRecords);
-                refreshTrainingSampleReferences();
-                selectedRowIds.clear();
+                // Records: render data table as soon as records arrive (don't wait for summary/map).
+                const recordsHandled = recordsP.then(recordPayload => {
+                    const normalizedRecords = (recordPayload.records || []).map((row, idx) =>
+                        normalizeRecord(row, idx + ((recordPayload.page - 1) * (recordPayload.page_size || ROWS_PER_PAGE)))
+                    );
+                    serverState.loaded = true;
+                    _setDataStatus('connected', 'Connected — search ready');
+                    serverState.page = recordPayload.page || page;
+                    serverState.pageSize = recordPayload.page_size || ROWS_PER_PAGE;
+                    serverState.totalPages = recordPayload.total_pages || 1;
+                    serverState.totalRecords = recordPayload.total_records || 0;
+                    serverState.records = normalizedRecords;
+                    _serverSearchFilter = '';
+                    _infScrollReset(normalizedRecords, recordPayload.total_pages || 1, recordPayload.total_records || 0, '');
 
-                initializeServerBrowseDashboard();
-                updateServerSummaryUI(summary);
-                updateOverviewWorldMap();
-                renderFilterChips();
-                // Only render the currently active tab instead of all 28 charts.
-                // Other tabs will render on-demand when the user clicks them.
-                {
+                    currentPage = serverState.page;
+                    filteredData = normalizedRecords;
+                    chartData = normalizedRecords;
+                    rawData = [];
+                    recordMap = new Map();
+                    registerRecords(normalizedRecords);
+                    refreshTrainingSampleReferences();
+                    selectedRowIds.clear();
+
+                    initializeServerBrowseDashboard();
+                    renderFilterChips();
+                    buildDataTable();
+                    markSectionFresh('table');
+                    return recordPayload;
+                }).catch(err => {
+                    console.error('Records fetch failed:', err);
+                    markSectionFresh('table');
+                    throw err;
+                });
+
+                // Map: render worldmap independently when country counts arrive.
+                const mapHandled = mapP.then(mapPayload => {
+                    serverState.mapCountryCounts = Array.isArray(mapPayload?.country_counts) ? mapPayload.country_counts : [];
+                    updateOverviewWorldMap();
+                    return mapPayload;
+                }).catch(err => {
+                    console.error('Map fetch failed:', err);
+                    throw err;
+                });
+
+                // Summary: render KPIs + subtitles + active tab charts when summary arrives.
+                const summaryHandled = summaryP.then(summary => {
+                    serverState.summary = summary;
+                    updateServerSummaryUI(summary);
                     const activeTab = document.querySelector('#tabsSection .tab.active')?.dataset?.tab || 'overview';
                     renderTabContent(activeTab);
+                    updateChartContextSubtitles();
+                    markSectionFresh('charts');
+                    return summary;
+                }).catch(err => {
+                    console.error('Summary fetch failed:', err);
+                    markSectionFresh('charts');
+                    throw err;
+                });
+
+                // Wait for all (settled) so downstream control flow (analytics prefetch,
+                // VM loading notice toggling, finally-block) still works correctly.
+                const settled = await Promise.allSettled([summaryHandled, recordsHandled, mapHandled]);
+                const firstReject = settled.find(r => r.status === 'rejected');
+                if (firstReject) {
+                    throw firstReject.reason;
                 }
-                buildDataTable();
-                updateChartContextSubtitles();
 
                 // After the initial background transition, clear bootstrapAnalyticsReady
                 // so that future filter changes properly wipe and re-fetch analytics.
@@ -2673,20 +2794,33 @@
             }
 
             try {
-                const [datasetHealth, facets] = await Promise.all([
-                    fetchRemoteDatasetHealth(),
-                    fetchServerJson(DATASET_FACETS_URL, 'Unable to fetch dataset facets')
-                ]);
+                // Stale-while-revalidate: if facets are cached for this VM base, apply them
+                // immediately so filter UI is populated. We'll validate/refresh after health.
+                const cachedFacets = loadFacetsFromCache(VM_BASE_URL);
+                if (cachedFacets && cachedFacets.facets) {
+                    serverState.facets = cachedFacets.facets;
+                    try { populateServerFacets(); } catch (e) { console.debug('Cached facets populate failed:', e); }
+                }
+
+                const datasetHealth = await fetchRemoteDatasetHealth();
                 if (datasetHealth && datasetHealth.dataset_ready === false) {
                     throw new Error(datasetHealth.message || 'VM dataset API reports that the dataset is unavailable.');
                 }
-
                 setDatasetMetadata(datasetHealth || {});
-                serverState.facets = facets;
                 if (datasetHealth?.analysis_export_limit) {
                     serverState.analysisLimit = datasetHealth.analysis_export_limit;
                 }
-                populateServerFacets();
+
+                const healthModifiedAt = datasetHealth?.modified_at || datasetHealth?.dataset_metadata?.modified_at || '';
+                const cacheIsFresh = cachedFacets && cachedFacets.modifiedAt && healthModifiedAt && cachedFacets.modifiedAt === healthModifiedAt;
+
+                let facets = cachedFacets?.facets || null;
+                if (!cacheIsFresh) {
+                    facets = await fetchServerJson(DATASET_FACETS_URL, 'Unable to fetch dataset facets');
+                    serverState.facets = facets;
+                    populateServerFacets();
+                    saveFacetsToCache(VM_BASE_URL, healthModifiedAt, facets);
+                }
                 activeDataSource = 'vm_server';
                 fileName = 'UHRI dataset (server browse)';
                 fileFormat = 'Server API';
@@ -4247,9 +4381,13 @@
 
             if (serverBrowseMode) {
                 currentPage = 1;
+                // Optimistic UI: grey out charts + show skeleton rows immediately so the
+                // user sees feedback while the VM processes the new filter.
+                markSectionStale('all');
                 refreshServerBrowseData(1, true)
                     .then(() => { saveRecentFilter(); })
                     .finally(() => {
+                        markSectionFresh('all');
                         btn.disabled = false;
                         btn.innerHTML = '<span>Apply Filters</span>';
                     });
