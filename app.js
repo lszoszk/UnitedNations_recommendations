@@ -2441,7 +2441,14 @@
             appendCsvQueryParam(params, 'annotation_type', filters.annotationType);
             if (filters.yearStart) params.set('year_start', String(filters.yearStart));
             if (filters.yearEnd) params.set('year_end', String(filters.yearEnd));
-            if (filters.textQuery) params.set('text_query', filters.textQuery);
+            if (filters.textQuery) {
+                // Convert client-side boolean/phrase syntax ("a" AND b OR c NOT d) into
+                // the server's supported format — plain substring for simple phrases, or a
+                // compiled regex via the re: prefix for boolean expressions. Without this,
+                // quoted phrases like `"human rights defenders"` were being sent literally
+                // (with the quotes inside the needle), matching 0 records.
+                params.set('text_query', convertTextQueryForServer(filters.textQuery));
+            }
             if (options.textFilter) params.set('text_filter', options.textFilter);
 
             if (options.includePagination !== false) {
