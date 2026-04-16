@@ -2556,7 +2556,7 @@
     <div class="dashboard">
         <header>
             <h1>UN Human Rights Analytics Dashboard</h1>
-            <p class="hero-tagline">Explore 267,500+ UN human rights recommendations across 199 countries, 75 mechanisms, and 21 years of monitoring data.</p>
+            <p class="hero-tagline">Analytics dashboard built on the <a href="https://uhri.ohchr.org/en" target="_blank" rel="noopener" style="color:#a8d0f0; text-decoration:underline;">OHCHR Universal Human Rights Index</a> dataset — all country-specific observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review.</p>
             <div class="hero-stats" id="heroStats">
                 <div class="hero-stat">
                     <div class="hero-stat-value" id="heroStatRecs" data-target="267548">0</div>
@@ -4312,9 +4312,9 @@
 
         const coachSteps = [
             {
-                emoji: '📊',
-                title: 'Live Data Preview',
-                text: 'The charts below show real data from <span class="dynamic-rec-count">267,500+</span> UN human rights recommendations — updated automatically. Hover any bar for details.'
+                emoji: '🇺🇳',
+                title: 'OHCHR UHRI Data',
+                text: 'This dashboard is built on the <a href="https://uhri.ohchr.org/en" target="_blank" style="color:var(--accent);text-decoration:underline;">Universal Human Rights Index</a> published by the Office of the UN High Commissioner for Human Rights. It includes <span class="dynamic-rec-count">267,500+</span> country-specific observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review.'
             },
             {
                 emoji: '🔍',
@@ -4327,9 +4327,9 @@
                 text: 'Open the Labeling Tool to tag recommendations with your own categories, train a classifier, and auto-label thousands of records. Export your results or visualize them in the My Labels tab.'
             },
             {
-                emoji: '⚙️',
-                title: 'Make It Yours',
-                text: 'Click the ⚙ icon to toggle annotations, enable auto-loading, or upload your own dataset via the 📂 icon. Every setting is remembered.'
+                emoji: '📂',
+                title: 'Use Your Own Data',
+                text: 'You can also upload your own UHRI export (download from <a href="https://uhri.ohchr.org/en/our-data-api" target="_blank" style="color:var(--accent);text-decoration:underline;">uhri.ohchr.org</a>) or any dataset in XLSX/CSV format via the 📂 icon. The dashboard works with any tabular human rights data.'
             }
         ];
 
@@ -13523,14 +13523,20 @@
         <div class="about-modal">
             <button class="about-close" onclick="toggleAboutModal()" aria-label="Close">&times;</button>
             <h2>UN Human Rights Analytics Dashboard</h2>
-            <div class="about-subtitle">Interactive exploration of 267,500+ UN human rights recommendations</div>
+            <div class="about-subtitle">Analytics and classification layer built on the OHCHR Universal Human Rights Index</div>
+
+            <div class="about-section">
+                <div class="about-section-title">Data source</div>
+                <p>This dashboard uses the dataset published by the <strong>Office of the UN High Commissioner for Human Rights (OHCHR)</strong> at the <a href="https://uhri.ohchr.org/en" target="_blank" rel="noopener">Universal Human Rights Index</a>. The dataset comprises all country-specific observations and recommendations from <strong>Treaty Bodies</strong>, <strong>Special Procedures</strong>, and the <strong>Universal Periodic Review</strong> that are currently officially available. Updated monthly.</p>
+                <p style="font-size:12px; color:#667;">You can also upload your own UHRI export (from <a href="https://uhri.ohchr.org/en/our-data-api" target="_blank" rel="noopener">uhri.ohchr.org/data</a>) or any tabular dataset via the 📂 icon.</p>
+            </div>
+
+            <hr>
 
             <div class="about-section">
                 <div class="about-section-title">Developer</div>
                 <p style="margin:0">&Lstrok;ukasz Szoszkiewicz</p>
             </div>
-
-            <hr>
 
             <div class="about-section">
                 <div class="about-section-title">Fellowship</div>
@@ -13541,18 +13547,12 @@
                 <div class="about-section-title">Implemented at</div>
                 <p><a href="https://huridocs.org" target="_blank" rel="noopener">HURIDOCS</a> &mdash; Human Rights Information and Documentation Systems</p>
             </div>
-
-            <hr>
-
-            <div class="about-section">
-                <div class="about-section-title">Data source</div>
-                <p style="margin:0">Universal Human Rights Index (UHRI), Office of the UN High Commissioner for Human Rights</p>
-            </div>
         </div>
     </div>
 
     <!-- Footer acknowledgment -->
     <footer class="site-footer">
+        Built on data from the <a href="https://uhri.ohchr.org/en" target="_blank" rel="noopener">OHCHR Universal Human Rights Index</a>.
         Developed by &Lstrok;ukasz Szoszkiewicz under a <a href="https://reconstitution.eu" target="_blank" rel="noopener">re:constitution</a> fellowship
         (<a href="https://democracy-reporting.org/en/office/global" target="_blank" rel="noopener">Democracy Reporting International</a>),
         implemented at <a href="https://huridocs.org" target="_blank" rel="noopener">HURIDOCS</a>.
