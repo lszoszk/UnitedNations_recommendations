@@ -1255,8 +1255,17 @@
         // Bug #1 — React to hashchange (e.g. user pastes a URL in the already-open tab or
         // clicks a link that changes only the hash). _pushUrlState uses history.replaceState
         // which does NOT fire hashchange, so this listener only runs for user navigation.
+        // Bug #5 — Reset form state first so a new hash REPLACES filters instead of merging
+        // (e.g. setting #year_from=2020 shouldn't keep a stale country=Chile from before).
         window.addEventListener('hashchange', () => {
-            try { _restoreUrlState(); } catch {}
+            try {
+                ['filterCountry','filterBody','filterRegion','filterTheme','filterAffectedPersons','filterSdg']
+                    .forEach(id => { const el = document.getElementById(id); if (el) Array.from(el.options).forEach(o => o.selected = false); });
+                const typeEl = document.getElementById('filterType'); if (typeEl) typeEl.selectedIndex = 0;
+                const textEl = document.getElementById('filterText'); if (textEl) textEl.value = '';
+                _restoreUrlState();
+                if (typeof _initChipSelects === 'function') _initChipSelects();
+            } catch {}
             if (serverBrowseMode && typeof applyFilters === 'function') {
                 applyFilters();
             }
