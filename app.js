@@ -5790,7 +5790,7 @@
                     ytd[yearKey][theme] = count;
                 });
                 const yrs = Object.keys(ytd).sort((a, b) => Number(a) - Number(b));
-                const datasets = top5.map((t, i) => ({ label: t.replace('- ','').slice(0,30), data: yrs.map(y => ytd[y]?.[t]||0), borderColor: colors.primary[i], backgroundColor: colors.primary[i], tension: 0.3, fill: false }));
+                const datasets = top5.map((t, i) => ({ label: t.replace('- ','').slice(0,30), _fullLabel: t, data: yrs.map(y => ytd[y]?.[t]||0), borderColor: colors.primary[i], backgroundColor: colors.primary[i], tension: 0.3, fill: false }));
                 charts.themeTrends = new Chart(document.getElementById('chartThemeTrends'), {
                     type: 'line',
                     data: { labels: yrs, datasets },
@@ -5809,7 +5809,7 @@
                 }
             });
             const yrs = Object.keys(ytd).sort();
-            const datasets = top5.map((t, i) => ({ label: t.replace('- ','').slice(0,30), data: yrs.map(y => ytd[y]?.[t]||0), borderColor: colors.primary[i], backgroundColor: colors.primary[i], tension: 0.3, fill: false }));
+            const datasets = top5.map((t, i) => ({ label: t.replace('- ','').slice(0,30), _fullLabel: t, data: yrs.map(y => ytd[y]?.[t]||0), borderColor: colors.primary[i], backgroundColor: colors.primary[i], tension: 0.3, fill: false }));
             charts.themeTrends = new Chart(document.getElementById('chartThemeTrends'), {
                 type: 'line',
                 data: { labels: yrs, datasets },
@@ -10082,17 +10082,14 @@
 
         function _initCompareSelects() {
             if (_compareInited) return;
-            // Populate from same data as main filters
-            const data = rawData.length ? rawData : (serverBrowseMode ? (serverState.records || []) : []);
-            if (!data.length && serverBrowseMode && serverState.facets) {
-                // Use facets
-                const _c = s => s.replace(/^-+\s*/, '').trim();
+            // Populate from facets (complete list) in server mode, or from rawData locally
+            const _c = s => s.replace(/^-+\s*/, '').trim();
+            if (serverBrowseMode && serverState.facets) {
                 populateSelect('compareCountry', (serverState.facets.countries || []).map(_c).filter(Boolean).sort());
                 populateSelect('compareBody', (serverState.facets.bodies || []).map(_c).filter(Boolean).sort());
-            } else if (data.length) {
-                const _c = s => s.replace(/^-+\s*/, '').trim();
-                const countries = [...new Set(data.flatMap(r => r._countriesArray || []))].map(_c).filter(Boolean).sort();
-                const bodies = [...new Set(data.map(r => r._body).filter(Boolean))].map(_c).filter(Boolean).sort();
+            } else if (rawData.length) {
+                const countries = [...new Set(rawData.flatMap(r => r._countriesArray || []))].map(_c).filter(Boolean).sort();
+                const bodies = [...new Set(rawData.map(r => r._body).filter(Boolean))].map(_c).filter(Boolean).sort();
                 populateSelect('compareCountry', countries);
                 populateSelect('compareBody', bodies);
             }

@@ -18,7 +18,7 @@
             min-height: 100vh;
             color: var(--dark);
         }
-        .dashboard { max-width: 1800px; margin: 0 auto; padding: 20px; min-height: calc(100vh - 120px); }
+        .dashboard { max-width: 1800px; margin: 0 auto; padding: 20px; }
         header {
             background: linear-gradient(135deg, #0d2137 0%, #1a4572 40%, #2d6ea3 100%);
             color: white;
