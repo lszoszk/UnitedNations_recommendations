@@ -10081,32 +10081,35 @@
         let _compareInited = false;
 
         function _initCompareSelects() {
-            if (_compareInited) return;
-            // Populate from facets (complete list) in server mode, or from rawData locally
-            const _c = s => s.replace(/^-+\s*/, '').trim();
-            if (serverBrowseMode && serverState.facets) {
-                populateSelect('compareCountry', (serverState.facets.countries || []).map(_c).filter(Boolean).sort());
-                populateSelect('compareBody', (serverState.facets.bodies || []).map(_c).filter(Boolean).sort());
-            } else if (rawData.length) {
-                const countries = [...new Set(rawData.flatMap(r => r._countriesArray || []))].map(_c).filter(Boolean).sort();
-                const bodies = [...new Set(rawData.map(r => r._body).filter(Boolean))].map(_c).filter(Boolean).sort();
+            // Always re-populate from current filtered data (not raw/facets)
+            const _c = s => _countryLabel(s.replace(/^-+\s*/, '').trim());
+            const _cb = s => s.replace(/^-+\s*/, '').trim();
+            const pool = filteredData.length ? filteredData : (rawData.length ? rawData : []);
+            if (pool.length) {
+                const countries = [...new Set(pool.flatMap(r => (r._countriesArray || []).map(_c)))].filter(Boolean).sort();
+                const bodies = [...new Set(pool.map(r => r._body).filter(Boolean))].map(_cb).filter(Boolean).sort();
                 populateSelect('compareCountry', countries);
                 populateSelect('compareBody', bodies);
+            } else if (serverBrowseMode && serverState.facets) {
+                populateSelect('compareCountry', (serverState.facets.countries || []).map(c => _countryLabel(c)).filter(Boolean).sort());
+                populateSelect('compareBody', (serverState.facets.bodies || []).map(_cb).filter(Boolean).sort());
             }
             _initChipSelects();
 
-            // Wire live updates: patch ChipSelect instances to call updateCompareCharts on any change
-            const _patchChipSelect = (id) => {
-                const cs = _chipSelects[id];
-                if (!cs) return;
-                const origSelect = cs._select.bind(cs);
-                const origSync = cs.sync.bind(cs);
-                cs._select = function(val) { origSelect(val); _debounceCompareUpdate(); };
-                cs.sync = function() { origSync(); _debounceCompareUpdate(); };
-            };
-            _patchChipSelect('compareCountry');
-            _patchChipSelect('compareBody');
-            _compareInited = true;
+            if (!_compareInited) {
+                // Wire live updates: patch ChipSelect instances to call updateCompareCharts on any change
+                const _patchChipSelect = (id) => {
+                    const cs = _chipSelects[id];
+                    if (!cs) return;
+                    const origSelect = cs._select.bind(cs);
+                    const origSync = cs.sync.bind(cs);
+                    cs._select = function(val) { origSelect(val); _debounceCompareUpdate(); };
+                    cs.sync = function() { origSync(); _debounceCompareUpdate(); };
+                };
+                _patchChipSelect('compareCountry');
+                _patchChipSelect('compareBody');
+                _compareInited = true;
+            }
         }
 
         let _compareDebounce = null;
@@ -10130,7 +10133,8 @@
             if (chartsDiv) { chartsDiv.style.display = ''; chartsDiv.style.opacity = '0.4'; }
             if (emptyDiv) emptyDiv.style.display = 'none';
 
-            const data = (rawData.length ? rawData : chartData).length ? (rawData.length ? rawData : chartData) : [];
+            // Use filtered data (respects main filter), not raw
+            const data = filteredData.length ? filteredData : (rawData.length ? rawData : []);
             const _clean = s => (s || '').replace(/^-+\s*/, '').trim();
 
             // Per-country aggregation
@@ -10140,7 +10144,7 @@
             });
 
             data.forEach(r => {
-                const rCountries = (r._countriesArray || []).map(_clean);
+                const rCountries = (r._countriesArray || []).map(c => _countryLabel(_clean(c)));
                 const rBody = _clean(r._body);
                 if (bodies.length && !bodies.some(b => _clean(b) === rBody)) return;
 
@@ -10289,7 +10293,7 @@
             if (compareTableEl) {
                 const allRecs = [];
                 data.forEach(r => {
-                    const rCountries = (r._countriesArray || []).map(_clean);
+                    const rCountries = (r._countriesArray || []).map(c => _countryLabel(_clean(c)));
                     const rBody = _clean(r._body);
                     if (bodies.length && !bodies.some(b => _clean(b) === rBody)) return;
                     if (!countries.some(c => rCountries.includes(c))) return;
