@@ -2476,7 +2476,7 @@
                 ? `${summary.min_year}-${summary.max_year}`
                 : '-';
             document.getElementById('kpiAvgPerYear').textContent = Number(summary.avg_per_year || 0).toLocaleString();
-            renderStatsFromSummary(summary);
+            // renderStatsFromSummary removed (stats section was dead code)
 
             const ready = !!summary.analysis_ready;
             const limit = Number(summary.analysis_limit || serverState.analysisLimit || SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT);
