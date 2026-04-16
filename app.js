@@ -1144,6 +1144,27 @@
             }
         }
 
+        // ── Inline validation error for filter text (replaces blocking alert) ──
+        let _regexErrorEl = null;
+        function showFilterTextError(msg) {
+            const tIn = document.getElementById('filterText');
+            if (!tIn) return;
+            if (!_regexErrorEl) {
+                _regexErrorEl = document.createElement('div');
+                _regexErrorEl.className = 'filter-text-error';
+                _regexErrorEl.style.cssText = 'color:#c62828;font-size:12px;margin:4px 0 0 0;padding:4px 8px;background:#ffebee;border-radius:4px;';
+                const row = tIn.closest('.search-row, .filter-row, div') || tIn.parentElement;
+                row?.insertAdjacentElement('afterend', _regexErrorEl);
+            }
+            _regexErrorEl.textContent = msg;
+            _regexErrorEl.style.display = msg ? 'block' : 'none';
+        }
+        function clearFilterTextError() { if (_regexErrorEl) _regexErrorEl.style.display = 'none'; }
+
+        // ── Track in-flight apply + queue re-apply if user changes filters mid-flight (Bug #4) ──
+        let _applyInFlightKey = null;
+        let _applyPendingReapply = false;
+
         // ── Optimistic UI helpers: mark charts/table as "updating" until fresh data lands ──
         function markSectionStale(section = 'all') {
             if (section === 'all' || section === 'charts') {
@@ -1230,6 +1251,16 @@
         // ── Restore URL state (filters, tab, search from hash) ──
         const _hadUrlState = _restoreUrlState();
         updateRecentUI();
+
+        // Bug #1 — React to hashchange (e.g. user pastes a URL in the already-open tab or
+        // clicks a link that changes only the hash). _pushUrlState uses history.replaceState
+        // which does NOT fire hashchange, so this listener only runs for user navigation.
+        window.addEventListener('hashchange', () => {
+            try { _restoreUrlState(); } catch {}
+            if (serverBrowseMode && typeof applyFilters === 'function') {
+                applyFilters();
+            }
+        });
 
         // ── Rotating placeholder examples ──
         (function() {
@@ -2242,6 +2273,12 @@
                 document.getElementById('filterYearEnd').value = facets.max_year;
             }
             _initChipSelects();
+            // Bug #1 — On initial load, _restoreUrlState() runs before facets are loaded,
+            // so multi-select restores silently no-op (no options exist to match against).
+            // Re-run it here now that the selects are populated so hash filters actually take
+            // effect. refreshServerBrowseData (called by the outer loader) will then pick up
+            // the restored form values when it builds its query.
+            try { _restoreUrlState(); } catch (e) { console.debug('URL state re-restore skipped:', e); }
         }
 
         function getServerFilterState() {
@@ -4375,6 +4412,23 @@
 
         function applyFilters() {
             const btn = document.getElementById('applyFiltersBtn');
+
+            // Bug #3 — Validate regex client-side BEFORE firing any request, so we avoid
+            // the blocking alert() and the 4-error parallel-fetch cascade on invalid regex.
+            const textSearchState = parseSearchQuery(document.getElementById('filterText').value);
+            if (textSearchState.type === 'invalid') {
+                showFilterTextError(`Invalid regex: ${textSearchState.error || 'bad pattern'}`);
+                return;
+            }
+            clearFilterTextError();
+
+            // Bug #4 — If an apply is already in flight, remember that the user wants to
+            // re-apply with the current form state once the current request settles.
+            if (btn.disabled) {
+                _applyPendingReapply = true;
+                return;
+            }
+
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-small"></span> Applying...';
             _pushUrlState();
@@ -4384,12 +4438,22 @@
                 // Optimistic UI: grey out charts + show skeleton rows immediately so the
                 // user sees feedback while the VM processes the new filter.
                 markSectionStale('all');
+                _applyInFlightKey = buildServerFilterCacheKey();
+                _applyPendingReapply = false;
                 refreshServerBrowseData(1, true)
                     .then(() => { saveRecentFilter(); })
                     .finally(() => {
                         markSectionFresh('all');
                         btn.disabled = false;
                         btn.innerHTML = '<span>Apply Filters</span>';
+                        // Bug #4 — If the form changed while we were running, re-apply now.
+                        const currentKey = buildServerFilterCacheKey();
+                        const divergent = currentKey !== _applyInFlightKey;
+                        _applyInFlightKey = null;
+                        if (_applyPendingReapply || divergent) {
+                            _applyPendingReapply = false;
+                            setTimeout(applyFilters, 0);
+                        }
                     });
                 return;
             }
@@ -4404,9 +4468,8 @@
                 const type = document.getElementById('filterType').value;
                 const yearStart = parseInt(document.getElementById('filterYearStart').value) || 0;
                 const yearEnd = parseInt(document.getElementById('filterYearEnd').value) || 9999;
-                const textSearchState = parseSearchQuery(document.getElementById('filterText').value);
+                // textSearchState was validated above; re-use it
                 if (textSearchState.type === 'invalid') {
-                    alert(`Invalid regex in Search Text: ${textSearchState.error || ''}`);
                     btn.disabled = false;
                     btn.innerHTML = '<span>Apply Filters</span>';
                     return;
@@ -4446,6 +4509,11 @@
             clearFilter('filterSdg');
             document.getElementById('filterType').selectedIndex = 0;
             document.getElementById('filterText').value = '';
+            clearFilterTextError();
+            // Bug #2 — Clear the URL hash so a Reset is reflected in the shareable URL.
+            // Without this, users bookmarking after reset would restore stale filters.
+            // Runs in both server-browse and local modes.
+            _pushUrlState();
 
             if (serverBrowseMode) {
                 if (serverState.facets) {
