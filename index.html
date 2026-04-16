@@ -357,15 +357,15 @@
         /* Footer acknowledgment */
         .site-footer {
             text-align: center;
-            padding: 24px 20px 20px;
+            padding: 28px 24px 22px;
             font-size: 12px;
             color: #64748b;
             background: #f1f5f9;
             border-top: 1px solid #e2e8f0;
             margin-top: 24px;
         }
-        .site-footer a { color: #2563eb; text-decoration: none; }
-        .site-footer a:hover { text-decoration: underline; }
+        .site-footer a { color: #475569; text-decoration: none; }
+        .site-footer a:hover { color: #2563eb; text-decoration: underline; }
         .footer-logos {
             display: flex;
             justify-content: center;
@@ -1255,7 +1255,7 @@
         /* Copy-chart button */
         .chart-copy-btn {
             position: absolute;
-            top: 8px;
+            bottom: 8px;
             right: 8px;
             width: 32px;
             height: 32px;
@@ -1277,8 +1277,8 @@
         .chart-card:hover .chart-copy-btn { opacity: 1; }
         .chart-copy-btn:hover { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
         .chart-copy-btn.copied { background: #2e7d32; color: white; opacity: 1; }
-        .chart-copy-btn .copy-icon::after { content: '\1F4CB'; }
-        .chart-copy-btn.copied .copy-icon::after { content: '\2713'; }
+        .chart-copy-btn .copy-icon::after { content: '📷'; font-size: 14px; }
+        .chart-copy-btn.copied .copy-icon::after { content: '✓'; font-size: 14px; }
         .chart-container { position: relative; height: 350px; cursor: pointer; }
         .chart-container.tall { height: 420px; }
         .chart-container.radar { height: 380px; }
@@ -2933,6 +2933,9 @@
 
         <!-- Overview Tab -->
         <div class="charts-section" id="tab-overview">
+            <div class="guided-only" style="background:#eef6ff; border:1px solid #c8ddf4; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12px; color:#2d5a87; line-height:1.5;">
+                💡 <strong>Overview:</strong> Click any country on the map or any bar in the charts to drill down into the matching recommendations. Use the filters above to narrow by country, body, theme, or keyword.
+            </div>
             <div class="chart-row">
                 <div class="chart-card full-width">
                     <h3>World Map: Recommendation Frequency by Country</h3>
@@ -2960,6 +2963,9 @@
 
         <!-- Trends Tab -->
         <div class="charts-section" id="tab-trends">
+            <div class="guided-only" style="background:#eef6ff; border:1px solid #c8ddf4; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12px; color:#2d5a87; line-height:1.5;">
+                💡 <strong>Trends:</strong> These charts show how the volume and composition of recommendations change over time. Click any bar or data point to see the actual recommendations for that year.
+            </div>
             <div class="chart-row">
                 <div class="chart-card">
                     <h3>
@@ -2988,9 +2994,15 @@
 
         <!-- Themes Tab -->
         <div class="charts-section" id="tab-themes">
+            <div class="guided-only" style="background:#eef6ff; border:1px solid #c8ddf4; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12px; color:#2d5a87; line-height:1.5;">
+                💡 <strong>Themes:</strong> Explore what topics the UN monitoring mechanisms focus on. The radar chart groups UHRI themes into broader rights categories. Click the <strong>?</strong> icon on any chart to learn how it was computed.
+            </div>
             <div class="chart-row">
                 <div class="chart-card">
-                    <h3>Rights Categories (Radar, Theme-Derived)</h3>
+                    <h3>Rights Categories (Radar, Theme-Derived) <button onclick="document.getElementById('radarMethodInfo').classList.toggle('hidden')" style="background:none; border:1px solid #ccd; border-radius:50%; width:20px; height:20px; font-size:11px; color:#667; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; margin-left:4px;" title="How is this computed?">?</button></h3>
+                    <div id="radarMethodInfo" class="hidden" style="background:#f8fbff; border:1px solid #d4e4f7; border-radius:8px; padding:12px 16px; margin-bottom:10px; font-size:12px; line-height:1.6; color:#334;">
+                        <strong>Methodology:</strong> Each recommendation's UHRI theme tags are mapped to broader rights categories. The radar chart shows how many recommendations fall into each category, allowing comparison across time windows. Developed based on the scripts from <a href="https://doi.org/10.1080/13642987.2025.2552467" target="_blank" rel="noopener" style="color:var(--accent);">Szoszkiewicz &amp; Kaplane (2025)</a>.
+                    </div>
                     <div class="rights-controls">
                         <label>
                             Dimensions
@@ -3016,17 +3028,23 @@
             </div>
             <div class="chart-row">
                 <div class="chart-card">
-                    <h3>Theme Trends Over Time (Top 5)</h3>
+                    <h3>Theme Trends Over Time (Top 10)</h3>
                     <div class="chart-container tall"><canvas id="chartThemeTrends"></canvas></div>
                 </div>
                 <div class="chart-card">
-                    <h3>ESC vs CCPR Rights by Year (Theme-Derived)</h3>
+                    <h3>ESC vs CCPR Rights by Year (Theme-Derived) <button onclick="document.getElementById('escCcprMethodInfo').classList.toggle('hidden')" style="background:none; border:1px solid #ccd; border-radius:50%; width:20px; height:20px; font-size:11px; color:#667; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; margin-left:4px;" title="How is this computed?">?</button></h3>
+                    <div id="escCcprMethodInfo" class="hidden" style="background:#f8fbff; border:1px solid #d4e4f7; border-radius:8px; padding:12px 16px; margin-bottom:10px; font-size:12px; line-height:1.6; color:#334;">
+                        <strong>Methodology:</strong> Each recommendation is classified as relating to Economic, Social &amp; Cultural rights (ESCR) or Civil &amp; Political rights (CCPR) based on its UHRI theme tags. This stacked chart shows the annual ratio, revealing shifts in the human rights monitoring focus over time. Developed based on the scripts from <a href="https://doi.org/10.1080/13642987.2025.2552467" target="_blank" rel="noopener" style="color:var(--accent);">Szoszkiewicz &amp; Kaplane (2025)</a>.
+                    </div>
                     <div class="chart-container tall"><canvas id="chartEscCcprTrend"></canvas></div>
                 </div>
             </div>
             <div class="chart-row">
                 <div class="chart-card">
-                    <h3>Selected Rights Frequency (CCPR/ESCR)</h3>
+                    <h3>Selected Rights Frequency (CCPR/ESCR) <button onclick="document.getElementById('rightsScatterMethodInfo').classList.toggle('hidden')" style="background:none; border:1px solid #ccd; border-radius:50%; width:20px; height:20px; font-size:11px; color:#667; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; margin-left:4px;" title="How is this computed?">?</button></h3>
+                    <div id="rightsScatterMethodInfo" class="hidden" style="background:#f8fbff; border:1px solid #d4e4f7; border-radius:8px; padding:12px 16px; margin-bottom:10px; font-size:12px; line-height:1.6; color:#334;">
+                        <strong>Methodology:</strong> This chart shows the frequency of individual rights topics classified as either CCPR (Civil &amp; Political) or ESCR (Economic, Social &amp; Cultural) based on UHRI theme tags. It reveals which specific rights receive the most attention from monitoring mechanisms. Developed based on the scripts from <a href="https://doi.org/10.1080/13642987.2025.2552467" target="_blank" rel="noopener" style="color:var(--accent);">Szoszkiewicz &amp; Kaplane (2025)</a>.
+                    </div>
                     <div class="rights-meta" id="rightsScatterInfo"></div>
                     <div class="chart-container tall"><canvas id="chartRightsScatter"></canvas></div>
                 </div>
@@ -3035,6 +3053,9 @@
 
         <!-- Bodies Tab -->
         <div class="charts-section" id="tab-bodies">
+            <div class="guided-only" style="background:#eef6ff; border:1px solid #c8ddf4; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12px; color:#2d5a87; line-height:1.5;">
+                💡 <strong>Bodies:</strong> See which UN mechanisms (Treaty Bodies, Special Procedures, UPR) issue the most recommendations and how their activity changes over time. Click any bar to see the underlying recommendations.
+            </div>
             <div class="chart-row">
                 <div class="chart-card">
                     <h3>Body Activity Over Time (Scatter)</h3>
@@ -3098,6 +3119,9 @@
 
         <!-- Data Tab -->
         <div class="data-table-section" id="tab-data">
+            <div class="guided-only" style="background:#eef6ff; border:1px solid #c8ddf4; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12px; color:#2d5a87; line-height:1.5;">
+                💡 <strong>Data:</strong> Browse individual recommendations. Use the search box to filter within the current dataset. Select records and export them as XLSX. Open the Labeling Tool (purple button above) to classify recommendations with your own categories.
+            </div>
             <div class="table-controls">
                 <div class="search-wrap">
                     <div style="position:relative; flex:1;">
@@ -7348,7 +7372,7 @@
 
         // ========== RECENT FILTERS ==========
         const RECENT_FILTERS_KEY = 'un_hr_dashboard_recent_filters';
-        const MAX_RECENT = 8;
+        const MAX_RECENT = 20;
 
         function _loadRecent() {
             try { return JSON.parse(localStorage.getItem(RECENT_FILTERS_KEY) || '[]'); }
@@ -7453,7 +7477,7 @@
             const bar = document.getElementById('recentFiltersBar');
             const items = document.getElementById('recentFiltersBarItems');
             if (!bar || !items) return;
-            const list = _loadRecent().slice(0, 3);
+            const list = _loadRecent().slice(0, 10);
             if (!list.length) { bar.style.display = 'none'; return; }
             bar.style.display = 'flex';
             items.innerHTML = list.map(r => {
@@ -7946,9 +7970,11 @@
                     [1, '#0f3e77']
                 ],
                 marker: { line: { color: '#ffffff', width: 0.5 } },
-                colorbar: options.hideColorbarTitle
-                    ? { thickness: 12 }
-                    : { title: 'Frequency', thickness: 12 },
+                colorbar: window.innerWidth < 768
+                    ? { orientation: 'h', thickness: 8, len: 0.6, y: -0.05, yanchor: 'top', title: '' }
+                    : options.hideColorbarTitle
+                        ? { thickness: 12 }
+                        : { title: 'Frequency', thickness: 12 },
                 hovertemplate: '%{location}<br>Frequency: %{z}<extra></extra>'
             };
 
@@ -8254,10 +8280,15 @@
             topThemes:          label => r => (r._themesArray || []).some(t => t.replace(/^-+\s*/, '').trim().startsWith(label.replace(/^-+\s*/, '').trim().substring(0, 30))),
             affectedPersons:    label => r => (r._affectedPersonsArray || []).some(p => p.replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim()),
             sdgs:               label => r => (r._sdgsArray || []).some(s => s.replace(/^-+\s*/, '').trim().startsWith(label.replace(/^-+\s*/, '').trim().substring(0, 20))),
-            stackedTrend:       (label, datasetLabel) => r => String(r._year) === String(label) && (r._body || '').replace(/^-+\s*/, '').includes(datasetLabel),
+            stackedTrend:       (label, datasetLabel) => r => String(r._year) === String(label) && (r._body || '').replace(/^-+\s*/, '').trim() === datasetLabel.replace(/^-+\s*/, '').trim(),
             cumulative:         label => r => Number(r._year) <= Number(label),
             yoy:                label => r => String(r._year) === String(label),
-            bodyScatter:        label => r => (r._body || '').replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim(),
+            bodyScatter:        (label, datasetLabel) => r => {
+                const body = (r._body || '').replace(/^-+\s*/, '').trim();
+                const matchBody = datasetLabel ? body === datasetLabel.replace(/^-+\s*/, '').trim() : true;
+                const matchYear = label ? String(r._year) === String(label) : true;
+                return matchBody && matchYear;
+            },
             regionComparison:   label => r => (r._regionsArray || []).some(rg => rg.replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim()),
             topCountries:       label => r => (r._countriesArray || []).some(c => c.replace(/^-+\s*/, '').trim() === label.replace(/^-+\s*/, '').trim()),
             // Themes tab: Theme Trends line chart (click year+theme)
@@ -8325,7 +8356,7 @@
             stackedTrend:       (label, ds) => `${ds} recommendations from ${label}`,
             cumulative:         label => `Recommendations up to ${label}`,
             yoy:                label => `Recommendations from ${label}`,
-            bodyScatter:        label => `Recommendations by ${label}`,
+            bodyScatter:        (label, ds) => `${ds || 'Body'} — ${label}`,
             regionComparison:   label => `Recommendations for ${label}`,
             topCountries:       label => `Recommendations for ${label}`,
             themeTrends:        (label, ds) => `${ds} recommendations from ${label}`,
@@ -8361,7 +8392,8 @@
             if (!chartKey || !chartDrilldownMap[chartKey]) return;
 
             let label = chart.data.labels?.[el.index];
-            const datasetLabel = chart.data.datasets?.[el.datasetIndex]?.label || '';
+            const dataset = chart.data.datasets?.[el.datasetIndex];
+            const datasetLabel = dataset?._fullLabel || dataset?.label || '';
 
             // For scatter charts, labels array is empty — derive label from the clicked point or dataset
             if (!label && chart.config.type === 'scatter') {
@@ -8400,7 +8432,7 @@
             cumulative:         label => ({ year_end: label }),
             regionDistribution: label => ({ regions: label }),
             regionComparison:   label => ({ regions: label }),
-            bodyScatter:        label => ({ bodies: '- ' + label }),
+            bodyScatter:        (label, ds) => ({ year_start: label, year_end: label, bodies: '- ' + ds }),
             topCountries:       label => ({ countries: resolveCountryForApi(label) }),
             mapCountry:         label => ({ countries: label }),
             themeTrends:        (label, ds) => ({ year_start: label, year_end: label, themes: ds }),
@@ -8849,7 +8881,8 @@
                 const yrs = Object.keys(yd).sort((a, b) => Number(a) - Number(b));
                 const catArr = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([value]) => value);
                 const datasets = catArr.map((value, i) => ({
-                    label: value.replace('- ', '').slice(0, 25),
+                    label: value.replace(/^-+\s*/, '').slice(0, 25),
+                    _fullLabel: value,
                     data: yrs.map(year => yd[year]?.[value] || 0),
                     backgroundColor: colors.bodies[i % colors.bodies.length]
                 }));
@@ -8874,7 +8907,7 @@
             });
             const yrs = Object.keys(yd).sort();
             const catArr = [...cats].slice(0, 10);
-            const datasets = catArr.map((c, i) => ({ label: c.replace('- ','').slice(0,25), data: yrs.map(y => yd[y]?.[c]||0), backgroundColor: colors.bodies[i % colors.bodies.length] }));
+            const datasets = catArr.map((c, i) => ({ label: c.replace(/^-+\s*/, '').slice(0,25), _fullLabel: c, data: yrs.map(y => yd[y]?.[c]||0), backgroundColor: colors.bodies[i % colors.bodies.length] }));
             charts.stackedTrend = new Chart(document.getElementById('chartStackedTrend'), {
                 type: 'bar',
                 data: { labels: yrs, datasets },
@@ -9252,7 +9285,7 @@
                 const top5 = (themeAnalytics.theme_counts || [])
                     .map(row => [String(row.theme || ''), Number(row.count || 0)])
                     .filter(([theme, count]) => theme && Number.isFinite(count) && count > 0)
-                    .slice(0, 5)
+                    .slice(0, 10)
                     .map(([theme]) => theme);
                 const ytd = {};
                 (themeAnalytics.yearly_theme_counts || []).forEach(row => {
@@ -9617,7 +9650,8 @@
                 });
                 const bodies = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([body]) => body);
                 const datasets = bodies.map((body, i) => ({
-                    label: body.replace('- ', ''),
+                    label: body.replace(/^-+\s*/, '').slice(0, 25),
+                    _fullLabel: body,
                     data: rows
                         .filter(row => String(row?.body || '').trim() === body)
                         .map(row => ({ x: Number(row.year), y: Number(row.count || 0) }))
@@ -10253,7 +10287,7 @@
             records.forEach(r => (r._themesArray || []).forEach(theme => {
                 if (theme) themeTotals[theme] = (themeTotals[theme] || 0) + 1;
             }));
-            const topThemes = Object.entries(themeTotals).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([theme]) => theme);
+            const topThemes = Object.entries(themeTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([theme]) => theme);
             const yearly = {};
             records.forEach(r => {
                 if (!Number.isFinite(r._year)) return;
@@ -13547,27 +13581,42 @@
                 <div class="about-section-title">Implemented at</div>
                 <p><a href="https://huridocs.org" target="_blank" rel="noopener">HURIDOCS</a> &mdash; Human Rights Information and Documentation Systems</p>
             </div>
+
+            <hr>
+
+            <div class="about-section">
+                <div class="about-section-title">Research</div>
+                <p>The quantitative analysis methodology and several scripts used in this dashboard were developed for and described in:<br>
+                <a href="https://doi.org/10.1080/13642987.2025.2552467" target="_blank" rel="noopener">&Lstrok;. Szoszkiewicz &amp; A. Kaplane, <em>The International Journal of Human Rights</em> (2025)</a></p>
+            </div>
+
+            <div class="about-section">
+                <div class="about-section-title">Open source</div>
+                <p>Full source code is available on <a href="https://github.com/lszoszk/UnitedNations_recommendations/tree/gh-pages" target="_blank" rel="noopener">GitHub</a>.</p>
+            </div>
         </div>
     </div>
 
     <!-- Footer acknowledgment -->
     <footer class="site-footer">
-        Built on data from the <a href="https://uhri.ohchr.org/en" target="_blank" rel="noopener">OHCHR Universal Human Rights Index</a>.
-        Developed by &Lstrok;ukasz Szoszkiewicz under a <a href="https://reconstitution.eu" target="_blank" rel="noopener">re:constitution</a> fellowship
-        (<a href="https://democracy-reporting.org/en/office/global" target="_blank" rel="noopener">Democracy Reporting International</a>),
-        implemented at <a href="https://huridocs.org" target="_blank" rel="noopener">HURIDOCS</a>.
-        <div class="footer-supported">Supported by</div>
-        <div class="footer-logos">
+        <div class="footer-logos" style="margin-top:0; margin-bottom:14px;">
             <a href="https://prawo.amu.edu.pl/en" target="_blank" rel="noopener" title="Adam Mickiewicz University — Faculty of Law and Administration">
-                <img src="logo-uam.png" alt="UAM Faculty of Law and Administration" style="height:36px">
+                <img src="logo-uam.png" alt="UAM" style="height:34px">
             </a>
             <a href="https://democracy-reporting.org" target="_blank" rel="noopener" title="Democracy Reporting International">
-                <img src="logo-dri.png" alt="Democracy Reporting International" style="height:36px">
+                <img src="logo-dri.png" alt="DRI" style="height:34px">
             </a>
-            <a href="https://huridocs.org" target="_blank" rel="noopener" title="HURIDOCS — Human Rights Information and Documentation Systems">
-                <img src="logo-huridocs.png" alt="HURIDOCS" style="height:30px">
+            <a href="https://huridocs.org" target="_blank" rel="noopener" title="HURIDOCS">
+                <img src="logo-huridocs.png" alt="HURIDOCS" style="height:28px">
             </a>
         </div>
+        <div style="margin-bottom:8px;">
+            Built on <a href="https://uhri.ohchr.org/en" target="_blank" rel="noopener">OHCHR UHRI</a> data · Developed by &Lstrok;. Szoszkiewicz · <a href="https://reconstitution.eu" target="_blank" rel="noopener">re:constitution</a> fellowship
+        </div>
+        <a href="https://github.com/lszoszk/UnitedNations_recommendations/tree/gh-pages" target="_blank" rel="noopener" title="View source code on GitHub" style="display:inline-flex; align-items:center; gap:5px; color:#64748b; text-decoration:none; font-size:11px;">
+            <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            Open Source on GitHub
+        </a>
     </footer>
 </body>
 </html>
