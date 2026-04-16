@@ -1983,6 +1983,12 @@
                 if (filters.bodies.length) params.set('body', filters.bodies.join(','));
                 if (filters.regions.length) params.set('region', filters.regions.join(','));
                 if (filters.annotationType.length) params.set('type', filters.annotationType.join(','));
+                // Theme / SDG / affected_persons values may contain commas (e.g. "Children:
+                // definition; general principles; protection"), so we use `|` as the delimiter
+                // — the same convention as the VM API for these fields.
+                if (filters.themes.length) params.set('theme', filters.themes.join('|'));
+                if (filters.sdgs.length) params.set('sdg', filters.sdgs.join('|'));
+                if (filters.affectedPersons.length) params.set('affected', filters.affectedPersons.join('|'));
                 if (filters.yearStart) params.set('year_from', String(filters.yearStart));
                 if (filters.yearEnd) params.set('year_to', String(filters.yearEnd));
 
@@ -2032,6 +2038,15 @@
                     _restoreMultiSelect('filterRegion', region.split(','));
                     restored = true;
                 }
+
+                // Restore theme / sdg / affected_persons — pipe-delimited because values
+                // can contain commas (e.g. "Children: definition; general principles").
+                const theme = params.get('theme');
+                if (theme) { _restoreMultiSelect('filterTheme', theme.split('|')); restored = true; }
+                const sdg = params.get('sdg');
+                if (sdg) { _restoreMultiSelect('filterSdg', sdg.split('|')); restored = true; }
+                const affected = params.get('affected');
+                if (affected) { _restoreMultiSelect('filterAffectedPersons', affected.split('|')); restored = true; }
 
                 // Restore type
                 const type = params.get('type');
@@ -2372,6 +2387,23 @@
             // Each group: positive terms as lookaheads (?=.*term), negatives as (?!.*term)
             // Groups joined by |
             const escRx = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            // Fix (Obs #2): a single quoted phrase (or any single positive clause with no
+            // operators) should be sent as plain text. Server uses LIKE '%needle%' which
+            // is the correct semantics for a phrase and avoids regex overhead entirely.
+            if (orGroups.length === 1 && orGroups[0].length === 1 && !orGroups[0][0].negate) {
+                return orGroups[0][0].term;
+            }
+
+            // Fix (Obs #3): pure OR of single positive terms (no AND within any group,
+            // no NOT anywhere) can use simple alternation (a|b|c) instead of per-term
+            // lookaheads. ~3–5× faster on the VM for queries like "prison OR jail OR
+            // detention" because it avoids Python regex's quadratic lookahead behaviour.
+            const isPureOr = orGroups.every(g => g.length === 1 && !g[0].negate);
+            if (isPureOr && orGroups.length > 1) {
+                const terms = orGroups.map(g => escRx(g[0].term)).join('|');
+                return `re:(?i)(?:${terms})`;
+            }
 
             const groupPatterns = orGroups.map(group => {
                 const parts = [];
