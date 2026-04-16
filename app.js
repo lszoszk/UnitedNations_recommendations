@@ -2494,6 +2494,7 @@
             document.getElementById('dataInfo').classList.remove('hidden');
             updateDatasetMetadataUI();
             document.getElementById('sampleNotice').classList.add('hidden');
+            document.getElementById('filtersSection').classList.remove('hidden');
             document.getElementById('filtersSection').classList.add('active');
             document.getElementById('kpiSection').classList.remove('hidden');
             { const _cc = document.getElementById('classifierCta'); if (_cc) { _cc.classList.remove('hidden'); _cc.classList.add('active'); } }
@@ -3415,6 +3416,7 @@
 
             populateFilters();
 
+            document.getElementById('filtersSection').classList.remove('hidden');
             document.getElementById('filtersSection').classList.add('active');
             document.getElementById('kpiSection').classList.remove('hidden');
             { const _cc = document.getElementById('classifierCta'); if (_cc) { _cc.classList.remove('hidden'); _cc.classList.add('active'); } }
