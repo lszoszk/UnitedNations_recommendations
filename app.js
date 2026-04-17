@@ -2901,9 +2901,20 @@
         }
         function invalidateServerCache() { _serverResponseCache.clear(); }
 
+        function createUserCancelledError(errorPrefix = 'Request') {
+            const err = new Error(`${errorPrefix}: request cancelled.`);
+            err.name = 'UserCancelledError';
+            err.isUserCancelled = true;
+            return err;
+        }
+
+        function isUserCancelledError(err) {
+            return !!(err && (err.isUserCancelled || err.name === 'UserCancelledError'));
+        }
+
         // ── Plan B: progressive slow-request notice.
-        //    At 8s → "Still loading…" with Cancel. At 20s → upgrade to Offline Mode CTA
-        //    (10s before the 30s hard timeout, so users see the escape hatch earlier).
+        //    At 5s → "Query still running…" with Cancel + Offline Mode CTA.
+        //    At 12s → stronger Offline Mode guidance before the 30s hard timeout.
         //    Reference-counted across parallel fetches; auto-clears when all settle. ──
         const _activeAbortControllers = new Set();
         let _slowRequestPendingCount = 0;
@@ -2918,22 +2929,30 @@
             if (phase === 'slow') {
                 el.style.borderLeftColor = '#6b7280';
                 el.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div class="spinner" style="width:14px; height:14px; border:2px solid #d1d5db; border-top-color:#4b5563; border-radius:50%; animation:spin 0.8s linear infinite; flex:0 0 auto;"></div>
-                        <div style="flex:1;">Still loading…</div>
-                        <button type="button" onclick="_cancelSlowRequests()" style="background:#f3f4f6; border:1px solid #d1d5db; color:#1f2937; padding:4px 10px; font-size:12px; border-radius:4px; cursor:pointer;">Cancel</button>
+                    <div style="display:flex; align-items:flex-start; gap:10px;">
+                        <div class="spinner" style="width:14px; height:14px; border:2px solid #d1d5db; border-top-color:#4b5563; border-radius:50%; animation:spin 0.8s linear infinite; flex:0 0 auto; margin-top:3px;"></div>
+                        <div style="flex:1;">
+                            <div style="font-weight:600;">Query still running...</div>
+                            <div style="color:#4b5563; font-size:12.5px;">Complex boolean and regex queries can take a while on the VM. You can keep waiting, cancel now, or switch to Offline Mode.</div>
+                            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+                                <button class="btn btn-primary" onclick="document.getElementById('slowRequestNotice').remove(); openOfflineModeModal();" style="padding:5px 10px; font-size:12px;">Enable Offline Mode</button>
+                                <button type="button" onclick="_cancelSlowRequests()" style="background:#f3f4f6; border:1px solid #d1d5db; color:#1f2937; padding:5px 10px; font-size:12px; border-radius:4px; cursor:pointer;">Cancel</button>
+                            </div>
+                        </div>
                     </div>`;
-            } else {
+            } else if (phase === 'offline') {
                 el.style.borderLeftColor = '#1a6fb5';
                 el.innerHTML = `
                     <div>
-                        <div style="font-weight:600; margin-bottom:4px;">⏳ This query is taking longer than usual</div>
-                        <div style="color:#374151; font-size:12.5px;">The server may still respond, or it may time out at 30s. Complex boolean/regex queries run instantly in Offline Mode — the dataset stays in your browser.</div>
+                        <div style="font-weight:600; margin-bottom:4px;">This query is still running on the VM</div>
+                        <div style="color:#374151; font-size:12.5px;">The server may still respond, or it may time out at 30s. Complex boolean and regex queries run instantly in Offline Mode because the dataset stays in your browser.</div>
                         <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-                            <button class="btn btn-primary" onclick="document.getElementById('slowRequestNotice').remove(); openOfflineModeModal();" style="padding:5px 10px; font-size:12px;">🔒 Enable Offline Mode</button>
+                            <button class="btn btn-primary" onclick="document.getElementById('slowRequestNotice').remove(); openOfflineModeModal();" style="padding:5px 10px; font-size:12px;">Enable Offline Mode</button>
                             <button type="button" onclick="_cancelSlowRequests()" style="background:#f3f4f6; border:1px solid #d1d5db; color:#1f2937; padding:5px 10px; font-size:12px; border-radius:4px; cursor:pointer;">Cancel request</button>
                         </div>
                     </div>`;
+            } else {
+                _dismissSlowRequestNotice();
             }
         }
         function _dismissSlowRequestNotice() {
@@ -2961,10 +2980,10 @@
             const timer = setTimeout(() => ctrl.abort(), timeoutMs);
             const slowTimer = setTimeout(() => {
                 if (_slowRequestPendingCount > 0) _renderSlowRequestNotice('slow');
-            }, 8000);
+            }, 5000);
             const offlineTimer = setTimeout(() => {
                 if (_slowRequestPendingCount > 0 && serverBrowseMode) _renderSlowRequestNotice('offline');
-            }, 20000);
+            }, 12000);
             const cleanup = () => {
                 clearTimeout(timer);
                 clearTimeout(slowTimer);
@@ -2981,7 +3000,7 @@
                 cleanup();
                 if (err.name === 'AbortError') {
                     if (ctrl.signal.reason === 'user-cancelled') {
-                        throw new Error(`${errorPrefix}: request cancelled.`);
+                        throw createUserCancelledError(errorPrefix);
                     }
                     throw new Error(`${errorPrefix}: request timed out after ${(timeoutMs / 1000).toFixed(0)}s. Is the VM running?`);
                 }
@@ -3480,10 +3499,13 @@
             } catch (err) {
                 console.error('Server browse load failed:', err);
                 setVmLoadingNotice(false);
-                _setDataStatus('error', 'Server unreachable');
+                const wasUserCancelled = isUserCancelledError(err);
+                if (!wasUserCancelled) {
+                    _setDataStatus('error', 'Server unreachable');
+                }
                 if (background) {
                     throw err;
-                } else if (showErrors) {
+                } else if (showErrors && !wasUserCancelled) {
                     // Replace blocking alert with a non-blocking banner that surfaces
                     // Offline & Private Mode when the root cause looks like a timeout.
                     // On any other error we still show a banner (without the Offline
@@ -3493,7 +3515,7 @@
                     const isTimeout = /timed out|timeout/i.test(msg);
                     showServerErrorBanner(msg, isTimeout);
                 }
-                if (!background) {
+                if (!background && !wasUserCancelled) {
                     uploadSection.classList.remove('hidden');
                 }
             } finally {
@@ -3595,11 +3617,12 @@
                 }
             } catch (err) {
                 console.error('Remote browse init failed:', err);
+                const wasUserCancelled = isUserCancelledError(err);
                 if (!background || !preserveBootstrapOnFailure) {
                     setServerBrowseMode(false);
                 }
                 setVmLoadingNotice(false);
-                if (!background && showErrors) {
+                if (!background && showErrors && !wasUserCancelled) {
                     alert('Failed to initialize server browse mode.\n\n' + (err?.message || err));
                 }
                 if (!background || !preserveBootstrapOnFailure) {
