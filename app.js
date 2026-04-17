@@ -654,18 +654,24 @@
         /* Auto-fetch bootstrap for living canvas on page load */
         function autoFetchLandingPreview() {
             const bootstrapPath = './sample-data/overview-bootstrap.json';
-            fetch(bootstrapPath, { cache: 'no-store' })
+            // Expose the in-flight promise so fetchOverviewBootstrap (called later during
+            // server-browse init) can await THIS fetch instead of starting a second one.
+            // Both used to race to fetch the same 227KB JSON on every cold start.
+            window._landingBootstrapPromise = fetch(bootstrapPath, { cache: 'default' })
                 .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
                 .then(data => {
                     window._landingBootstrapData = data;
                     populateLandingCanvas(data);
                     buildSearchIndex(data);
+                    return data;
                 })
                 .catch(err => {
                     console.debug('Landing preview fetch skipped:', err);
                     document.querySelectorAll('.landing-canvas-loading').forEach(el => {
                         el.innerHTML = '<span style="color:#aab;font-size:12px;">Click "Explore" to load data</span>';
                     });
+                    window._landingBootstrapPromise = null;
+                    throw err;
                 });
         }
 
@@ -1653,6 +1659,14 @@
             // on every cold start (once for mini-charts, once here for analytics).
             if (window._landingBootstrapData) {
                 return window._landingBootstrapData;
+            }
+            // Or — much more common on cold start — if the landing fetch is still in
+            // flight, await THAT promise instead of starting a duplicate.
+            if (window._landingBootstrapPromise) {
+                try {
+                    const body = await window._landingBootstrapPromise;
+                    if (body) return body;
+                } catch { /* fall through to the normal path below */ }
             }
             const cached = loadBootstrapFromCache();
             const headers = cached?.etag ? { 'If-None-Match': cached.etag } : {};
