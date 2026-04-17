@@ -2241,6 +2241,14 @@
                 const chartsEl = document.getElementById('labelsChartsContent');
                 if (emptyEl) emptyEl.classList.toggle('hidden', hasLabels);
                 if (chartsEl) chartsEl.classList.toggle('hidden', !hasLabels);
+                // Show the Offline & Private Mode CTA only when we're in server-browse
+                // mode (full dataset not loaded locally). Classifier training requires
+                // the full dataset in memory, which is exactly what Offline Mode enables.
+                const offlineCta = document.getElementById('labelsOfflineModeCta');
+                if (offlineCta) {
+                    const fullDatasetLoaded = rawData && rawData.length >= 100000;
+                    offlineCta.classList.toggle('hidden', hasLabels || fullDatasetLoaded);
+                }
                 if (hasLabels) {
                     updateLabelCoverageChart();
                     updateLabelDistributionChart();
@@ -10443,6 +10451,34 @@
         function toggleAboutModal() {
             const overlay = document.getElementById('aboutOverlay');
             if (overlay) overlay.classList.toggle('visible');
+        }
+
+        // ── Offline & Private Mode: triggers a full dataset download (loadRemoteDataset),
+        // which switches the app into local mode. Used when the user wants privacy,
+        // offline capability, or to enable classifier training in the Labels tab. ──
+        function openOfflineModeModal() {
+            const overlay = document.getElementById('offlineModeOverlay');
+            if (overlay) overlay.classList.add('visible');
+        }
+        function closeOfflineModeModal() {
+            const overlay = document.getElementById('offlineModeOverlay');
+            if (overlay) overlay.classList.remove('visible');
+        }
+        function closeAboutModalAndOpenOfflineMode() {
+            document.getElementById('aboutOverlay')?.classList.remove('visible');
+            openOfflineModeModal();
+        }
+        function activateOfflineMode() {
+            closeOfflineModeModal();
+            // Hide the Labels-tab CTA eagerly so the user sees immediate feedback.
+            document.getElementById('labelsOfflineModeCta')?.classList.add('hidden');
+            // loadRemoteDataset() pulls the full JSON from the VM and switches to local mode.
+            // It already manages the loading indicator, progress bar, and error states.
+            if (typeof loadRemoteDataset === 'function') {
+                loadRemoteDataset(true);
+            } else {
+                alert('Download path is not available in this build.');
+            }
         }
 
         // ========== COMPARE TAB ==========

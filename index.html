@@ -718,6 +718,18 @@
                         Open Labeling Tool
                     </button>
                 </div>
+
+                <!-- Offline & Private Mode CTA — shown only when in server-browse mode
+                     (toggled from renderTabContent when tab === 'labels'). Training a
+                     custom classifier needs the full dataset in memory, so this is the
+                     natural place to surface the option. -->
+                <div id="labelsOfflineModeCta" class="hidden" style="margin:28px auto 0; max-width:500px; background:linear-gradient(135deg,#f0f9ff 0%,#e8f0fe 100%); border:1px solid #c4d4f0; border-radius:10px; padding:18px 20px; text-align:left;">
+                    <div style="font-size:13px; font-weight:700; color:#1a3a5c; margin-bottom:6px;">🔒 Want to train your own classifier?</div>
+                    <div style="font-size:12.5px; color:#526783; line-height:1.55; margin-bottom:12px;">Training requires the full dataset on your machine. Enable <strong>Offline &amp; Private Mode</strong> to unlock it — your searches then run entirely in your browser, with no internet and no queries reaching the server.</div>
+                    <button class="btn btn-primary" onclick="openOfflineModeModal()" style="padding:8px 18px; font-size:12.5px;">
+                        🔒 Enable Offline &amp; Private Mode
+                    </button>
+                </div>
             </div>
             <div id="labelsChartsContent" class="hidden">
             <div class="hidden" id="veniceCommissionNotice" style="background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%); border: 1px solid #c4d4f0; border-radius: 10px; padding: 16px 20px; margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #2c3e5a;">
@@ -1056,6 +1068,12 @@
                 <p style="font-size:12px; color:#667;">You can also upload your own UHRI export (from <a href="https://uhri.ohchr.org/en/our-data-api" target="_blank" rel="noopener">uhri.ohchr.org/data</a>) or any tabular dataset via the 📂 icon.</p>
             </div>
 
+            <div class="about-section">
+                <div class="about-section-title">🔒 Offline &amp; Private Mode</div>
+                <p>For privacy-sensitive research, field work with unreliable connectivity, or training your own classifier, download the full dataset to your browser once. All subsequent searches and filters then run <strong>entirely on your machine</strong> — nothing reaches the server.</p>
+                <button class="btn btn-primary" onclick="closeAboutModalAndOpenOfflineMode()" style="margin-top:4px;">Enable Offline &amp; Private Mode</button>
+            </div>
+
             <hr>
 
             <div class="about-section">
@@ -1084,6 +1102,54 @@
             <div class="about-section">
                 <div class="about-section-title">Open source</div>
                 <p>Full source code is available on <a href="https://github.com/lszoszk/UnitedNations_recommendations/tree/gh-pages" target="_blank" rel="noopener">GitHub</a>.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Offline & Private Mode modal: shared by all triggers (Labels tab, About modal). -->
+    <div class="about-overlay" id="offlineModeOverlay" onclick="if(event.target===this)closeOfflineModeModal()">
+        <div class="about-modal" style="max-width:620px;">
+            <button class="about-close" onclick="closeOfflineModeModal()" aria-label="Close">&times;</button>
+            <h2 style="margin-bottom:6px;">🔒 Offline &amp; Private Mode</h2>
+            <div class="about-subtitle">Download the full dataset once — then work locally, privately, and offline.</div>
+
+            <div style="display:grid; gap:16px; margin:22px 0 6px;">
+                <div style="display:flex; gap:14px; align-items:flex-start;">
+                    <span style="font-size:24px; line-height:1;">🛡️</span>
+                    <div>
+                        <strong style="color:#1a3a5c;">Full privacy</strong>
+                        <div style="font-size:13px; color:#526783; line-height:1.5; margin-top:2px;">Your searches, filters, and text queries never leave your browser. Nothing is logged by the server.</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:14px; align-items:flex-start;">
+                    <span style="font-size:24px; line-height:1;">✈️</span>
+                    <div>
+                        <strong style="color:#1a3a5c;">Works offline</strong>
+                        <div style="font-size:13px; color:#526783; line-height:1.5; margin-top:2px;">Once downloaded, the dashboard runs with no internet connection — useful for field research or travel.</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:14px; align-items:flex-start;">
+                    <span style="font-size:24px; line-height:1;">🧠</span>
+                    <div>
+                        <strong style="color:#1a3a5c;">Unlocks advanced features</strong>
+                        <div style="font-size:13px; color:#526783; line-height:1.5; margin-top:2px;">Required to train your own classifier, and for instant full-text regex across all 267,548 records.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background:#fff8e1; border-left:4px solid #ffc107; padding:12px 16px; border-radius:6px; font-size:13px; color:#665500; line-height:1.6; margin-top:18px;">
+                <strong>Before you enable:</strong>
+                <ul style="margin:6px 0 0; padding-left:20px;">
+                    <li>Initial download: <strong>10&ndash;60&nbsp;seconds</strong> on fast WiFi (~350&nbsp;MB JSON)</li>
+                    <li>Browser memory: <strong>~400&nbsp;MB</strong> — a modern laptop is recommended</li>
+                    <li>Data reflects a snapshot at download time; OHCHR updates monthly — re-enable to refresh</li>
+                    <li>Not recommended on phones or tablets</li>
+                </ul>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end; flex-wrap:wrap;">
+                <button class="btn" onclick="closeOfflineModeModal()" style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;">Not now</button>
+                <button class="btn btn-primary" onclick="activateOfflineMode()" id="offlineModeConfirmBtn">⬇ Download &amp; activate</button>
             </div>
         </div>
     </div>
