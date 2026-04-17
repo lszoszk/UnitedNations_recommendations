@@ -641,9 +641,13 @@
                 <button class="btn btn-primary" id="generateTextAnalyticsBtn" onclick="generateTextAnalyticsOnDemand()" style="font-size:15px; padding:10px 28px;">
                     Generate Text Analytics
                 </button>
-                <div class="text-analytics-spinner hidden" id="textAnalyticsSpinner" style="margin-top:16px;">
+                <div class="text-analytics-spinner hidden" id="textAnalyticsSpinner" role="status" aria-live="polite" style="margin-top:16px;">
                     <div class="spinner" style="margin:0 auto 8px;"></div>
-                    <span style="color:#666;">Processing text across all matching records...</span>
+                    <div id="textAnalyticsStatus" style="color:#445; font-weight:600;">Preparing text analytics...</div>
+                    <div style="max-width:360px; margin:12px auto 8px; height:8px; background:#e4ebf3; border-radius:999px; overflow:hidden;">
+                        <div id="textAnalyticsProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #2d5a87 0%, #4a90d9 100%); border-radius:999px; transition:width 0.35s ease;"></div>
+                    </div>
+                    <div id="textAnalyticsProgressNote" style="color:#667; font-size:12px;">This usually takes around 10 seconds for the current filter.</div>
                 </div>
             </div>
             <div id="textChartsContainer">

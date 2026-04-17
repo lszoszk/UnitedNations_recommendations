@@ -2410,11 +2410,7 @@
                     // "Generate Text Analytics" button instead of auto-fetching
                     if (placeholder) placeholder.classList.remove('hidden');
                     if (container) container.classList.add('hidden');
-                    // Reset the generate button state in case it was previously used
-                    const btn = document.getElementById('generateTextAnalyticsBtn');
-                    const spinner = document.getElementById('textAnalyticsSpinner');
-                    if (btn) btn.disabled = false;
-                    if (spinner) spinner.classList.add('hidden');
+                    resetTextAnalyticsUi();
                 } else if (hasTextData) {
                     if (placeholder) placeholder.classList.add('hidden');
                     if (container) container.classList.remove('hidden');
@@ -2954,6 +2950,63 @@
             return serverBrowseMode || bootstrapAnalyticsReady;
         }
 
+        let _textAnalyticsProgressTimer = null;
+
+        function resetTextAnalyticsUi() {
+            clearInterval(_textAnalyticsProgressTimer);
+            _textAnalyticsProgressTimer = null;
+            const btn = document.getElementById('generateTextAnalyticsBtn');
+            const spinner = document.getElementById('textAnalyticsSpinner');
+            const status = document.getElementById('textAnalyticsStatus');
+            const note = document.getElementById('textAnalyticsProgressNote');
+            const bar = document.getElementById('textAnalyticsProgressBar');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Generate Text Analytics';
+            }
+            if (spinner) spinner.classList.add('hidden');
+            if (status) status.textContent = 'Preparing text analytics...';
+            if (note) note.textContent = 'This usually takes around 10 seconds for the current filter.';
+            if (bar) bar.style.width = '0%';
+        }
+
+        function startTextAnalyticsProgress() {
+            clearInterval(_textAnalyticsProgressTimer);
+            const btn = document.getElementById('generateTextAnalyticsBtn');
+            const spinner = document.getElementById('textAnalyticsSpinner');
+            const status = document.getElementById('textAnalyticsStatus');
+            const note = document.getElementById('textAnalyticsProgressNote');
+            const bar = document.getElementById('textAnalyticsProgressBar');
+            const totalRecords = Number(serverState.summary?.total_records || serverState.totalRecords || 0);
+            const totalLabel = totalRecords > 0 ? totalRecords.toLocaleString() : 'all matching';
+            const startedAt = Date.now();
+
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Generating...';
+            }
+            if (spinner) spinner.classList.remove('hidden');
+            if (status) status.textContent = `Processing text across ${totalLabel} records...`;
+            if (note) note.textContent = 'Extracting terms, affected groups, and SDG mentions from the current filter.';
+            if (bar) bar.style.width = '8%';
+
+            _textAnalyticsProgressTimer = setInterval(() => {
+                const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+                const syntheticProgress = Math.min(92, 8 + (elapsedSeconds * 7));
+                if (bar) bar.style.width = `${syntheticProgress}%`;
+                if (status) {
+                    status.textContent = elapsedSeconds < 4
+                        ? `Processing text across ${totalLabel} records...`
+                        : elapsedSeconds < 8
+                            ? 'Building keyword and phrase frequencies...'
+                            : 'Finalizing the text analytics charts...';
+                }
+                if (note) {
+                    note.textContent = `${elapsedSeconds}s elapsed. Larger filters can take a bit longer, but the analysis is still running.`;
+                }
+            }, 450);
+        }
+
         function getServerAnalyticsSectionsForTab(tabName = 'overview') {
             if (!serverBrowseMode) return [];
             if (tabName === 'trends' || tabName === 'bodies') return ['trends'];
@@ -3063,13 +3116,19 @@
         }
 
         async function generateTextAnalyticsOnDemand() {
-            const btn = document.getElementById('generateTextAnalyticsBtn');
-            const spinner = document.getElementById('textAnalyticsSpinner');
-            if (btn) btn.disabled = true;
-            if (spinner) spinner.classList.remove('hidden');
+            const status = document.getElementById('textAnalyticsStatus');
+            const note = document.getElementById('textAnalyticsProgressNote');
+            const bar = document.getElementById('textAnalyticsProgressBar');
+            startTextAnalyticsProgress();
 
             try {
                 await ensureServerAnalyticsSections(['text'], true);
+                clearInterval(_textAnalyticsProgressTimer);
+                _textAnalyticsProgressTimer = null;
+                if (status) status.textContent = 'Text analytics ready.';
+                if (note) note.textContent = 'Charts are loading now.';
+                if (bar) bar.style.width = '100%';
+                await delay(180);
                 const placeholder = document.getElementById('textAnalyticsPlaceholder');
                 const container = document.getElementById('textChartsContainer');
                 if (placeholder) placeholder.classList.add('hidden');
@@ -3081,9 +3140,14 @@
                 updateTextSamplingDisclaimer(serverState.analytics?.text);
             } catch (err) {
                 console.error('On-demand text analytics failed:', err);
+                clearInterval(_textAnalyticsProgressTimer);
+                _textAnalyticsProgressTimer = null;
+                if (status) status.textContent = 'Text analytics could not be generated.';
+                if (note) note.textContent = err?.message || 'Please try again.';
+                if (bar) bar.style.width = '100%';
+                await delay(300);
             } finally {
-                if (btn) btn.disabled = false;
-                if (spinner) spinner.classList.add('hidden');
+                resetTextAnalyticsUi();
             }
         }
 
