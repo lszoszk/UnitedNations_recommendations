@@ -276,7 +276,7 @@
         .header-upload-btn {
             position: absolute;
             top: 16px;
-            right: 58px;
+            right: 100px;
             background: rgba(255,255,255,0.15);
             border: 1px solid rgba(255,255,255,0.25);
             color: #e8f2ff;
@@ -290,10 +290,27 @@
         }
         .header-upload-btn:hover { background: rgba(255,255,255,0.28); }
 
+        .header-offline-btn {
+            position: absolute;
+            top: 16px;
+            right: 58px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: #e8f2ff;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 15px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+            z-index: 10;
+        }
+        .header-offline-btn:hover { background: rgba(255,255,255,0.28); }
+
         .header-info-btn {
             position: absolute;
             top: 16px;
-            right: 100px;
+            right: 142px;
             background: rgba(255,255,255,0.15);
             border: 1px solid rgba(255,255,255,0.25);
             color: #e8f2ff;
@@ -1068,7 +1085,7 @@
 
         /* ── Recent Filters ── */
         .header-recent-btn {
-            position: absolute; top: 16px; right: 142px;
+            position: absolute; top: 16px; right: 184px;
             background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
             color: #e8f2ff; width: 36px; height: 36px; border-radius: 50%;
             cursor: pointer; font-size: 16px; display: flex; align-items: center;
@@ -1646,6 +1663,23 @@
             flex-direction: column;
             gap: 6px;
             min-width: 340px;
+        }
+        .table-column-filter {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 280px;
+            flex: 1 1 320px;
+        }
+        .table-column-filter label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #526783;
+        }
+        .column-filter-input {
+            min-width: 260px;
         }
         .search-box {
             padding: 10px 16px;
@@ -2562,11 +2596,12 @@
             .tab { flex-shrink: 0; font-size: 11px; padding: 7px 10px; }
 
             /* Header icons: tighter spacing */
-            .header-recent-btn { right: 112px; }
-            .header-info-btn { right: 76px; }
-            .header-upload-btn { right: 40px; }
+            .header-recent-btn { right: 148px; }
+            .header-info-btn { right: 112px; }
+            .header-upload-btn { right: 76px; }
+            .header-offline-btn { right: 40px; }
             .settings-gear-btn { right: 8px; }
-            .header-recent-btn, .header-info-btn, .header-upload-btn, .settings-gear-btn { width: 30px; height: 30px; font-size: 14px; }
+            .header-recent-btn, .header-info-btn, .header-upload-btn, .header-offline-btn, .settings-gear-btn { width: 30px; height: 30px; font-size: 14px; }
 
             /* Map: shorter */
             .world-map-container { height: 350px; }

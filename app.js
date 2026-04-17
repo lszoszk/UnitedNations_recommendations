@@ -10,7 +10,7 @@
         const MAX_BIGRAM_RECORDS = 20000;
         const SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT = 50000;
         const EXCLUDED_LABEL = 'excluded';
-        const DEFAULT_VM_BASE_URL = 'https://150.254.115.204/echr-api';
+        const DEFAULT_VM_BASE_URL = 'https://150.254.115.204/uhri-api';
         const VM_BASE_STORAGE_KEY = 'un_hr_dashboard_vm_base';
         let fileFormat = '';
         let fileName = '';
@@ -360,7 +360,7 @@
             }
             const filterHelp = document.getElementById('filterSearchHelp');
             if (filterHelp && !filterHelp.classList.contains('hidden') && !filterHelp.contains(e.target) && !e.target.closest('[aria-label="Filter search help"]')) {
-                searchHelp.classList.add('hidden');
+                filterHelp.classList.add('hidden');
             }
             const recentPanel = document.getElementById('recentFiltersPanel');
             const recentBtn = document.getElementById('headerRecentBtn');
@@ -457,6 +457,17 @@
                     spanEl.textContent = `${minY}–${maxY}`;
                 }
             }
+        }
+
+        function hasAppliedDashboardFilters() {
+            const textQuery = String(document.getElementById('filterText')?.value || '').trim();
+            return !!textQuery || getActiveFilters().length > 0;
+        }
+
+        function syncHeroStatsVisibility() {
+            const heroStats = document.getElementById('heroStats');
+            if (!heroStats) return;
+            heroStats.classList.toggle('hidden', hasAppliedDashboardFilters());
         }
 
         /* ── Update all hardcoded record counts from live data ── */
@@ -1296,6 +1307,44 @@
             el._dismissTimer = setTimeout(() => el.remove(), suggestOffline ? 30000 : 15000);
         }
 
+        // ── Plan C: fail-fast advisory for boolean queries that still compile to a
+        //    multi-lookahead regex after widening. Surface the Offline Mode escape hatch
+        //    BEFORE the 30s timeout instead of only showing it after the request dies.
+        //    Guarded to once per session (per query text) so it doesn't spam. ──
+        const _shownComplexQueryAdvisory = new Set();
+        function showComplexQueryAdvisory(rawQuery) {
+            // Only relevant when queries go to the server; skip in Offline Mode.
+            if (typeof serverBrowseMode !== 'undefined' && !serverBrowseMode) return;
+            const key = String(rawQuery || '').trim();
+            if (!key || _shownComplexQueryAdvisory.has(key)) return;
+            _shownComplexQueryAdvisory.add(key);
+            let el = document.getElementById('complexQueryAdvisory');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'complexQueryAdvisory';
+                el.style.cssText = 'position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:2147483639; max-width:560px; background:#eef7ff; border:1px solid #b8d8f5; border-left:4px solid #1a6fb5; color:#123a5c; padding:12px 16px; border-radius:8px; box-shadow:0 8px 28px rgba(0,0,0,0.14); font-size:13px; line-height:1.5;';
+                document.body.appendChild(el);
+            }
+            const safeQ = key.slice(0, 120).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            el.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                    <div style="flex:1;">
+                        <div style="font-weight:600; margin-bottom:4px;">💡 Complex boolean query may be slow</div>
+                        <div style="color:#234a6e; font-size:12.5px;">Your query <code style="background:#fff; padding:1px 5px; border-radius:3px; border:1px solid #cfe0f2;">${safeQ}</code> uses a shape the server runs via regex (can take 15–30s or time out).</div>
+                        <div style="margin-top:8px; padding:8px 10px; background:#fff; border:1px solid #cfe0f2; border-radius:6px; font-size:12.5px;">
+                            🔒 In <strong>Offline &amp; Private Mode</strong> the dataset stays in your browser, so complex regex/boolean queries run instantly.
+                            <div style="margin-top:6px;">
+                                <button class="btn btn-primary" onclick="document.getElementById('complexQueryAdvisory').remove(); openOfflineModeModal();" style="padding:5px 10px; font-size:12px;">🔒 Enable Offline Mode</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="this.closest('#complexQueryAdvisory').remove()" aria-label="Dismiss" style="background:none; border:none; color:#234a6e; font-size:18px; line-height:1; cursor:pointer; padding:0 4px;">×</button>
+                </div>`;
+            el.style.display = 'block';
+            clearTimeout(el._dismissTimer);
+            el._dismissTimer = setTimeout(() => el.remove(), 20000);
+        }
+
         // ── Optimistic UI helpers: mark charts/table as "updating" until fresh data lands ──
         function markSectionStale(section = 'all') {
             if (section === 'all' || section === 'charts') {
@@ -1335,6 +1384,7 @@
 
         // ── Run count-up animation on hero stats ──
         runHeroCountUp();
+        syncHeroStatsVisibility();
 
         // ── Sync auto-load toggle in settings panel ──
         const autoLoadToggle = document.getElementById('autoLoadToggle');
@@ -1475,8 +1525,8 @@
             loadOverviewBootstrapThenServerBrowse(false);
         }
 
-        // Debounced table search — in server mode, re-queries the VM
-        let _serverSearchFilter = '';  // current Data-tab search sent to server
+        // Debounced Data-tab text-column filter — in server mode, re-queries the VM
+        let _serverSearchFilter = '';  // current on-screen text filter sent to server
         document.getElementById('tableSearch').addEventListener('input', (e) => {
             clearTimeout(searchDebounceTimer);
             searchDebounceTimer = setTimeout(() => {
@@ -2428,9 +2478,10 @@
             const banner = document.getElementById('serverModeBanner');
             const trainBtn = document.getElementById('trainClassifierBtn');
             const exportAllBtn = document.getElementById('exportAllBtn');
+            const exportFilteredBtn = document.getElementById('exportFilteredBtn');
             const analysisBtn = document.getElementById('serverAnalysisBtn');
             const tableSearch = document.getElementById('tableSearch');
-            const searchHint = document.querySelector('.search-hint');
+            const searchHint = document.getElementById('pageTextFilterHint');
             const mapNote = document.getElementById('overviewWorldMapNote');
 
             if (banner) banner.classList.toggle('hidden', !serverBrowseMode);
@@ -2442,17 +2493,22 @@
                 analysisBtn.disabled = false;
             }
             if (exportAllBtn) {
-                exportAllBtn.textContent = serverBrowseMode ? '⬇ Export current page XLSX' : '⬇ Export all (filtered) XLSX';
+                exportAllBtn.textContent = '⬇ Export 100 rows on screen';
+            }
+            if (exportFilteredBtn) {
+                exportFilteredBtn.textContent = serverBrowseMode
+                    ? '📥 Export full filtered result (up to 50 000)'
+                    : '📥 Export full filtered result';
             }
             if (tableSearch) {
                 tableSearch.placeholder = serverBrowseMode
-                    ? '🔍 Search current page only (global search uses the filter above)...'
-                    : '🔍 Search table (plain or /regex/i)...';
+                    ? 'Filter on-screen text only...'
+                    : 'Filter the text column on this page...';
             }
             if (searchHint) {
-                searchHint.innerHTML = serverBrowseMode
-                    ? '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Server mode: filters the <strong>loaded page</strong>. Use <strong>Search Text</strong> above for full dataset.'
-                    : '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>';
+                searchHint.textContent = serverBrowseMode
+                    ? 'On-screen only. Use Search Text above for the full filtered dataset.'
+                    : 'On-screen only. Refines the visible page/cards without changing the main dataset filter.';
             }
             if (mapNote) {
                 mapNote.textContent = serverBrowseMode
@@ -2579,13 +2635,19 @@
                 }
             }
 
-            // Shape 1 — "A NOT B" or "NOT B": one OR-group, ≤1 positive, exactly 1 negative.
-            // Use text_query + text_exclude (plain LIKE + NOT LIKE).
+            // Shape 1 — "A NOT B" or "NOT B" or "A AND B NOT C": one OR-group, N positives,
+            // exactly 1 negative. Use text_query/text_query_all + text_exclude so the backend
+            // runs native LIKE + NOT LIKE instead of a PCRE regex with chained lookaheads.
+            // Widened from the prior ≤1-positive rule to cover common shapes like
+            //   "\"freedom of expression\" AND women NOT minors" (observed 30s timeout).
             if (orGroups.length === 1) {
                 const g = orGroups[0];
                 const positives = g.filter(c => !c.negate);
                 const negatives = g.filter(c => c.negate);
-                if (negatives.length === 1 && positives.length <= 1) {
+                if (negatives.length === 1) {
+                    if (positives.length >= 2) {
+                        return { ...empty, text_query_all: positives.map(c => c.term), text_exclude: negatives[0].term };
+                    }
                     return { ...empty, text_query: positives[0]?.term || '', text_exclude: negatives[0].term };
                 }
 
@@ -2605,7 +2667,15 @@
             }
 
             // Fall back to regex for mixed shapes (AND+OR, multi-NOT, phrases with ops, etc.)
-            return { ...empty, text_query: convertTextQueryForServer(raw) };
+            // Plan C: surface Offline Mode as the fast escape hatch before the inevitable 30s
+            // timeout. Triggered only when the compiled regex uses ≥2 lookarounds — the
+            // pattern that empirically saturates the backend REGEXP scan on the VM.
+            const fallback = convertTextQueryForServer(raw);
+            const lookaroundCount = (fallback.match(/\(\?[=!<]/g) || []).length;
+            if (lookaroundCount >= 2 && typeof showComplexQueryAdvisory === 'function') {
+                try { showComplexQueryAdvisory(raw); } catch (_) { /* non-critical */ }
+            }
+            return { ...empty, text_query: fallback };
         }
 
         /**
@@ -2747,30 +2817,139 @@
             return params;
         }
 
-        async function fetchServerJson(url, errorPrefix, timeoutMs = 30000) {
+        // ── Plan A: LRU + TTL response cache. Keyed on full URL (which encodes every
+        //    filter param and sort/page), so repeat navigations (tab switches, back-button,
+        //    filter-then-unfilter) render instantly instead of re-hitting the VM's 15-19s
+        //    analytics path. Caller can opt out via `options.skipCache`. Health/status
+        //    endpoints are never cached so the user always sees a fresh heartbeat. ──
+        const _serverResponseCache = new Map();
+        const _SERVER_CACHE_MAX = 50;
+        const _SERVER_CACHE_TTL_MS = 5 * 60 * 1000;
+        function _shouldCacheUrl(url) {
+            if (!url) return false;
+            if (/\/api\/data\/health\b/.test(url)) return false;
+            if (/\/api\/data\/export\b/.test(url)) return false;
+            return true;
+        }
+        function _getServerCached(url) {
+            const entry = _serverResponseCache.get(url);
+            if (!entry) return null;
+            if (entry.expiresAt < Date.now()) {
+                _serverResponseCache.delete(url);
+                return null;
+            }
+            _serverResponseCache.delete(url);
+            _serverResponseCache.set(url, entry);
+            return entry.body;
+        }
+        function _putServerCached(url, body) {
+            if (body == null) return;
+            if (_serverResponseCache.size >= _SERVER_CACHE_MAX) {
+                const oldestKey = _serverResponseCache.keys().next().value;
+                _serverResponseCache.delete(oldestKey);
+            }
+            _serverResponseCache.set(url, { body, expiresAt: Date.now() + _SERVER_CACHE_TTL_MS });
+        }
+        function invalidateServerCache() { _serverResponseCache.clear(); }
+
+        // ── Plan B: progressive slow-request notice.
+        //    At 8s → "Still loading…" with Cancel. At 20s → upgrade to Offline Mode CTA
+        //    (10s before the 30s hard timeout, so users see the escape hatch earlier).
+        //    Reference-counted across parallel fetches; auto-clears when all settle. ──
+        const _activeAbortControllers = new Set();
+        let _slowRequestPendingCount = 0;
+        function _renderSlowRequestNotice(phase) {
+            let el = document.getElementById('slowRequestNotice');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'slowRequestNotice';
+                el.style.cssText = 'position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:2147483641; max-width:520px; background:#fff; border:1px solid #e3e8ef; border-left:4px solid #6b7280; color:#1f2937; padding:10px 14px; border-radius:8px; box-shadow:0 8px 28px rgba(0,0,0,0.12); font-size:13px; line-height:1.5;';
+                document.body.appendChild(el);
+            }
+            if (phase === 'slow') {
+                el.style.borderLeftColor = '#6b7280';
+                el.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="spinner" style="width:14px; height:14px; border:2px solid #d1d5db; border-top-color:#4b5563; border-radius:50%; animation:spin 0.8s linear infinite; flex:0 0 auto;"></div>
+                        <div style="flex:1;">Still loading…</div>
+                        <button type="button" onclick="_cancelSlowRequests()" style="background:#f3f4f6; border:1px solid #d1d5db; color:#1f2937; padding:4px 10px; font-size:12px; border-radius:4px; cursor:pointer;">Cancel</button>
+                    </div>`;
+            } else {
+                el.style.borderLeftColor = '#1a6fb5';
+                el.innerHTML = `
+                    <div>
+                        <div style="font-weight:600; margin-bottom:4px;">⏳ This query is taking longer than usual</div>
+                        <div style="color:#374151; font-size:12.5px;">The server may still respond, or it may time out at 30s. Complex boolean/regex queries run instantly in Offline Mode — the dataset stays in your browser.</div>
+                        <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="btn btn-primary" onclick="document.getElementById('slowRequestNotice').remove(); openOfflineModeModal();" style="padding:5px 10px; font-size:12px;">🔒 Enable Offline Mode</button>
+                            <button type="button" onclick="_cancelSlowRequests()" style="background:#f3f4f6; border:1px solid #d1d5db; color:#1f2937; padding:5px 10px; font-size:12px; border-radius:4px; cursor:pointer;">Cancel request</button>
+                        </div>
+                    </div>`;
+            }
+        }
+        function _dismissSlowRequestNotice() {
+            const el = document.getElementById('slowRequestNotice');
+            if (el) el.remove();
+        }
+        window._cancelSlowRequests = function () {
+            for (const ctrl of _activeAbortControllers) {
+                try { ctrl.abort('user-cancelled'); } catch (_) { /* already aborted */ }
+            }
+            _activeAbortControllers.clear();
+            _dismissSlowRequestNotice();
+        };
+
+        async function fetchServerJson(url, errorPrefix, timeoutMs = 30000, options = {}) {
+            const canCache = !options.skipCache && _shouldCacheUrl(url);
+            if (canCache) {
+                const cached = _getServerCached(url);
+                if (cached !== null) return cached;
+            }
+
             const ctrl = new AbortController();
+            _activeAbortControllers.add(ctrl);
+            _slowRequestPendingCount += 1;
             const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+            const slowTimer = setTimeout(() => {
+                if (_slowRequestPendingCount > 0) _renderSlowRequestNotice('slow');
+            }, 8000);
+            const offlineTimer = setTimeout(() => {
+                if (_slowRequestPendingCount > 0 && serverBrowseMode) _renderSlowRequestNotice('offline');
+            }, 20000);
+            const cleanup = () => {
+                clearTimeout(timer);
+                clearTimeout(slowTimer);
+                clearTimeout(offlineTimer);
+                _activeAbortControllers.delete(ctrl);
+                _slowRequestPendingCount = Math.max(0, _slowRequestPendingCount - 1);
+                if (_slowRequestPendingCount === 0) _dismissSlowRequestNotice();
+            };
+
             let response;
             try {
                 response = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
             } catch (err) {
-                clearTimeout(timer);
+                cleanup();
                 if (err.name === 'AbortError') {
+                    if (ctrl.signal.reason === 'user-cancelled') {
+                        throw new Error(`${errorPrefix}: request cancelled.`);
+                    }
                     throw new Error(`${errorPrefix}: request timed out after ${(timeoutMs / 1000).toFixed(0)}s. Is the VM running?`);
                 }
                 throw new Error(`${errorPrefix}: network error (${err.message})`);
             }
-            clearTimeout(timer);
             let body = null;
             try {
                 body = await response.json();
             } catch {
                 body = null;
             }
+            cleanup();
             if (!response.ok) {
                 const detail = body?.detail || body?.message || `${errorPrefix} (${response.status})`;
                 throw new Error(detail);
             }
+            if (canCache) _putServerCached(url, body);
             return body;
         }
 
@@ -4991,6 +5170,7 @@
         // ========== DASHBOARD UPDATE ==========
         function updateDashboard() {
             renderFilterChips();
+            syncHeroStatsVisibility();
             if (serverBrowseMode) {
                 const hasData = serverState.totalRecords > 0;
                 if (!hasData) {
@@ -7805,8 +7985,7 @@
         function renderTableBody() {
             const tbody = document.getElementById('tableBody');
             const searchState = parseSearchQuery(document.getElementById('tableSearch').value);
-            const textOnly = document.getElementById('searchTextOnly')?.checked;
-            const cols = textOnly ? ['_text'] : getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
+            const cols = ['_text'];
 
             if (searchState.type === 'invalid') {
                 tbody.innerHTML = `<tr><td colspan="${getTableColumns().length}" style="color:#b02a37;">Invalid regex: ${escapeHtml(searchState.error || '')}</td></tr>`;
@@ -7895,19 +8074,19 @@
 
             if (data.length === 0) {
                 const searchVal = document.getElementById('tableSearch').value.trim();
-                const isGlobalSearch = searchState.type !== 'none';
+                const isTextFilter = searchState.type !== 'none';
                 const hasFilters = filteredData.length < rawData.length;
                 let hint = '';
-                if (isGlobalSearch && hasFilters) {
-                    hint = '<br><span style="font-size:12px;">Try clearing some dashboard filters, or broaden your search terms.</span>';
-                } else if (isGlobalSearch) {
-                    hint = '<br><span style="font-size:12px;">Try different keywords, or use <strong>OR</strong> to match alternatives (e.g. <code>internet OR online</code>).</span>';
+                if (isTextFilter && hasFilters) {
+                    hint = '<br><span style="font-size:12px;">Try broadening the text column filter, or clear some dashboard filters.</span>';
+                } else if (isTextFilter) {
+                    hint = '<br><span style="font-size:12px;">Try different text keywords, or clear the text column filter above.</span>';
                 } else if (sourceData.length === 0 && !serverBrowseMode) {
                     hint = '<br><span style="font-size:12px;">No data loaded. Use <strong>Quick Demo</strong> or connect to a server to load recommendations.</span>';
                 }
                 tbody.innerHTML = `<tr><td colspan="${getTableColumns().length}" style="text-align:center; padding:32px 16px;">
                     <div style="color:#526783; font-size:14px; font-weight:500;">No matching records found</div>
-                    <div style="color:#8899aa; margin-top:6px;">${isGlobalSearch ? 'Search: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code>' : 'No records match the current filters.'}${hint}</div>
+                    <div style="color:#8899aa; margin-top:6px;">${isTextFilter ? 'Text filter: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code>' : 'No records match the current filters.'}${hint}</div>
                 </td></tr>`;
             }
 
@@ -7996,11 +8175,11 @@
                 const searchVal = (document.getElementById('tableSearch')?.value || '').trim();
                 const isSearching = searchVal.length > 0;
                 let hint = isSearching
-                    ? '<div style="margin-top:8px; font-size:12px; color:#8899aa;">Try different keywords, or use <strong>OR</strong> to match alternatives (e.g. <code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">internet OR online</code>).</div>'
+                    ? '<div style="margin-top:8px; font-size:12px; color:#8899aa;">Try different text keywords, or clear the text column filter above.</div>'
                     : '';
                 container.innerHTML = `<div style="padding:32px 24px; text-align:center;">
                     <div style="color:#526783; font-size:14px; font-weight:500;">No matching records found</div>
-                    ${isSearching ? '<div style="margin-top:6px; color:#8899aa;">Search: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code></div>' : ''}
+                    ${isSearching ? '<div style="margin-top:6px; color:#8899aa;">Text filter: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code></div>' : ''}
                     ${hint}
                 </div>`;
                 return;
@@ -8279,14 +8458,13 @@
         let _prefetchCache = { page: null, data: null, searchKey: null };
 
         function _getPrefetchSearchKey() {
-            return (document.getElementById('tableSearch')?.value || '') + '|' + (document.getElementById('searchTextOnly')?.checked || false);
+            return document.getElementById('tableSearch')?.value || '';
         }
 
         function prefetchNextPage() {
             if (serverBrowseMode) return; // server mode handled separately
             const searchState = parseSearchQuery(document.getElementById('tableSearch').value);
-            const textOnly = document.getElementById('searchTextOnly')?.checked;
-            const cols = textOnly ? ['_text'] : getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
+            const cols = ['_text'];
             let data = filteredData;
             if (searchState.type !== 'none' && searchState.type !== 'invalid') {
                 data = data.filter(r => recordMatchesSearch(r, cols, searchState));
@@ -8634,39 +8812,27 @@
             XLSX.writeFile(wb, 'selected_records.xlsx');
         }
 
-        function getTableDataForExport() {
+        function getVisibleTableDataForExport() {
             const searchState = parseSearchQuery(document.getElementById('tableSearch').value);
             if (searchState.type === 'invalid') {
                 throw new Error(`Invalid regex: ${searchState.error || ''}`);
             }
-            const cols = getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
-            let data = serverBrowseMode ? serverState.records : filteredData;
-            if (searchState.type !== 'none') {
-                data = data.filter(r => recordMatchesSearch(r, cols, searchState));
+            if (serverBrowseMode) {
+                return (_infScroll.records || []).slice(0, ROWS_PER_PAGE);
             }
-            if (!serverBrowseMode && currentSort.column) {
-                data = [...data].sort((a, b) => {
-                    const cmp = getCellValue(a, currentSort.column).localeCompare(
-                        getCellValue(b, currentSort.column),
-                        undefined,
-                        { numeric: true }
-                    );
-                    return currentSort.direction === 'asc' ? cmp : -cmp;
-                });
-            }
-            return data;
+            return Array.isArray(lastRenderedPageData) ? [...lastRenderedPageData] : [];
         }
 
         function exportAllToExcel() {
             let data;
             try {
-                data = getTableDataForExport();
+                data = getVisibleTableDataForExport();
             } catch (err) {
                 alert(err?.message || String(err));
                 return;
             }
             if (!data.length) {
-                _showToast('No records to export.', 3000, '#c62828');
+                _showToast('No visible rows to export.', 3000, '#c62828');
                 return;
             }
 
@@ -8689,9 +8855,9 @@
 
             const ws = XLSX.utils.json_to_sheet(rows);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Records');
+            XLSX.utils.book_append_sheet(wb, ws, 'On-screen rows');
             _addFilterMetadataSheet(wb, rows.length);
-            XLSX.writeFile(wb, 'all_records.xlsx');
+            XLSX.writeFile(wb, 'visible_rows.xlsx');
         }
 
         // ========== UTILITIES ==========
@@ -11098,4 +11264,3 @@
             XLSX.utils.book_append_sheet(wb, ws, 'Comparison');
             XLSX.writeFile(wb, 'comparison_export.xlsx');
         }
-
