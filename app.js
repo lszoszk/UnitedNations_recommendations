@@ -4549,6 +4549,7 @@
             this.dropdown = wrap.querySelector('.chip-select-dropdown');
             this.activeIdx = -1;
             this._debounce = null;
+            this._blurCloseTimer = null;
 
             const self = this;
 
@@ -4558,10 +4559,22 @@
             // Events
             this.input.addEventListener('input', () => {
                 clearTimeout(self._debounce);
-                self._debounce = setTimeout(() => self._filter(), 80);
+                self._debounce = setTimeout(() => {
+                    self._debounce = null;
+                    self._filter();
+                }, 80);
             });
-            this.input.addEventListener('focus', () => self._filter());
+            this.input.addEventListener('focus', () => {
+                clearTimeout(self._blurCloseTimer);
+                self._filter();
+            });
             this.input.addEventListener('keydown', (e) => self._onKey(e));
+            this.wrap.addEventListener('focusout', () => {
+                clearTimeout(self._blurCloseTimer);
+                self._blurCloseTimer = setTimeout(() => {
+                    if (!self.wrap.contains(document.activeElement)) self._close();
+                }, 0);
+            });
 
             // Close on outside click
             document.addEventListener('click', (e) => {
@@ -4591,6 +4604,10 @@
         };
 
         _ChipSelect.prototype._filter = function() {
+            if (!this.wrap.contains(document.activeElement)) {
+                this._close();
+                return;
+            }
             const q = this.input.value.toLowerCase().trim();
             const selected = new Set(Array.from(this.sel.selectedOptions).map(o => o.value));
             const matches = [];
@@ -4631,15 +4648,18 @@
         };
 
         _ChipSelect.prototype._select = function(value) {
+            clearTimeout(this._debounce);
+            this._debounce = null;
             const opt = Array.from(this.sel.options).find(o => o.value === value);
             if (opt) opt.selected = true;
             this.input.value = '';
             this.sync();
             this._close();
-            this.input.focus();
         };
 
         _ChipSelect.prototype._close = function() {
+            clearTimeout(this._debounce);
+            clearTimeout(this._blurCloseTimer);
             this.dropdown.classList.remove('open');
             this.activeIdx = -1;
         };
