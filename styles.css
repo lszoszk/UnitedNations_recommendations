@@ -1021,6 +1021,11 @@
             gap: 2px;
             padding: 2px;
             margin-left: 8px;
+            /* Push the "⊞ Clear" cluster to the far right of .filter-label
+               (which is display:flex; justify-content:space-between) so
+               the toggle sits flush against the field label instead of
+               centred in the gap. */
+            margin-right: auto;
             background: #eef2f7;
             border: 1px solid #d4dde8;
             border-radius: 999px;
