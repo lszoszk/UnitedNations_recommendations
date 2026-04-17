@@ -421,6 +421,60 @@
         .about-modal .about-close:hover { color: #1e3a5f; }
         .about-modal hr { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
 
+        /* ── Unified CTA buttons inside About-modal sections ──
+           Same shape, same padding, same height — only the colour role
+           changes: `--offline` is the primary blue CTA; `--report` is
+           the secondary amber "flag" action. Keeps the two rows reading
+           as a matched pair rather than two different shapes. */
+        .about-section-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 9px 18px;
+            min-height: 36px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.2;
+            cursor: pointer;
+            transition: background 0.15s ease, box-shadow 0.15s ease;
+            white-space: nowrap;
+        }
+        .about-section-cta--offline {
+            background: #1a5fb4;
+            color: #ffffff;
+            border: 1px solid #1a5fb4;
+        }
+        .about-section-cta--offline:hover {
+            background: #1852a0;
+            border-color: #1852a0;
+        }
+        .about-section-cta--report {
+            background: #fff5d9;
+            color: #7a5200;
+            border: 1px solid #f0d289;
+        }
+        .about-section-cta--report:hover {
+            background: #ffe9b0;
+        }
+        body.theme-dark .about-section-cta--offline {
+            background: #2a6fc9;
+            border-color: #3a7ed0;
+            color: #ffffff;
+        }
+        body.theme-dark .about-section-cta--offline:hover {
+            background: #3578cd;
+        }
+        body.theme-dark .about-section-cta--report {
+            background: #3a2e14;
+            border-color: #7a5a1e;
+            color: #f3d48e;
+        }
+        body.theme-dark .about-section-cta--report:hover {
+            background: #4a3a1a;
+        }
+
         /* Footer acknowledgment */
         .site-footer {
             text-align: center;

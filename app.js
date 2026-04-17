@@ -1657,6 +1657,10 @@
             const key = String(rawQuery || '').trim();
             if (!key || _shownComplexQueryAdvisory.has(key)) return;
             _shownComplexQueryAdvisory.add(key);
+            // Single-notice policy: if the "query is still running" notice
+            // is already visible, it's already making the same point
+            // (Enable Offline / Cancel). Don't pile a second toast on top.
+            if (document.getElementById('slowRequestNotice')) return;
             let el = document.getElementById('complexQueryAdvisory');
             if (!el) {
                 el = document.createElement('div');
@@ -3334,6 +3338,10 @@
         const _activeAbortControllers = new Set();
         let _slowRequestPendingCount = 0;
         function _renderSlowRequestNotice(phase) {
+            // Single-notice policy: the in-flight slow-request notice
+            // supersedes any proactive "complex query may be slow"
+            // advisory — they'd otherwise stack and duplicate the CTA.
+            document.getElementById('complexQueryAdvisory')?.remove();
             let el = document.getElementById('slowRequestNotice');
             if (!el) {
                 el = document.createElement('div');
@@ -3371,8 +3379,10 @@
             }
         }
         function _dismissSlowRequestNotice() {
-            const el = document.getElementById('slowRequestNotice');
-            if (el) el.remove();
+            document.getElementById('slowRequestNotice')?.remove();
+            // Keep the "single notice" invariant even when we're dismissing:
+            // a stale complex-query advisory shouldn't outlive the request.
+            document.getElementById('complexQueryAdvisory')?.remove();
         }
         window._cancelSlowRequests = function () {
             for (const ctrl of _activeAbortControllers) {

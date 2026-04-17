@@ -1217,7 +1217,7 @@
                 <p style="margin:10px 0 0; font-size:12px; color:#778;">
                     Spot something wrong? Use the 🚩 <strong>Report issue</strong> button on any record detail view — or click below to file a report now. Reports are reviewed during the next monthly refresh and cited in the changelog.
                 </p>
-                <button class="btn btn-primary" onclick="toggleAboutModal(); openReportModal();" style="margin-top:10px; padding:8px 16px; border-radius:6px; font-size:13px; background:#fff5d9; color:#7a5200; border:1px solid #f0d289; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <button class="about-section-cta about-section-cta--report" onclick="toggleAboutModal(); openReportModal();">
                     🚩 Report a cleanup error
                 </button>
             </div>
@@ -1225,7 +1225,9 @@
             <div class="about-section" style="background:linear-gradient(135deg,#f0f9ff 0%,#e8f0fe 100%); border:1px solid #c4d4f0; border-radius:10px; padding:14px 16px; margin:14px 0;">
                 <div class="about-section-title" style="margin-bottom:6px;">🔒 Offline &amp; Private Mode</div>
                 <p style="margin:0 0 10px;">Download the full dataset to your browser once — after that every search, filter, and <strong>advanced regex query</strong> runs entirely on your machine. No queries reach the server. Required for training your own classifier. Recommended on a desktop or laptop; see details in the dialog.</p>
-                <button class="btn btn-primary" onclick="closeAboutModalAndOpenOfflineMode()">Enable Offline &amp; Private Mode</button>
+                <button class="about-section-cta about-section-cta--offline" onclick="closeAboutModalAndOpenOfflineMode()">
+                    🔒 Enable Offline &amp; Private Mode
+                </button>
             </div>
 
             <!-- Dense 2-column credits grid — replaces the previous stacked one-line sections. -->
