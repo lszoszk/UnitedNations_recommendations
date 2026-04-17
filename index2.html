@@ -76,7 +76,7 @@
   /* -------- hero -------- */
   .hero {
     position: relative;
-    padding: 56px 28px 24px;
+    padding: 20px 28px 16px;
     border-bottom: 1px solid var(--line);
     overflow: hidden;
   }
@@ -102,10 +102,10 @@
   .headline {
     font-family: var(--serif);
     font-weight: 400;
-    font-size: clamp(44px, 6.4vw, 96px);
+    font-size: clamp(36px, 5.2vw, 76px);
     line-height: .98;
     letter-spacing: -0.01em;
-    margin: 18px 0 22px;
+    margin: 10px 0 14px;
     color: var(--ink);
     text-wrap: balance;
   }
@@ -132,7 +132,7 @@
   .lede .hl { background: var(--accent-soft); padding: 0 4px; }
 
   .kpis {
-    margin-top: 28px;
+    margin-top: 16px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0;
@@ -140,14 +140,14 @@
     border-bottom: 1px solid var(--line);
   }
   .kpi {
-    padding: 18px 16px 16px 0;
+    padding: 12px 16px 12px 0;
     border-right: 1px dotted var(--line);
     position: relative;
   }
   .kpi:last-child { border-right: 0; }
   .kpi .num {
     font-family: var(--serif);
-    font-size: 40px;
+    font-size: 34px;
     letter-spacing: -.01em;
     line-height: 1;
     display: flex; align-items: baseline; gap: 6px;
@@ -163,7 +163,7 @@
   }
 
   .cta-row {
-    margin-top: 28px;
+    margin-top: 16px;
     display: flex; flex-wrap: wrap; gap: 12px;
     align-items: center;
   }
@@ -251,7 +251,7 @@
   }
   .ticker-track {
     display: flex; gap: 64px;
-    padding: 14px 0 14px 120px;
+    padding: 10px 0 10px 120px;
     white-space: nowrap;
     animation: scroll 120s linear infinite;
     font-size: 12px;
@@ -544,6 +544,50 @@
   }
   [data-palette="ink"] .headline em { color: var(--accent); }
 
+  /* -------- section nav arrows -------- */
+  .section-nav {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .nav-btn {
+    width: 34px; height: 34px;
+    border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--paper) 92%, transparent);
+    backdrop-filter: blur(10px);
+    color: var(--dim);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s, border-color .15s, opacity .2s;
+    font-family: var(--mono);
+    line-height: 1;
+    padding: 0;
+  }
+  .nav-btn:hover:not(:disabled) { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .nav-btn:disabled { opacity: .2; pointer-events: none; }
+  .nav-dots {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 0;
+  }
+  .nav-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--dimmer);
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+  }
+  .nav-dot.active { background: var(--ink); transform: scale(1.4); }
+  @media (max-width: 900px) { .section-nav { display: none; } }
+
   /* responsive */
   @media (max-width: 900px) {
     .hero .grid { grid-template-columns: 1fr; gap: 24px; }
@@ -572,6 +616,13 @@
     <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">Open Dashboard ↗</a>
   </div>
 </div>
+
+<!-- Section nav arrows -->
+<nav class="section-nav" aria-label="Section navigation">
+  <button class="nav-btn" id="navUp" aria-label="Previous section" disabled>↑</button>
+  <div class="nav-dots" id="navDots"></div>
+  <button class="nav-btn" id="navDown" aria-label="Next section">↓</button>
+</nav>
 
 <!-- HERO -->
 <section class="hero" id="hero">
@@ -614,8 +665,8 @@
         <a class="btn" href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">
           Open the dashboard <span class="arrow">→</span>
         </a>
-        <a class="btn ghost" href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">
-          <span>▶</span> Rule-of-law demo (8,235 records)
+        <a class="btn ghost" href="https://lszoszk.github.io/UnitedNations_recommendations/#theme=Rule+of+law+%26+impunity&tab=data" target="_blank" rel="noopener">
+          <span>▶</span> Rule-of-law demo (11,834 records)
         </a>
       </div>
     </div>
@@ -1244,6 +1295,63 @@
   try {
     window.parent.postMessage({ type: '__edit_mode_available' }, '*');
   } catch (e) {}
+
+  /* ---------- section navigation ---------- */
+  const SECTIONS = ['#hero', '#tickerWrap', '#themes', '#countries', '#timeline', '#dashboard'];
+  let currentSection = 0;
+
+  const navUp   = document.getElementById('navUp');
+  const navDown = document.getElementById('navDown');
+  const dotsEl  = document.getElementById('navDots');
+
+  // Build dots
+  SECTIONS.forEach((_, i) => {
+    const d = document.createElement('button');
+    d.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    d.setAttribute('aria-label', `Go to section ${i + 1}`);
+    d.addEventListener('click', () => goToSection(i));
+    dotsEl.appendChild(d);
+  });
+
+  function updateNavState() {
+    navUp.disabled   = currentSection === 0;
+    navDown.disabled = currentSection === SECTIONS.length - 1;
+    dotsEl.querySelectorAll('.nav-dot').forEach((d, i) => {
+      d.classList.toggle('active', i === currentSection);
+    });
+  }
+
+  function goToSection(idx) {
+    const el = document.querySelector(SECTIONS[idx]);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    currentSection = idx;
+    updateNavState();
+  }
+
+  navUp.addEventListener('click',   () => goToSection(Math.max(0, currentSection - 1)));
+  navDown.addEventListener('click', () => goToSection(Math.min(SECTIONS.length - 1, currentSection + 1)));
+
+  // Keep track of current section via IntersectionObserver
+  const sectionEls = SECTIONS.map(s => document.querySelector(s)).filter(Boolean);
+  const sectionObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting && e.intersectionRatio >= 0.3) {
+        const idx = sectionEls.indexOf(e.target);
+        if (idx !== -1) { currentSection = idx; updateNavState(); }
+      }
+    });
+  }, { threshold: 0.3 });
+  sectionEls.forEach(el => sectionObs.observe(el));
+
+  // Keyboard arrow support
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowDown' && !navDown.disabled) { e.preventDefault(); goToSection(currentSection + 1); }
+    if (e.key === 'ArrowUp'   && !navUp.disabled)   { e.preventDefault(); goToSection(currentSection - 1); }
+  });
+
+  updateNavState();
 
   /* boot */
   syncTweaksUI();
