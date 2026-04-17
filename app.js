@@ -400,6 +400,10 @@
                 img.setAttribute('src', resolved === 'dark' ? darkSrc : (img.getAttribute('data-light-src') || lightSrc));
             });
 
+            // Chart.js canvases don't inherit CSS, so sync the library's
+            // global defaults + our palette before any chart re-renders.
+            if (typeof applyChartTheme === 'function') applyChartTheme(resolved);
+
             const darkModeToggle = document.getElementById('darkModeToggle');
             if (darkModeToggle) darkModeToggle.checked = (resolved === 'dark');
 
@@ -1427,11 +1431,72 @@
         ]);
 
         // ========== COLORS ==========
-        const colors = {
+        // Two palettes: the light one was tuned against a white card,
+        // the dark one brightens navy-on-navy combos and shifts deep
+        // regional tones up so dots stand out against #14202d cards.
+        const COLORS_LIGHT = {
             primary: ['#4a90d9', '#50c878', '#ff6b6b', '#ffd93d', '#6c5ce7', '#a8e6cf', '#fdcb6e', '#74b9ff', '#e17055', '#00b894', '#fd79a8', '#636e72'],
-            bodies: ['#1e3a5f', '#2d5a87', '#4a90d9', '#6bb3f0', '#8ecae6', '#219ebc', '#023047', '#ffb703', '#fb8500', '#e63946', '#457b9d', '#a8dadc'],
-            regions: ['#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51', '#606c38', '#283618', '#dda15e', '#bc6c25']
+            bodies:  ['#1e3a5f', '#2d5a87', '#4a90d9', '#6bb3f0', '#8ecae6', '#219ebc', '#023047', '#ffb703', '#fb8500', '#e63946', '#457b9d', '#a8dadc'],
+            regions: ['#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51', '#606c38', '#283618', '#dda15e', '#bc6c25'],
         };
+        const COLORS_DARK = {
+            primary: ['#7cb5ff', '#79d99e', '#ff8f8f', '#ffe477', '#a094ff', '#c8efd7', '#ffd88b', '#9cc9ff', '#ff9d7a', '#4dd3a8', '#ff9fc4', '#aab3bc'],
+            bodies:  ['#6a9bd1', '#88b4e0', '#a8cffa', '#bfdff6', '#d3e7f6', '#4fb4cf', '#7ab8d2', '#ffca4a', '#ffa94d', '#ff7a83', '#80a7c6', '#c6e5e5'],
+            regions: ['#6ea9b8', '#4fcab6', '#ffd88b', '#ffc28b', '#ff9f82', '#a2b868', '#8aa163', '#e9c28f', '#dc9a5f'],
+        };
+        // Live palette — mutated by applyChartTheme() when dark mode toggles.
+        // Keep the reference stable so consumers that captured `colors` on
+        // page load see the updated arrays.
+        const colors = {
+            primary: COLORS_LIGHT.primary.slice(),
+            bodies:  COLORS_LIGHT.bodies.slice(),
+            regions: COLORS_LIGHT.regions.slice(),
+        };
+
+        // Syncs Chart.js global defaults + our palette to the active theme.
+        // Called from applyThemePreference; safe to call before Chart.js
+        // has loaded (it tests for window.Chart).
+        function applyChartTheme(resolved) {
+            const dark = resolved === 'dark';
+            const src = dark ? COLORS_DARK : COLORS_LIGHT;
+            // Mutate the shared `colors` object in place.
+            colors.primary.length = 0; colors.primary.push(...src.primary);
+            colors.bodies.length = 0;  colors.bodies.push(...src.bodies);
+            colors.regions.length = 0; colors.regions.push(...src.regions);
+
+            if (!window.Chart) return;
+            Chart.defaults.color = dark ? '#cbd5e1' : '#1e3a5f';
+            Chart.defaults.borderColor = dark ? 'rgba(200,215,235,0.12)' : 'rgba(30,58,95,0.08)';
+            if (Chart.defaults.plugins?.legend?.labels) {
+                Chart.defaults.plugins.legend.labels.color = Chart.defaults.color;
+            }
+            if (Chart.defaults.plugins?.tooltip) {
+                Chart.defaults.plugins.tooltip.backgroundColor = dark ? 'rgba(15,23,35,0.95)' : 'rgba(0,0,0,0.85)';
+                Chart.defaults.plugins.tooltip.titleColor = '#fff';
+                Chart.defaults.plugins.tooltip.bodyColor = '#fff';
+                Chart.defaults.plugins.tooltip.borderColor = dark ? '#314154' : 'rgba(0,0,0,0.15)';
+                Chart.defaults.plugins.tooltip.borderWidth = 1;
+            }
+            // Force every live Chart instance to pick up the new defaults
+            // AND new palette for any dataset that sourced from `colors`.
+            try {
+                Object.values(Chart.instances).forEach(chart => {
+                    if (!chart) return;
+                    chart.options.scales = chart.options.scales || {};
+                    ['x', 'y'].forEach(axis => {
+                        const s = chart.options.scales[axis];
+                        if (s) {
+                            s.ticks = s.ticks || {};
+                            s.ticks.color = Chart.defaults.color;
+                            s.grid = s.grid || {};
+                            s.grid.color = Chart.defaults.borderColor;
+                            if (s.title) s.title.color = Chart.defaults.color;
+                        }
+                    });
+                    chart.update('none');
+                });
+            } catch (_) { /* noop — instance iteration is best-effort */ }
+        }
 
         // ========== FILE UPLOAD ==========
         const uploadSection = document.getElementById('uploadSection');

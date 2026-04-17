@@ -3022,6 +3022,76 @@
         body.theme-dark .site-footer a { color: #7ab5ff; }
         body.theme-dark .site-footer a:hover { color: #a8cffe; }
 
+        /* ── Filters panel and its inner chrome ──
+           The filter card itself, the search query bar, the filter-chips
+           row and the classifier CTA all use hardcoded white backgrounds
+           that were invisible on a dark page. */
+        body.theme-dark .filters-section {
+            background: #14202d !important;
+            border: 1px solid #314154;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+        }
+        body.theme-dark .filters-section h2,
+        body.theme-dark .filters-header h2 {
+            color: #f2f7fd;
+        }
+        body.theme-dark .filter-query-input-wrap {
+            background: #0f1723;
+            border-color: #314154;
+        }
+        body.theme-dark .filter-query-input {
+            background: transparent;
+            color: #e6edf5;
+        }
+        body.theme-dark .filter-query-icon { color: #9fb0c4; }
+        body.theme-dark .filter-label label { color: #e6edf5; }
+        body.theme-dark .filter-label .clear-btn { color: #7ab5ff; }
+        body.theme-dark .filter-chips {
+            /* chips already have .theme-dark styles lower in this file */
+        }
+        body.theme-dark .filter-chip {
+            background: #1c2a39;
+            color: #e6edf5;
+            border-color: #314154;
+        }
+        body.theme-dark #moreFiltersToggle,
+        body.theme-dark .more-filters-toggle {
+            background: #0f1723;
+            color: #e6edf5;
+            border-color: #314154;
+        }
+        /* Tag & Categorize CTA card below the filters */
+        body.theme-dark .classifier-cta .classifier-cta-title,
+        body.theme-dark .classifier-cta .classifier-cta-desc {
+            /* already overridden earlier but ensure fg is bright enough */
+            color: #cbd5e1;
+        }
+        /* The inline-styled box "Full Dataset Analytics Ready" hint */
+        body.theme-dark .fulldataset-banner,
+        body.theme-dark .full-dataset-banner {
+            background: #162436 !important;
+            color: #dce9f8 !important;
+            border-color: #31506f !important;
+        }
+        /* Hits pill next to Filters title */
+        body.theme-dark .hits-pill,
+        body.theme-dark .filter-hits-badge {
+            background: #1c355a;
+            color: #cfe3ff;
+        }
+
+        /* ── Chart.js dark-mode palette overrides ──
+           Canvas colours don't inherit from CSS, so the JS side
+           (applyChartTheme()) also has to swap Chart.defaults.color,
+           Chart.defaults.borderColor, and the `colors` palette. These
+           CSS rules take care of the static chart-chrome elements that
+           sit OUTSIDE the canvas (title, empty-state, context note). */
+        body.theme-dark .chart-card-title,
+        body.theme-dark .chart-empty-state,
+        body.theme-dark .chart-status-chip {
+            color: #cbd5e1;
+        }
+
         /* Offline & Private Mode modal — inline hardcoded styles for the
            three "Full privacy / Works offline / Unlocks advanced" titles
            and helper copy need a dark-mode override via attribute selector. */
