@@ -390,6 +390,16 @@
             document.body.classList.toggle('theme-light', resolved !== 'dark');
             document.documentElement.style.colorScheme = resolved;
 
+            // Swap any <img data-light-src=… data-dark-src=…> based on theme.
+            // Used by partner logos that have a dark/light variant (e.g. the
+            // CyberLawLab wordmark ships in both tones).
+            document.querySelectorAll('img[data-dark-src]').forEach((img) => {
+                const darkSrc = img.getAttribute('data-dark-src');
+                const lightSrc = img.getAttribute('data-light-src') || img.getAttribute('src');
+                if (!img.getAttribute('data-light-src')) img.setAttribute('data-light-src', lightSrc);
+                img.setAttribute('src', resolved === 'dark' ? darkSrc : (img.getAttribute('data-light-src') || lightSrc));
+            });
+
             const darkModeToggle = document.getElementById('darkModeToggle');
             if (darkModeToggle) darkModeToggle.checked = (resolved === 'dark');
 
@@ -4348,7 +4358,31 @@
             n._regionsArray = toArr(row['Regions'] || row['Regions Concerned']);
             n._sdgs = toStr(row['Sdgs'] || row['SDGs']);
             n._sdgsArray = toArr(row['Sdgs'] || row['SDGs']);
-            n._text = stripHtml(toStr(row['Text'] || row['text'] || row['Recommendation'] || ''));
+            // Prefer the pipeline's cleaned body when the server sends it
+            // and the user is looking at the cleaned view; fall back to a
+            // naïve HTML-strip of the upstream Text otherwise (raw dataset,
+            // user-uploaded files, etc.). This is the reason records from
+            // the server now render without OCR debris and without the
+            // section-heading prefix concatenated into the body.
+            n._textRaw = stripHtml(toStr(row['Text'] || row['text'] || row['Recommendation'] || ''));
+            const serverCleaned = toStr(row['TextPlainCleaned'] || '');
+            const serverRaw = toStr(row['TextPlainRaw'] || '');
+            if (typeof currentDataset !== 'undefined' && currentDataset === 'raw') {
+                n._text = serverRaw || n._textRaw;
+            } else {
+                n._text = serverCleaned || serverRaw || n._textRaw;
+            }
+            // Extracted section headings — kept alongside the body so the
+            // card renderer can surface them as a breadcrumb instead of
+            // inlining them into the recommendation text. Example:
+            //   body  = "58. The Committee encourages the State Party…"
+            //   headings = ["D. Other recommendations"]
+            n._sectionHeadings = Array.isArray(row['SectionHeadings'])
+                ? row['SectionHeadings'].filter(h => typeof h === 'string' && h.trim().length)
+                : [];
+            // Self-reported LLM edits for this record (audit trail from
+            // Stage 2). Empty array when the record wasn't LLM-reviewed.
+            n._stage2Changes = Array.isArray(row['Stage2Changes']) ? row['Stage2Changes'] : [];
             n._symbol = toStr(row['Symbol'] || row['Document Symbol']);
             n._annotationId = toStr(row['AnnotationId'] || row['OHCHR Annotation Id'] || row['Annotation Id']);
             n._documentId = toStr(row['DocumentId']);
@@ -6521,6 +6555,14 @@
 
             let html = '';
             html += `<div style="margin-bottom:12px;"><button class="btn btn-secondary" onclick="restoreDrilldownList()" style="padding:6px 14px; font-size:12px;">← Back to list</button></div>`;
+            {
+                const _headings = Array.isArray(rec._sectionHeadings) ? rec._sectionHeadings : [];
+                if (_headings.length) {
+                    html += `<div class="record-detail-headings" title="Section heading(s) extracted by the cleanup pipeline">`;
+                    html += _headings.map(h => `<span class="rec-heading-crumb">${escapeHtml(h)}</span>`).join('<span class="rec-heading-sep">›</span>');
+                    html += `</div>`;
+                }
+            }
             html += `<div class="record-detail-text">${escapeHtml(rec._text || '')}</div>`;
             html += '<div class="record-detail-grid">';
             html += field('Body', body_);
@@ -8811,6 +8853,18 @@
                 html += `<div class="rec-card-themes-bar">${themes.map(t => `<span class="rec-theme-badge">${escapeHtml(t)}</span>`).join('')}${moreThemes ? `<span class="rec-theme-badge" style="color:#8899aa;">${moreThemes}</span>` : ''}</div>`;
             }
 
+            // ── Section headings breadcrumb (cleaned dataset only) ──
+            // When the pipeline extracts a heading from the source HTML
+            // (e.g. "D. Other recommendations") we render it here as a
+            // small structural breadcrumb instead of inlining it into
+            // the body, so the recommendation text stays readable.
+            const headings = Array.isArray(r._sectionHeadings) ? r._sectionHeadings : [];
+            if (headings.length) {
+                html += `<div class="rec-card-headings" title="Section heading(s) extracted from the source document">`;
+                html += headings.map(h => `<span class="rec-heading-crumb">${escapeHtml(h)}</span>`).join('<span class="rec-heading-sep">›</span>');
+                html += `</div>`;
+            }
+
             // ── Predicted labels with feedback ──
             if (r._predictedLabels && r._predictedLabels.length) {
                 html += `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; align-items:center;">`;
@@ -9192,6 +9246,14 @@
 
             let html = '';
             // Full text
+            {
+                const _headings = Array.isArray(rec._sectionHeadings) ? rec._sectionHeadings : [];
+                if (_headings.length) {
+                    html += `<div class="record-detail-headings" title="Section heading(s) extracted by the cleanup pipeline">`;
+                    html += _headings.map(h => `<span class="rec-heading-crumb">${escapeHtml(h)}</span>`).join('<span class="rec-heading-sep">›</span>');
+                    html += `</div>`;
+                }
+            }
             html += `<div class="record-detail-text">${escapeHtml(rec._text || '')}</div>`;
             // Metadata grid
             html += '<div class="record-detail-grid">';

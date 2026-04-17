@@ -49,13 +49,9 @@
                     title="Cleaned dataset (default) — OCR fixes applied; click to switch to the original UHRI export.">
                 <span class="dataset-indicator" id="datasetIndicator">Cleaned</span>
             </button>
-            <!-- Report cleanup error: feedback loop for the cleaned dataset. -->
-            <button class="header-report-btn" id="headerReportBtn" onclick="openReportModal()"
-                    aria-label="Report a cleanup error"
-                    title="Report a cleanup error on any record. / Zgłoś nieprawidłowość w oczyszczonym zbiorze danych.">
-                🚩
-            </button>
-            <!-- Header action buttons -->
+            <!-- Header action buttons (the 🚩 Report shortcut is intentionally
+                 not exposed here: the per-record Report button + the link
+                 inside the About modal are the two entry points). -->
             <button class="header-recent-btn" id="headerRecentBtn" onclick="toggleRecentFiltersPanel()" aria-label="Recent searches" title="Recent searches">🕐</button>
             <div class="recent-filters-panel" id="recentFiltersPanel"></div>
             <button class="header-info-btn" id="headerInfoBtn" onclick="toggleAboutModal()" aria-label="About this project" title="About this project">i</button>
@@ -1219,8 +1215,11 @@
                 </p>
                 <div id="aboutRefreshStatus"></div>
                 <p style="margin:10px 0 0; font-size:12px; color:#778;">
-                    Spot something wrong? Click the 🚩 button in the header or on any record to report it. Reports are reviewed during the next monthly refresh and cited in the changelog.
+                    Spot something wrong? Use the 🚩 <strong>Report issue</strong> button on any record detail view — or click below to file a report now. Reports are reviewed during the next monthly refresh and cited in the changelog.
                 </p>
+                <button class="btn btn-primary" onclick="toggleAboutModal(); openReportModal();" style="margin-top:10px; padding:8px 16px; border-radius:6px; font-size:13px; background:#fff5d9; color:#7a5200; border:1px solid #f0d289; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    🚩 Report a cleanup error
+                </button>
             </div>
 
             <div class="about-section" style="background:linear-gradient(135deg,#f0f9ff 0%,#e8f0fe 100%); border:1px solid #c4d4f0; border-radius:10px; padding:14px 16px; margin:14px 0;">
@@ -1361,7 +1360,7 @@
                 <img src="logo-uam.png" alt="UAM" style="height:34px">
             </a>
             <a href="https://prawo.amu.edu.pl" target="_blank" rel="noopener" title="CyberLawLab — Adam Mickiewicz University Faculty of Law and Administration">
-                <img src="logo-cyberlawlab.png" alt="CyberLawLab" style="height:34px">
+                <img src="logo-cyberlawlab.png" data-light-src="logo-cyberlawlab.png" data-dark-src="logo-cyberlawlab-white.png" alt="CyberLawLab" style="height:34px">
             </a>
             <a href="https://reconstitution.eu" target="_blank" rel="noopener" title="re:constitution — Exchange and Analysis on Democracy and the Rule of Law in Europe">
                 <img src="logo-reconstitution.png" alt="re:constitution" style="height:34px">

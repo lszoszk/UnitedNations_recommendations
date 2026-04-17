@@ -368,27 +368,8 @@
         }
         .header-dataset-btn.dataset-raw:hover { background: rgba(255,180,0,0.38); }
 
-        /* Report-a-cleanup-error button — same shape as the other header
-           icon buttons so it sits cleanly in the row. */
-        .header-report-btn {
-            position: absolute;
-            top: 16px;
-            right: 344px;
-            background: rgba(255,255,255,0.15);
-            border: 1px solid rgba(255,255,255,0.25);
-            color: #e8f2ff;
-            width: 36px; height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 14px;
-            display: flex; align-items: center; justify-content: center;
-            transition: background 0.2s;
-            z-index: 10;
-        }
-        .header-report-btn:hover { background: rgba(255,255,255,0.28); }
         @media (max-width: 720px) {
             .header-dataset-btn { right: 182px; padding: 0 10px; font-size: 11px; height: 30px; }
-            .header-report-btn { right: 290px; width: 30px; height: 30px; font-size: 12px; }
         }
 
         /* About modal */
@@ -990,6 +971,46 @@
             font-size: 14px !important;
             flex-shrink: 0;
         }
+        /* Section-heading breadcrumb shown above the recommendation text.
+           The cleanup pipeline extracts headings like "D. Other
+           recommendations" out of the source HTML; showing them as a
+           structural crumb instead of concatenated into the body text
+           keeps the recommendation itself readable. */
+        .rec-card-headings,
+        .record-detail-headings {
+            font-size: 11px;
+            color: #64748b;
+            letter-spacing: 0.02em;
+            margin: 4px 0 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px 6px;
+            align-items: center;
+        }
+        .rec-heading-crumb {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 2px 7px;
+            font-weight: 500;
+            color: #475569;
+        }
+        .rec-heading-sep {
+            color: #cbd5e1;
+            font-weight: 600;
+            padding: 0 2px;
+        }
+        body.theme-dark .rec-card-headings,
+        body.theme-dark .record-detail-headings {
+            color: #9fb0c4;
+        }
+        body.theme-dark .rec-heading-crumb {
+            background: #182838;
+            border-color: #314154;
+            color: #c7d4e4;
+        }
+        body.theme-dark .rec-heading-sep { color: #64748b; }
+
         /* Per-field ALL/ANY toggle (Themes, Affected Groups, SDGs).
            Compact pill tucked beside the field label. Hidden by default
            via the `hidden` attribute; revealed when ≥2 chips are selected
