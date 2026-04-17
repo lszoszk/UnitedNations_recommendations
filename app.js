@@ -1817,17 +1817,26 @@
             return raw;
         }
 
+        function formatDatasetSnapshotDate(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            const parsed = new Date(raw);
+            if (!Number.isNaN(parsed.getTime())) {
+                const year = parsed.getFullYear();
+                const month = String(parsed.getMonth() + 1).padStart(2, '0');
+                const day = String(parsed.getDate()).padStart(2, '0');
+                return `${year} ${month} ${day}`;
+            }
+            return raw;
+        }
+
         function updateDatasetMetadataUI() {
             const value = document.getElementById('infoDatasetCutoff');
             if (!value) return;
 
-            if (datasetMetadata.downloadedAt) {
-                value.textContent = `Last update: ${formatDatasetDate(datasetMetadata.downloadedAt)}`;
-                return;
-            }
-
-            if (activeDataSource === 'vm_api' && datasetMetadata.modifiedAt) {
-                value.textContent = `Last update: ${formatDatasetDate(datasetMetadata.modifiedAt, true)}`;
+            const snapshotDate = datasetMetadata.modifiedAt || datasetMetadata.downloadedAt;
+            if (snapshotDate) {
+                value.textContent = `Data snapshot: ${formatDatasetSnapshotDate(snapshotDate)}`;
                 return;
             }
 
