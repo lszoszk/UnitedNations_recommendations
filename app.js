@@ -1223,15 +1223,24 @@
         // ── Show coach marks for first-time visitors (delayed to let page settle) ──
         setTimeout(showCoachMarks, 1200);
 
-        // ── Prefetch API metadata for live hero stats (non-blocking, if bootstrap unavailable) ──
+        // ── Prefetch unfiltered summary for hero stats.
+        // Stored as a Promise so refreshServerBrowseData's first (unfiltered) summary
+        // fetch can await this same request instead of firing a duplicate ~1s call.
+        // Measured: on cold start the summary endpoint was being hit twice — this
+        // dedupe saves ~1s on the initial render. ──
         if (DATASET_SUMMARY_URL) {
-            fetch(DATASET_SUMMARY_URL, { signal: AbortSignal.timeout(8000) })
+            window._prefetchedSummaryPromise = fetch(DATASET_SUMMARY_URL, { signal: AbortSignal.timeout(8000) })
                 .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
                 .then(summary => {
                     updateHeroStatsFromApi(summary);
                     window._prefetchedSummary = summary;
+                    return summary;
                 })
-                .catch(err => console.debug('Hero stats prefetch skipped:', err));
+                .catch(err => {
+                    console.debug('Hero stats prefetch skipped:', err);
+                    window._prefetchedSummaryPromise = null;
+                    throw err;
+                });
         }
 
         // ── Mark user as returning visitor ──
@@ -1639,6 +1648,12 @@
         }
 
         async function fetchOverviewBootstrap() {
+            // Reuse the landing-preview copy if autoFetchLandingPreview already downloaded
+            // it — same 227KB JSON, same payload. Previously bootstrap was fetched twice
+            // on every cold start (once for mini-charts, once here for analytics).
+            if (window._landingBootstrapData) {
+                return window._landingBootstrapData;
+            }
             const cached = loadBootstrapFromCache();
             const headers = cached?.etag ? { 'If-None-Match': cached.etag } : {};
             try {
@@ -2722,7 +2737,21 @@
                 // Fire all 3 in parallel and render progressively (each arrives independently).
                 // Tradeoff: 2-worker server will queue the 3rd request; wall-clock still
                 // improves vs. sequential, but watch p95 under sustained load.
-                const summaryP = fetchServerJson(summaryUrl, 'Unable to load server summary');
+
+                // Reuse the hero-stats prefetch promise for the very first unfiltered
+                // summary call. The prefetch fires right after page init (~140ms) with
+                // the same URL our summary fetch would use when no filters are active —
+                // without this dedupe the server handles two identical ~1s queries on
+                // every cold load. Mark as consumed so subsequent refreshes always
+                // fetch fresh data.
+                const unfilteredBaseUrl = `${DATASET_SUMMARY_URL}?`; // buildServerQueryParams with no filters yields empty params
+                const canReusePrefetch = window._prefetchedSummaryPromise
+                    && summaryUrl === (DATASET_SUMMARY_URL + '?' + baseParams.toString())
+                    && !baseParams.toString();
+                const summaryP = canReusePrefetch
+                    ? window._prefetchedSummaryPromise
+                    : fetchServerJson(summaryUrl, 'Unable to load server summary');
+                if (canReusePrefetch) { window._prefetchedSummaryPromise = null; }
                 const recordsP = fetchServerJson(recordsUrl, 'Unable to load server records');
                 const mapP = fetchServerJson(mapUrl, 'Unable to load server map data');
 
@@ -2907,20 +2936,42 @@
                 const healthModifiedAt = datasetHealth?.modified_at || datasetHealth?.dataset_metadata?.modified_at || '';
                 const cacheIsFresh = cachedFacets && cachedFacets.modifiedAt && healthModifiedAt && cachedFacets.modifiedAt === healthModifiedAt;
 
-                let facets = cachedFacets?.facets || null;
-                if (!cacheIsFresh) {
-                    facets = await fetchServerJson(DATASET_FACETS_URL, 'Unable to fetch dataset facets');
-                    serverState.facets = facets;
-                    populateServerFacets();
-                    saveFacetsToCache(VM_BASE_URL, healthModifiedAt, facets);
-                }
                 activeDataSource = 'vm_server';
                 fileName = 'UHRI dataset (server browse)';
                 fileFormat = 'Server API';
-                await refreshServerBrowseData(1, showErrors, {
+
+                // Fire the data fetch (summary + records + map) and, when cache isn't
+                // fresh, the facets refresh too — IN PARALLEL rather than sequentially.
+                // Previously records+map waited for facets (~1.3s on cold start); they
+                // don't actually need facets, so firing them together saves ~1s on
+                // records/map becoming visible. facetsP swallows its own errors so a
+                // facets failure never blocks the main data load.
+                let facetsP = null;
+                if (!cacheIsFresh) {
+                    facetsP = fetchServerJson(DATASET_FACETS_URL, 'Unable to fetch dataset facets')
+                        .then(facets => {
+                            serverState.facets = facets;
+                            populateServerFacets();
+                            saveFacetsToCache(VM_BASE_URL, healthModifiedAt, facets);
+                            return facets;
+                        })
+                        .catch(err => {
+                            console.warn('Background facets refresh failed:', err);
+                            return null;
+                        });
+                }
+
+                const refreshP = refreshServerBrowseData(1, showErrors, {
                     background,
                     activateServerBrowse: true
                 });
+
+                if (facetsP) {
+                    const settled = await Promise.allSettled([refreshP, facetsP]);
+                    if (settled[0].status === 'rejected') throw settled[0].reason;
+                } else {
+                    await refreshP;
+                }
             } catch (err) {
                 console.error('Remote browse init failed:', err);
                 if (!background || !preserveBootstrapOnFailure) {
