@@ -5305,7 +5305,9 @@
                 const shortText = truncated ? fullText.substring(0, maxLen) : fullText;
                 const uid = `dd-${shown + idx}`;
                 const body_ = (rec._body || '').replace(/^-+\s*/, '').trim();
-                const country = (rec._countries || '').split('\n')[0].replace(/^-+\s*/, '').trim();
+                // Use _countryLabel so 2-letter ISO codes (e.g. "AU", "CZ", "SV") from the
+                // dataset get resolved to full country names ("Australia", "Czechia", "El Salvador").
+                const country = _countryLabel((rec._countries || '').split('\n')[0]);
                 const year = rec._year || '';
                 const symbol = (rec._symbol || '').replace(/^-+\s*/, '').trim();
                 const uhri = getUhriUrl(rec);
@@ -6703,9 +6705,12 @@
             if (useServerAnalytics()) {
                 const textAnalytics = serverState.analytics?.text;
                 if (!textAnalytics) return;
+                // Strip leading dashes/whitespace. Some records have body = "-" which
+                // must be filtered out — otherwise it appears as the top row with the
+                // longest average text. Same rule as server-side summary body filter.
                 const avgL = (textAnalytics.body_avg_text_length || [])
-                    .map(row => ({ body: String(row.body || '').replace('- ', ''), avg: Number(row.avg_length || 0) }))
-                    .filter(row => row.body && Number.isFinite(row.avg) && row.avg > 0)
+                    .map(row => ({ body: String(row.body || '').replace(/^-+\s*/, '').trim(), avg: Number(row.avg_length || 0) }))
+                    .filter(row => row.body && row.body !== '-' && Number.isFinite(row.avg) && row.avg > 0)
                     .slice(0, 10);
                 charts.textLength = new Chart(document.getElementById('chartTextLength'), {
                     type: 'bar',
@@ -6722,7 +6727,10 @@
                     bc[r._body] = (bc[r._body]||0) + 1;
                 }
             });
-            const avgL = Object.entries(bl).map(([b, t]) => ({ body: b.replace('- ',''), avg: Math.round(t / bc[b]) })).sort((a,b) => b.avg - a.avg).slice(0, 10);
+            const avgL = Object.entries(bl)
+                .map(([b, t]) => ({ body: String(b || '').replace(/^-+\s*/, '').trim(), avg: Math.round(t / bc[b]) }))
+                .filter(row => row.body && row.body !== '-')
+                .sort((a,b) => b.avg - a.avg).slice(0, 10);
             charts.textLength = new Chart(document.getElementById('chartTextLength'), {
                 type: 'bar',
                 data: { labels: avgL.map(b => b.body), datasets: [{ data: avgL.map(b => b.avg), backgroundColor: colors.bodies.slice(0, 10), borderRadius: 4 }] },
@@ -10369,19 +10377,24 @@
         let _compareInited = false;
 
         function _initCompareSelects() {
-            // Populate from filtered data (local mode) or infinite scroll records (server mode)
+            // In server-browse mode, always populate from the full facets list so users
+            // can compare any country / body in the dataset — not just the subset visible
+            // in the currently-open drill-down or filter (which was the earlier bug).
+            // Local mode still derives options from loaded data.
             const _c = s => _countryLabel(s.replace(/^-+\s*/, '').trim());
-            const pool = serverBrowseMode
-                ? (_infScroll.records.length ? _infScroll.records : (serverState.records || []))
-                : (filteredData.length ? filteredData : rawData);
-            if (pool.length) {
-                const countries = [...new Set(pool.flatMap(r => (r._countriesArray || []).map(_c)))].filter(Boolean).sort();
-                const bodies = [...new Set(pool.map(r => _standardizeBody(r._body)).filter(Boolean))].sort();
+            if (serverBrowseMode && serverState.facets) {
+                const countries = [...new Set((serverState.facets.countries || []).map(c => _countryLabel(c)))].filter(Boolean).sort();
+                const bodies = [...new Set((serverState.facets.bodies || []).map(_standardizeBody).filter(Boolean))].sort();
                 populateSelect('compareCountry', countries);
                 populateSelect('compareBody', bodies);
-            } else if (serverBrowseMode && serverState.facets) {
-                populateSelect('compareCountry', (serverState.facets.countries || []).map(c => _countryLabel(c)).filter(Boolean).sort());
-                populateSelect('compareBody', [...new Set((serverState.facets.bodies || []).map(_standardizeBody).filter(Boolean))].sort());
+            } else {
+                const pool = filteredData.length ? filteredData : rawData;
+                if (pool.length) {
+                    const countries = [...new Set(pool.flatMap(r => (r._countriesArray || []).map(_c)))].filter(Boolean).sort();
+                    const bodies = [...new Set(pool.map(r => _standardizeBody(r._body)).filter(Boolean))].sort();
+                    populateSelect('compareCountry', countries);
+                    populateSelect('compareBody', bodies);
+                }
             }
             _initChipSelects();
 
