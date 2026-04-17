@@ -1259,6 +1259,43 @@
         let _applyInFlightKey = null;
         let _applyPendingReapply = false;
 
+        // ── Non-blocking server-error banner (replaces interrupting alerts).
+        //    When a fetch fails with "timed out", includes a one-click link to enable
+        //    Offline & Private Mode — the natural escape hatch for slow complex queries. ──
+        function showServerErrorBanner(errorMessage, suggestOffline) {
+            let el = document.getElementById('serverErrorBanner');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'serverErrorBanner';
+                el.style.cssText = 'position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:2147483640; max-width:560px; background:#fff5f5; border:1px solid #f5b5b5; border-left:4px solid #c62828; color:#7a1f1f; padding:12px 16px 12px 14px; border-radius:8px; box-shadow:0 8px 28px rgba(0,0,0,0.18); font-size:13px; line-height:1.5;';
+                document.body.appendChild(el);
+            }
+            const safeMsg = String(errorMessage || 'Unknown error').slice(0, 400)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const offlineBlock = suggestOffline
+                ? `<div style="margin-top:8px; padding:8px 10px; background:#fff; border:1px solid #e0c8c8; border-radius:6px; color:#333; font-size:12.5px; line-height:1.5;">
+                       🔒 Complex queries run instantly in <strong>Offline &amp; Private Mode</strong> — the dataset stays in your browser, no server round-trips.
+                       <div style="margin-top:6px;">
+                         <button class="btn btn-primary" onclick="document.getElementById('serverErrorBanner').remove(); openOfflineModeModal();" style="padding:5px 10px; font-size:12px;">🔒 Enable Offline &amp; Private Mode</button>
+                       </div>
+                   </div>`
+                : '';
+            el.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                    <div style="flex:1;">
+                        <div style="font-weight:600; margin-bottom:2px;">${suggestOffline ? 'Query timed out' : 'Server error'}</div>
+                        <div style="color:#8a3a3a; font-size:12.5px;">${safeMsg}</div>
+                        ${offlineBlock}
+                    </div>
+                    <button type="button" onclick="this.closest('#serverErrorBanner').remove()" aria-label="Dismiss" style="background:none; border:none; color:#8a3a3a; font-size:18px; line-height:1; cursor:pointer; padding:0 4px;">×</button>
+                </div>`;
+            el.style.display = 'block';
+            // Auto-dismiss after 20s if user doesn't interact (timeouts are common during
+            // troubleshooting; stale error banners shouldn't pile up).
+            clearTimeout(el._dismissTimer);
+            el._dismissTimer = setTimeout(() => el.remove(), suggestOffline ? 30000 : 15000);
+        }
+
         // ── Optimistic UI helpers: mark charts/table as "updating" until fresh data lands ──
         function markSectionStale(section = 'all') {
             if (section === 'all' || section === 'charts') {
@@ -2509,17 +2546,19 @@
          */
         function buildTextQueryParams(rawQuery) {
             const raw = String(rawQuery || '').trim();
-            if (!raw) return { text_query: '', text_exclude: '' };
+            const empty = { text_query: '', text_exclude: '', text_query_any: [], text_query_all: [] };
+            if (!raw) return empty;
 
-            // Regex mode or plain text — no negation to split
+            // Regex mode — pass through untouched.
             if (raw.startsWith('re:') || (raw.startsWith('/') && raw.lastIndexOf('/') > 0)) {
-                return { text_query: raw, text_exclude: '' };
+                return { ...empty, text_query: raw };
             }
-            if (!/\bNOT\b/.test(raw)) {
-                return { text_query: convertTextQueryForServer(raw), text_exclude: '' };
+            // No boolean operators at all → plain substring LIKE.
+            if (!/\b(AND|OR|NOT)\b/.test(raw) && !raw.includes('"')) {
+                return { ...empty, text_query: raw };
             }
 
-            // Parse the tokens so we can identify a splittable "A NOT B" shape
+            // Parse the query so we can pick the cheapest native-LIKE form.
             const tokens = [];
             const re = /"([^"]+)"|(\bAND\b|\bOR\b|\bNOT\b)|(\S+)/g;
             let m;
@@ -2540,22 +2579,33 @@
                 }
             }
 
-            // Splittable only if there's exactly ONE OR-group, at most one positive, and
-            // exactly one negative clause. Anything more complex keeps regex semantics.
+            // Shape 1 — "A NOT B" or "NOT B": one OR-group, ≤1 positive, exactly 1 negative.
+            // Use text_query + text_exclude (plain LIKE + NOT LIKE).
             if (orGroups.length === 1) {
-                const group = orGroups[0];
-                const positives = group.filter(c => !c.negate);
-                const negatives = group.filter(c => c.negate);
+                const g = orGroups[0];
+                const positives = g.filter(c => !c.negate);
+                const negatives = g.filter(c => c.negate);
                 if (negatives.length === 1 && positives.length <= 1) {
-                    return {
-                        text_query: positives[0]?.term || '',
-                        text_exclude: negatives[0].term
-                    };
+                    return { ...empty, text_query: positives[0]?.term || '', text_exclude: negatives[0].term };
+                }
+
+                // Shape 2 — "A AND B AND C": one OR-group, multiple positives, no negative.
+                // Route to text_query_all → (LIKE %a% AND LIKE %b% AND …). Native scans.
+                if (negatives.length === 0 && positives.length >= 2) {
+                    return { ...empty, text_query_all: positives.map(c => c.term) };
                 }
             }
 
-            // Fall back to regex
-            return { text_query: convertTextQueryForServer(raw), text_exclude: '' };
+            // Shape 3 — "A OR B OR C": multiple OR-groups, each with exactly one
+            // positive clause, no negatives anywhere. Route to text_query_any →
+            // (LIKE %a% OR LIKE %b% OR …). Native scans, no regex.
+            const isPureOr = orGroups.length >= 2 && orGroups.every(g => g.length === 1 && !g[0].negate);
+            if (isPureOr) {
+                return { ...empty, text_query_any: orGroups.map(g => g[0].term) };
+            }
+
+            // Fall back to regex for mixed shapes (AND+OR, multi-NOT, phrases with ops, etc.)
+            return { ...empty, text_query: convertTextQueryForServer(raw) };
         }
 
         /**
@@ -2667,14 +2717,19 @@
             if (filters.yearStart) params.set('year_start', String(filters.yearStart));
             if (filters.yearEnd) params.set('year_end', String(filters.yearEnd));
             if (filters.textQuery) {
-                // Split "A NOT B" (common research pattern) into native include + exclude
-                // params — the server's text_exclude uses NOT LIKE, which is linear scan
-                // but has none of the backtracking overhead of a (?!.*B) lookahead regex.
-                // Measured: "women NOT girl" went from 30s timeout to 9s, no regex path.
-                // Complex queries (AND+OR mixes, multiple NOTs) still compile to regex.
+                // Route through buildTextQueryParams which picks the cheapest native-LIKE
+                // shape the server can handle:
+                //   text_query           — plain substring        (LIKE %x%)
+                //   text_exclude         — "A NOT B"              (LIKE + NOT LIKE)
+                //   text_query_all       — "A AND B AND C"        (N × LIKE, AND'd)
+                //   text_query_any       — "A OR B OR C"          (N × LIKE, OR'd)
+                //   text_query (regex)   — everything else        (re: fallback)
+                // Measured on VM: "women OR expression" went from 30s+ timeout to ~7s.
                 const tq = buildTextQueryParams(filters.textQuery);
                 if (tq.text_query) params.set('text_query', tq.text_query);
                 if (tq.text_exclude) params.set('text_exclude', tq.text_exclude);
+                if (tq.text_query_any && tq.text_query_any.length) params.set('text_query_any', tq.text_query_any.join('|'));
+                if (tq.text_query_all && tq.text_query_all.length) params.set('text_query_all', tq.text_query_all.join('|'));
             }
             if (options.textFilter) params.set('text_filter', options.textFilter);
 
@@ -3133,7 +3188,14 @@
                 if (background) {
                     throw err;
                 } else if (showErrors) {
-                    alert('Failed to browse the VM dataset.\n\n' + (err?.message || err));
+                    // Replace blocking alert with a non-blocking banner that surfaces
+                    // Offline & Private Mode when the root cause looks like a timeout.
+                    // On any other error we still show a banner (without the Offline
+                    // Mode CTA) — alert() was interrupting the user on every failed
+                    // fetch, which was particularly painful during slow complex queries.
+                    const msg = String(err?.message || err);
+                    const isTimeout = /timed out|timeout/i.test(msg);
+                    showServerErrorBanner(msg, isTimeout);
                 }
                 if (!background) {
                     uploadSection.classList.remove('hidden');
