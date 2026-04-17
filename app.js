@@ -121,6 +121,7 @@
         const DATASET_RECORDS_URL = buildApiUrl(VM_BASE_URL, '/api/data/records');
         const DATASET_EXPORT_URL = buildApiUrl(VM_BASE_URL, '/api/data/export');
         const DATASET_ANALYTICS_URL = buildApiUrl(VM_BASE_URL, '/api/data/analytics');
+        const XLSX_CDN_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
         // (SetFit API base removed)
 
         const invalidCountryTokens = new Set([
@@ -1201,6 +1202,41 @@
         const BUNDLED_SAMPLE_PATH = './sample-data/rule-of-law-6225.xlsx';
         const BUNDLED_SAMPLE_NAME = 'rule-of-law-6225.xlsx';
         const OVERVIEW_BOOTSTRAP_PATH = './sample-data/overview-bootstrap.json';
+        let _xlsxLoadPromise = null;
+
+        async function ensureXlsxReady() {
+            if (window.XLSX) return window.XLSX;
+            if (_xlsxLoadPromise) return _xlsxLoadPromise;
+
+            _xlsxLoadPromise = new Promise((resolve, reject) => {
+                const existing = document.querySelector('script[data-xlsx-loader="true"]');
+                if (existing) {
+                    existing.addEventListener('load', () => resolve(window.XLSX), { once: true });
+                    existing.addEventListener('error', () => reject(new Error('Unable to load spreadsheet tools. Check your connection and try again.')), { once: true });
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = XLSX_CDN_URL;
+                script.async = true;
+                script.dataset.xlsxLoader = 'true';
+                script.onload = () => {
+                    if (window.XLSX) {
+                        resolve(window.XLSX);
+                    } else {
+                        reject(new Error('Spreadsheet tools loaded, but XLSX is unavailable.'));
+                    }
+                };
+                script.onerror = () => reject(new Error('Unable to load spreadsheet tools. Check your connection and try again.'));
+                document.head.appendChild(script);
+            }).catch(err => {
+                _xlsxLoadPromise = null;
+                document.querySelector('script[data-xlsx-loader="true"]')?.remove();
+                throw err;
+            });
+
+            return _xlsxLoadPromise;
+        }
 
         // ── localStorage caches for facets + bootstrap analytics (perf optimization) ──
         const FACETS_STORAGE_KEY = 'un_hr_dashboard_facets_v1';
@@ -3829,6 +3865,7 @@
         }
 
         async function processExcel(file) {
+            await ensureXlsxReady();
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
@@ -8805,6 +8842,12 @@
 
         // ========== EXPORTS ==========
         async function exportFilteredData() {
+            try {
+                await ensureXlsxReady();
+            } catch (err) {
+                alert(err?.message || String(err));
+                return;
+            }
             if (serverBrowseMode) {
                 try {
                     const params = buildServerQueryParams({
@@ -8865,7 +8908,13 @@
 
         // exportTableData() removed — was never called (dead code)
 
-        function exportSelectedToExcel() {
+        async function exportSelectedToExcel() {
+            try {
+                await ensureXlsxReady();
+            } catch (err) {
+                alert(err?.message || String(err));
+                return;
+            }
             const selectedRecords = (serverBrowseMode ? serverState.records : filteredData)
                 .filter(r => selectedRowIds.has(String(r._id)));
             if (!selectedRecords.length) {
@@ -8920,9 +8969,10 @@
             return data;
         }
 
-        function exportAllToExcel() {
+        async function exportAllToExcel() {
             let data;
             try {
+                await ensureXlsxReady();
                 data = getTableDataForExport();
             } catch (err) {
                 alert(err?.message || String(err));
@@ -9044,9 +9094,15 @@
             };
         }
 
-        function exportClassifiedData() {
+        async function exportClassifiedData() {
             // Export all filtered (or all) records with "My Labels" column.
             // Labeled records appear first so the user sees them at the top.
+            try {
+                await ensureXlsxReady();
+            } catch (err) {
+                alert(err?.message || String(err));
+                return;
+            }
             const pool = filteredData.length ? filteredData : rawData;
             if (!pool.length) {
                 _showToast('No records to export. Load a dataset first.', 3000, '#c62828');
@@ -11553,7 +11609,13 @@
             container.innerHTML = countHtml + cardsHtml + moreHtml;
         }
 
-        function _exportCompareData() {
+        async function _exportCompareData() {
+            try {
+                await ensureXlsxReady();
+            } catch (err) {
+                alert(err?.message || String(err));
+                return;
+            }
             const recs = window._compareTableRecords || [];
             if (!recs.length) { _showToast('No records to export.', 3000, '#c62828'); return; }
             const hasLabels = recs.some(r => r._predictedLabels && r._predictedLabels.length);
