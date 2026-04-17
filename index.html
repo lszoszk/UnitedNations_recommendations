@@ -213,8 +213,13 @@
                     <span class="filter-query-icon">🔎</span>
                     <div style="position:relative; flex:1;">
                         <input type="text" id="filterText" class="filter-query-input"
-                            placeholder="e.g. freedom of expression" style="padding-right:36px; width:100%; box-sizing:border-box;">
-                        <button onclick="document.getElementById('filterSearchHelp').classList.toggle('hidden')" title="Search syntax help" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:22px; height:22px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Filter search help">?</button>
+                            placeholder="e.g. freedom of expression — press / to focus" autocomplete="off" spellcheck="false"
+                            style="padding-right:36px; width:100%; box-sizing:border-box;">
+                        <button onclick="document.getElementById('filterSearchHelp').classList.toggle('hidden')" title="Search syntax help (or press /)" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:22px; height:22px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Filter search help">?</button>
+                        <!-- Autocomplete dropdown for #filterText — populated from searchIndex
+                             (same data as landing search). Hidden by default. -->
+                        <div id="filterTextAutocomplete" class="hidden" role="listbox" aria-label="Search suggestions"
+                            style="position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:90; background:#fff; border:1px solid #dde; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.10); max-height:320px; overflow-y:auto;"></div>
                     </div>
                     <div id="filterSearchHelp" class="hidden" style="position:absolute; top:calc(100% + 6px); right:0; z-index:100; background:#fff; border:1px solid #dde; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:14px 16px; width:380px; font-size:12px; line-height:1.6; color:#334;">
                         <div style="font-weight:600; margin-bottom:8px; font-size:13px;">Search syntax</div>
@@ -243,6 +248,15 @@
             <div id="filterChipsBar" style="margin: 6px 0 10px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:0;">
                 <div class="filter-chips" id="filterChips" style="display:flex; flex-wrap:wrap; gap:4px;"></div>
                 <button class="filter-chips-clear" id="filterChipsClearAll" onclick="resetFilters()" style="display:none; font-size:11px; color:var(--accent); background:none; border:none; cursor:pointer; white-space:nowrap;">Reset all</button>
+            </div>
+
+            <!-- Empty-state panel shown when totalRecords === 0. Rendered and toggled
+                 by renderNoResultsPanel() → mounted on every updateServerSummaryUI call
+                 so the suggestion list always reflects which filters are currently active. -->
+            <div id="noResultsPanel" class="hidden" style="margin:10px 0 14px; padding:14px 18px; background:linear-gradient(135deg,#fff6e5 0%,#ffeec7 100%); border:1px solid #ffd98c; border-radius:10px; color:#6b4e00; line-height:1.55;">
+                <div style="font-size:13.5px; font-weight:700; color:#5a3b00; margin-bottom:4px;">No recommendations match these filters</div>
+                <div style="font-size:12.5px; color:#7d5c00;">Try one of the changes below, or reset everything and start fresh.</div>
+                <div id="noResultsSuggestions" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;"></div>
             </div>
             <div class="recent-filters-bar" id="recentFiltersBar" style="display:none; margin-bottom:10px;">
                 <span class="recent-filters-bar-label">Recent:</span>

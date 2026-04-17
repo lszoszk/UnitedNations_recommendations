@@ -814,6 +814,94 @@
             return text.slice(0, idx) + '<strong>' + text.slice(idx, idx + query.length) + '</strong>' + text.slice(idx + query.length);
         }
 
+        /**
+         * Autocomplete for the main #filterText input — reuses the same searchIndex
+         * the landing search uses (countries/bodies/themes/regions/affected persons,
+         * each with a count). Clicking a suggestion routes through the proper
+         * multi-select filter via quickExploreChip → applyQuickExploreFilter, so a
+         * click on "Ghana" selects the Ghana country filter (not a text LIKE search).
+         *
+         * Typing a phrase that doesn't match any facet just falls through — the user
+         * presses Enter and the text runs as a regular search.
+         */
+        function initFilterTextAutocomplete() {
+            const input = document.getElementById('filterText');
+            const dropdown = document.getElementById('filterTextAutocomplete');
+            if (!input || !dropdown) return;
+            let activeIdx = -1;
+
+            input.addEventListener('input', () => {
+                const q = input.value.trim().toLowerCase();
+                if (q.length < 2) { dropdown.classList.add('hidden'); return; }
+                if (!searchIndex.length) { dropdown.classList.add('hidden'); return; }
+                const matches = searchIndex
+                    .filter(item => item.label && item.label.toLowerCase().includes(q))
+                    .slice(0, 8);
+                if (!matches.length) { dropdown.classList.add('hidden'); return; }
+                activeIdx = -1;
+                const badgeStyle = 'display:inline-block; padding:1px 6px; border-radius:3px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-right:8px;';
+                const typeStyles = {
+                    country: 'background:#e0ebf7; color:#1a4d7a;',
+                    theme:   'background:#fdebd4; color:#8c5a00;',
+                    body:    'background:#e6dff5; color:#52388c;',
+                    region:  'background:#d6f0e3; color:#1e6b4a;',
+                    person:  'background:#fbdfe0; color:#8a2326;'
+                };
+                dropdown.innerHTML = matches.map((m, i) => `
+                    <div class="filter-ac-item" data-idx="${i}" data-filter-type="${escapeHtml(m.filterType)}" data-value="${escapeHtml(m.value || '')}"
+                         style="display:flex; align-items:center; gap:6px; padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f2f5; font-size:12.5px;"
+                         role="option">
+                        <span style="${badgeStyle} ${typeStyles[m.type] || ''}">${m.type}</span>
+                        <span style="flex:1; color:#233;">${highlightMatch(escapeHtml(m.label), q)}</span>
+                        <span style="color:#8899aa; font-size:11px;">${Number(m.count || 0).toLocaleString()}</span>
+                    </div>
+                `).join('');
+                dropdown.classList.remove('hidden');
+                dropdown.querySelectorAll('.filter-ac-item').forEach(el => {
+                    el.addEventListener('mouseenter', () => {
+                        activeIdx = parseInt(el.dataset.idx, 10);
+                        dropdown.querySelectorAll('.filter-ac-item').forEach((x, i) => {
+                            x.style.background = (i === activeIdx) ? '#f0f7ff' : '';
+                        });
+                    });
+                    el.addEventListener('click', () => {
+                        const ft = el.getAttribute('data-filter-type');
+                        const val = el.getAttribute('data-value');
+                        input.value = '';
+                        dropdown.classList.add('hidden');
+                        // Route through the landing's quick-explore pipeline so the
+                        // correct multi-select filter (country/theme/body/…) gets set.
+                        quickExploreChip(ft, val);
+                    });
+                });
+            });
+
+            input.addEventListener('keydown', (e) => {
+                const items = dropdown.querySelectorAll('.filter-ac-item');
+                if (!items.length || dropdown.classList.contains('hidden')) return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+                    items.forEach((el, i) => el.style.background = (i === activeIdx) ? '#f0f7ff' : '');
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIdx = Math.max(activeIdx - 1, 0);
+                    items.forEach((el, i) => el.style.background = (i === activeIdx) ? '#f0f7ff' : '');
+                } else if (e.key === 'Enter' && activeIdx >= 0 && items[activeIdx]) {
+                    e.preventDefault();
+                    items[activeIdx].click();
+                } else if (e.key === 'Escape') {
+                    dropdown.classList.add('hidden');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        }
+
         /* ══════════════════════════════════════════════════
            PHASE 3: Coach Mark Overlay (First Visit Tour)
            ══════════════════════════════════════════════════ */
@@ -1220,10 +1308,34 @@
 
         // ── Initialize landing search bar ──
         initLandingSearch();
+        initFilterTextAutocomplete();
 
         // ── Enter key on main filter query input triggers search ──
         document.getElementById('filterText')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
+        });
+
+        // ── Global keyboard shortcuts (quick-feel upgrade for occasional users) ──
+        // "/"      → focus main search (unless user is already typing somewhere)
+        // "Esc"    → if focused on search, clear it; also closes any open autocomplete
+        // Only binds outside of inputs so it doesn't hijack typing.
+        document.addEventListener('keydown', (e) => {
+            const t = e.target;
+            const isTyping = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+            if (e.key === '/' && !isTyping) {
+                e.preventDefault();
+                const el = document.getElementById('filterText');
+                if (el) { el.focus(); el.select(); }
+                return;
+            }
+            if (e.key === 'Escape') {
+                // Close autocomplete if open (added in Fix A), clear search if focused
+                document.getElementById('filterTextAutocomplete')?.classList.add('hidden');
+                if (t && t.id === 'filterText' && t.value) {
+                    t.value = '';
+                    t.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
         });
 
         // ── Show coach marks for first-time visitors (delayed to let page settle) ──
@@ -2746,6 +2858,60 @@
 
         // renderStatsFromSummary() removed — populated hidden .stats-section
 
+        /**
+         * Smart empty-state panel for 0-result queries. Reads the current filter form
+         * state and builds a row of clickable "remove this filter" chips plus a
+         * "Reset all" button. Each chip clears exactly one dimension and re-applies,
+         * converting "no results" into one click to a useful result.
+         */
+        function renderNoResultsPanel(totalRecords) {
+            const panel = document.getElementById('noResultsPanel');
+            const container = document.getElementById('noResultsSuggestions');
+            if (!panel || !container) return;
+            if (totalRecords !== 0 || !serverBrowseMode) {
+                panel.classList.add('hidden');
+                return;
+            }
+            const fs = getServerFilterState();
+            const suggestions = [];
+
+            const mkChip = (label, onclick) => `<button type="button" onclick="${onclick}" style="background:#fff; border:1px solid #d4a840; color:#6b4e00; font-size:12px; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:500;">${label}</button>`;
+
+            if (fs.textQuery) {
+                suggestions.push(mkChip(`✕ Clear text: "${escapeHtml(fs.textQuery.length > 28 ? fs.textQuery.slice(0, 26) + '…' : fs.textQuery)}"`, `document.getElementById('filterText').value=''; applyFilters();`));
+            }
+            if (fs.countries.length) {
+                suggestions.push(mkChip(`✕ Remove ${fs.countries.length > 1 ? fs.countries.length + ' countries' : 'country ' + escapeHtml(fs.countries[0])}`, `clearFilter('filterCountry'); applyFilters();`));
+            }
+            if (fs.bodies.length) {
+                suggestions.push(mkChip(`✕ Remove ${fs.bodies.length > 1 ? fs.bodies.length + ' bodies' : 'body ' + escapeHtml(fs.bodies[0])}`, `clearFilter('filterBody'); applyFilters();`));
+            }
+            if (fs.regions.length) {
+                suggestions.push(mkChip(`✕ Remove region filter`, `clearFilter('filterRegion'); applyFilters();`));
+            }
+            if (fs.themes.length) {
+                suggestions.push(mkChip(`✕ Remove theme filter`, `clearFilter('filterTheme'); applyFilters();`));
+            }
+            if (fs.affectedPersons.length) {
+                suggestions.push(mkChip(`✕ Remove affected-persons filter`, `clearFilter('filterAffectedPersons'); applyFilters();`));
+            }
+            if (fs.sdgs.length) {
+                suggestions.push(mkChip(`✕ Remove SDG filter`, `clearFilter('filterSdg'); applyFilters();`));
+            }
+            // Year narrowing is common; suggest widening to the full dataset span
+            const fMin = Number.isFinite(serverState.facets?.min_year) ? serverState.facets.min_year : 2006;
+            const fMax = Number.isFinite(serverState.facets?.max_year) ? serverState.facets.max_year : 2026;
+            if (fs.yearStart && fs.yearEnd && (fs.yearStart > fMin || fs.yearEnd < fMax)) {
+                suggestions.push(mkChip(`📅 Widen years to ${fMin}–${fMax}`,
+                    `document.getElementById('filterYearStart').value=${fMin}; document.getElementById('filterYearEnd').value=${fMax}; applyFilters();`));
+            }
+            // Always offer the nuclear option
+            suggestions.push(`<button type="button" onclick="resetFilters()" style="background:#fff3cd; border:1px solid #d4a840; color:#5a3b00; font-size:12px; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600;">↺ Reset all filters</button>`);
+
+            container.innerHTML = suggestions.join('');
+            panel.classList.remove('hidden');
+        }
+
         function updateServerSummaryUI(summary = {}) {
             document.getElementById('infoFileName').textContent = datasetMetadata.datasetPath
                 ? datasetMetadata.datasetPath.split('/').pop()
@@ -2764,6 +2930,11 @@
                     ? `${_vmTotal.toLocaleString()} hits for <em>'${escapeHtml(_vmSearchTerm.length > 20 ? _vmSearchTerm.slice(0,18) + '…' : _vmSearchTerm)}'</em>`
                     : `${_vmTotal.toLocaleString()} hits`;
             }
+            // Smart empty-state: when 0 records, offer actionable next-click suggestions
+            // based on which filters are actually active. Converts a dead-end into the
+            // next user action — "remove body filter" / "widen years" / "clear text" /
+            // "reset all". Zero guessing.
+            renderNoResultsPanel(_vmTotal);
             document.getElementById('kpiTotal').textContent = Number(summary.total_records || 0).toLocaleString();
             document.getElementById('kpiCountries').textContent = Number(summary.countries_count || 0).toLocaleString();
             document.getElementById('kpiBodies').textContent = Number(summary.bodies_count || 0).toLocaleString();
