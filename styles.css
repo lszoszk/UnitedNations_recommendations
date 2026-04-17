@@ -111,15 +111,20 @@
         .settings-gear-btn:hover { background: rgba(255,255,255,0.28); transform: rotate(30deg); }
         .settings-panel {
             display: none;
-            position: absolute;
-            top: 58px; right: 16px;
+            /* Use position:fixed (not absolute) so the panel escapes the header's
+               overflow:hidden — otherwise added rows (like Offline & Private Mode)
+               get clipped at the bottom of the blue header strip. */
+            position: fixed;
+            top: 72px; right: 40px;
             background: #fff;
             color: #1e3a5f;
             border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.22);
             padding: 18px 20px;
-            min-width: 260px;
-            z-index: 20;
+            width: 340px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            z-index: 2147483600;
             font-size: 13px;
             text-align: left;
         }
