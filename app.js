@@ -2095,6 +2095,9 @@
                 analyticsLoading: {},
                 analyticsFilterKey: ''
             };
+            if (typeof resetCompareState === 'function') {
+                resetCompareState();
+            }
         }
 
         function _setDataStatus(state, label) {
@@ -5799,10 +5802,16 @@
             bodyEl.innerHTML = '<div class="drilldown-loading">Searching recommendations...</div>';
 
             let results = [];
+            const chartKey = _currentDrilldownChartKey;
 
             // Determine the records API URL — works in server browse mode and bootstrap mode
             const drilldownRecordsUrl = DATASET_RECORDS_URL || (overviewBootstrapMode && DEFAULT_VM_BASE_URL ? `${DEFAULT_VM_BASE_URL}/api/data/records` : '');
-            if ((serverBrowseMode || overviewBootstrapMode) && drilldownRecordsUrl) {
+            if (chartKey && chartKey.startsWith('compare') && Array.isArray(compareState.records) && compareState.records.length) {
+                const sourceData = compareState.records.filter(filterFn);
+                _drilldownTotalOnServer = sourceData.length;
+                sourceData.sort((a, b) => (b._year || 0) - (a._year || 0));
+                results = sourceData.slice(0, 100);
+            } else if ((serverBrowseMode || overviewBootstrapMode) && drilldownRecordsUrl) {
                 // Server mode: fetch matching records from the API with extra filters
                 try {
                     const params = serverBrowseMode
@@ -5813,7 +5822,6 @@
                     params.set('sort', '-year');
 
                     // Find the chart key from the drilldown state
-                    const chartKey = _currentDrilldownChartKey;
                     const extraParamsFn = chartKey ? chartDrilldownApiParams[chartKey] : null;
                     if (extraParamsFn) {
                         const extra = extraParamsFn(label, datasetLabel);
@@ -10978,7 +10986,345 @@
 
         // ========== COMPARE TAB ==========
         const COMPARE_COLORS = ['#2d5a87', '#e65100', '#2e7d32', '#6a1b9a', '#c62828'];
+        const compareState = {
+            cache: new Map(),
+            activeKey: '',
+            loadingKey: '',
+            requestId: 0,
+            records: []
+        };
         let _compareInited = false;
+
+        function resetCompareState() {
+            compareState.cache.clear();
+            compareState.activeKey = '';
+            compareState.loadingKey = '';
+            compareState.requestId = 0;
+            compareState.records = [];
+            window._compareTableRecords = [];
+            window._compareTableShown = 50;
+        }
+
+        function getCompareSelectionState() {
+            return {
+                countries: getSelectedValues('compareCountry'),
+                bodies: getSelectedValues('compareBody')
+            };
+        }
+
+        function buildCompareServerQueryParams(options = {}) {
+            const params = buildServerQueryParams({
+                includePagination: false,
+                includeSort: false,
+                limit: options.limit || serverState.analysisLimit || SERVER_ANALYSIS_EXPORT_LIMIT_DEFAULT
+            });
+            params.delete('countries');
+            appendCsvQueryParam(params, 'countries', options.countries || []);
+            if (Array.isArray(options.bodies) && options.bodies.length) {
+                params.delete('bodies');
+                appendCsvQueryParam(params, 'bodies', options.bodies);
+            }
+            return params;
+        }
+
+        function getCompareServerCacheKey(selection = getCompareSelectionState()) {
+            if (!DATASET_EXPORT_URL) return '';
+            const params = buildCompareServerQueryParams(selection);
+            return `${DATASET_EXPORT_URL}?${params.toString()}`;
+        }
+
+        function rememberCompareRecords(cacheKey, records) {
+            compareState.cache.delete(cacheKey);
+            compareState.cache.set(cacheKey, records);
+            while (compareState.cache.size > 12) {
+                const oldestKey = compareState.cache.keys().next().value;
+                compareState.cache.delete(oldestKey);
+            }
+        }
+
+        function destroyCompareCharts() {
+            ['compareTotal', 'compareBody', 'compareTrend', 'compareThemes', 'compareAffected'].forEach(destroyChart);
+        }
+
+        function clearCompareRenderedOutput() {
+            destroyCompareCharts();
+            const chartsDiv = document.getElementById('compareCharts');
+            const compareTableEl = document.getElementById('compareDataTable');
+            if (chartsDiv) {
+                chartsDiv.style.display = 'none';
+                chartsDiv.style.opacity = '1';
+            }
+            if (compareTableEl) {
+                compareTableEl.innerHTML = '';
+            }
+            window._compareTableRecords = [];
+            window._compareTableShown = 50;
+        }
+
+        function setCompareLoadingState(isLoading, message = 'Loading full comparison statistics...') {
+            const spinner = document.getElementById('compareGenerateSpinner');
+            const spinnerText = document.getElementById('compareGenerateSpinnerText');
+            const button = document.getElementById('generateCompareBtn');
+            const { countries } = getCompareSelectionState();
+            if (spinner) spinner.classList.toggle('hidden', !isLoading);
+            if (spinnerText) spinnerText.textContent = message;
+            if (button) button.disabled = isLoading || countries.length < 2;
+        }
+
+        function setCompareEmptyState(message) {
+            const emptyDiv = document.getElementById('compareEmpty');
+            const chartsDiv = document.getElementById('compareCharts');
+            if (chartsDiv) chartsDiv.style.display = 'none';
+            if (emptyDiv) {
+                emptyDiv.textContent = message;
+                emptyDiv.style.display = '';
+            }
+        }
+
+        function renderCompareChartsFromRecords(records, countries, bodies) {
+            const chartsDiv = document.getElementById('compareCharts');
+            const emptyDiv = document.getElementById('compareEmpty');
+            if (!Array.isArray(records) || !records.length) {
+                clearCompareRenderedOutput();
+                setCompareEmptyState('No matching recommendations were found for this comparison. Narrow or change the filters, then try again.');
+                return;
+            }
+
+            if (chartsDiv) { chartsDiv.style.display = ''; chartsDiv.style.opacity = '0.4'; }
+            if (emptyDiv) emptyDiv.style.display = 'none';
+
+            const data = records;
+            const _clean = s => (s || '').replace(/^-+\s*/, '').trim();
+
+            const perCountry = {};
+            countries.forEach(c => {
+                perCountry[c] = { total: 0, yearly: {}, themes: {}, bodies: {}, affected: {} };
+            });
+
+            const allRecs = [];
+            data.forEach(r => {
+                const rCountries = (r._countriesArray || []).map(c => _countryLabel(_clean(c)));
+                const rBody = _clean(r._body);
+                if (bodies.length && !bodies.some(b => _clean(b) === rBody)) return;
+                if (!countries.some(c => rCountries.includes(c))) return;
+
+                allRecs.push(r);
+                countries.forEach(c => {
+                    if (!rCountries.includes(c)) return;
+                    const p = perCountry[c];
+                    p.total++;
+                    const yr = r._year;
+                    if (yr) p.yearly[yr] = (p.yearly[yr] || 0) + 1;
+                    if (rBody) p.bodies[rBody] = (p.bodies[rBody] || 0) + 1;
+                    (r._themesArray || []).forEach(t => {
+                        const ct = _clean(t);
+                        if (ct) p.themes[ct] = (p.themes[ct] || 0) + 1;
+                    });
+                    (r._affectedPersonsArray || []).forEach(a => {
+                        const ca = _clean(a);
+                        if (ca) p.affected[ca] = (p.affected[ca] || 0) + 1;
+                    });
+                });
+            });
+
+            const totalCompared = countries.reduce((sum, country) => sum + (perCountry[country]?.total || 0), 0);
+            if (!totalCompared) {
+                clearCompareRenderedOutput();
+                setCompareEmptyState('These countries have no matching recommendations under the current filters. Change the country/body selection or broaden the filters and try again.');
+                return;
+            }
+
+            const countryLabel = c => _countryLabel(c);
+            const cLabels = countries.map(countryLabel);
+
+            destroyChart('compareTotal');
+            charts.compareTotal = new Chart(document.getElementById('chartCompareTotal'), {
+                type: 'bar',
+                data: {
+                    labels: cLabels,
+                    datasets: [{
+                        data: countries.map(c => perCountry[c].total),
+                        backgroundColor: countries.map((_, i) => COMPARE_COLORS[i % COMPARE_COLORS.length]),
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+
+            destroyChart('compareBody');
+            const allBodies = [...new Set(countries.flatMap(c => Object.keys(perCountry[c].bodies)))];
+            const topBodies = allBodies.sort((a, b) => {
+                const sumA = countries.reduce((s, c) => s + (perCountry[c].bodies[a] || 0), 0);
+                const sumB = countries.reduce((s, c) => s + (perCountry[c].bodies[b] || 0), 0);
+                return sumB - sumA;
+            }).slice(0, 8);
+            charts.compareBody = new Chart(document.getElementById('chartCompareBody'), {
+                type: 'bar',
+                data: {
+                    labels: topBodies.map(b => b.length > 25 ? b.slice(0, 23) + '…' : b),
+                    datasets: countries.map((c, i) => ({
+                        label: countryLabel(c),
+                        data: topBodies.map(b => perCountry[c].bodies[b] || 0),
+                        backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
+                        borderRadius: 3
+                    }))
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { x: { beginAtZero: true } } }
+            });
+
+            destroyChart('compareTrend');
+            const allYears = [...new Set(countries.flatMap(c => Object.keys(perCountry[c].yearly)))].sort();
+            charts.compareTrend = new Chart(document.getElementById('chartCompareTrend'), {
+                type: 'line',
+                data: {
+                    labels: allYears,
+                    datasets: countries.map((c, i) => ({
+                        label: countryLabel(c),
+                        data: allYears.map(y => perCountry[c].yearly[y] || 0),
+                        borderColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
+                        backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length] + '22',
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 3
+                    }))
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { y: { beginAtZero: true } } }
+            });
+
+            destroyChart('compareThemes');
+            const allThemes = [...new Set(countries.flatMap(c => Object.keys(perCountry[c].themes)))];
+            const topThemes = allThemes.sort((a, b) => {
+                const sumA = countries.reduce((s, c) => s + (perCountry[c].themes[a] || 0), 0);
+                const sumB = countries.reduce((s, c) => s + (perCountry[c].themes[b] || 0), 0);
+                return sumB - sumA;
+            }).slice(0, 8);
+            charts.compareThemes = new Chart(document.getElementById('chartCompareThemes'), {
+                type: 'bar',
+                data: {
+                    labels: topThemes.map(t => t.length > 30 ? t.slice(0, 28) + '…' : t),
+                    datasets: countries.map((c, i) => ({
+                        label: countryLabel(c),
+                        data: topThemes.map(t => perCountry[c].themes[t] || 0),
+                        backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
+                        borderRadius: 3
+                    }))
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { x: { beginAtZero: true } } }
+            });
+
+            destroyChart('compareAffected');
+            const allAffected = [...new Set(countries.flatMap(c => Object.keys(perCountry[c].affected)))];
+            const topAffected = allAffected.sort((a, b) => {
+                const sumA = countries.reduce((s, c) => s + (perCountry[c].affected[a] || 0), 0);
+                const sumB = countries.reduce((s, c) => s + (perCountry[c].affected[b] || 0), 0);
+                return sumB - sumA;
+            }).slice(0, 6);
+            charts.compareAffected = new Chart(document.getElementById('chartCompareAffected'), {
+                type: 'bar',
+                data: {
+                    labels: topAffected.map(a => a.length > 30 ? a.slice(0, 28) + '…' : a),
+                    datasets: countries.map((c, i) => ({
+                        label: countryLabel(c),
+                        data: topAffected.map(a => perCountry[c].affected[a] || 0),
+                        backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
+                        borderRadius: 3
+                    }))
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } }, tooltip: { callbacks: { title: (items) => topAffected[items[0]?.dataIndex] || '' } } }, scales: { x: { beginAtZero: true } } }
+            });
+
+            if (charts.compareThemes) {
+                charts.compareThemes._fullLabels = topThemes;
+                charts.compareThemes.options.plugins.tooltip = { callbacks: { title: (items) => topThemes[items[0]?.dataIndex] || '' } };
+                charts.compareThemes.update('none');
+            }
+            if (charts.compareBody) {
+                charts.compareBody._fullLabels = topBodies;
+                charts.compareBody.options.plugins.tooltip = { callbacks: { title: (items) => topBodies[items[0]?.dataIndex] || '' } };
+                charts.compareBody.update('none');
+            }
+            if (charts.compareAffected) {
+                charts.compareAffected._fullLabels = topAffected;
+            }
+
+            if (chartsDiv) chartsDiv.style.opacity = '1';
+
+            const compareTableEl = document.getElementById('compareDataTable');
+            if (compareTableEl) {
+                window._compareTableRecords = allRecs;
+                window._compareTableShown = 50;
+                const totalLabel = `${allRecs.length.toLocaleString()} recommendations across ${countries.length} countries`;
+                compareTableEl.innerHTML = `
+                    <h3 style="margin:24px 0 10px; font-size:15px; color:var(--primary);">📋 Data View <span style="font-weight:400; font-size:12px; color:#667;">(${totalLabel})</span></h3>
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+                        <input type="text" id="compareTableSearch" placeholder="Search within comparison data..." style="flex:1; min-width:200px; padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" oninput="_filterCompareTable()">
+                        <button class="btn btn-secondary" style="padding:6px 12px; font-size:11px;" onclick="_exportCompareData()">⬇ Export XLSX</button>
+                    </div>
+                    <div id="compareTableBody"></div>
+                `;
+                _filterCompareTable();
+            }
+        }
+
+        function syncCompareView() {
+            const controls = document.getElementById('compareGenerateControls');
+            const hint = document.getElementById('compareGenerateHint');
+            const { countries, bodies } = getCompareSelectionState();
+
+            if (!serverBrowseMode) {
+                if (controls) controls.style.display = 'none';
+                compareState.activeKey = '';
+                compareState.loadingKey = '';
+                compareState.records = [];
+                if (countries.length < 2) {
+                    clearCompareRenderedOutput();
+                    setCompareEmptyState('Select 2 or more countries above to compare their recommendation profiles.');
+                    return;
+                }
+                const data = filteredData.length ? filteredData : (rawData.length ? rawData : []);
+                renderCompareChartsFromRecords(data, countries, bodies);
+                return;
+            }
+
+            if (controls) controls.style.display = 'flex';
+            if (!countries.length || countries.length < 2) {
+                compareState.activeKey = '';
+                compareState.loadingKey = '';
+                compareState.records = [];
+                setCompareLoadingState(false);
+                clearCompareRenderedOutput();
+                if (hint) hint.textContent = 'Choose countries and mechanisms, then click Generate comparison.';
+                setCompareEmptyState('Select 2 or more countries above to compare their recommendation profiles.');
+                return;
+            }
+
+            const cacheKey = getCompareServerCacheKey({ countries, bodies });
+            if (compareState.loadingKey === cacheKey) {
+                clearCompareRenderedOutput();
+                setCompareLoadingState(true, 'Loading full comparison statistics...');
+                if (hint) hint.textContent = 'Fetching full filtered comparison data from the VM...';
+                setCompareEmptyState('Generating comparison across the full filtered result set...');
+                return;
+            }
+
+            const cachedRecords = compareState.cache.get(cacheKey);
+            if (cachedRecords) {
+                compareState.activeKey = cacheKey;
+                compareState.records = cachedRecords;
+                setCompareLoadingState(false);
+                if (hint) hint.textContent = `Showing cached comparison for ${countries.length} countries.`;
+                renderCompareChartsFromRecords(cachedRecords, countries, bodies);
+                return;
+            }
+
+            compareState.activeKey = '';
+            compareState.loadingKey = '';
+            compareState.records = [];
+            setCompareLoadingState(false);
+            clearCompareRenderedOutput();
+            if (hint) hint.textContent = 'Choose countries and mechanisms, then click Generate comparison.';
+            setCompareEmptyState('Ready to compare. Click Generate comparison to fetch the full filtered result set for these countries and mechanisms.');
+        }
 
         function _initCompareSelects() {
             // In server-browse mode, always populate from the full facets list so users
@@ -11021,202 +11367,79 @@
         let _compareDebounce = null;
         function _debounceCompareUpdate() {
             clearTimeout(_compareDebounce);
-            _compareDebounce = setTimeout(updateCompareCharts, 200);
+            _compareDebounce = setTimeout(syncCompareView, 200);
         }
 
         function updateCompareCharts() {
-            const countries = getSelectedValues('compareCountry');
-            const bodies = getSelectedValues('compareBody');
+            syncCompareView();
+        }
 
-            const chartsDiv = document.getElementById('compareCharts');
-            const emptyDiv = document.getElementById('compareEmpty');
-
-            if (countries.length < 2) {
-                if (chartsDiv) chartsDiv.style.display = 'none';
-                if (emptyDiv) emptyDiv.style.display = '';
+        async function generateCompareOnDemand() {
+            if (!serverBrowseMode) {
+                updateCompareCharts();
                 return;
             }
-            if (chartsDiv) { chartsDiv.style.display = ''; chartsDiv.style.opacity = '0.4'; }
-            if (emptyDiv) emptyDiv.style.display = 'none';
-
-            // Use filtered data (respects main filter), not raw
-            const data = filteredData.length ? filteredData : (rawData.length ? rawData : []);
-            const _clean = s => (s || '').replace(/^-+\s*/, '').trim();
-
-            // Per-country aggregation
-            const perCountry = {};
-            countries.forEach(c => {
-                perCountry[c] = { total: 0, yearly: {}, themes: {}, bodies: {}, affected: {} };
-            });
-
-            data.forEach(r => {
-                const rCountries = (r._countriesArray || []).map(c => _countryLabel(_clean(c)));
-                const rBody = _clean(r._body);
-                if (bodies.length && !bodies.some(b => _clean(b) === rBody)) return;
-
-                countries.forEach(c => {
-                    if (!rCountries.includes(c)) return;
-                    const p = perCountry[c];
-                    p.total++;
-                    const yr = r._year;
-                    if (yr) p.yearly[yr] = (p.yearly[yr] || 0) + 1;
-                    if (rBody) p.bodies[rBody] = (p.bodies[rBody] || 0) + 1;
-                    (r._themesArray || []).forEach(t => {
-                        const ct = _clean(t);
-                        if (ct) p.themes[ct] = (p.themes[ct] || 0) + 1;
-                    });
-                    (r._affectedPersonsArray || []).forEach(a => {
-                        const ca = _clean(a);
-                        if (ca) p.affected[ca] = (p.affected[ca] || 0) + 1;
-                    });
-                });
-            });
-
-            const countryLabel = c => _countryLabel(c);
-            const cLabels = countries.map(countryLabel);
-
-            // Chart 1: Total recommendations (bar)
-            destroyChart('compareTotal');
-            charts.compareTotal = new Chart(document.getElementById('chartCompareTotal'), {
-                type: 'bar',
-                data: {
-                    labels: cLabels,
-                    datasets: [{
-                        data: countries.map(c => perCountry[c].total),
-                        backgroundColor: countries.map((_, i) => COMPARE_COLORS[i % COMPARE_COLORS.length]),
-                        borderRadius: 4
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-            });
-
-            // Chart 2: By Body (grouped horizontal bar)
-            destroyChart('compareBody');
-            const allBodies = [...new Set(countries.flatMap(c => Object.keys(perCountry[c].bodies)))];
-            const topBodies = allBodies.sort((a, b) => {
-                const sumA = countries.reduce((s, c) => s + (perCountry[c].bodies[a] || 0), 0);
-                const sumB = countries.reduce((s, c) => s + (perCountry[c].bodies[b] || 0), 0);
-                return sumB - sumA;
-            }).slice(0, 8);
-            charts.compareBody = new Chart(document.getElementById('chartCompareBody'), {
-                type: 'bar',
-                data: {
-                    labels: topBodies.map(b => b.length > 25 ? b.slice(0, 23) + '…' : b),
-                    datasets: countries.map((c, i) => ({
-                        label: countryLabel(c),
-                        data: topBodies.map(b => perCountry[c].bodies[b] || 0),
-                        backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
-                        borderRadius: 3
-                    }))
-                },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { x: { beginAtZero: true } } }
-            });
-
-            // Chart 3: Trends over time (line)
-            destroyChart('compareTrend');
-            const allYears = [...new Set(countries.flatMap(c => Object.keys(perCountry[c].yearly)))].sort();
-            charts.compareTrend = new Chart(document.getElementById('chartCompareTrend'), {
-                type: 'line',
-                data: {
-                    labels: allYears,
-                    datasets: countries.map((c, i) => ({
-                        label: countryLabel(c),
-                        data: allYears.map(y => perCountry[c].yearly[y] || 0),
-                        borderColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
-                        backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length] + '22',
-                        fill: false,
-                        tension: 0.3,
-                        pointRadius: 3
-                    }))
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { y: { beginAtZero: true } } }
-            });
-
-            // Chart 4: Top Themes (grouped horizontal bar)
-            destroyChart('compareThemes');
-            const allThemes = [...new Set(countries.flatMap(c => Object.keys(perCountry[c].themes)))];
-            const topThemes = allThemes.sort((a, b) => {
-                const sumA = countries.reduce((s, c) => s + (perCountry[c].themes[a] || 0), 0);
-                const sumB = countries.reduce((s, c) => s + (perCountry[c].themes[b] || 0), 0);
-                return sumB - sumA;
-            }).slice(0, 8);
-            charts.compareThemes = new Chart(document.getElementById('chartCompareThemes'), {
-                type: 'bar',
-                data: {
-                    labels: topThemes.map(t => t.length > 30 ? t.slice(0, 28) + '…' : t),
-                    datasets: countries.map((c, i) => ({
-                        label: countryLabel(c),
-                        data: topThemes.map(t => perCountry[c].themes[t] || 0),
-                        backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
-                        borderRadius: 3
-                    }))
-                },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { x: { beginAtZero: true } } }
-            });
-
-            // Chart 5: Top Affected Groups (grouped horizontal bar)
-            destroyChart('compareAffected');
-            const allAffected = [...new Set(countries.flatMap(c => Object.keys(perCountry[c].affected)))];
-            const topAffected = allAffected.sort((a, b) => {
-                const sumA = countries.reduce((s, c) => s + (perCountry[c].affected[a] || 0), 0);
-                const sumB = countries.reduce((s, c) => s + (perCountry[c].affected[b] || 0), 0);
-                return sumB - sumA;
-            }).slice(0, 6);
-            charts.compareAffected = new Chart(document.getElementById('chartCompareAffected'), {
-                type: 'bar',
-                data: {
-                    labels: topAffected.map(a => a.length > 30 ? a.slice(0, 28) + '…' : a),
-                    datasets: countries.map((c, i) => ({
-                        label: countryLabel(c),
-                        data: topAffected.map(a => perCountry[c].affected[a] || 0),
-                        backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
-                        borderRadius: 3
-                    }))
-                },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } }, tooltip: { callbacks: { title: (items) => topAffected[items[0]?.dataIndex] || '' } } }, scales: { x: { beginAtZero: true } } }
-            });
-
-            // Add full-label tooltips to theme chart too
-            if (charts.compareThemes) {
-                charts.compareThemes._fullLabels = topThemes;
-                charts.compareThemes.options.plugins.tooltip = { callbacks: { title: (items) => topThemes[items[0]?.dataIndex] || '' } };
-                charts.compareThemes.update('none');
-            }
-            if (charts.compareBody) {
-                charts.compareBody._fullLabels = topBodies;
-                charts.compareBody.options.plugins.tooltip = { callbacks: { title: (items) => topBodies[items[0]?.dataIndex] || '' } };
-                charts.compareBody.update('none');
-            }
-            if (charts.compareAffected) {
-                charts.compareAffected._fullLabels = topAffected;
+            if (!DATASET_EXPORT_URL) {
+                alert('VM compare export URL is not configured.');
+                return;
             }
 
-            // Restore opacity
-            if (chartsDiv) chartsDiv.style.opacity = '1';
+            const selection = getCompareSelectionState();
+            if (selection.countries.length < 2) {
+                syncCompareView();
+                return;
+            }
 
-            // Build data table at bottom — same card view as Data tab
-            const compareTableEl = document.getElementById('compareDataTable');
-            if (compareTableEl) {
-                const allRecs = [];
-                data.forEach(r => {
-                    const rCountries = (r._countriesArray || []).map(c => _countryLabel(_clean(c)));
-                    const rBody = _clean(r._body);
-                    if (bodies.length && !bodies.some(b => _clean(b) === rBody)) return;
-                    if (!countries.some(c => rCountries.includes(c))) return;
-                    allRecs.push(r);
-                });
-                window._compareTableRecords = allRecs;
-                window._compareTableShown = 50;
-                const totalLabel = `${allRecs.length.toLocaleString()} recommendations across ${countries.length} countries`;
-                compareTableEl.innerHTML = `
-                    <h3 style="margin:24px 0 10px; font-size:15px; color:var(--primary);">📋 Data View <span style="font-weight:400; font-size:12px; color:#667;">(${totalLabel})</span></h3>
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
-                        <input type="text" id="compareTableSearch" placeholder="Search within comparison data..." style="flex:1; min-width:200px; padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" oninput="_filterCompareTable()">
-                        <button class="btn btn-secondary" style="padding:6px 12px; font-size:11px;" onclick="_exportCompareData()">⬇ Export XLSX</button>
-                    </div>
-                    <div id="compareTableBody"></div>
-                `;
-                _filterCompareTable();
+            const cacheKey = getCompareServerCacheKey(selection);
+            const hint = document.getElementById('compareGenerateHint');
+            if (compareState.cache.has(cacheKey)) {
+                compareState.activeKey = cacheKey;
+                compareState.records = compareState.cache.get(cacheKey) || [];
+                if (hint) hint.textContent = `Showing cached comparison for ${selection.countries.length} countries.`;
+                renderCompareChartsFromRecords(compareState.records, selection.countries, selection.bodies);
+                setCompareLoadingState(false);
+                return;
+            }
+
+            const requestId = compareState.requestId + 1;
+            compareState.requestId = requestId;
+            compareState.loadingKey = cacheKey;
+            compareState.activeKey = '';
+            compareState.records = [];
+            clearCompareRenderedOutput();
+            setCompareLoadingState(true, 'Loading full comparison statistics...');
+            if (hint) hint.textContent = 'Fetching all matching records for the selected countries from the VM...';
+            setCompareEmptyState('Generating comparison across the full filtered result set...');
+
+            try {
+                const payload = await fetchServerJson(
+                    cacheKey,
+                    'Unable to generate comparison'
+                );
+                if (compareState.requestId !== requestId || compareState.loadingKey !== cacheKey) return;
+                const records = (payload.records || []).map((row, idx) => normalizeRecord(row, idx + 1));
+                rememberCompareRecords(cacheKey, records);
+                compareState.activeKey = cacheKey;
+                compareState.records = records;
+                if (hint) {
+                    const count = Number(payload.total_records || records.length).toLocaleString();
+                    hint.textContent = `Loaded ${count} matching records for this comparison.`;
+                }
+                renderCompareChartsFromRecords(records, selection.countries, selection.bodies);
+            } catch (err) {
+                if (compareState.requestId !== requestId || compareState.loadingKey !== cacheKey) return;
+                compareState.activeKey = '';
+                compareState.records = [];
+                clearCompareRenderedOutput();
+                const message = err?.message || String(err);
+                if (hint) hint.textContent = message;
+                setCompareEmptyState(message);
+                console.error('Compare generation failed:', err);
+            } finally {
+                if (compareState.requestId === requestId && compareState.loadingKey === cacheKey) {
+                    compareState.loadingKey = '';
+                    setCompareLoadingState(false);
+                }
             }
         }
 

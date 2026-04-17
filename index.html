@@ -602,6 +602,16 @@
                     <select id="compareBody" multiple style="display:none !important;"></select>
                 </div>
             </div>
+            <div id="compareGenerateControls" style="display:none; align-items:center; gap:12px; flex-wrap:wrap; margin:-4px 0 16px;">
+                <button class="btn btn-primary" id="generateCompareBtn" onclick="generateCompareOnDemand()" style="padding:8px 18px; font-size:12px;" disabled>
+                    Generate comparison
+                </button>
+                <div id="compareGenerateSpinner" class="hidden" style="display:inline-flex; align-items:center; gap:8px; color:#667; font-size:12px;">
+                    <div class="spinner" style="width:16px; height:16px; border-width:2px; margin:0;"></div>
+                    <span id="compareGenerateSpinnerText">Loading full comparison statistics...</span>
+                </div>
+                <div id="compareGenerateHint" style="font-size:12px; color:#667;">Choose countries and mechanisms, then click Generate comparison.</div>
+            </div>
             <div id="compareCharts" style="display:none;">
                 <div class="chart-row">
                     <div class="chart-card"><h3>Total Recommendations</h3><div class="chart-container"><canvas id="chartCompareTotal"></canvas></div></div>
