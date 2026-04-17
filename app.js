@@ -1738,43 +1738,51 @@
             window._quickExploreFilter = null;
             setTimeout(() => {
                 try {
+                    // Map landing-chart / landing-search filter types to the dashboard's
+                    // multi-select filter elements. Previously only countries / regions /
+                    // bodies were routed properly — themes and affected_persons fell back
+                    // to a quoted-phrase text search, which returned 0 records (theme
+                    // names like "Constitutional & legislative reform" don't appear as
+                    // literal text in the recommendations). Now all facet-backed filters
+                    // route to their real multi-select, so clicking a bar applies the
+                    // correct filter and shows real results.
                     const selectMap = {
                         countries: 'filterCountry',
                         regions: 'filterRegion',
-                        bodies: 'filterBody'
+                        bodies: 'filterBody',
+                        themes: 'filterTheme',
+                        affected_persons: 'filterAffectedPersons',
+                        sdgs: 'filterSdg'
                     };
                     const selectId = selectMap[qf.type];
-                    const cleanValue = (qf.value || '').replace(/^-\s*/, '');
+                    const cleanValue = (qf.value || '').replace(/^-+\s*/, '').trim();
                     let applied = false;
 
                     if (selectId) {
                         const select = document.getElementById(selectId);
                         if (select) {
+                            const cleanLower = cleanValue.toLowerCase();
                             for (const opt of select.options) {
-                                const optClean = opt.value.replace(/^-\s*/, '');
-                                if (optClean === cleanValue || opt.value === qf.value) {
+                                const optClean = opt.value.replace(/^-+\s*/, '').trim();
+                                if (optClean === cleanValue
+                                    || opt.value === qf.value
+                                    || optClean.toLowerCase() === cleanLower) {
                                     opt.selected = true;
                                     applied = true;
                                     break;
                                 }
                             }
                         }
-                    } else if (qf.type === 'themes' || qf.type === 'affected_persons') {
-                        const textInput = document.getElementById('filterText');
-                        if (textInput) {
-                            textInput.value = `"${cleanValue}"`;
-                            applied = true;
-                        }
                     }
 
                     if (applied) {
                         if (selectId && _chipSelects[selectId]) _chipSelects[selectId].sync();
-                        // Open the facets details if a select filter was applied
-                        if (selectId) {
-                            const details = document.getElementById('filterFacetsDetails');
-                            if (details) details.open = true;
-                        }
+                        // Open the filters section so the user sees the chip they just applied
+                        const details = document.getElementById('filterFacetsDetails');
+                        if (details) details.open = true;
                         applyFilters();
+                    } else {
+                        console.debug('Quick explore: no matching filter option for', qf);
                     }
                 } catch (e) { console.debug('Quick explore filter apply failed:', e); }
             }, 500);
