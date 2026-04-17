@@ -5,9 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UN Human Rights Analytics Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+    <!-- Perf: parallelize TCP+TLS handshake with HTML parsing -->
+    <link rel="preconnect" href="https://150.254.115.204" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdn.plot.ly" crossorigin>
+    <link rel="dns-prefetch" href="https://150.254.115.204">
+
+    <!-- Perf: defer so chart libs don't block HTML parsing. Scripts still
+         execute in document order before DOMContentLoaded, so app.js (also
+         deferred, at end of body) sees Chart/XLSX/Plotly on window. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -1033,8 +1043,6 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
-
     <!-- About modal -->
     <div class="about-overlay" id="aboutOverlay" onclick="if(event.target===this)toggleAboutModal()">
         <div class="about-modal">
@@ -1100,6 +1108,9 @@
             Open Source on GitHub
         </a>
     </footer>
-    <script src="app.js"></script>
+    <!-- defer so Chart.js / XLSX / Plotly (also deferred, in <head>) finish
+         executing before app.js runs. Script order is preserved across all
+         deferred scripts: Chart → XLSX → Plotly → app.js → DOMContentLoaded. -->
+    <script src="app.js" defer></script>
 </body>
 </html>
