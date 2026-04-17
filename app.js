@@ -2478,10 +2478,9 @@
             const banner = document.getElementById('serverModeBanner');
             const trainBtn = document.getElementById('trainClassifierBtn');
             const exportAllBtn = document.getElementById('exportAllBtn');
-            const exportFilteredBtn = document.getElementById('exportFilteredBtn');
             const analysisBtn = document.getElementById('serverAnalysisBtn');
             const tableSearch = document.getElementById('tableSearch');
-            const searchHint = document.getElementById('pageTextFilterHint');
+            const searchHint = document.querySelector('.search-hint');
             const mapNote = document.getElementById('overviewWorldMapNote');
 
             if (banner) banner.classList.toggle('hidden', !serverBrowseMode);
@@ -2493,22 +2492,17 @@
                 analysisBtn.disabled = false;
             }
             if (exportAllBtn) {
-                exportAllBtn.textContent = '⬇ Export 100 rows on screen';
-            }
-            if (exportFilteredBtn) {
-                exportFilteredBtn.textContent = serverBrowseMode
-                    ? '📥 Export full filtered result (up to 50 000)'
-                    : '📥 Export full filtered result';
+                exportAllBtn.textContent = serverBrowseMode ? '⬇ Export current page XLSX' : '⬇ Export all (filtered) XLSX';
             }
             if (tableSearch) {
                 tableSearch.placeholder = serverBrowseMode
-                    ? 'Filter on-screen text only...'
-                    : 'Filter the text column on this page...';
+                    ? '🔍 Search current page only (global search uses the filter above)...'
+                    : '🔍 Search table (plain or /regex/i)...';
             }
             if (searchHint) {
-                searchHint.textContent = serverBrowseMode
-                    ? 'On-screen only. Use Search Text above for the full filtered dataset.'
-                    : 'On-screen only. Refines the visible page/cards without changing the main dataset filter.';
+                searchHint.innerHTML = serverBrowseMode
+                    ? '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Server mode: filters the <strong>loaded page</strong>. Use <strong>Search Text</strong> above for full dataset.'
+                    : '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>';
             }
             if (mapNote) {
                 mapNote.textContent = serverBrowseMode
@@ -7985,7 +7979,8 @@
         function renderTableBody() {
             const tbody = document.getElementById('tableBody');
             const searchState = parseSearchQuery(document.getElementById('tableSearch').value);
-            const cols = ['_text'];
+            const textOnly = document.getElementById('searchTextOnly')?.checked;
+            const cols = textOnly ? ['_text'] : getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
 
             if (searchState.type === 'invalid') {
                 tbody.innerHTML = `<tr><td colspan="${getTableColumns().length}" style="color:#b02a37;">Invalid regex: ${escapeHtml(searchState.error || '')}</td></tr>`;
@@ -8074,19 +8069,19 @@
 
             if (data.length === 0) {
                 const searchVal = document.getElementById('tableSearch').value.trim();
-                const isTextFilter = searchState.type !== 'none';
+                const isGlobalSearch = searchState.type !== 'none';
                 const hasFilters = filteredData.length < rawData.length;
                 let hint = '';
-                if (isTextFilter && hasFilters) {
-                    hint = '<br><span style="font-size:12px;">Try broadening the text column filter, or clear some dashboard filters.</span>';
-                } else if (isTextFilter) {
-                    hint = '<br><span style="font-size:12px;">Try different text keywords, or clear the text column filter above.</span>';
+                if (isGlobalSearch && hasFilters) {
+                    hint = '<br><span style="font-size:12px;">Try clearing some dashboard filters, or broaden your search terms.</span>';
+                } else if (isGlobalSearch) {
+                    hint = '<br><span style="font-size:12px;">Try different keywords, or use <strong>OR</strong> to match alternatives (e.g. <code>internet OR online</code>).</span>';
                 } else if (sourceData.length === 0 && !serverBrowseMode) {
                     hint = '<br><span style="font-size:12px;">No data loaded. Use <strong>Quick Demo</strong> or connect to a server to load recommendations.</span>';
                 }
                 tbody.innerHTML = `<tr><td colspan="${getTableColumns().length}" style="text-align:center; padding:32px 16px;">
                     <div style="color:#526783; font-size:14px; font-weight:500;">No matching records found</div>
-                    <div style="color:#8899aa; margin-top:6px;">${isTextFilter ? 'Text filter: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code>' : 'No records match the current filters.'}${hint}</div>
+                    <div style="color:#8899aa; margin-top:6px;">${isGlobalSearch ? 'Search: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code>' : 'No records match the current filters.'}${hint}</div>
                 </td></tr>`;
             }
 
@@ -8175,11 +8170,11 @@
                 const searchVal = (document.getElementById('tableSearch')?.value || '').trim();
                 const isSearching = searchVal.length > 0;
                 let hint = isSearching
-                    ? '<div style="margin-top:8px; font-size:12px; color:#8899aa;">Try different text keywords, or clear the text column filter above.</div>'
+                    ? '<div style="margin-top:8px; font-size:12px; color:#8899aa;">Try different keywords, or use <strong>OR</strong> to match alternatives (e.g. <code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">internet OR online</code>).</div>'
                     : '';
                 container.innerHTML = `<div style="padding:32px 24px; text-align:center;">
                     <div style="color:#526783; font-size:14px; font-weight:500;">No matching records found</div>
-                    ${isSearching ? '<div style="margin-top:6px; color:#8899aa;">Text filter: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code></div>' : ''}
+                    ${isSearching ? '<div style="margin-top:6px; color:#8899aa;">Search: <code style="background:#f0f4f8; padding:2px 6px; border-radius:4px;">' + escapeHtml(searchVal) + '</code></div>' : ''}
                     ${hint}
                 </div>`;
                 return;
@@ -8458,13 +8453,14 @@
         let _prefetchCache = { page: null, data: null, searchKey: null };
 
         function _getPrefetchSearchKey() {
-            return document.getElementById('tableSearch')?.value || '';
+            return (document.getElementById('tableSearch')?.value || '') + '|' + (document.getElementById('searchTextOnly')?.checked || false);
         }
 
         function prefetchNextPage() {
             if (serverBrowseMode) return; // server mode handled separately
             const searchState = parseSearchQuery(document.getElementById('tableSearch').value);
-            const cols = ['_text'];
+            const textOnly = document.getElementById('searchTextOnly')?.checked;
+            const cols = textOnly ? ['_text'] : getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
             let data = filteredData;
             if (searchState.type !== 'none' && searchState.type !== 'invalid') {
                 data = data.filter(r => recordMatchesSearch(r, cols, searchState));
@@ -8812,27 +8808,39 @@
             XLSX.writeFile(wb, 'selected_records.xlsx');
         }
 
-        function getVisibleTableDataForExport() {
+        function getTableDataForExport() {
             const searchState = parseSearchQuery(document.getElementById('tableSearch').value);
             if (searchState.type === 'invalid') {
                 throw new Error(`Invalid regex: ${searchState.error || ''}`);
             }
-            if (serverBrowseMode) {
-                return (_infScroll.records || []).slice(0, ROWS_PER_PAGE);
+            const cols = getTableColumns().map(c => c.key).filter(c => c !== '_actions' && c !== '_select');
+            let data = serverBrowseMode ? serverState.records : filteredData;
+            if (searchState.type !== 'none') {
+                data = data.filter(r => recordMatchesSearch(r, cols, searchState));
             }
-            return Array.isArray(lastRenderedPageData) ? [...lastRenderedPageData] : [];
+            if (!serverBrowseMode && currentSort.column) {
+                data = [...data].sort((a, b) => {
+                    const cmp = getCellValue(a, currentSort.column).localeCompare(
+                        getCellValue(b, currentSort.column),
+                        undefined,
+                        { numeric: true }
+                    );
+                    return currentSort.direction === 'asc' ? cmp : -cmp;
+                });
+            }
+            return data;
         }
 
         function exportAllToExcel() {
             let data;
             try {
-                data = getVisibleTableDataForExport();
+                data = getTableDataForExport();
             } catch (err) {
                 alert(err?.message || String(err));
                 return;
             }
             if (!data.length) {
-                _showToast('No visible rows to export.', 3000, '#c62828');
+                _showToast('No records to export.', 3000, '#c62828');
                 return;
             }
 
@@ -8855,9 +8863,9 @@
 
             const ws = XLSX.utils.json_to_sheet(rows);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'On-screen rows');
+            XLSX.utils.book_append_sheet(wb, ws, 'Records');
             _addFilterMetadataSheet(wb, rows.length);
-            XLSX.writeFile(wb, 'visible_rows.xlsx');
+            XLSX.writeFile(wb, 'all_records.xlsx');
         }
 
         // ========== UTILITIES ==========

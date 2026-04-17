@@ -370,7 +370,7 @@
                 </div>
                 <div class="filter-actions" style="margin-top:12px;">
                     <button class="btn btn-primary" onclick="applyFilters(); document.getElementById('moreFiltersPanel').classList.add('hidden');">Apply Filters</button>
-                    <button class="export-btn" id="exportFilteredBtn" onclick="exportFilteredData()">📥 Export full filtered result (up to 50 000)</button>
+                    <button class="export-btn" onclick="exportFilteredData()">📥 Export Data</button>
                 </div>
             </div>
             <!-- end of moreFiltersPanel -->
@@ -667,18 +667,38 @@
         <!-- Data Tab -->
         <div class="data-table-section" id="tab-data">
             <div class="guided-only" style="background:#eef6ff; border:1px solid #c8ddf4; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12px; color:#2d5a87; line-height:1.5;">
-                💡 <strong>Data:</strong> Browse individual recommendations. Use <strong>Search Text</strong> above to change the filtered dataset, then use the <strong>Text column filter</strong> here to refine only the rows on screen. Select records and export them as XLSX. Open the Labeling Tool (purple button above) to classify recommendations with your own categories.
+                💡 <strong>Data:</strong> Browse individual recommendations. Use the search box to filter within the current dataset. Select records and export them as XLSX. Open the Labeling Tool (purple button above) to classify recommendations with your own categories.
             </div>
             <div class="table-controls">
-                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex:1 1 640px;">
-                    <span id="tableInfo" style="font-size:13px;">Showing 0 records</span>
-                    <div class="table-column-filter">
-                        <label for="tableSearch">Text column filter</label>
-                        <input type="text" class="search-box column-filter-input" id="tableSearch" placeholder="Filter on-screen text only...">
-                        <div class="search-hint" id="pageTextFilterHint">On-screen only. Use Search Text above for the full filtered dataset.</div>
+                <div class="search-wrap">
+                    <div style="position:relative; flex:1;">
+                        <input type="text" class="search-box" id="tableSearch" placeholder="Search recommendations..." style="padding-right:36px;">
+                        <button onclick="document.getElementById('searchHelpPopover').classList.toggle('hidden')" title="Search syntax help" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:22px; height:22px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Search help">?</button>
+                        <div id="searchHelpPopover" class="hidden" style="position:absolute; top:calc(100% + 6px); right:0; z-index:100; background:#fff; border:1px solid #dde; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:14px 16px; width:380px; font-size:12px; line-height:1.6; color:#334;">
+                            <div style="font-weight:600; margin-bottom:8px; font-size:13px;">Search syntax</div>
+                            <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">plain text</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">asylum seekers</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">OR (any term)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">internet OR online OR digital</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">AND (all terms)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">education AND women</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">NOT (exclude)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">migrants NOT trafficking</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">"exact phrase"</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">"freedom of expression"</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">regex 🔒</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">/child(ren)?/i</code></td></tr>
+                            </table>
+                            <div style="margin-top:8px; padding-top:8px; border-top:1px solid #eef; color:#556; font-size:11px; line-height:1.55;">
+                                Operators must be UPPERCASE. Hyphens are normalized automatically (<code style="background:#f0f4f8; padding:0 3px;">asylum seekers</code> = <code style="background:#f0f4f8; padding:0 3px;">asylum-seekers</code>). Can be combined: <code style="background:#f0f4f8; padding:0 3px;">"freedom of expression" AND women NOT minors</code>.
+                            </div>
+                            <div style="margin-top:6px; color:#667; font-size:11px; line-height:1.55; background:#f0f9ff; padding:6px 8px; border-radius:4px;">
+                                🔒 = best in <a href="javascript:void(0)" onclick="document.getElementById('searchHelpPopover').classList.add('hidden'); openOfflineModeModal();" style="color:#2563eb; text-decoration:underline;">Offline &amp; Private Mode</a>. Regex works against the VM too, but complex patterns can be slow or time out.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="search-hint">
+                        <label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>
+                        Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span id="tableInfo" style="font-size:13px;">Showing 0 records</span>
                     <!-- Selection controls: hidden until something selected -->
                     <span id="selectionControls" style="display:none; display:inline-flex; align-items:center; gap:6px;">
                         <span id="selectedCountInfo" style="font-size:12px; color:#526783;">0 selected</span>
@@ -686,7 +706,7 @@
                         <button class="btn btn-primary" style="padding:5px 10px; font-size:11px;" onclick="exportSelectedToExcel()">⬇ Export selected</button>
                     </span>
                     <button class="btn btn-secondary" style="padding:5px 10px; font-size:11px;" onclick="selectAllRecords()">Select all</button>
-                    <button class="btn btn-primary" id="exportAllBtn" style="padding:5px 10px; font-size:11px;" onclick="exportAllToExcel()">⬇ Export 100 rows on screen</button>
+                    <button class="btn btn-primary" id="exportAllBtn" style="padding:5px 10px; font-size:11px;" onclick="exportAllToExcel()">⬇ Export XLSX</button>
                     <span style="margin-left:auto; display:inline-flex; gap:2px;">
                         <button class="view-btn active" id="viewBtnCard" onclick="setTableView('card')" title="Card view" style="padding:4px 8px; border:1px solid var(--border); border-radius:4px 0 0 4px; background:#fff; cursor:pointer;">☰</button>
                         <button class="view-btn" id="viewBtnTable" onclick="setTableView('table')" title="Table view" style="padding:4px 8px; border:1px solid var(--border); border-radius:0 4px 4px 0; background:#fff; cursor:pointer;">⊞</button>
