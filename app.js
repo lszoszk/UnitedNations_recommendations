@@ -4308,7 +4308,13 @@
                         throw new Error(datasetHealth.message || 'VM dataset API reports that the dataset is unavailable.');
                     }
 
-                    const response = await fetch(DATASET_API_URL, { cache: 'no-store' });
+                    // Download the CLEANED dataset by default so every
+                    // client-side query in Offline & Private Mode sees the
+                    // pipeline's refined text instead of raw OCR artefacts.
+                    // Users who want the raw upstream JSON can still hit
+                    // DATASET_API_URL + '?dataset=raw' directly.
+                    const downloadUrl = DATASET_API_URL + (DATASET_API_URL.includes('?') ? '&' : '?') + 'dataset=cleaned';
+                    const response = await fetch(downloadUrl, { cache: 'no-store' });
                     if (!response.ok) {
                         throw new Error(`Unable to fetch VM dataset (${response.status})`);
                     }
@@ -6870,6 +6876,12 @@
             setTimeout(initChartCopyButtons, 500);
             // Dataset toggle — read persisted choice and paint the header pill.
             initDatasetToggle();
+            // If the user previously activated Offline & Private Mode in this
+            // browser, restore the "unlocked" visual so the padlock doesn't
+            // snap back to closed on refresh.
+            if (typeof _restoreOfflineUnlockedIndicator === 'function') {
+                _restoreOfflineUnlockedIndicator();
+            }
         });
         // Also hook into renderTabContent completions
         function updateYearlyTrendChart() {
@@ -8520,16 +8532,20 @@
         // ========== DATA TABLE ==========
         function getTableColumns() {
             const hasPredictions = rawData.some(r => r._predictedLabels && r._predictedLabels.length > 0);
+            // Type column removed: for the current UHRI dataset it's a
+            // near-constant ("- Recommendation"). Affected-groups column
+            // inserted before Themes — the two facet dimensions that
+            // researchers actually cross-reference when scanning records.
             const baseCols = [
                     { key: '_select', label: 'Select', sortable: false },
                     { key: '_countries', label: 'Country', sortable: true },
                     { key: '_year', label: 'Year', sortable: true },
                     { key: '_body', label: 'Body', sortable: true },
-                    { key: '_type', label: 'Type', sortable: true },
                     { key: '_text', label: 'Text', sortable: true },
             ];
             if (hasPredictions) baseCols.push({ key: '_predictedLabels', label: 'Predicted', sortable: true });
             baseCols.push(
+                    { key: '_affectedPersons', label: 'Concerned Groups', sortable: true },
                     { key: '_themes', label: 'Themes', sortable: true },
                     { key: '_source', label: 'Source', sortable: false },
                     { key: '_actions', label: 'Actions', sortable: false }
@@ -8550,6 +8566,8 @@
             if (key === '_countries') return stripDashPrefixes(record._countries);
             if (key === '_body') return stripDashPrefixes(record._body);
             if (key === '_type') return stripDashPrefixes(record._type);
+            if (key === '_affectedPersons') return stripDashPrefixes(record._affectedPersons);
+            if (key === '_themes') return stripDashPrefixes(record._themes);
             if (key === '_year') return Number.isFinite(record._year) ? String(record._year) : '';
             if (key === '_select') return '';
             if (key === '_actions') return '';
@@ -8882,8 +8900,16 @@
 
         function setTableView(mode) {
             _currentTableView = mode;
-            document.getElementById('viewBtnCard')?.classList.toggle('active', mode === 'card');
-            document.getElementById('viewBtnTable')?.classList.toggle('active', mode === 'table');
+            const cardBtn = document.getElementById('viewBtnCard');
+            const tableBtn = document.getElementById('viewBtnTable');
+            if (cardBtn) {
+                cardBtn.classList.toggle('active', mode === 'card');
+                cardBtn.setAttribute('aria-pressed', mode === 'card' ? 'true' : 'false');
+            }
+            if (tableBtn) {
+                tableBtn.classList.toggle('active', mode === 'table');
+                tableBtn.setAttribute('aria-pressed', mode === 'table' ? 'true' : 'false');
+            }
             document.getElementById('cardListView')?.classList.toggle('hidden', mode !== 'card');
             document.getElementById('classicTableView')?.classList.toggle('hidden', mode !== 'table');
             renderTableBody();
@@ -8935,18 +8961,18 @@
                 return;
             }
 
-            // Expand/collapse all toolbar
+            // Expand/collapse all — surfaced on the sticky toolbar instead of
+            // above the list, so it stays reachable while scrolling a long
+            // records page. Only Reader view has a meaningful toggle.
             const hasTruncated = pageData.some(r => (r._text || '').length > 600);
-            let toolbarHtml = '';
-            if (hasTruncated) {
-                toolbarHtml = `<div style="display:flex; gap:8px; margin-bottom:10px; justify-content:flex-end;">
-                    <button class="copy-btn" onclick="expandAllCards()" style="font-size:11px;">Expand all</button>
-                    <button class="copy-btn" onclick="collapseAllCards()" style="font-size:11px;">Collapse all</button>
-                </div>`;
+            const expandToolbar = document.getElementById('recordsToolbarExpand');
+            if (expandToolbar) {
+                const showExpand = hasTruncated && _currentTableView === 'card';
+                expandToolbar.hidden = !showExpand;
             }
 
             const sentinelHtml = serverBrowseMode ? '<div id="infScrollSentinel"></div>' : '';
-            container.innerHTML = toolbarHtml + pageData.map(r => _renderSingleCard(r, searchState)).join('') + sentinelHtml;
+            container.innerHTML = pageData.map(r => _renderSingleCard(r, searchState)).join('') + sentinelHtml;
         }
 
         function _isGuidLike(s) { return /^[0-9a-f-]{20,}$/i.test(s); }
@@ -9289,10 +9315,27 @@
         }
 
         function updateSelectedCountInfo() {
+            const n = selectedRowIds.size;
             const info = document.getElementById('selectedCountInfo');
             const controls = document.getElementById('selectionControls');
-            if (info) info.textContent = `${selectedRowIds.size.toLocaleString()} selected`;
-            if (controls) controls.style.display = selectedRowIds.size > 0 ? 'inline-flex' : 'none';
+            const exportBtn = document.getElementById('exportAllBtn');
+            if (info) info.textContent = `${n.toLocaleString()} selected`;
+            if (controls) controls.hidden = n === 0;
+            // One Export button with two labels: "⬇ Export current page
+            // XLSX" by default; "⬇ Export N selected" when rows are ticked.
+            // Click behaviour flips inside exportAllToExcel() accordingly.
+            if (exportBtn) {
+                if (n > 0) {
+                    exportBtn.textContent = `⬇ Export ${n.toLocaleString()} selected`;
+                    exportBtn.title = `Export the ${n} selected record${n === 1 ? '' : 's'} as an XLSX spreadsheet`;
+                } else if (serverBrowseMode) {
+                    exportBtn.textContent = '⬇ Export current page XLSX';
+                    exportBtn.title = 'Export the visible page as an XLSX spreadsheet';
+                } else {
+                    exportBtn.textContent = '⬇ Export all (filtered) XLSX';
+                    exportBtn.title = 'Export every record matching your filters as XLSX';
+                }
+            }
         }
 
         function toggleRowSelection(id, checked) {
@@ -9623,6 +9666,12 @@
             let data;
             try {
                 await ensureXlsxReady();
+                // If the user has ticked rows, export just those — matches the
+                // sticky-toolbar button label ("Export N selected"). If nothing
+                // is selected, fall back to the current page / filtered set.
+                if (selectedRowIds.size > 0 && typeof exportSelectedToExcel === 'function') {
+                    return await exportSelectedToExcel();
+                }
                 data = getTableDataForExport();
             } catch (err) {
                 alert(err?.message || String(err));
@@ -11851,13 +11900,72 @@
             closeOfflineModeModal();
             // Hide the Labels-tab CTA eagerly so the user sees immediate feedback.
             document.getElementById('labelsOfflineModeCta')?.classList.add('hidden');
-            // loadRemoteDataset() pulls the full JSON from the VM and switches to local mode.
-            // It already manages the loading indicator, progress bar, and error states.
-            if (typeof loadRemoteDataset === 'function') {
-                loadRemoteDataset(true);
-            } else {
+            if (typeof loadRemoteDataset !== 'function') {
                 alert('Download path is not available in this build.');
+                return;
             }
+            // Show a floating, always-visible progress banner so the user
+            // sees that the download is underway even when they're scrolled
+            // halfway down the Records tab. Removed automatically after the
+            // download completes (or errors).
+            showOfflineDownloadBanner();
+            Promise.resolve(loadRemoteDataset(false))
+                .then(() => {
+                    hideOfflineDownloadBanner();
+                    markOfflineModeActive();
+                    if (typeof _showToast === 'function') {
+                        _showToast('Offline & Private Mode active — full dataset is in your browser. The padlocked features are now unlocked.', 6000, '#1a7a3e');
+                    }
+                })
+                .catch((err) => {
+                    hideOfflineDownloadBanner();
+                    console.warn('Offline-mode download failed:', err);
+                });
+        }
+
+        function showOfflineDownloadBanner() {
+            if (document.getElementById('offlineDownloadBanner')) return;
+            const b = document.createElement('div');
+            b.id = 'offlineDownloadBanner';
+            b.setAttribute('role', 'status');
+            b.innerHTML = `
+                <div class="offline-dl-spinner" aria-hidden="true"></div>
+                <div class="offline-dl-text">
+                    <div class="offline-dl-title">🔐 Enabling Offline &amp; Private Mode…</div>
+                    <div class="offline-dl-sub" id="offlineDownloadSub">Downloading cleaned dataset from the VM. This runs once; after it finishes, every query stays in your browser.</div>
+                </div>
+            `;
+            document.body.appendChild(b);
+        }
+        function hideOfflineDownloadBanner() {
+            document.getElementById('offlineDownloadBanner')?.remove();
+        }
+        function markOfflineModeActive() {
+            // Body-level flag so CSS can flip any 🔒 affordance to "unlocked"
+            // state — the padlocked search CTA already swaps because
+            // serverBrowseMode flips, but dedicated unlocked styling for
+            // the header offline button + popover callouts lives here.
+            try { document.body.classList.add('offline-mode-active'); } catch (_) {}
+            try { localStorage.setItem('un_hr_dashboard_offline_active', '1'); } catch (_) {}
+            const headerBtn = document.getElementById('headerOfflineBtn');
+            if (headerBtn) {
+                headerBtn.innerHTML = '🔓';
+                headerBtn.classList.add('is-unlocked');
+                headerBtn.setAttribute('title', 'Offline & Private Mode is active — all data is in your browser');
+                headerBtn.setAttribute('aria-label', 'Offline & Private Mode active');
+            }
+        }
+        // On load, restore the "unlocked" visual if the user activated Offline
+        // Mode earlier in the same browser (the dataset download itself is
+        // ephemeral per page load, but the visual state shouldn't snap back
+        // to "locked" if we can avoid it). Triggered from DOMContentLoaded.
+        function _restoreOfflineUnlockedIndicator() {
+            try {
+                if (localStorage.getItem('un_hr_dashboard_offline_active') === '1'
+                        && typeof serverBrowseMode !== 'undefined' && !serverBrowseMode) {
+                    markOfflineModeActive();
+                }
+            } catch (_) {}
         }
 
         // ========== COMPARE TAB ==========

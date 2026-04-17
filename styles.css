@@ -1925,7 +1925,8 @@
         }
         .data-table-section.active { display: block; }
 
-        /* View toggle buttons */
+        /* View toggle buttons (legacy — kept so nothing else in the app
+           that still uses .view-btn breaks). */
         .table-view-toggle { display: flex; gap: 2px; }
         .view-btn {
             padding: 6px 10px;
@@ -1939,6 +1940,195 @@
         }
         .view-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
         .view-btn:hover:not(.active) { background: #eef2f7; }
+
+        /* ── Offline & Private Mode: download progress banner ──
+           Fixed to the top of the viewport so it stays visible wherever
+           the user is scrolled. Removed on success (toast + unlocked
+           state follow). */
+        #offlineDownloadBanner {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2147483642;
+            max-width: 560px;
+            background: #eef6ff;
+            border: 1px solid #b8d8f5;
+            border-left: 4px solid #1a6fb5;
+            color: #123a5c;
+            padding: 12px 16px;
+            border-radius: 10px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+            font-size: 13px;
+            line-height: 1.5;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        body.theme-dark #offlineDownloadBanner {
+            background: #162436;
+            border-color: #2e476a;
+            border-left-color: #7ab5ff;
+            color: #cbd5e1;
+        }
+        .offline-dl-spinner {
+            width: 20px; height: 20px;
+            border: 2px solid #d1e3f6;
+            border-top-color: #1a6fb5;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex: 0 0 auto;
+        }
+        body.theme-dark .offline-dl-spinner {
+            border-color: #243448;
+            border-top-color: #7ab5ff;
+        }
+        .offline-dl-text { flex: 1; min-width: 0; }
+        .offline-dl-title { font-weight: 600; margin-bottom: 2px; }
+        .offline-dl-sub { font-size: 12.5px; color: #2d5a87; }
+        body.theme-dark .offline-dl-sub { color: #9fb0c4; }
+
+        /* Header Offline button in unlocked state: subtle green tint +
+           open-padlock glyph. Signals that Offline & Private Mode is
+           currently active without consuming extra header real estate. */
+        .header-offline-btn.is-unlocked {
+            background: rgba(46, 160, 67, 0.22) !important;
+            border-color: rgba(46, 160, 67, 0.55) !important;
+            color: #bdf5cb !important;
+        }
+        .header-offline-btn.is-unlocked:hover {
+            background: rgba(46, 160, 67, 0.32) !important;
+        }
+
+        /* ── Records tab toolbar ──
+           Sticky so Export, Select-count, Expand/Collapse, and the
+           Reader/Table toggle stay reachable while scrolling a long
+           records list. Replaces the older floating position for
+           Expand-all / Collapse-all above the list. */
+        .records-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 8px 12px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+        .records-toolbar-count {
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .records-toolbar-selection[hidden],
+        .records-toolbar-group[hidden] { display: none !important; }
+        .records-toolbar-selection {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #1a5fb4;
+            padding: 2px 8px;
+            background: #eef6ff;
+            border-radius: 12px;
+        }
+        .records-toolbar-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .records-toolbar-sep { color: #cbd5e1; }
+        .records-toolbar-link {
+            background: none;
+            border: 0;
+            color: #1a5fb4;
+            font-size: 12px;
+            padding: 2px 4px;
+            cursor: pointer;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .records-toolbar-link:hover {
+            background: #eef6ff;
+            text-decoration: underline;
+        }
+        .records-toolbar-export {
+            margin-left: auto;
+            padding: 6px 14px !important;
+            font-size: 12px !important;
+        }
+        body.theme-dark .records-toolbar {
+            background: #14202d;
+            border-color: #314154;
+        }
+        body.theme-dark .records-toolbar-count { color: #cbd5e1; }
+        body.theme-dark .records-toolbar-selection {
+            background: #1c355a;
+            color: #cfe3ff;
+        }
+        body.theme-dark .records-toolbar-group { color: #9fb0c4; }
+        body.theme-dark .records-toolbar-sep { color: #64748b; }
+        body.theme-dark .records-toolbar-link { color: #7ab5ff; }
+        body.theme-dark .records-toolbar-link:hover { background: #162436; }
+
+        /* ── Records tab: segmented Reader / Table view toggle ──
+           Both labels are always visible and legible — only the active
+           pill is highlighted. Replaces the old icon-first toggle where
+           the inactive button looked empty at small sizes. */
+        .records-view-toggle {
+            display: inline-flex;
+            margin-left: auto;
+            padding: 3px;
+            background: #eef2f7;
+            border: 1px solid #d7dfe8;
+            border-radius: 999px;
+            flex-shrink: 0;
+        }
+        .records-view-btn {
+            padding: 5px 12px;
+            border: 0;
+            background: transparent;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+            white-space: nowrap;
+            min-width: 72px;
+        }
+        .records-view-btn.active {
+            background: #ffffff;
+            color: var(--primary, #1a5fb4);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .records-view-btn:hover:not(.active) {
+            color: #1e3a5f;
+            background: rgba(255,255,255,0.55);
+        }
+        body.theme-dark .records-view-toggle {
+            background: #0f1723;
+            border-color: #314154;
+        }
+        body.theme-dark .records-view-btn {
+            color: #9fb0c4;
+        }
+        body.theme-dark .records-view-btn.active {
+            background: #1c2a39;
+            color: #f2f7fd;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+        }
+        body.theme-dark .records-view-btn:hover:not(.active) {
+            color: #e6edf5;
+            background: rgba(255,255,255,0.06);
+        }
 
         /* Card list view */
         .card-list { display: flex; flex-direction: column; gap: 12px; max-height: 700px; overflow-y: auto; }

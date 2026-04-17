@@ -817,19 +817,34 @@
                         Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <span id="tableInfo" style="font-size:13px;">Showing 0 records</span>
-                    <!-- Selection controls: hidden until something selected -->
-                    <span id="selectionControls" style="display:none; display:inline-flex; align-items:center; gap:6px;">
-                        <span id="selectedCountInfo" style="font-size:12px; color:#526783;">0 selected</span>
-                        <button class="btn btn-secondary" style="padding:5px 10px; font-size:11px;" onclick="clearSelectedRows()">Clear</button>
-                        <button class="btn btn-primary" style="padding:5px 10px; font-size:11px;" onclick="exportSelectedToExcel()">⬇ Export selected</button>
+                <div class="records-toolbar" id="recordsToolbar">
+                    <span id="tableInfo" class="records-toolbar-count">Showing 0 records</span>
+                    <!-- Selection feedback: only visible when rows are selected; swaps the
+                         default export button for a "⬇ Export N selected" CTA. -->
+                    <span id="selectionControls" class="records-toolbar-selection" hidden>
+                        <span id="selectedCountInfo">0 selected</span>
+                        <button type="button" class="records-toolbar-link" onclick="clearSelectedRows()" title="Clear selection">Clear</button>
                     </span>
-                    <button class="btn btn-secondary" style="padding:5px 10px; font-size:11px;" onclick="selectAllRecords()">Select all</button>
-                    <button class="btn btn-primary" id="exportAllBtn" style="padding:5px 10px; font-size:11px;" onclick="exportAllToExcel()">⬇ Export XLSX</button>
-                    <span style="margin-left:auto; display:inline-flex; gap:2px;" role="group" aria-label="Records view mode">
-                        <button class="view-btn active" id="viewBtnCard" onclick="setTableView('card')" title="Reader view — one record per card, full text visible" aria-label="Reader view" style="padding:4px 10px; border:1px solid var(--border); border-radius:4px 0 0 4px; background:#fff; cursor:pointer; font-size:11px; font-weight:600;">☰ Reader</button>
-                        <button class="view-btn" id="viewBtnTable" onclick="setTableView('table')" title="Table view — compact columns for scanning and sorting" aria-label="Table view" style="padding:4px 10px; border:1px solid var(--border); border-radius:0 4px 4px 0; background:#fff; cursor:pointer; font-size:11px; font-weight:600;">⊞ Table</button>
+                    <!-- Expand / Collapse all — kept here (on the sticky toolbar) so it stays
+                         reachable as the user scrolls through a long records list. Only
+                         meaningful in Reader view; JS toggles visibility. -->
+                    <span class="records-toolbar-group" id="recordsToolbarExpand" hidden>
+                        <button type="button" class="records-toolbar-link" onclick="expandAllCards()" title="Expand full text for every record">Expand all</button>
+                        <span class="records-toolbar-sep" aria-hidden="true">·</span>
+                        <button type="button" class="records-toolbar-link" onclick="collapseAllCards()" title="Collapse every record back to the preview">Collapse all</button>
+                    </span>
+                    <!-- Single Export CTA. Click once with nothing selected → exports the
+                         visible page (or current filtered set in offline mode). Click with
+                         rows selected → exports only those. One button, two labels — one
+                         less Hick's-Law choice. -->
+                    <button type="button" class="btn btn-primary records-toolbar-export" id="exportAllBtn" onclick="exportAllToExcel()" title="Export the current page as an XLSX spreadsheet">⬇ Export XLSX</button>
+                    <span class="records-view-toggle" role="group" aria-label="Records view mode">
+                        <button type="button" class="records-view-btn active" id="viewBtnCard" onclick="setTableView('card')" title="Reader view — one record per card, full text visible" aria-label="Reader view" aria-pressed="true">
+                            <span aria-hidden="true">☰</span> Reader
+                        </button>
+                        <button type="button" class="records-view-btn" id="viewBtnTable" onclick="setTableView('table')" title="Table view — compact columns for scanning and sorting" aria-label="Table view" aria-pressed="false">
+                            <span aria-hidden="true">⊞</span> Table
+                        </button>
                     </span>
                 </div>
             </div>
