@@ -1353,6 +1353,11 @@
         .chip-type     { background: #7c5cbf; }
         .chip-year     { background: #2e7d32; }
         .chip-text     { background: #c06030; }
+        /* Previously missing — the rendered chip had color:white but no background,
+           leaving "Discrimination against…", "Children", etc. invisible. */
+        .chip-theme    { background: #d48036; }
+        .chip-affected { background: #5a8f3d; }
+        .chip-sdg      { background: #c9a73a; }
         .filter-chips-clear {
             font-size: 12px;
             color: var(--accent);

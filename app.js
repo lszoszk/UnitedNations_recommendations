@@ -4417,11 +4417,22 @@
 
         function buildFilterLabel(st) {
             const parts = [];
+            // Trim to first meaningful token so labels stay compact.
+            const first = (s) => (s || '').replace(/^-+\s*/, '').split(/[:;(]/)[0].trim();
+            const shortWord = (s, n) => first(s).split(/\s+/).slice(0, n).join(' ');
             if (st.textQuery) parts.push(st.textQuery.length > 20 ? st.textQuery.slice(0,18) + '…' : st.textQuery);
-            if (st.countries?.length) parts.push(st.countries.length === 1 ? st.countries[0].replace(/^-\s*/, '').split(/\s*\(/)[0].trim() : `${st.countries.length} countries`);
-            if (st.bodies?.length) parts.push(st.bodies.length === 1 ? st.bodies[0].replace(/^-\s*/, '').split(/\s+/g).slice(0,2).join(' ') : `${st.bodies.length} bodies`);
+            if (st.countries?.length) parts.push(st.countries.length === 1 ? first(st.countries[0]) : `${st.countries.length} countries`);
+            if (st.bodies?.length) parts.push(st.bodies.length === 1 ? shortWord(st.bodies[0], 2) : `${st.bodies.length} bodies`);
+            // Previously themes / affected_persons / SDGs / regions weren't in labels —
+            // so every filter of that kind fell through to "All records", producing
+            // several indistinguishable "All records (N)" pills in the Recent row.
+            if (st.regions?.length) parts.push(st.regions.length === 1 ? first(st.regions[0]) : `${st.regions.length} regions`);
+            if (st.themes?.length) parts.push(st.themes.length === 1 ? shortWord(st.themes[0], 3) : `${st.themes.length} themes`);
+            if (st.affectedPersons?.length) parts.push(st.affectedPersons.length === 1 ? shortWord(st.affectedPersons[0], 2) : `${st.affectedPersons.length} groups`);
+            if (st.sdgs?.length) parts.push(st.sdgs.length === 1 ? shortWord(st.sdgs[0], 2) : `${st.sdgs.length} SDGs`);
+            if (st.annotationType?.length && st.annotationType[0] !== 'All') parts.push(st.annotationType.length === 1 ? st.annotationType[0] : `${st.annotationType.length} types`);
             const label = parts.join(' + ') || 'All records';
-            return label.length > 35 ? label.slice(0, 33) + '…' : label;
+            return label.length > 40 ? label.slice(0, 38) + '…' : label;
         }
 
         function _getHitCount() {
