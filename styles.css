@@ -3097,6 +3097,167 @@
             color: #cbd5e1;
         }
 
+        /* ── Landing page — complete dark-mode pass ──
+           The hero-below content uses .landing-canvas-card (not
+           .landing-feature), .guidance-card for the welcome banner,
+           .cta-main / .cta-secondary for the two big buttons, and
+           various .upload-hint / .landing-canvas-loading helpers. */
+        body.theme-dark .landing-canvas-card {
+            background: #14202d !important;
+            border-color: #2a3a4f !important;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+        }
+        body.theme-dark .landing-canvas-card h4 {
+            color: #9fb0c4;
+        }
+        body.theme-dark .landing-canvas-card:hover {
+            box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+        }
+        body.theme-dark .landing-canvas-loading {
+            color: #9fb0c4;
+        }
+        body.theme-dark .mini-spinner {
+            border-color: #2a3a4f;
+            border-top-color: #7ab5ff;
+        }
+        /* Welcome / guidance card — pale-blue in light, now graphite */
+        body.theme-dark .guidance-card {
+            background: #162436 !important;
+            border-color: #2e476a !important;
+            color: #cbd5e1;
+        }
+        body.theme-dark .guidance-card strong {
+            color: #f2f7fd;
+        }
+        body.theme-dark .guidance-card a { color: #7ab5ff; }
+        /* CTA buttons pair — keep primary blue, re-skin secondary so it
+           doesn't read as an empty box on the dark gradient. */
+        body.theme-dark .cta-secondary {
+            background: #1c2a39;
+            color: #e6edf5;
+            border-color: #314154;
+        }
+        body.theme-dark .cta-secondary:hover {
+            background: #253448;
+        }
+        body.theme-dark .upload-hint,
+        body.theme-dark .upload-hint span {
+            color: #9fb0c4;
+        }
+        body.theme-dark .landing-search-wrap {
+            /* ensure visible against dark hero backdrop */
+        }
+        body.theme-dark .landing-search-box {
+            background: #14202d;
+            border-color: #314154;
+        }
+        body.theme-dark .landing-search-input {
+            background: transparent;
+            color: #e6edf5;
+        }
+
+        /* ── Search-syntax popover (filter AND record-list variants) ──
+           Both popovers have hardcoded inline `background:#fff`, so CSS
+           overrides need !important to win. Targets by id so we don't
+           hit unrelated elements. */
+        body.theme-dark #filterSearchHelp,
+        body.theme-dark #searchHelpPopover {
+            background: #14202d !important;
+            border-color: #314154 !important;
+            color: #cbd5e1 !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.45) !important;
+        }
+        body.theme-dark #filterSearchHelp *,
+        body.theme-dark #searchHelpPopover * {
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark #filterSearchHelp strong,
+        body.theme-dark #searchHelpPopover strong,
+        body.theme-dark #filterSearchHelp [style*="font-weight:600"],
+        body.theme-dark #searchHelpPopover [style*="font-weight:600"] {
+            color: #f2f7fd !important;
+        }
+        body.theme-dark #filterSearchHelp code,
+        body.theme-dark #searchHelpPopover code,
+        body.theme-dark #filterSearchHelp [style*="background:#f0"],
+        body.theme-dark #searchHelpPopover [style*="background:#f0"] {
+            background: #0f1723 !important;
+            color: #cbd5e1 !important;
+            border: 1px solid #314154;
+        }
+        body.theme-dark #filterSearchHelp a,
+        body.theme-dark #searchHelpPopover a {
+            color: #7ab5ff !important;
+        }
+        /* The small "?" help-toggle button next to the search box */
+        body.theme-dark button[aria-label="Search help"],
+        body.theme-dark button[aria-label="Filter search help"] {
+            background: #14202d !important;
+            border-color: #314154 !important;
+            color: #cbd5e1 !important;
+        }
+
+        /* ── Offline & Private Mode modal — the listing with icon +
+           colored pill on each row also has inline light backgrounds. */
+        body.theme-dark #offlineModeOverlay .about-modal [style*="background:#f"],
+        body.theme-dark #offlineModeOverlay .about-modal [style*="background:#e"] {
+            background: #182838 !important;
+            border-color: #314154 !important;
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark #offlineModeOverlay .about-modal [style*="background:#f"] *,
+        body.theme-dark #offlineModeOverlay .about-modal [style*="background:#e"] * {
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark #offlineModeOverlay .about-modal [style*="background:#f"] strong,
+        body.theme-dark #offlineModeOverlay .about-modal [style*="background:#e"] strong {
+            color: #f2f7fd !important;
+        }
+        body.theme-dark #offlineModeOverlay .about-modal [style*="color:#2563eb"],
+        body.theme-dark #offlineModeOverlay .about-modal [style*="color:#1e40af"] {
+            color: #7ab5ff !important;
+        }
+        body.theme-dark #offlineModeOverlay .about-modal button.btn:not(.btn-primary),
+        body.theme-dark #offlineModeOverlay .about-modal [style*="background:#fff"] {
+            background: #1c2a39 !important;
+            color: #e6edf5 !important;
+            border-color: #314154 !important;
+        }
+
+        /* "Full Dataset Analytics Ready" pale-blue hint that sits between
+           hero and filters in server-browse mode — its class isn't one
+           of the ones covered above. It's rendered with inline styles. */
+        body.theme-dark [style*="background:#eff6ff"],
+        body.theme-dark [style*="background: #eff6ff"],
+        body.theme-dark [style*="background:#eef6ff"],
+        body.theme-dark [style*="background: #eef6ff"],
+        body.theme-dark [style*="background:#f0f9ff"] {
+            background: #162436 !important;
+            color: #cbd5e1 !important;
+            border-color: #2e476a !important;
+        }
+        body.theme-dark [style*="background:#eff6ff"] *,
+        body.theme-dark [style*="background:#eef6ff"] *,
+        body.theme-dark [style*="background:#f0f9ff"] * {
+            color: #cbd5e1 !important;
+        }
+
+        /* Filters panel heading — increase contrast so it doesn't read
+           as ghosted against the dark card. */
+        body.theme-dark .filters-section .filters-header h2,
+        body.theme-dark .filters-section .filters-header .filter-count,
+        body.theme-dark .filters-section > :not(.filter-query-bar) h2 {
+            color: #f2f7fd !important;
+        }
+
+        /* The "Data" tab helper hint ("Browse individual recommendations…") */
+        body.theme-dark .data-table-section [style*="background:#eff6ff"],
+        body.theme-dark .data-table-section [style*="background:#eef6ff"] {
+            background: #162436 !important;
+            border-color: #2e476a !important;
+            color: #cbd5e1 !important;
+        }
+
         /* Offline & Private Mode modal — inline hardcoded styles for the
            three "Full privacy / Works offline / Unlocks advanced" titles
            and helper copy need a dark-mode override via attribute selector. */
