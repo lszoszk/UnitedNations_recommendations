@@ -368,7 +368,6 @@
                     </div>
                 </div>
                 <div class="filter-actions" style="margin-top:12px;">
-                    <button class="btn btn-primary" onclick="applyFilters(); document.getElementById('moreFiltersPanel').classList.add('hidden');">Apply Filters</button>
                     <button class="export-btn" onclick="exportFilteredData()">📥 Export Data</button>
                 </div>
             </div>
@@ -1006,9 +1005,9 @@
                         <button onclick="nextSample()" id="nextSampleBtn" style="border:none; background:none; padding:8px 10px; cursor:pointer; font-size:14px; color:#4a5568;">→</button>
                     </div>
 
-                    <!-- Smart single button: Get Records (dropdown for options) -->
+                    <!-- Smart single button for fetching a new labeling batch -->
                     <div style="position:relative; display:inline-block;" id="getRecordsWrap">
-                        <button onclick="_loadSamples()" class="btn btn-primary" style="padding:8px 14px;" id="getRecordsMainBtn">Get Records</button>
+                        <button onclick="_loadSamples()" class="btn btn-primary" style="padding:8px 14px;" id="getRecordsMainBtn">Get 20 random records</button>
                     </div>
 
                     <!-- Tag count (appears after labeling starts) -->
@@ -1028,7 +1027,7 @@
                             <hr style="margin:4px 0; border:none; border-top:1px solid #eef;">
                             <div style="padding:6px 14px; display:flex; align-items:center; gap:6px;">
                                 <label style="font-size:11px; color:#667;">Records per batch:</label>
-                                <input type="number" value="20" min="5" max="200" step="5" style="width:48px; padding:4px; border:1px solid #dde; border-radius:4px; text-align:center; font-size:12px;" onchange="document.getElementById('sampleCountInput').value=this.value">
+                                <input type="number" value="20" min="5" max="200" step="5" style="width:48px; padding:4px; border:1px solid #dde; border-radius:4px; text-align:center; font-size:12px;" onchange="document.getElementById('sampleCountInput').value=this.value; updateLabelingRecordsCta();">
                             </div>
                         </div>
                     </div>

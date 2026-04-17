@@ -9564,6 +9564,19 @@
             return Math.max(5, Math.min(200, val));
         }
 
+        function getLabelingRecordsCtaLabel() {
+            const count = getSampleCountFromUI();
+            if (trainingState.nbModel) {
+                return `Get ${count} suggested records`;
+            }
+            return `Get ${count} random records`;
+        }
+
+        function updateLabelingRecordsCta() {
+            const btn = document.getElementById('getRecordsMainBtn');
+            if (btn) btn.textContent = getLabelingRecordsCtaLabel();
+        }
+
         function getCategoryCounts() {
             const counts = {};
             trainingState.categories.forEach(c => counts[c] = 0);
@@ -9607,7 +9620,6 @@
         function _loadSamples() {
             if (trainingState.nbModel) {
                 getUncertainSamples();
-                document.getElementById('getRecordsMainBtn').innerHTML = '🎯 Get Records';
             } else {
                 getRandomSamples();
             }
@@ -9775,9 +9787,11 @@
         function updateLabelingUI() {
             const container = document.getElementById('sampleContainer');
             const sample = getCurrentSample();
+            updateLabelingRecordsCta();
 
             if (!sample) {
-                container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Click "Get Random Records" above to start tagging</p>';
+                const ctaLabel = escapeHtml(getLabelingRecordsCtaLabel());
+                container.innerHTML = `<p style="color: #666; text-align: center; padding: 20px;">Click "${ctaLabel}" above to start tagging</p>`;
                 document.getElementById('labeledCount').textContent = '0';
                 document.getElementById('totalSamples').textContent = '0';
                 document.getElementById('excludedCount').textContent = '0';
