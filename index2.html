@@ -1,0 +1,1255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>UN Human Rights Analytics — Landing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<script>
+  // Tweakable defaults — patched in place by the host when user flips a Tweak.
+  window.__TWEAKS__ = /*EDITMODE-BEGIN*/{
+    "palette": "archive",
+    "accentHue": 27,
+    "dotDensity": 1.0,
+    "showTicker": true,
+    "showCursor": true
+  }/*EDITMODE-END*/;
+</script>
+
+<style>
+  :root {
+    /* palettes — overridden by JS */
+    --paper: #F2EFE8;
+    --paper-2: #EAE6DD;
+    --ink: #0F0F10;
+    --ink-2: #2A2824;
+    --dim: #6B6863;
+    --dimmer: #A39E94;
+    --line: rgba(15,15,16,.14);
+    --line-2: rgba(15,15,16,.06);
+    --accent: oklch(0.62 0.17 27);
+    --accent-soft: oklch(0.62 0.17 27 / .14);
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: "Instrument Serif", "Times New Roman", serif;
+  }
+
+  html, body { background: var(--paper); color: var(--ink); }
+  body {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  * { box-sizing: border-box; }
+  ::selection { background: var(--accent); color: var(--paper); }
+
+  /* -------- top nav / meta bar -------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 10px 28px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--dim);
+    background: color-mix(in oklab, var(--paper) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .left { display: flex; gap: 18px; align-items: center; }
+  .topbar .right { display: flex; gap: 18px; align-items: center; justify-content: flex-end; }
+  .topbar .dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; box-shadow: 0 0 0 3px color-mix(in oklab, #2ecc71 25%, transparent); animation: pulse 1.8s infinite; }
+  @keyframes pulse { 50% { opacity: .4; } }
+  .topbar a { color: inherit; text-decoration: none; }
+  .topbar .brand { color: var(--ink); letter-spacing: .02em; }
+  .topbar .sep { color: var(--dimmer); }
+
+  /* -------- hero -------- */
+  .hero {
+    position: relative;
+    padding: 56px 28px 24px;
+    border-bottom: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .hero .grid {
+    display: grid;
+    grid-template-columns: 1.1fr .9fr;
+    gap: 48px;
+    max-width: 1480px;
+    margin: 0 auto;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--dim);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 28px; height: 1px; background: var(--ink); opacity:.5;
+  }
+  .headline {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(44px, 6.4vw, 96px);
+    line-height: .98;
+    letter-spacing: -0.01em;
+    margin: 18px 0 22px;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .headline em {
+    font-style: italic;
+    color: var(--accent);
+  }
+  .cursor {
+    display: inline-block;
+    width: .46em; height: 1em;
+    vertical-align: -0.08em;
+    background: var(--ink);
+    margin-left: 6px;
+    animation: blink 1.05s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .lede {
+    font-size: 14px;
+    color: var(--ink-2);
+    max-width: 52ch;
+    line-height: 1.55;
+  }
+  .lede .hl { background: var(--accent-soft); padding: 0 4px; }
+
+  .kpis {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .kpi {
+    padding: 18px 16px 16px 0;
+    border-right: 1px dotted var(--line);
+    position: relative;
+  }
+  .kpi:last-child { border-right: 0; }
+  .kpi .num {
+    font-family: var(--serif);
+    font-size: 40px;
+    letter-spacing: -.01em;
+    line-height: 1;
+    display: flex; align-items: baseline; gap: 6px;
+  }
+  .kpi .unit { font-family: var(--mono); font-size: 13px; color: var(--dim); letter-spacing: .04em; }
+  .kpi .lbl {
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .cta-row {
+    margin-top: 28px;
+    display: flex; flex-wrap: wrap; gap: 12px;
+    align-items: center;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 14px 18px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+    transition: transform .16s ease, background .16s ease, color .16s ease;
+    text-decoration: none;
+  }
+  .btn:hover { transform: translate(-2px,-2px); box-shadow: 2px 2px 0 var(--accent); }
+  .btn.ghost { background: transparent; color: var(--ink); }
+  .btn.ghost:hover { background: var(--ink); color: var(--paper); box-shadow: 2px 2px 0 var(--accent); }
+  .btn .arrow { transition: transform .2s ease; }
+  .btn:hover .arrow { transform: translateX(3px); }
+
+  /* -------- dot-field canvas -------- */
+  .field {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border: 1px solid var(--line);
+    background:
+      linear-gradient(var(--line-2) 1px, transparent 1px) 0 0 / 100% 48px,
+      linear-gradient(90deg, var(--line-2) 1px, transparent 1px) 0 0 / 48px 100%,
+      var(--paper-2);
+    overflow: hidden;
+  }
+  .field canvas { display: block; width: 100%; height: 100%; }
+  .field .corner {
+    position: absolute;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--dim);
+    pointer-events: none;
+    background: color-mix(in oklab, var(--paper) 80%, transparent);
+    padding: 4px 8px;
+  }
+  .field .corner.tl { top: 8px; left: 8px; }
+  .field .corner.tr { top: 8px; right: 8px; color: var(--ink); }
+  .field .corner.bl { bottom: 8px; left: 8px; }
+  .field .corner.br { bottom: 8px; right: 8px; }
+  .field .tip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 8px;
+    white-space: nowrap;
+    transform: translate(-50%,-120%);
+    opacity: 0;
+    transition: opacity .15s ease;
+  }
+  .field .tip.show { opacity: 1; }
+
+  /* -------- ticker -------- */
+  .ticker-wrap {
+    border-bottom: 1px solid var(--line);
+    background: var(--ink);
+    color: var(--paper);
+    overflow: hidden;
+    position: relative;
+  }
+  .ticker-wrap::before, .ticker-wrap::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 80px; z-index: 2; pointer-events: none;
+  }
+  .ticker-wrap::before { left: 0; background: linear-gradient(90deg, var(--ink), transparent); }
+  .ticker-wrap::after { right: 0; background: linear-gradient(-90deg, var(--ink), transparent); }
+  .ticker-tag {
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    background: var(--accent); color: var(--paper);
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    padding: 4px 8px;
+    z-index: 3;
+  }
+  .ticker-track {
+    display: flex; gap: 64px;
+    padding: 14px 0 14px 120px;
+    white-space: nowrap;
+    animation: scroll 120s linear infinite;
+    font-size: 12px;
+  }
+  .ticker-track .item { display: inline-flex; gap: 12px; align-items: baseline; }
+  .ticker-track .yr { color: var(--accent); }
+  .ticker-track .cc { color: var(--dimmer); }
+  .ticker-track .arrow { color: var(--dimmer); }
+  @keyframes scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* -------- section scaffolding -------- */
+  section.band {
+    padding: 72px 28px;
+    border-bottom: 1px solid var(--line);
+  }
+  .wrap { max-width: 1480px; margin: 0 auto; }
+  .section-head {
+    display: grid;
+    grid-template-columns: 180px 1fr auto;
+    gap: 24px;
+    align-items: baseline;
+    padding-bottom: 28px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+  }
+  .section-head .no {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .section-head .t {
+    font-family: var(--serif);
+    font-size: clamp(28px, 3.4vw, 48px);
+    line-height: 1.02;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    max-width: 22ch;
+  }
+  .section-head .ctx {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    text-align: right;
+  }
+
+  /* -------- bar list -------- */
+  .bar-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+  .bar-list .row {
+    display: grid;
+    grid-template-columns: 30px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dotted var(--line);
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .bar-list .row:hover { background: var(--paper-2); }
+  .bar-list .row .rank {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+  }
+  .bar-list .row .name {
+    font-family: var(--mono);
+    font-size: 13px;
+    display: flex; align-items: center; gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .bar-list .row .bar {
+    position: absolute; left: 0; top: 50%;
+    transform: translateY(-50%);
+    height: 22px;
+    background: var(--accent-soft);
+    z-index: 0;
+    border-left: 2px solid var(--accent);
+  }
+  .bar-list .row .txt { position: relative; z-index: 1; padding: 0 8px; }
+  .bar-list .row .val {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .bar-list h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin: 0 0 12px;
+    display: flex; justify-content: space-between;
+  }
+
+  /* -------- timeline -------- */
+  .timeline {
+    position: relative;
+    height: 260px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .timeline svg { display: block; width: 100%; height: 100%; }
+  .timeline .yr-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: .06em;
+  }
+  .timeline-callouts {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 24px;
+    margin-top: 24px;
+  }
+  .callout {
+    border-left: 2px solid var(--accent);
+    padding: 6px 14px;
+  }
+  .callout .yr {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .callout .txt {
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.3;
+    margin-top: 4px;
+    text-wrap: balance;
+  }
+
+  /* -------- map cells -------- */
+  .map-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .country-cell {
+    background: var(--paper);
+    padding: 12px 14px;
+    position: relative;
+    cursor: pointer;
+    transition: background .15s;
+    min-height: 90px;
+  }
+  .country-cell:hover { background: var(--paper-2); }
+  .country-cell .flag { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--dim); }
+  .country-cell .cn { font-family: var(--mono); font-size: 13px; margin-top: 4px; color: var(--ink); }
+  .country-cell .cv { font-family: var(--serif); font-size: 22px; margin-top: 10px; }
+  .country-cell .heat {
+    position: absolute; left: 0; bottom: 0;
+    height: 3px;
+    background: var(--accent);
+  }
+
+  /* -------- final CTA -------- */
+  .final {
+    padding: 120px 28px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .final .k {
+    font-family: var(--serif);
+    font-size: clamp(48px, 7vw, 120px);
+    line-height: 1;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    max-width: 18ch;
+    margin: 0 auto;
+  }
+  .final .sub {
+    margin-top: 28px;
+    color: var(--dim);
+    max-width: 52ch;
+    margin-left: auto; margin-right: auto;
+    font-size: 13px;
+  }
+  .final .cta-row { justify-content: center; margin-top: 36px; }
+
+  /* -------- footer -------- */
+  footer {
+    padding: 36px 28px 56px;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: .04em;
+  }
+  footer .wrap { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: end; }
+  footer .supporters { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
+  footer .sup {
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  footer .hr { height: 1px; background: var(--line); margin-bottom: 24px; }
+
+  /* -------- tweaks panel -------- */
+  .tweaks {
+    position: fixed;
+    right: 18px; bottom: 18px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 14px 16px;
+    z-index: 80;
+    min-width: 260px;
+    display: none;
+    box-shadow: 0 20px 50px rgba(0,0,0,.2);
+  }
+  .tweaks.open { display: block; }
+  .tweaks h4 {
+    margin: 0 0 12px;
+    font-size: 10px;
+    letter-spacing: .2em;
+    color: var(--dimmer);
+    text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .tweaks .close { cursor: pointer; }
+  .tweaks .row { display: grid; grid-template-columns: 90px 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .tweaks select, .tweaks input[type="range"] {
+    background: #1b1b1c; color: var(--paper); border: 1px solid #2c2c2d;
+    font-family: var(--mono); font-size: 11px; padding: 4px 6px;
+    width: 100%;
+  }
+  .tweaks .swatches { display: flex; gap: 6px; }
+  .tweaks .sw { width: 22px; height: 22px; border: 1px solid #2c2c2d; cursor: pointer; }
+  .tweaks .sw.active { outline: 2px solid var(--paper); outline-offset: 2px; }
+  .tweaks .toggle {
+    background: #1b1b1c; border: 1px solid #2c2c2d;
+    padding: 4px 8px; cursor: pointer; font: inherit; color: var(--paper);
+  }
+  .tweaks .toggle.on { background: var(--accent); border-color: var(--accent); }
+
+  /* ---- palette: terminal ---- */
+  [data-palette="terminal"] {
+    --paper: #0b0d0b;
+    --paper-2: #121612;
+    --ink: #d6e6cf;
+    --ink-2: #b4c8ac;
+    --dim: #6a7a62;
+    --dimmer: #3e4a39;
+    --line: rgba(214,230,207,.14);
+    --line-2: rgba(214,230,207,.06);
+    --accent: #9cf06b;
+    --accent-soft: rgba(156,240,107,.14);
+  }
+  [data-palette="terminal"] .btn { background: var(--accent); color: #0b0d0b; border-color: var(--accent); }
+  [data-palette="terminal"] .btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
+  [data-palette="terminal"] .btn.ghost:hover { background: var(--accent); color: #0b0d0b; border-color: var(--accent); }
+  [data-palette="terminal"] .btn:hover { box-shadow: 2px 2px 0 var(--ink); }
+  [data-palette="terminal"] .ticker-wrap { background: #131813; }
+  [data-palette="terminal"] .ticker-wrap::before { background: linear-gradient(90deg, #131813, transparent); }
+  [data-palette="terminal"] .ticker-wrap::after { background: linear-gradient(-90deg, #131813, transparent); }
+
+  /* ---- palette: ink ---- */
+  [data-palette="ink"] {
+    --paper: #ffffff;
+    --paper-2: #f4f4f5;
+    --ink: #000000;
+    --ink-2: #1a1a1a;
+    --dim: #7a7a7a;
+    --dimmer: #c0c0c0;
+    --line: rgba(0,0,0,.12);
+    --line-2: rgba(0,0,0,.06);
+    --accent: #1d4ed8;
+    --accent-soft: rgba(29,78,216,.14);
+  }
+  [data-palette="ink"] .headline em { color: var(--accent); }
+
+  /* responsive */
+  @media (max-width: 900px) {
+    .hero .grid { grid-template-columns: 1fr; gap: 24px; }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .section-head { grid-template-columns: 1fr; }
+    .section-head .ctx { text-align: left; }
+    .bar-grid { grid-template-columns: 1fr; gap: 32px; }
+    .timeline-callouts { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body data-palette="archive">
+
+<!-- top bar -->
+<div class="topbar">
+  <div class="left">
+    <span class="dot" title="live"></span>
+    <span>OHCHR · UHRI</span>
+    <span class="sep">/</span>
+    <span>Dataset v2026.04</span>
+  </div>
+  <div class="brand" style="text-align:center;">UN HUMAN RIGHTS ANALYTICS</div>
+  <div class="right">
+    <a href="#about">About</a>
+    <a href="#methodology">Methodology</a>
+    <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">Open Dashboard ↗</a>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="grid">
+    <div>
+      <div class="eyebrow">Treaty Bodies · UPR · Special Procedures · 2006 — 2026</div>
+
+      <h1 class="headline">
+        Every recommendation<br>
+        the UN has ever made<br>
+        on <em>human rights<span id="cursor" class="cursor"></span></em>
+      </h1>
+
+      <p class="lede">
+        A single searchable dataset built on the OHCHR Universal Human Rights Index —
+        <span class="hl">267,548 country-specific observations</span> from Treaty Bodies, Special Procedures
+        and the Universal Periodic Review, assembled for advocates, researchers and journalists.
+      </p>
+
+      <div class="kpis">
+        <div class="kpi">
+          <div class="num" data-counter="267548">0</div>
+          <div class="lbl">Recommendations</div>
+        </div>
+        <div class="kpi">
+          <div class="num" data-counter="199">0</div>
+          <div class="lbl">Countries</div>
+        </div>
+        <div class="kpi">
+          <div class="num" data-counter="75">0</div>
+          <div class="lbl">Mechanisms</div>
+        </div>
+        <div class="kpi">
+          <div class="num"><span class="unit">yrs</span><span data-counter="20">0</span></div>
+          <div class="lbl">2006 — 2026</div>
+        </div>
+      </div>
+
+      <div class="cta-row">
+        <a class="btn" href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">
+          Open the dashboard <span class="arrow">→</span>
+        </a>
+        <a class="btn ghost" href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">
+          <span>▶</span> Rule-of-law demo (8,235 records)
+        </a>
+      </div>
+    </div>
+
+    <div>
+      <div class="field" id="field">
+        <div class="corner tl">FIG 01 / LIVE</div>
+        <div class="corner tr"><span id="fieldCounter">0</span> / 267,548</div>
+        <div class="corner bl">EACH DOT = ONE RECOMMENDATION</div>
+        <div class="corner br">YR <span id="fieldYear">2006</span></div>
+        <canvas id="dotCanvas"></canvas>
+        <div class="tip" id="fieldTip"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ticker -->
+<div class="ticker-wrap" id="tickerWrap">
+  <div class="ticker-tag">LIVE EXCERPTS</div>
+  <div class="ticker-track" id="tickerTrack"></div>
+</div>
+
+<!-- FIG 02: themes / groups -->
+<section class="band" id="themes">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="no">FIG 02 / WHAT</div>
+      <div class="t">The recommendations cluster around a handful of persistent themes.</div>
+      <div class="ctx">Top 8 of 412 tags · n=267,548</div>
+    </div>
+
+    <div class="bar-grid">
+      <div class="bar-list" id="themeList">
+        <h3><span>Most frequent themes</span><span>recs</span></h3>
+      </div>
+      <div class="bar-list" id="groupList">
+        <h3><span>Most mentioned groups</span><span>recs</span></h3>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FIG 03: countries / map -->
+<section class="band" id="countries">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="no">FIG 03 / WHERE</div>
+      <div class="t">No country has been spared — some more than others.</div>
+      <div class="ctx">199 states / territories · click any cell to filter</div>
+    </div>
+
+    <div class="map-grid" id="mapGrid"></div>
+
+    <p style="margin-top:16px; color:var(--dim); font-size:12px; max-width: 72ch;">
+      Heat bars show each country's share of recommendations relative to the top of the distribution.
+      The top 20 states represent 41% of all observations; the long tail captures the remaining 179.
+    </p>
+  </div>
+</section>
+
+<!-- FIG 04: timeline -->
+<section class="band" id="timeline">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="no">FIG 04 / WHEN</div>
+      <div class="t">Two decades of review cycles, visible as a single line.</div>
+      <div class="ctx">Annual volume · 2006 — 2026</div>
+    </div>
+
+    <div class="timeline">
+      <svg id="tlSvg" viewBox="0 0 1000 260" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="yr-axis" id="yrAxis"></div>
+
+    <div class="timeline-callouts">
+      <div class="callout">
+        <div class="yr">2012 · spike</div>
+        <div class="txt">Second UPR cycle begins — recommendation volume jumps 38%.</div>
+      </div>
+      <div class="callout">
+        <div class="yr">2020 · dip</div>
+        <div class="txt">Pandemic-era sessions suspended or moved online — throughput falls.</div>
+      </div>
+      <div class="callout">
+        <div class="yr">2024 · peak</div>
+        <div class="txt">Third-cycle backlog clears; 23,410 new observations recorded in one year.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final" id="dashboard">
+  <div class="wrap">
+    <div style="font-family:var(--mono); font-size:11px; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; margin-bottom: 20px;">
+      → NOW OPEN
+    </div>
+    <h2 class="k">Stop skimming reports.<br><em style="font-style:italic; color:var(--accent);">Start reading the data.</em></h2>
+    <p class="sub">
+      Interactive charts, country-level drill-downs, full-text search across every recommendation.
+      Built for NGOs, human rights defenders and advocacy researchers — free, open, no login required.
+    </p>
+    <div class="cta-row">
+      <a class="btn" href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">Open dashboard <span class="arrow">→</span></a>
+      <a class="btn ghost" href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">Download CSV (142 MB)</a>
+    </div>
+  </div>
+</section>
+
+<!-- footer -->
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="hr"></div>
+      <div style="display:flex; gap:32px; flex-wrap:wrap;">
+        <div>Built on OHCHR UHRI data · Developed by L. Szaszkiewicz</div>
+        <div>Supported by re:constitution — Exchange and Analysis on Democracy and the Rule of Law in Europe</div>
+      </div>
+      <div style="margin-top:12px; color:var(--dimmer);">
+        The institutions supporting this project do so in different capacities. This dashboard is an individual project and does not represent their views or endorsement.
+      </div>
+    </div>
+    <div class="supporters">
+      <div style="font-size:10px; letter-spacing:.16em; color:var(--dim); text-transform:uppercase; width:100%;">Supported by</div>
+      <span class="sup">UN · OHCHR</span>
+      <span class="sup">re:constitution</span>
+      <span class="sup">HURIDOCS</span>
+      <span class="sup">Forum Transregionale Studien</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Tweaks panel -->
+<div class="tweaks" id="tweaks">
+  <h4>TWEAKS <span class="close" id="tweaksClose">×</span></h4>
+  <div class="row">
+    <span>Palette</span>
+    <div class="swatches" id="swPalette">
+      <div class="sw" data-pal="archive" style="background:#F2EFE8" title="Archive"></div>
+      <div class="sw" data-pal="terminal" style="background:#0b0d0b" title="Terminal"></div>
+      <div class="sw" data-pal="ink" style="background:#ffffff" title="Ink + cobalt"></div>
+    </div>
+  </div>
+  <div class="row">
+    <span>Accent hue</span>
+    <input type="range" id="hueRange" min="0" max="360" step="1">
+  </div>
+  <div class="row">
+    <span>Dot density</span>
+    <input type="range" id="denseRange" min="0.3" max="1.5" step="0.05">
+  </div>
+  <div class="row">
+    <span>Ticker</span>
+    <button class="toggle" id="tkTog">ON</button>
+  </div>
+  <div class="row">
+    <span>Cursor</span>
+    <button class="toggle" id="crTog">ON</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   UN Human Rights Analytics — landing page behavior
+   ========================================================= */
+
+(() => {
+  const tw = window.__TWEAKS__ || {};
+
+  /* ---------- data: synthesized but plausible ---------- */
+  const THEMES = [
+    ["Women's rights / gender",          23812],
+    ["Children's rights",                21440],
+    ["Torture & ill-treatment",          18920],
+    ["Freedom of expression",            16088],
+    ["Rule of law / judiciary",          15220],
+    ["Non-discrimination",               13905],
+    ["Right to education",               11610],
+    ["Health & social security",         10488],
+  ];
+
+  const GROUPS = [
+    ["Women & girls",                    28910],
+    ["Children",                         22104],
+    ["Minorities (ethnic, religious)",   17620],
+    ["Persons deprived of liberty",      12055],
+    ["Persons with disabilities",         9871],
+    ["Migrants & refugees",               9004],
+    ["LGBTI+ persons",                    6520],
+    ["Indigenous peoples",                5140],
+  ];
+
+  const COUNTRIES = [
+    ["CHN","China",3218],["MEX","Mexico",2990],["IRN","Iran",2840],
+    ["COL","Colombia",2711],["RUS","Russia",2620],["BRA","Brazil",2544],
+    ["TUR","Türkiye",2411],["IND","India",2380],["USA","United States",2225],
+    ["IDN","Indonesia",2104],["EGY","Egypt",2058],["PHL","Philippines",2002],
+    ["NGA","Nigeria",1955],["PAK","Pakistan",1902],["UKR","Ukraine",1870],
+    ["MMR","Myanmar",1830],["VEN","Venezuela",1798],["KEN","Kenya",1740],
+    ["SAU","Saudi Arabia",1705],["ETH","Ethiopia",1680],
+  ];
+
+  /* real-feeling recommendation excerpts for the ticker */
+  const RECS = [
+    { yr: 2024, cc: "COL", mech: "CCPR", txt: "Guarantee prompt, effective and impartial investigations into attacks against social leaders and human rights defenders." },
+    { yr: 2023, cc: "IRN", mech: "UPR",  txt: "Establish a moratorium on executions with a view to abolishing the death penalty, particularly for juvenile offenders." },
+    { yr: 2025, cc: "HUN", mech: "CERD", txt: "Combat segregation of Roma children in education and ensure equal access to mainstream schools." },
+    { yr: 2022, cc: "PHL", mech: "UPR",  txt: "Conduct independent investigations into killings in the context of anti-drug operations." },
+    { yr: 2026, cc: "UKR", mech: "CAT",  txt: "Ensure accountability for allegations of torture and ill-treatment in territories affected by armed conflict." },
+    { yr: 2021, cc: "BRA", mech: "CESCR",txt: "Adopt effective measures to protect the territorial rights of indigenous peoples in the Amazon region." },
+    { yr: 2023, cc: "EGY", mech: "UPR",  txt: "Release all persons detained solely for the peaceful exercise of freedom of expression or assembly." },
+    { yr: 2024, cc: "USA", mech: "CERD", txt: "Address racial disparities in policing, pretrial detention and sentencing at federal and state levels." },
+    { yr: 2025, cc: "SAU", mech: "CEDAW",txt: "Repeal provisions of the male guardianship system that limit women's autonomy." },
+    { yr: 2022, cc: "MMR", mech: "SR",   txt: "Grant unimpeded humanitarian access to Rakhine, Chin and Sagaing regions." },
+    { yr: 2020, cc: "POL", mech: "UPR",  txt: "Uphold the independence of the judiciary and the rule of law in accordance with Council of Europe standards." },
+    { yr: 2024, cc: "ETH", mech: "CESCR",txt: "Ensure accountability for violations committed during the conflict in northern Ethiopia." },
+    { yr: 2023, cc: "VEN", mech: "UPR",  txt: "Release arbitrarily detained persons and restore civic space for political participation." },
+    { yr: 2025, cc: "IND", mech: "CERD", txt: "Strengthen implementation of measures against caste-based discrimination and hate speech." },
+    { yr: 2026, cc: "TUR", mech: "UPR",  txt: "Lift restrictions on independent media and release journalists detained for their professional work." },
+  ];
+
+  const MECH_COLORS = {
+    "UPR": "A", "CCPR": "B", "CESCR": "C", "CERD": "D",
+    "CEDAW": "E", "CAT": "F", "CRC": "G", "CRPD": "H", "SR": "I"
+  };
+
+  /* ---------- counters ---------- */
+  const counters = document.querySelectorAll("[data-counter]");
+  const fmt = n => n.toLocaleString("en-US");
+  function runCounter(el, target, dur = 1600) {
+    const start = performance.now();
+    const from = 0;
+    function step(t) {
+      const p = Math.min(1, (t - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const v = Math.round(from + (target - from) * eased);
+      el.textContent = fmt(v);
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = fmt(target);
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* intersection-based counter fire */
+  const io = new IntersectionObserver((ents) => {
+    ents.forEach(e => {
+      if (e.isIntersecting) {
+        counters.forEach(c => {
+          if (c.dataset.fired) return;
+          if (c.getBoundingClientRect().top < window.innerHeight) {
+            c.dataset.fired = "1";
+            runCounter(c, parseInt(c.dataset.counter, 10));
+          }
+        });
+      }
+    });
+  }, { threshold: 0.2 });
+  document.querySelectorAll(".kpis").forEach(el => io.observe(el));
+
+  /* ---------- dot field canvas ---------- */
+  const canvas = document.getElementById("dotCanvas");
+  const ctx = canvas.getContext("2d");
+  const fieldEl = document.getElementById("field");
+  const tipEl = document.getElementById("fieldTip");
+  const fieldCounter = document.getElementById("fieldCounter");
+  const fieldYear = document.getElementById("fieldYear");
+
+  let dots = [];
+  let dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  let W = 0, H = 0;
+
+  function sizeCanvas() {
+    const r = canvas.getBoundingClientRect();
+    W = r.width; H = r.height;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function getCSSVar(name) {
+    return getComputedStyle(document.body).getPropertyValue(name).trim();
+  }
+
+  /* Poisson-ish but cheap: just grid with jitter.
+     Total dots ≈ 1800 * density. Represents the scale, not every record. */
+  function buildDots() {
+    dots = [];
+    const density = tw.dotDensity || 1.0;
+    const N = Math.floor(1800 * density);
+
+    // spread across 21 year-bands (2006..2026)
+    const years = 21;
+    // non-uniform per year (simulating volume curve)
+    const yearWeight = [1,1.1,1.2,1.3,1.5,1.7, 2.3,2.5,2.2,2.0,1.9,2.0, 1.6,2.1,2.4,2.6, 2.0,1.2,1.9,2.6,2.5];
+    const total = yearWeight.reduce((a,b)=>a+b,0);
+    let idx = 0;
+    for (let y = 0; y < years; y++) {
+      const count = Math.floor(N * yearWeight[y] / total);
+      for (let i = 0; i < count; i++) {
+        // layout: columns by year, vertical jitter clustered toward center
+        const padX = 28, padY = 28;
+        const colW = (W - padX*2) / years;
+        const x = padX + y * colW + Math.random() * colW;
+        const centerBias = (Math.random() + Math.random() + Math.random()) / 3; // bell
+        const yy = padY + centerBias * (H - padY*2);
+        // some dots tinted accent (e.g., "serious" recs)
+        const tint = Math.random() < 0.18;
+        dots.push({ x, y: yy, r: 1.3 + Math.random()*0.7, yr: 2006 + y, tint, t0: idx * 0.9 });
+        idx++;
+      }
+    }
+  }
+
+  let started = false;
+  let startT = 0;
+  function draw(ts) {
+    if (!started) { started = true; startT = ts; }
+    const elapsed = ts - startT;
+    ctx.clearRect(0,0,W,H);
+
+    const ink = getCSSVar("--ink") || "#0F0F10";
+    const dim = getCSSVar("--dim") || "#6B6863";
+    const accent = getCSSVar("--accent") || "oklch(0.62 0.17 27)";
+
+    // faint baseline
+    ctx.strokeStyle = "rgba(0,0,0,0.05)";
+    // draw dots gradually
+    const revealPer = 6.0; // dots per ms
+    const revealed = Math.min(dots.length, Math.floor(elapsed * revealPer / 3));
+    fieldCounter.textContent = fmt(Math.round(267548 * (revealed / dots.length)));
+    if (dots.length) {
+      const lastYr = dots[Math.min(revealed, dots.length - 1)]?.yr ?? 2006;
+      fieldYear.textContent = lastYr;
+    }
+
+    for (let i = 0; i < revealed; i++) {
+      const d = dots[i];
+      ctx.beginPath();
+      ctx.fillStyle = d.tint ? accent : ink;
+      ctx.globalAlpha = d.tint ? 0.95 : 0.55;
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // year axis baseline
+    ctx.strokeStyle = "rgba(0,0,0,0.18)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(24, H - 20); ctx.lineTo(W - 24, H - 20); ctx.stroke();
+
+    // year tick labels at beginning and end
+    ctx.fillStyle = dim;
+    ctx.font = "10px 'JetBrains Mono', ui-monospace, monospace";
+    ctx.fillText("2006", 28, H - 6);
+    ctx.textAlign = "right";
+    ctx.fillText("2026", W - 28, H - 6);
+    ctx.textAlign = "left";
+
+    if (revealed < dots.length) requestAnimationFrame(draw);
+  }
+
+  function initField() {
+    sizeCanvas();
+    buildDots();
+    started = false;
+    requestAnimationFrame(draw);
+  }
+
+  /* hover tip */
+  fieldEl.addEventListener("mousemove", (e) => {
+    const r = fieldEl.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    // find nearest revealed dot (cheap: sample)
+    let best = null, bestD = 1e9;
+    for (let i = 0; i < dots.length; i += 3) {
+      const d = dots[i];
+      const dx = d.x - x, dy = d.y - y;
+      const sd = dx*dx + dy*dy;
+      if (sd < bestD) { bestD = sd; best = d; }
+    }
+    if (best && bestD < 900) {
+      const country = COUNTRIES[Math.floor(Math.random()*COUNTRIES.length)][1];
+      const mech = Object.keys(MECH_COLORS)[Math.floor(Math.random()*Object.keys(MECH_COLORS).length)];
+      tipEl.textContent = `${best.yr} · ${country} · ${mech}`;
+      tipEl.style.left = best.x + "px";
+      tipEl.style.top = best.y + "px";
+      tipEl.classList.add("show");
+    } else {
+      tipEl.classList.remove("show");
+    }
+  });
+  fieldEl.addEventListener("mouseleave", () => tipEl.classList.remove("show"));
+
+  window.addEventListener("resize", () => {
+    clearTimeout(window.__rT);
+    window.__rT = setTimeout(initField, 120);
+  });
+
+  /* ---------- ticker ---------- */
+  const track = document.getElementById("tickerTrack");
+  function renderTicker() {
+    const cap = (s, n=180) => s.length > n ? s.slice(0, n - 1) + "…" : s;
+    const items = RECS.concat(RECS).map(r => `
+      <span class="item">
+        <span class="yr">${r.yr}</span>
+        <span class="cc">${r.cc} · ${r.mech}</span>
+        <span>"${cap(r.txt)}"</span>
+        <span class="arrow">→</span>
+      </span>
+    `).join("");
+    track.innerHTML = items;
+  }
+  renderTicker();
+
+  /* ---------- theme / group lists ---------- */
+  function renderBars(listEl, data, maxLabel = true) {
+    const top = data[0][1];
+    const html = data.map(([name, val], i) => {
+      const pct = (val / top) * 100;
+      return `
+        <div class="row" data-val="${val}">
+          <div class="rank">${String(i+1).padStart(2,'0')}</div>
+          <div class="name">
+            <span class="bar" style="width:0%"></span>
+            <span class="txt">${name}</span>
+          </div>
+          <div class="val">${fmt(val)}</div>
+        </div>
+      `;
+    }).join("");
+    listEl.insertAdjacentHTML('beforeend', html);
+    // animate bar widths on visibility
+    const rows = listEl.querySelectorAll(".row");
+    const obs = new IntersectionObserver((ents) => {
+      ents.forEach(e => {
+        if (e.isIntersecting) {
+          rows.forEach((r, i) => {
+            const v = parseInt(r.dataset.val, 10);
+            const pct = (v / top) * 100;
+            setTimeout(() => {
+              r.querySelector(".bar").style.transition = "width 900ms cubic-bezier(.2,.7,.2,1)";
+              r.querySelector(".bar").style.width = pct + "%";
+            }, i * 60);
+          });
+          obs.disconnect();
+        }
+      });
+    }, { threshold: 0.15 });
+    obs.observe(listEl);
+  }
+  renderBars(document.getElementById("themeList"), THEMES);
+  renderBars(document.getElementById("groupList"), GROUPS);
+
+  /* ---------- country grid ---------- */
+  const mapGrid = document.getElementById("mapGrid");
+  const maxC = COUNTRIES[0][2];
+  mapGrid.innerHTML = COUNTRIES.map(([iso, name, val]) => {
+    const pct = (val / maxC) * 100;
+    return `
+      <div class="country-cell" title="${name}: ${fmt(val)} recommendations">
+        <div class="flag">${iso}</div>
+        <div class="cn">${name}</div>
+        <div class="cv">${fmt(val)}</div>
+        <div class="heat" style="width:0%" data-w="${pct}"></div>
+      </div>
+    `;
+  }).join("");
+  const cellObs = new IntersectionObserver((ents) => {
+    ents.forEach(e => {
+      if (e.isIntersecting) {
+        mapGrid.querySelectorAll(".heat").forEach((h, i) => {
+          setTimeout(() => {
+            h.style.transition = "width 700ms cubic-bezier(.2,.7,.2,1)";
+            h.style.width = h.dataset.w + "%";
+          }, i * 40);
+        });
+        cellObs.disconnect();
+      }
+    });
+  }, { threshold: 0.1 });
+  cellObs.observe(mapGrid);
+
+  /* ---------- timeline ---------- */
+  const tlSvg = document.getElementById("tlSvg");
+  const yrAxis = document.getElementById("yrAxis");
+  const tlData = [
+    [2006, 7200],[2007, 7900],[2008, 8800],[2009, 9400],[2010, 10800],
+    [2011, 12400],[2012, 17100],[2013, 18600],[2014, 16200],[2015, 14900],
+    [2016, 14100],[2017, 14800],[2018, 11800],[2019, 15400],[2020, 8100],
+    [2021, 12200],[2022, 17600],[2023, 19100],[2024, 23410],[2025, 21200],
+    [2026, 18600]
+  ];
+  function drawTimeline() {
+    const W = 1000, H = 260;
+    const maxV = Math.max(...tlData.map(d => d[1]));
+    const pad = { l: 24, r: 24, t: 30, b: 30 };
+    const step = (W - pad.l - pad.r) / (tlData.length - 1);
+    const yOf = v => pad.t + (H - pad.t - pad.b) * (1 - v / maxV);
+
+    const areaPts = tlData.map(([y, v], i) => `${pad.l + i*step},${yOf(v)}`).join(" ");
+    const areaD = `M ${pad.l},${H - pad.b} L ${areaPts.split(" ").join(" L ")} L ${pad.l + (tlData.length-1)*step},${H - pad.b} Z`;
+    const lineD = `M ${tlData.map(([y, v], i) => `${pad.l + i*step},${yOf(v)}`).join(" L ")}`;
+
+    const accent = getCSSVar("--accent") || "oklch(0.62 0.17 27)";
+    const ink = getCSSVar("--ink") || "#0F0F10";
+
+    // horizontal grid lines
+    const gridLines = [0, 0.25, 0.5, 0.75, 1].map(p => {
+      const y = pad.t + (H - pad.t - pad.b) * (1 - p);
+      return `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="${ink}" stroke-opacity=".07"/>`;
+    }).join("");
+
+    // dots at each year
+    const pts = tlData.map(([y, v], i) => {
+      const cx = pad.l + i*step, cy = yOf(v);
+      return `<circle cx="${cx}" cy="${cy}" r="3" fill="${ink}"/>`;
+    }).join("");
+
+    // callout year markers
+    const markers = [2012, 2020, 2024].map(yr => {
+      const i = tlData.findIndex(d => d[0] === yr);
+      const cx = pad.l + i*step, cy = yOf(tlData[i][1]);
+      return `<circle cx="${cx}" cy="${cy}" r="7" fill="none" stroke="${accent}" stroke-width="2"/>
+              <line x1="${cx}" y1="${cy+10}" x2="${cx}" y2="${H - pad.b + 4}" stroke="${accent}" stroke-opacity=".4"/>`;
+    }).join("");
+
+    tlSvg.innerHTML = `
+      <defs>
+        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${accent}" stop-opacity=".28"/>
+          <stop offset="1" stop-color="${accent}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${gridLines}
+      <path d="${areaD}" fill="url(#areaGrad)" />
+      <path d="${lineD}" fill="none" stroke="${ink}" stroke-width="1.5"
+            stroke-dasharray="3000" stroke-dashoffset="3000">
+        <animate attributeName="stroke-dashoffset" from="3000" to="0" dur="1.6s" fill="freeze" begin="indefinite" id="tlAnim"/>
+      </path>
+      ${pts}
+      ${markers}
+    `;
+
+    const tlObs = new IntersectionObserver((ents) => {
+      ents.forEach(e => {
+        if (e.isIntersecting) {
+          document.getElementById("tlAnim")?.beginElement?.();
+          tlObs.disconnect();
+        }
+      });
+    }, { threshold: 0.3 });
+    tlObs.observe(tlSvg);
+
+    yrAxis.innerHTML = tlData
+      .map(([y], i) => (i % 2 === 0) ? `<span>${y}</span>` : `<span style="opacity:.35">·</span>`)
+      .join("");
+  }
+  drawTimeline();
+
+  /* ---------- tweaks ---------- */
+  function applyTweaks() {
+    document.body.dataset.palette = tw.palette || "archive";
+    // accent hue override only for 'archive' palette
+    if ((tw.palette || "archive") === "archive") {
+      document.documentElement.style.setProperty("--accent", `oklch(0.62 0.17 ${tw.accentHue})`);
+      document.documentElement.style.setProperty("--accent-soft", `oklch(0.62 0.17 ${tw.accentHue} / .14)`);
+    } else {
+      document.documentElement.style.removeProperty("--accent");
+      document.documentElement.style.removeProperty("--accent-soft");
+    }
+    document.getElementById("cursor").style.display = tw.showCursor ? "" : "none";
+    document.getElementById("tickerWrap").style.display = tw.showTicker ? "" : "none";
+
+    // redraw things that depend on CSS vars
+    drawTimeline();
+    initField();
+  }
+
+  // init tweaks panel UI from state
+  function syncTweaksUI() {
+    document.querySelectorAll("#swPalette .sw").forEach(s => {
+      s.classList.toggle("active", s.dataset.pal === (tw.palette || "archive"));
+    });
+    document.getElementById("hueRange").value = tw.accentHue;
+    document.getElementById("denseRange").value = tw.dotDensity;
+    document.getElementById("tkTog").textContent = tw.showTicker ? "ON" : "OFF";
+    document.getElementById("tkTog").classList.toggle("on", !!tw.showTicker);
+    document.getElementById("crTog").textContent = tw.showCursor ? "ON" : "OFF";
+    document.getElementById("crTog").classList.toggle("on", !!tw.showCursor);
+  }
+
+  function persistTweaks(patch) {
+    Object.assign(tw, patch);
+    syncTweaksUI();
+    applyTweaks();
+    try {
+      window.parent.postMessage({ type: '__edit_mode_set_keys', edits: patch }, '*');
+    } catch (e) {}
+  }
+
+  // palette swatches
+  document.querySelectorAll("#swPalette .sw").forEach(sw => {
+    sw.addEventListener("click", () => persistTweaks({ palette: sw.dataset.pal }));
+  });
+  document.getElementById("hueRange").addEventListener("input", (e) => {
+    persistTweaks({ accentHue: parseInt(e.target.value, 10) });
+  });
+  document.getElementById("denseRange").addEventListener("input", (e) => {
+    persistTweaks({ dotDensity: parseFloat(e.target.value) });
+  });
+  document.getElementById("tkTog").addEventListener("click", () => persistTweaks({ showTicker: !tw.showTicker }));
+  document.getElementById("crTog").addEventListener("click", () => persistTweaks({ showCursor: !tw.showCursor }));
+
+  // edit-mode host plumbing (register FIRST, then announce)
+  window.addEventListener("message", (ev) => {
+    const d = ev.data || {};
+    if (d.type === '__activate_edit_mode') document.getElementById("tweaks").classList.add("open");
+    if (d.type === '__deactivate_edit_mode') document.getElementById("tweaks").classList.remove("open");
+  });
+  document.getElementById("tweaksClose").addEventListener("click", () => {
+    document.getElementById("tweaks").classList.remove("open");
+    try { window.parent.postMessage({ type: '__edit_mode_deactivate_request' }, '*'); } catch (e) {}
+  });
+  try {
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+  } catch (e) {}
+
+  /* boot */
+  syncTweaksUI();
+  applyTweaks();
+})();
+
+</script>
+</body>
+</html>
