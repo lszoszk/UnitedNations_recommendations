@@ -5102,8 +5102,16 @@
             btn.style.borderColor = 'var(--border)';
         }
 
+        function closeSearchHelpPopovers() {
+            ['filterSearchHelp', 'searchHelpPopover'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+        }
+
         function applyFilters() {
             const btn = document.getElementById('applyFiltersBtn');
+            closeSearchHelpPopovers();
 
             // Bug #3 — Validate regex client-side BEFORE firing any request, so we avoid
             // the blocking alert() and the 4-error parallel-fetch cascade on invalid regex.
