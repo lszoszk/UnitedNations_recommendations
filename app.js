@@ -1876,20 +1876,19 @@
             loadOverviewBootstrapThenServerBrowse(false);
         }
 
-        // Debounced Data-tab text-column filter — in server mode, re-queries the VM
-        let _serverSearchFilter = '';  // current on-screen text filter sent to server
-        document.getElementById('tableSearch').addEventListener('input', (e) => {
+        // Debounced Records-tab "find in loaded records" filter.
+        // Only active when !serverBrowseMode (offline / upload / private) —
+        // the full dataset is then in the browser and client-side filter is
+        // honest and instant. In server mode the input is hidden behind the
+        // 🔒 locked CTA, so this handler simply no-ops on typing (also a
+        // belt-and-braces check against stale JS keeping the listener alive).
+        document.getElementById('tableSearch').addEventListener('input', () => {
             clearTimeout(searchDebounceTimer);
             searchDebounceTimer = setTimeout(() => {
+                if (serverBrowseMode) return;  // feature is locked behind Offline & Private Mode
                 currentPage = 1;
                 _pushUrlState();
-                if (serverBrowseMode) {
-                    const query = (e.target.value || '').trim();
-                    _serverSearchFilter = query;
-                    _serverSearchRefresh(query);
-                } else {
-                    renderTableBody();
-                }
+                renderTableBody();
             }, 400);
         });
 
@@ -2668,6 +2667,11 @@
                 if (typeof initChartCopyButtons === 'function') initChartCopyButtons();
                 if (typeof updateChartContextSubtitles === 'function') updateChartContextSubtitles();
             });
+            // Records tab: refresh the active-filter chip strip every time
+            // the tab is shown so users see today's filters, not yesterday's.
+            if (tabName === 'data' && typeof renderDataTabActiveChips === 'function') {
+                renderDataTabActiveChips();
+            }
             if (overviewBootstrapMode && !fullDatasetBackgroundReady && tabName !== 'overview') {
                 if (bootstrapAnalyticsReady && tabName !== 'data') {
                     // Pre-computed analytics available — render charts directly
@@ -2826,16 +2830,26 @@
             if (exportAllBtn) {
                 exportAllBtn.textContent = serverBrowseMode ? '⬇ Export current page XLSX' : '⬇ Export all (filtered) XLSX';
             }
-            if (tableSearch) {
-                tableSearch.placeholder = serverBrowseMode
-                    ? '🔍 Search current page only (global search uses the filter above)...'
-                    : '🔍 Search table (plain or /regex/i)...';
+            // Records tab: swap between the locked CTA (server mode, full dataset
+            // is on the VM — no way to do client-side text search) and the real
+            // input (offline/upload/private — full dataset is in the browser,
+            // client-side text search is exact and instant).
+            const tableSearchLocked = document.getElementById('tableSearchLocked');
+            const tableSearchHelpBtn = document.getElementById('tableSearchHelpBtn');
+            const tableSearchHint = document.getElementById('tableSearchHint');
+            if (tableSearch && tableSearchLocked) {
+                tableSearchLocked.classList.toggle('hidden', !serverBrowseMode);
+                tableSearch.classList.toggle('hidden', !!serverBrowseMode);
+                if (tableSearchHelpBtn) tableSearchHelpBtn.classList.toggle('hidden', !!serverBrowseMode);
+                if (tableSearchHint) tableSearchHint.classList.toggle('hidden', !!serverBrowseMode);
+                if (serverBrowseMode) {
+                    // Clear any stale query so it doesn't resurface when the user
+                    // later unlocks Offline mode and the input becomes visible.
+                    tableSearch.value = '';
+                }
             }
-            if (searchHint) {
-                searchHint.innerHTML = serverBrowseMode
-                    ? '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Server mode: filters the <strong>loaded page</strong>. Use <strong>Search Text</strong> above for full dataset.'
-                    : '<label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>';
-            }
+            // Keep the global active-filter chip strip in sync with the Records tab
+            renderDataTabActiveChips();
             if (mapNote) {
                 mapNote.textContent = serverBrowseMode
                     ? 'Zoom with mouse wheel and drag to pan. Colors represent recommendation frequency across the full current VM filter.'
@@ -2879,6 +2893,67 @@
             // effect. refreshServerBrowseData (called by the outer loader) will then pick up
             // the restored form values when it builds its query.
             try { _restoreUrlState(); } catch (e) { console.debug('URL state re-restore skipped:', e); }
+        }
+
+        // Records tab: small read-only chip strip that mirrors the active
+        // filters from the global Filters panel. Gives immediate context for
+        // why the list has N rows, without duplicating the filter controls
+        // themselves — the Hick's-Law trade-off is one surface of truth.
+        function renderDataTabActiveChips() {
+            const host = document.getElementById('dataTabActiveChips');
+            const status = document.getElementById('dataTabStatus');
+            if (!host || !status) return;
+            const st = typeof getServerFilterState === 'function'
+                ? getServerFilterState() : null;
+            if (!st) { status.classList.add('is-empty'); return; }
+            const chips = [];
+            const add = (label, values, cap = 2) => {
+                if (!values || !values.length) return;
+                const clean = values.map(v => (v || '').replace(/^-+\s*/, '').trim()).filter(Boolean);
+                if (!clean.length) return;
+                const shown = clean.slice(0, cap);
+                const extra = clean.length - shown.length;
+                shown.forEach(v => chips.push(`<span class="data-tab-chip">${escapeHtml(label)}: ${escapeHtml(v)}</span>`));
+                if (extra > 0) chips.push(`<span class="data-tab-chip">${escapeHtml(label)}: +${extra} more</span>`);
+            };
+            add('Country', st.countries);
+            add('Body', st.bodies);
+            add('Region', st.regions);
+            add('Theme', st.themes, 2);
+            add('Group', st.affectedPersons, 2);
+            add('SDG', st.sdgs, 2);
+            if (st.annotationType?.length && st.annotationType[0] !== 'All') {
+                add('Type', st.annotationType);
+            }
+            if (st.textQuery) {
+                const q = st.textQuery.length > 24 ? st.textQuery.slice(0, 22) + '…' : st.textQuery;
+                chips.push(`<span class="data-tab-chip">Search: "${escapeHtml(q)}"</span>`);
+            }
+            if (st.yearStart && st.yearEnd && !(st.yearStart === 2006 && st.yearEnd === 2026)) {
+                chips.push(`<span class="data-tab-chip">Years: ${st.yearStart}–${st.yearEnd}</span>`);
+            }
+            if (chips.length) {
+                chips.push('<button type="button" class="data-tab-chip--clear" onclick="resetFilters()" title="Clear all active filters">Clear all</button>');
+                host.innerHTML = chips.join('');
+                status.classList.remove('is-empty');
+            } else {
+                host.innerHTML = '<span class="data-tab-chip" style="background:transparent; color:#64748b;">No filters active — showing every record</span>';
+                status.classList.remove('is-empty');
+            }
+        }
+
+        // "Refine filters ↑" button: scroll the Filters panel into view and
+        // drop focus into its search input so keyboard users can start typing
+        // immediately. One click replaces two-scrolls-plus-click.
+        function scrollToFiltersPanel() {
+            const section = document.getElementById('filtersSection');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            setTimeout(() => {
+                const input = document.getElementById('filterText');
+                if (input && typeof input.focus === 'function') input.focus();
+            }, 450);
         }
 
         function getServerFilterState() {

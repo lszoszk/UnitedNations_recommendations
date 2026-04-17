@@ -504,7 +504,7 @@
                     <path d="M10 10v9"></path>
                     <path d="M15 10v9"></path>
                 </svg>
-                <span>Data</span>
+                <span>Records</span>
             </button>
             <button class="tab" data-tab="labels">
                 <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -763,16 +763,40 @@
             </div>
         </div>
 
-        <!-- Data Tab -->
+        <!-- Records Tab (formerly "Data") -->
         <div class="data-table-section" id="tab-data">
             <div class="guided-only" style="background:#eef6ff; border:1px solid #c8ddf4; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12px; color:#2d5a87; line-height:1.5;">
-                💡 <strong>Data:</strong> Browse individual recommendations. Use the search box to filter within the current dataset. Select records and export them as XLSX. Open the Labeling Tool (purple button above) to classify recommendations with your own categories.
+                💡 <strong>Records:</strong> One row per recommendation matching your filters above. Select rows and export as XLSX, or open the Labeling Tool to classify them.
+            </div>
+            <!-- Active-filter chip strip + "Refine filters ↑" shortcut. Makes it
+                 obvious WHAT is narrowing this list without duplicating the
+                 filter controls themselves. -->
+            <div class="data-tab-status" id="dataTabStatus">
+                <div class="data-tab-chips" id="dataTabActiveChips"></div>
+                <button type="button" class="data-tab-refine" id="dataTabRefineBtn" onclick="scrollToFiltersPanel()" title="Scroll to the Filters panel and focus the search input">
+                    <span aria-hidden="true">↑</span> Refine filters
+                </button>
             </div>
             <div class="table-controls">
                 <div class="search-wrap">
-                    <div style="position:relative; flex:1;">
-                        <input type="text" class="search-box" id="tableSearch" placeholder="Search recommendations..." style="padding-right:36px;">
-                        <button onclick="document.getElementById('searchHelpPopover').classList.toggle('hidden')" title="Search syntax help" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:22px; height:22px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Search help">?</button>
+                    <!-- Search box swaps between two states based on serverBrowseMode:
+                           - server mode: locked "🔒 Search within these results" CTA.
+                             Clicking opens the Offline & Private Mode modal — the
+                             only context in which full-dataset text search can
+                             actually work locally in the browser.
+                           - offline / upload / private mode: live search input
+                             that narrows the loaded dataset client-side. -->
+                    <div style="position:relative; flex:1;" id="tableSearchHost">
+                        <button type="button" class="data-tab-search-locked" id="tableSearchLocked" onclick="openOfflineModeModal()"
+                                title="Needs Offline & Private Mode to search all records locally">
+                            <span class="data-tab-search-locked-icon" aria-hidden="true">🔒</span>
+                            <span class="data-tab-search-locked-text">
+                                <span class="data-tab-search-locked-title">Search within these results</span>
+                                <span class="data-tab-search-locked-sub">Enable Offline &amp; Private Mode to search your filtered dataset locally →</span>
+                            </span>
+                        </button>
+                        <input type="text" class="search-box data-tab-search-input hidden" id="tableSearch" placeholder="🔍 Find in loaded records — AND · OR · NOT · &quot;exact phrase&quot; · /regex/i" style="padding-right:36px;">
+                        <button id="tableSearchHelpBtn" class="hidden" onclick="document.getElementById('searchHelpPopover').classList.toggle('hidden')" title="Search syntax help" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:1px solid #ccd; border-radius:50%; width:22px; height:22px; font-size:12px; color:#667; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;" aria-label="Search help">?</button>
                         <div id="searchHelpPopover" class="hidden" style="position:absolute; top:calc(100% + 6px); right:0; z-index:100; background:#fff; border:1px solid #dde; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:14px 16px; width:380px; font-size:12px; line-height:1.6; color:#334;">
                             <div style="font-weight:600; margin-bottom:8px; font-size:13px;">Search syntax</div>
                             <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
@@ -781,17 +805,14 @@
                                 <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">AND (all terms)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">education AND women</code></td></tr>
                                 <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">NOT (exclude)</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">migrants NOT trafficking</code></td></tr>
                                 <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">"exact phrase"</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">"freedom of expression"</code></td></tr>
-                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">regex 🔒</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">/child(ren)?/i</code></td></tr>
+                                <tr><td style="padding:3px 8px 3px 0; color:#667; white-space:nowrap;">regex</td><td style="padding:3px 0;"><code style="background:#f0f4f8; padding:1px 5px; border-radius:3px;">/child(ren)?/i</code></td></tr>
                             </table>
                             <div style="margin-top:8px; padding-top:8px; border-top:1px solid #eef; color:#556; font-size:11px; line-height:1.55;">
-                                Operators must be UPPERCASE. Hyphens are normalized automatically (<code style="background:#f0f4f8; padding:0 3px;">asylum seekers</code> = <code style="background:#f0f4f8; padding:0 3px;">asylum-seekers</code>). Can be combined: <code style="background:#f0f4f8; padding:0 3px;">"freedom of expression" AND women NOT minors</code>.
-                            </div>
-                            <div style="margin-top:6px; color:#667; font-size:11px; line-height:1.55; background:#f0f9ff; padding:6px 8px; border-radius:4px;">
-                                🔒 = best in <a href="javascript:void(0)" onclick="document.getElementById('searchHelpPopover').classList.add('hidden'); openOfflineModeModal();" style="color:#2563eb; text-decoration:underline;">Offline &amp; Private Mode</a>. Regex works against the VM too, but complex patterns can be slow or time out.
+                                Operators must be UPPERCASE. Hyphens are normalized automatically. Can be combined: <code style="background:#f0f4f8; padding:0 3px;">"freedom of expression" AND women NOT minors</code>.
                             </div>
                         </div>
                     </div>
-                    <div class="search-hint">
+                    <div class="search-hint" id="tableSearchHint">
                         <label style="cursor:pointer; margin-right:12px;"><input type="checkbox" id="searchTextOnly" style="margin-right:4px; vertical-align:-1px;" onchange="currentPage=1; renderTableBody();">Search text field only</label>
                         Supports: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>"exact phrase"</strong>, <strong>/regex/i</strong>
                     </div>
@@ -806,9 +827,9 @@
                     </span>
                     <button class="btn btn-secondary" style="padding:5px 10px; font-size:11px;" onclick="selectAllRecords()">Select all</button>
                     <button class="btn btn-primary" id="exportAllBtn" style="padding:5px 10px; font-size:11px;" onclick="exportAllToExcel()">⬇ Export XLSX</button>
-                    <span style="margin-left:auto; display:inline-flex; gap:2px;">
-                        <button class="view-btn active" id="viewBtnCard" onclick="setTableView('card')" title="Card view" style="padding:4px 8px; border:1px solid var(--border); border-radius:4px 0 0 4px; background:#fff; cursor:pointer;">☰</button>
-                        <button class="view-btn" id="viewBtnTable" onclick="setTableView('table')" title="Table view" style="padding:4px 8px; border:1px solid var(--border); border-radius:0 4px 4px 0; background:#fff; cursor:pointer;">⊞</button>
+                    <span style="margin-left:auto; display:inline-flex; gap:2px;" role="group" aria-label="Records view mode">
+                        <button class="view-btn active" id="viewBtnCard" onclick="setTableView('card')" title="Reader view — one record per card, full text visible" aria-label="Reader view" style="padding:4px 10px; border:1px solid var(--border); border-radius:4px 0 0 4px; background:#fff; cursor:pointer; font-size:11px; font-weight:600;">☰ Reader</button>
+                        <button class="view-btn" id="viewBtnTable" onclick="setTableView('table')" title="Table view — compact columns for scanning and sorting" aria-label="Table view" style="padding:4px 10px; border:1px solid var(--border); border-radius:0 4px 4px 0; background:#fff; cursor:pointer; font-size:11px; font-weight:600;">⊞ Table</button>
                     </span>
                 </div>
             </div>

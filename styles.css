@@ -1025,6 +1025,149 @@
             font-size: 14px !important;
             flex-shrink: 0;
         }
+        /* ── Records tab: status strip + locked/unlocked search ──
+           Status strip sits directly above the table; left side shows the
+           active filter chips (for context — same chips as in the Filters
+           panel), right side has a small "Refine filters ↑" link that
+           scrolls to and focuses the Filters panel query input. */
+        .data-tab-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        .data-tab-status:empty,
+        .data-tab-status.is-empty { display: none; }
+        .data-tab-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            flex: 1;
+            min-width: 0;
+        }
+        .data-tab-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 8px;
+            background: #e2e8f0;
+            color: #1e3a5f;
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 500;
+        }
+        .data-tab-chip--clear {
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            border: none;
+            padding: 2px 8px;
+            font-size: 11.5px;
+            text-decoration: underline;
+        }
+        .data-tab-refine {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            background: #ffffff;
+            border: 1px solid #c4d0dc;
+            border-radius: 6px;
+            color: #1a5fb4;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            flex-shrink: 0;
+        }
+        .data-tab-refine:hover {
+            background: #eef6ff;
+            border-color: #1a5fb4;
+        }
+
+        /* Locked "Search within these results" CTA shown in server mode.
+           Reads as a disabled-looking, padlocked box but IS clickable —
+           click opens the Offline & Private Mode enable flow. */
+        .data-tab-search-locked {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border: 1px dashed #b8c5d3;
+            border-radius: 8px;
+            color: #475569;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+        .data-tab-search-locked:hover {
+            background: linear-gradient(135deg, #eef6ff 0%, #dbeafe 100%);
+            border-color: #1a5fb4;
+            box-shadow: 0 2px 8px rgba(26, 95, 180, 0.15);
+        }
+        .data-tab-search-locked-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .data-tab-search-locked-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 0;
+        }
+        .data-tab-search-locked-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #1e3a5f;
+        }
+        .data-tab-search-locked-sub {
+            font-size: 12px;
+            color: #64748b;
+        }
+        .data-tab-search-input.hidden,
+        #tableSearchHelpBtn.hidden,
+        .data-tab-search-locked.hidden { display: none; }
+
+        /* Dark-mode variants */
+        body.theme-dark .data-tab-status {
+            background: #162436;
+            border-color: #314154;
+        }
+        body.theme-dark .data-tab-chip {
+            background: #1c2a39;
+            color: #cbd5e1;
+        }
+        body.theme-dark .data-tab-chip--clear { color: #9fb0c4; }
+        body.theme-dark .data-tab-refine {
+            background: #14202d;
+            border-color: #314154;
+            color: #7ab5ff;
+        }
+        body.theme-dark .data-tab-refine:hover {
+            background: #1c2a39;
+            border-color: #7ab5ff;
+        }
+        body.theme-dark .data-tab-search-locked {
+            background: linear-gradient(135deg, #14202d 0%, #1c2a39 100%);
+            border-color: #2e3e52;
+            color: #9fb0c4;
+        }
+        body.theme-dark .data-tab-search-locked:hover {
+            background: linear-gradient(135deg, #162436 0%, #243448 100%);
+            border-color: #7ab5ff;
+            box-shadow: 0 2px 8px rgba(122, 181, 255, 0.2);
+        }
+        body.theme-dark .data-tab-search-locked-title { color: #f2f7fd; }
+        body.theme-dark .data-tab-search-locked-sub { color: #9fb0c4; }
+
         /* Section-heading breadcrumb shown above the recommendation text.
            The cleanup pipeline extracts headings like "D. Other
            recommendations" out of the source HTML; showing them as a
@@ -1895,36 +2038,86 @@
             font-size: 11px;
             color: #546071;
         }
+        /* Records tab — Table view.
+           Previous pass had a hard 500 px max-height that forced a tiny
+           internal scroll area, a heavy full-primary header, no row
+           zebra, and an 680 px min-width on the text column that forced
+           horizontal scroll. Rewritten for a readable, data-grid feel. */
         .table-wrapper {
             overflow-x: auto;
-            max-height: 500px;
-            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
         }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
-        th {
-            background: var(--primary);
-            color: white;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        thead th {
+            background: #f8fafc;
+            color: #1e3a5f;
             font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 11px 14px;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
             position: sticky;
             top: 0;
             cursor: pointer;
             user-select: none;
             white-space: nowrap;
+            z-index: 2;
         }
-        th:hover { background: var(--secondary); }
-        th.sorted-asc::after { content: ' ▲'; font-size: 10px; }
-        th.sorted-desc::after { content: ' ▼'; font-size: 10px; }
-        tr:hover { background: #f8f9fa; }
-        .text-cell {
-            min-width: 680px;
-            max-width: 1100px;
-            white-space: pre-wrap;
-            word-break: break-word;
-            line-height: 1.45;
+        thead th:hover { background: #eef6ff; color: #1a5fb4; }
+        thead th.sorted-asc,
+        thead th.sorted-desc { background: #eef6ff; color: #1a5fb4; }
+        thead th.sorted-asc::after { content: ' ▲'; font-size: 9px; opacity: 0.7; }
+        thead th.sorted-desc::after { content: ' ▼'; font-size: 9px; opacity: 0.7; }
+        tbody td {
+            padding: 12px 14px;
+            text-align: left;
+            border-bottom: 1px solid #f1f5f9;
             vertical-align: top;
         }
+        /* Zebra striping for row tracking across the long text column. */
+        tbody tr:nth-child(even) td { background: #fbfcfe; }
+        tbody tr:hover td { background: #eef6ff !important; }
+        .text-cell {
+            min-width: 360px;
+            max-width: 760px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.55;
+            color: #1e3a5f;
+        }
         .text-cell:hover { color: inherit; }
+        /* Dark-mode table */
+        body.theme-dark .table-wrapper {
+            background: #14202d;
+            border-color: #314154;
+        }
+        body.theme-dark thead th {
+            background: #182838 !important;
+            color: #e6edf5 !important;
+            border-bottom-color: #2e3e52;
+        }
+        body.theme-dark thead th:hover,
+        body.theme-dark thead th.sorted-asc,
+        body.theme-dark thead th.sorted-desc {
+            background: #1c2a39 !important;
+            color: #7ab5ff !important;
+        }
+        body.theme-dark tbody td {
+            background: transparent;
+            color: #cbd5e1;
+            border-bottom-color: #243448;
+        }
+        body.theme-dark tbody tr:nth-child(even) td { background: #162436; }
+        body.theme-dark tbody tr:hover td { background: #1c2a39 !important; }
+        body.theme-dark .text-cell { color: #e6edf5; }
         .copy-actions {
             display: flex;
             flex-wrap: wrap;
