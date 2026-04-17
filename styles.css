@@ -10,13 +10,15 @@
             --border: #dee2e6;
             --shadow: 0 2px 8px rgba(0,0,0,0.1);
             --purple: #6c5ce7;
+            --page-bg: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            background: var(--page-bg);
             min-height: 100vh;
             color: var(--dark);
+            transition: background 0.2s ease, color 0.2s ease;
         }
         .dashboard { max-width: 1800px; margin: 0 auto; padding: 20px; }
         header {
@@ -2565,6 +2567,205 @@
             position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
             background: #2d5a87; color: #fff; padding: 8px 18px; border-radius: 8px;
             font-size: 13px; z-index: 2000; animation: fadeIn 0.2s;
+        }
+
+        body.theme-light {
+            color-scheme: light;
+        }
+        body.theme-dark {
+            color-scheme: dark;
+            --page-bg: linear-gradient(135deg, #0b1220 0%, #121b2a 50%, #182437 100%);
+            --light: #182230;
+            --dark: #e6edf5;
+            --border: #314154;
+            --shadow: 0 10px 30px rgba(0,0,0,0.35);
+        }
+        body.theme-dark .dashboard {
+            color: #e6edf5;
+        }
+        body.theme-dark .settings-panel,
+        body.theme-dark .upload-section,
+        body.theme-dark .landing-feature,
+        body.theme-dark .recent-filters-panel,
+        body.theme-dark .kpi-card,
+        body.theme-dark .chart-card,
+        body.theme-dark .data-table-section,
+        body.theme-dark .modal-content,
+        body.theme-dark .training-pane,
+        body.theme-dark .drilldown-panel,
+        body.theme-dark .sample-card,
+        body.theme-dark .chip-modal,
+        body.theme-dark #moreFiltersPanel,
+        body.theme-dark .rec-card,
+        body.theme-dark .chart-copy-btn {
+            background: #14202d !important;
+            color: #e6edf5;
+            border-color: #314154 !important;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+        }
+        body.theme-dark .upload-section:hover,
+        body.theme-dark .upload-section.dragover,
+        body.theme-dark .rec-card.selected,
+        body.theme-dark .drilldown-rec:hover {
+            background: #182838 !important;
+        }
+        body.theme-dark .settings-panel h4,
+        body.theme-dark .classifier-cta-title,
+        body.theme-dark .kpi-value,
+        body.theme-dark .chart-card h3,
+        body.theme-dark .modal-header h3,
+        body.theme-dark .record-detail-label,
+        body.theme-dark .drilldown-header h3,
+        body.theme-dark .empty-state h3 {
+            color: #f2f7fd;
+        }
+        body.theme-dark .settings-panel .settings-hint,
+        body.theme-dark .classifier-cta-desc,
+        body.theme-dark .kpi-label,
+        body.theme-dark .chart-note,
+        body.theme-dark .world-map-note,
+        body.theme-dark .chart-context,
+        body.theme-dark .search-hint,
+        body.theme-dark .data-info,
+        body.theme-dark .data-info-value,
+        body.theme-dark .data-info-label,
+        body.theme-dark .server-mode-status,
+        body.theme-dark .loading,
+        body.theme-dark .empty-state,
+        body.theme-dark .drilldown-meta,
+        body.theme-dark .drilldown-count,
+        body.theme-dark .tab-loading-overlay,
+        body.theme-dark .tab-loading-fallback-hint,
+        body.theme-dark .rec-card-meta,
+        body.theme-dark .rec-card-themes,
+        body.theme-dark .record-detail-value,
+        body.theme-dark .pagination span,
+        body.theme-dark .sample-id {
+            color: #9fb0c4 !important;
+        }
+        body.theme-dark .data-info,
+        body.theme-dark .server-mode-banner {
+            background: #162436;
+            border-color: #31506f;
+            color: #dce9f8;
+        }
+        body.theme-dark .server-mode-title {
+            color: #eef6ff;
+        }
+        body.theme-dark .vm-loading-notice {
+            background: #352a14;
+            border-color: #7d6430;
+            color: #f3d48e;
+        }
+        body.theme-dark .classifier-cta {
+            background: linear-gradient(135deg, #1d1c33 0%, #1d2940 100%) !important;
+            border-color: #3d4b71 !important;
+        }
+        body.theme-dark .tab,
+        body.theme-dark .view-btn,
+        body.theme-dark .pagination button,
+        body.theme-dark .search-box,
+        body.theme-dark .filter-group select,
+        body.theme-dark .filter-group input,
+        body.theme-dark .chip-select-wrap,
+        body.theme-dark .chip-select-dropdown,
+        body.theme-dark .chip-modal-search,
+        body.theme-dark .modal-copy,
+        body.theme-dark .copy-btn,
+        body.theme-dark .detail-btn-cite,
+        body.theme-dark .inline-btn,
+        body.theme-dark .recent-filter-quick,
+        body.theme-dark .correction-picker {
+            background: #0f1723 !important;
+            color: #e6edf5 !important;
+            border-color: #314154 !important;
+        }
+        body.theme-dark .tab:hover,
+        body.theme-dark .view-btn:hover:not(.active),
+        body.theme-dark .copy-btn:hover,
+        body.theme-dark .detail-btn-cite:hover,
+        body.theme-dark .inline-btn:hover,
+        body.theme-dark .recent-filter-quick:hover,
+        body.theme-dark .chip-select-option:hover,
+        body.theme-dark .chip-select-option.active,
+        body.theme-dark .chip-modal-item:hover,
+        body.theme-dark .correction-opt:hover {
+            background: #1b2a3b !important;
+        }
+        body.theme-dark .tab.active,
+        body.theme-dark .view-btn.active,
+        body.theme-dark .pagination button.active {
+            background: var(--accent) !important;
+            color: white !important;
+            border-color: var(--accent) !important;
+        }
+        body.theme-dark .chip-modal-item.selected {
+            background: #213449 !important;
+        }
+        body.theme-dark .chip-modal-header,
+        body.theme-dark .modal-header,
+        body.theme-dark .drilldown-header,
+        body.theme-dark .record-detail-actions,
+        body.theme-dark .drilldown-more {
+            border-color: #314154 !important;
+        }
+        body.theme-dark .settings-panel hr {
+            border-top-color: #314154;
+        }
+        body.theme-dark .sample-card.labeled {
+            background: #12261b !important;
+        }
+        body.theme-dark .sample-card.excluded {
+            background: #2a171a !important;
+            border-color: #6d3d46 !important;
+        }
+        body.theme-dark .sample-card.excluded .sample-text,
+        body.theme-dark .record-detail-text,
+        body.theme-dark .sample-text {
+            background: #0f1723 !important;
+            border-color: #314154 !important;
+            color: #e6edf5;
+        }
+        body.theme-dark .rec-card-text,
+        body.theme-dark .drilldown-text,
+        body.theme-dark .modal-body,
+        body.theme-dark .sample-text,
+        body.theme-dark .correction-picker-title,
+        body.theme-dark .correction-opt {
+            color: #e6edf5;
+        }
+        body.theme-dark .rec-theme-badge,
+        body.theme-dark .rec-meta-tag,
+        body.theme-dark .chart-context {
+            background: #1c2a39 !important;
+            color: #cfd9e6 !important;
+        }
+        body.theme-dark .world-map-container {
+            background: #0f1723;
+            border-color: #314154;
+        }
+        body.theme-dark td,
+        body.theme-dark .chip-modal-item {
+            color: #e6edf5;
+        }
+        body.theme-dark tr:hover {
+            background: #172230;
+        }
+        body.theme-dark .drilldown-rec {
+            border-bottom-color: #243244;
+        }
+        body.theme-dark .chip-select-empty,
+        body.theme-dark .chip-modal-count,
+        body.theme-dark .modal-close,
+        body.theme-dark .chip-modal-close,
+        body.theme-dark .drilldown-close,
+        body.theme-dark .data-info-sep {
+            color: #9fb0c4;
+        }
+        body.theme-dark input::placeholder,
+        body.theme-dark textarea::placeholder,
+        body.theme-dark .chip-select-input::placeholder {
+            color: #88a0b8;
         }
 
         /* Tablet breakpoint */

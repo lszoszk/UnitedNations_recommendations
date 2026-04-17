@@ -62,6 +62,12 @@
                     Auto-load dataset on return
                 </label>
                 <div class="settings-hint">Skip the landing page and load data automatically on your next visit.</div>
+                <hr>
+                <label>
+                    <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this.checked)">
+                    Dark mode
+                </label>
+                <div class="settings-hint">Switch the dashboard between light and dark appearance. On first visit, it follows your device theme.</div>
             </div>
             <!-- Hidden legacy elements for backward compatibility with setUIMode -->
             <div class="view-toggle-wrap" style="display:none !important;" role="tablist" aria-label="Interface mode">

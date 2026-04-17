@@ -18,7 +18,9 @@
         let recordMap = new Map();
         let modalTextCache = '';
         const UI_MODE_STORAGE_KEY = 'un_hr_dashboard_ui_mode';
+        const THEME_STORAGE_KEY = 'un_hr_dashboard_theme';
         let uiMode = 'expert';
+        let themePreference = 'system';
         let serverBrowseMode = false;
         let serverState = {
             loaded: false,
@@ -352,6 +354,75 @@
             }
             // First-time visitors get annotations by default
             setUIMode(isFirstVisit ? 'guided' : 'expert');
+        }
+
+        function getSystemThemePreference() {
+            try {
+                return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                    ? 'dark'
+                    : 'light';
+            } catch {
+                return 'light';
+            }
+        }
+
+        function getResolvedTheme(pref = themePreference) {
+            if (pref === 'dark' || pref === 'light') return pref;
+            return getSystemThemePreference();
+        }
+
+        function applyThemePreference(pref = 'system', options = {}) {
+            const { persist = true } = options;
+            themePreference = (pref === 'dark' || pref === 'light') ? pref : 'system';
+            const resolved = getResolvedTheme(themePreference);
+            document.body.classList.toggle('theme-dark', resolved === 'dark');
+            document.body.classList.toggle('theme-light', resolved !== 'dark');
+            document.documentElement.style.colorScheme = resolved;
+
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            if (darkModeToggle) darkModeToggle.checked = (resolved === 'dark');
+
+            if (!persist) return;
+            try {
+                if (themePreference === 'system') {
+                    localStorage.removeItem(THEME_STORAGE_KEY);
+                } else {
+                    localStorage.setItem(THEME_STORAGE_KEY, themePreference);
+                }
+            } catch {
+                // Ignore storage errors in restricted contexts.
+            }
+        }
+
+        function toggleDarkMode(enabled) {
+            applyThemePreference(enabled ? 'dark' : 'light');
+        }
+
+        function loadSavedThemePreference() {
+            let stored = 'system';
+            try {
+                const raw = localStorage.getItem(THEME_STORAGE_KEY);
+                if (raw === 'dark' || raw === 'light') stored = raw;
+            } catch {
+                stored = 'system';
+            }
+
+            applyThemePreference(stored, { persist: false });
+
+            if (!loadSavedThemePreference._boundMatchMedia && window.matchMedia) {
+                const media = window.matchMedia('(prefers-color-scheme: dark)');
+                const syncSystemTheme = () => {
+                    if (themePreference === 'system') {
+                        applyThemePreference('system', { persist: false });
+                    }
+                };
+                if (typeof media.addEventListener === 'function') {
+                    media.addEventListener('change', syncSystemTheme);
+                } else if (typeof media.addListener === 'function') {
+                    media.addListener(syncSystemTheme);
+                }
+                loadSavedThemePreference._boundMatchMedia = true;
+            }
         }
 
         /* ── Settings panel toggle ── */
@@ -1423,6 +1494,7 @@
             }
         }
 
+        loadSavedThemePreference();
         loadSavedUIMode();
         loadCustomWidgetsFromStorage();
         // updateTaskTypeUI() call removed
