@@ -42,6 +42,19 @@
                     <div class="hero-stat-label">Time Span</div>
                 </div>
             </div>
+            <!-- Dataset toggle: cleaned (default) vs original UHRI. Always visible
+                 so the dataset in use is never ambiguous. -->
+            <button class="header-dataset-btn" id="headerDatasetBtn" onclick="toggleDataset()"
+                    aria-label="Dataset toggle: cleaned / original UHRI" aria-pressed="false"
+                    title="Cleaned dataset (default) — OCR fixes applied; click to switch to the original UHRI export.">
+                <span class="dataset-indicator" id="datasetIndicator">Cleaned</span>
+            </button>
+            <!-- Report cleanup error: feedback loop for the cleaned dataset. -->
+            <button class="header-report-btn" id="headerReportBtn" onclick="openReportModal()"
+                    aria-label="Report a cleanup error"
+                    title="Report a cleanup error on any record. / Zgłoś nieprawidłowość w oczyszczonym zbiorze danych.">
+                🚩
+            </button>
             <!-- Header action buttons -->
             <button class="header-recent-btn" id="headerRecentBtn" onclick="toggleRecentFiltersPanel()" aria-label="Recent searches" title="Recent searches">🕐</button>
             <div class="recent-filters-panel" id="recentFiltersPanel"></div>
@@ -244,8 +257,13 @@
                             🔒 = best in <a href="javascript:void(0)" onclick="document.getElementById('filterSearchHelp').classList.add('hidden'); openOfflineModeModal();" style="color:#2563eb; text-decoration:underline;">Offline &amp; Private Mode</a>. Regex works against the VM too, but complex patterns can be slow or time out. In Offline Mode every query runs instantly on your own machine.
                         </div>
                     </div>
+                    <div class="filter-match-toggle" id="filterMatchToggle" role="group" aria-label="How to combine filters" data-mode="all">
+                        <span class="filter-match-label">Match</span>
+                        <button type="button" class="filter-match-btn active" id="filterMatchAllBtn" onclick="setFilterMatchMode('all')" aria-pressed="true">ALL</button>
+                        <button type="button" class="filter-match-btn" id="filterMatchAnyBtn" onclick="setFilterMatchMode('any')" aria-pressed="false">ANY</button>
+                    </div>
                     <button class="btn btn-primary filter-query-go" id="applyFiltersBtn" onclick="applyFilters()">
-                        <span>Search</span>
+                        <span>Apply Filters</span>
                     </button>
                 </div>
             </div>
@@ -331,7 +349,7 @@
                     </div>
                     <div class="filter-group">
                         <div class="filter-label">
-                            <label>Affected Persons</label>
+                            <label>Affected Groups</label>
                             <div style="display:flex; gap:4px; align-items:center;">
                                 <button class="clear-btn" onclick="if(_chipSelects['filterAffectedPersons']) _chipSelects['filterAffectedPersons']._openExpandedModal()" title="Browse all groups" style="font-size:13px;">⊞</button>
                                 <button class="clear-btn" onclick="clearFilter('filterAffectedPersons')">Clear</button>
@@ -700,7 +718,7 @@
             <div class="text-analytics-placeholder hidden" id="textAnalyticsPlaceholder" style="text-align:center; padding:40px 20px; background:#f8f9fa; border-radius:12px; margin:16px 0;">
                 <h3 style="margin:0 0 8px;">Text Analytics</h3>
                 <p style="color:#666; margin:0 0 16px; max-width:500px; margin-left:auto; margin-right:auto;">
-                    Text analysis (bigrams, affected persons, SDGs) requires processing every record and takes ~10 seconds for the current filter. Click below to generate.
+                    Text analysis (bigrams, affected groups, SDGs) requires processing every record and takes ~10 seconds for the current filter. Click below to generate.
                 </p>
                 <button class="btn btn-primary" id="generateTextAnalyticsBtn" onclick="generateTextAnalyticsOnDemand()" style="font-size:15px; padding:10px 28px;">
                     Generate Text Analytics
@@ -717,7 +735,7 @@
             <div id="textChartsContainer">
                 <div class="chart-row">
                     <div class="chart-card">
-                        <h3>Affected Persons Mentioned</h3>
+                        <h3>Affected Groups Mentioned</h3>
                         <div class="chart-container tall"><canvas id="chartAffectedPersons"></canvas></div>
                     </div>
                     <div class="chart-card">
@@ -1187,6 +1205,17 @@
                 <p>Built on the dataset published by the <strong>Office of the UN High Commissioner for Human Rights (OHCHR)</strong> at the <a href="https://uhri.ohchr.org/en" target="_blank" rel="noopener">Universal Human Rights Index</a> — all country-specific observations and recommendations from <strong>Treaty Bodies</strong>, <strong>Special Procedures</strong>, and the <strong>Universal Periodic Review</strong>. <span style="color:#667;">Refreshed monthly. You can also upload your own UHRI export (<a href="https://uhri.ohchr.org/en/our-data-api" target="_blank" rel="noopener">ohchr.org/data</a>) or any tabular dataset via the 📂 icon.</span></p>
             </div>
 
+            <div class="about-section" style="background:#f9fafc; border:1px solid #dce4ed; border-radius:10px; padding:14px 16px; margin:14px 0;">
+                <div class="about-section-title" style="margin-bottom:8px;">Cleaned dataset status</div>
+                <p style="margin:0 0 8px; font-size:12.5px; color:#445;">
+                    The default view shows the <strong>cleaned</strong> dataset — OCR fixes applied, section headings searchable. The header pill switches between cleaned and the original UHRI export. Full details: <a href="https://github.com/lszoszk/UnitedNations_recommendations/blob/main/pipeline/METHODOLOGY.md" target="_blank" rel="noopener">pipeline methodology</a>.
+                </p>
+                <div id="aboutRefreshStatus"></div>
+                <p style="margin:10px 0 0; font-size:12px; color:#778;">
+                    Spot something wrong? Click the 🚩 button in the header or on any record to report it. Reports are reviewed during the next monthly refresh and cited in the changelog.
+                </p>
+            </div>
+
             <div class="about-section" style="background:linear-gradient(135deg,#f0f9ff 0%,#e8f0fe 100%); border:1px solid #c4d4f0; border-radius:10px; padding:14px 16px; margin:14px 0;">
                 <div class="about-section-title" style="margin-bottom:6px;">🔒 Offline &amp; Private Mode</div>
                 <p style="margin:0 0 10px;">Download the full dataset to your browser once — after that every search, filter, and <strong>advanced regex query</strong> runs entirely on your machine. No queries reach the server. Required for training your own classifier. Recommended on a desktop or laptop; see details in the dialog.</p>
@@ -1215,6 +1244,58 @@
                 <div class="about-section-title">Research &amp; source</div>
                 <p style="margin:0; font-size:12.5px;">Methodology &amp; analysis scripts described in <a href="https://doi.org/10.1080/13642987.2025.2552467" target="_blank" rel="noopener">&Lstrok;. Szoszkiewicz &amp; A. Kaplane, <em>The International Journal of Human Rights</em> (2025)</a>. Full source code on <a href="https://github.com/lszoszk/UnitedNations_recommendations/tree/gh-pages" target="_blank" rel="noopener">GitHub</a>.</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Report cleanup error modal.
+         Reports go to POST /api/feedback/report and are appended to
+         pipeline/feedback/inbox.jsonl on the server. Reviewed monthly. -->
+    <div class="about-overlay" id="reportOverlay" onclick="if(event.target===this)closeReportModal()">
+        <div class="about-modal" style="max-width:620px;">
+            <button class="about-close" onclick="closeReportModal()" aria-label="Close">&times;</button>
+            <h2 style="margin-bottom:6px;">🚩 Report a cleanup error</h2>
+            <div class="about-subtitle">
+                Spot something wrong in the cleaned dataset? Tell us.
+                Every report is reviewed during the next monthly refresh and the
+                disposition is cited in the changelog. / Zgłoś nieprawidłowość —
+                każde zgłoszenie jest recenzowane w ramach miesięcznej aktualizacji.
+            </div>
+            <form id="reportForm" onsubmit="submitReportForm(event)" style="margin-top:18px; display:flex; flex-direction:column; gap:14px;">
+                <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
+                    <span style="font-weight:600; color:#334;">AnnotationId <span style="color:#c33;">*</span></span>
+                    <input type="text" id="reportAnnotationId" required placeholder="e.g. 5e077e0d-0073-47ed-90a7-9d419b33fbbe"
+                           style="padding:8px 10px; border:1px solid #c4d0dc; border-radius:6px; font-family:monospace; font-size:12px;">
+                    <span style="color:#889; font-size:11.5px;">The ID of the record you're reporting. Visible in record detail views and URLs.</span>
+                </label>
+                <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
+                    <span style="font-weight:600; color:#334;">Category</span>
+                    <select id="reportCategory" style="padding:8px 10px; border:1px solid #c4d0dc; border-radius:6px; font-size:13px;">
+                        <option value="missed_ocr">Missed OCR — cleaned text still has artefacts</option>
+                        <option value="over_edit">Over-edit — cleanup made a wrong change</option>
+                        <option value="lost_content">Lost content — text is missing from the cleaned version</option>
+                        <option value="heading_misclassified">Heading misclassified — wrong split between heading and body</option>
+                        <option value="other">Other</option>
+                    </select>
+                </label>
+                <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
+                    <span style="font-weight:600; color:#334;">What's wrong? <span style="color:#c33;">*</span></span>
+                    <textarea id="reportReason" required rows="5" maxlength="5000" placeholder="Describe the problem. Quote the specific text if helpful."
+                              style="padding:8px 10px; border:1px solid #c4d0dc; border-radius:6px; font-size:13px; font-family:inherit; resize:vertical;"></textarea>
+                </label>
+                <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
+                    <span style="font-weight:600; color:#334;">Your email (optional)</span>
+                    <input type="email" id="reportContact" placeholder="you@example.org" maxlength="200"
+                           style="padding:8px 10px; border:1px solid #c4d0dc; border-radius:6px; font-size:13px;">
+                    <span style="color:#889; font-size:11.5px;">If you'd like to be credited in the changelog or notified of the resolution.</span>
+                </label>
+                <div id="reportStatus" style="font-size:12.5px; min-height:1em;"></div>
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button type="button" class="btn" onclick="closeReportModal()"
+                            style="background:#e7eaef; color:#334; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">Cancel</button>
+                    <button type="submit" id="reportSubmit" class="btn btn-primary"
+                            style="padding:8px 18px; border:none; border-radius:6px; cursor:pointer;">Send report</button>
+                </div>
+            </form>
         </div>
     </div>
 

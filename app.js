@@ -19,8 +19,20 @@
         let modalTextCache = '';
         const UI_MODE_STORAGE_KEY = 'un_hr_dashboard_ui_mode';
         const THEME_STORAGE_KEY = 'un_hr_dashboard_theme';
+        const DATASET_STORAGE_KEY = 'un_hr_dashboard_dataset';
+        const FILTER_MATCH_MODE_DEFAULT = 'all';
+        // Active dataset: `cleaned` (default — pipeline output with OCR
+        // fixes and searchable section headings) or `raw` (original UHRI
+        // export, OCR artefacts preserved — useful for comparing hit counts).
+        // The backend defaults to `cleaned` when no param is sent, so we
+        // only ship an explicit `?dataset=raw` when the user opts in; this
+        // keeps URL surfaces minimal and preserves the server-side cache
+        // hit rate for the common path.
+        let currentDataset = 'cleaned';
         let uiMode = 'expert';
         let themePreference = 'system';
+        let _filterDraftDirty = false;
+        let _lastAppliedFilterKey = '';
         let serverBrowseMode = false;
         let serverState = {
             loaded: false,
@@ -425,6 +437,63 @@
             }
         }
 
+        function normalizeFilterMatchMode(mode) {
+            return String(mode || '').toLowerCase() === 'any' ? 'any' : FILTER_MATCH_MODE_DEFAULT;
+        }
+
+        function getFilterMatchMode() {
+            const toggle = document.getElementById('filterMatchToggle');
+            return normalizeFilterMatchMode(toggle?.dataset?.mode);
+        }
+
+        function updateApplyFiltersButton() {
+            const btn = document.getElementById('applyFiltersBtn');
+            if (!btn || btn.disabled) return;
+            btn.classList.toggle('pending', _filterDraftDirty);
+            btn.innerHTML = '<span>Apply Filters</span>';
+        }
+
+        function buildCurrentFilterDraftKey() {
+            return JSON.stringify(getServerFilterState());
+        }
+
+        function syncFilterDraftState() {
+            _filterDraftDirty = buildCurrentFilterDraftKey() !== _lastAppliedFilterKey;
+            if (typeof renderFilterChips === 'function') {
+                renderFilterChips();
+            }
+            updateApplyFiltersButton();
+        }
+
+        function markCurrentFiltersApplied() {
+            _lastAppliedFilterKey = buildCurrentFilterDraftKey();
+            _filterDraftDirty = false;
+            if (typeof renderFilterChips === 'function') {
+                renderFilterChips();
+            }
+            updateApplyFiltersButton();
+        }
+
+        function setFilterMatchMode(mode, options = {}) {
+            const { syncDraft = true } = options;
+            const resolved = normalizeFilterMatchMode(mode);
+            const toggle = document.getElementById('filterMatchToggle');
+            const allBtn = document.getElementById('filterMatchAllBtn');
+            const anyBtn = document.getElementById('filterMatchAnyBtn');
+            if (toggle) toggle.dataset.mode = resolved;
+            if (allBtn) {
+                const active = resolved === 'all';
+                allBtn.classList.toggle('active', active);
+                allBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            }
+            if (anyBtn) {
+                const active = resolved === 'any';
+                anyBtn.classList.toggle('active', active);
+                anyBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            }
+            if (syncDraft) syncFilterDraftState();
+        }
+
         /* ── Settings panel toggle ── */
         function toggleSettingsPanel() {
             const panel = document.getElementById('settingsPanel');
@@ -732,11 +801,53 @@
             if (yearly.length) renderMiniTrendChart(yearly);
         }
 
+        function applyFacetSelectionToControls(filterType, value, options = {}) {
+            const { apply = false } = options;
+            const selectMap = {
+                countries: 'filterCountry',
+                regions: 'filterRegion',
+                bodies: 'filterBody',
+                themes: 'filterTheme',
+                affected_persons: 'filterAffectedPersons',
+                sdgs: 'filterSdg'
+            };
+            const selectId = selectMap[filterType];
+            const cleanValue = (value || '').replace(/^-+\s*/, '').trim();
+            if (!selectId || !cleanValue) return false;
+
+            const select = document.getElementById(selectId);
+            if (!select || !select.options.length) return false;
+
+            const cleanLower = cleanValue.toLowerCase();
+            let appliedToForm = false;
+            for (const opt of select.options) {
+                const optClean = opt.value.replace(/^-+\s*/, '').trim();
+                if (optClean === cleanValue
+                    || opt.value === value
+                    || optClean.toLowerCase() === cleanLower) {
+                    opt.selected = true;
+                    appliedToForm = true;
+                    break;
+                }
+            }
+
+            if (!appliedToForm) return false;
+
+            if (_chipSelects[selectId]) _chipSelects[selectId].sync();
+            syncFilterDraftState();
+            if (apply) {
+                applyFilters();
+            }
+            return true;
+        }
+
         /* Quick explore chip — loads dashboard with a pre-set filter */
-        function quickExploreChip(filterType, value) {
+        function quickExploreChip(filterType, value, options = {}) {
+            const apply = options.apply !== false;
             if (!value) return;
+            if (applyFacetSelectionToControls(filterType, value, { apply })) return;
             // Store the desired filter for after load
-            window._quickExploreFilter = { type: filterType, value: value };
+            window._quickExploreFilter = { type: filterType, value: value, apply };
             // Trigger full dashboard load
             if (DATASET_API_URL || isGithubPagesHost()) {
                 loadOverviewBootstrapThenServerBrowse(false);
@@ -810,11 +921,11 @@
                     count: b.count
                 });
             });
-            // Affected persons
+            // Affected groups
             (analytics.text?.affected_person_counts || []).forEach(p => {
                 searchIndex.push({
                     label: (p.affected_person || '').replace(/^-\s*/, ''),
-                    type: 'person',
+                    type: 'group',
                     filterType: 'affected_persons',
                     value: p.affected_person,
                     count: p.count
@@ -865,7 +976,7 @@
                         const val = el.getAttribute('data-value');
                         input.value = '';
                         dropdown.classList.add('hidden');
-                        quickExploreChip(ft, val);
+                        quickExploreChip(ft, val, { apply: false });
                     });
                 });
             });
@@ -910,7 +1021,7 @@
 
         /**
          * Autocomplete for the main #filterText input — reuses the same searchIndex
-         * the landing search uses (countries/bodies/themes/regions/affected persons,
+         * the landing search uses (countries/bodies/themes/regions/affected groups,
          * each with a count). Clicking a suggestion routes through the proper
          * multi-select filter via quickExploreChip → applyQuickExploreFilter, so a
          * click on "Ghana" selects the Ghana country filter (not a text LIKE search).
@@ -939,7 +1050,7 @@
                     theme:   'background:#fdebd4; color:#8c5a00;',
                     body:    'background:#e6dff5; color:#52388c;',
                     region:  'background:#d6f0e3; color:#1e6b4a;',
-                    person:  'background:#fbdfe0; color:#8a2326;'
+                    group:   'background:#fbdfe0; color:#8a2326;'
                 };
                 dropdown.innerHTML = matches.map((m, i) => `
                     <div class="filter-ac-item" data-idx="${i}" data-filter-type="${escapeHtml(m.filterType)}" data-value="${escapeHtml(m.value || '')}"
@@ -965,7 +1076,7 @@
                         dropdown.classList.add('hidden');
                         // Route through the landing's quick-explore pipeline so the
                         // correct multi-select filter (country/theme/body/…) gets set.
-                        quickExploreChip(ft, val);
+                        quickExploreChip(ft, val, { apply: false });
                     });
                 });
             });
@@ -1508,6 +1619,8 @@
         // ── Sync auto-load toggle in settings panel ──
         const autoLoadToggle = document.getElementById('autoLoadToggle');
         if (autoLoadToggle) autoLoadToggle.checked = isAutoLoadEnabled();
+        setFilterMatchMode(FILTER_MATCH_MODE_DEFAULT, { syncDraft: false });
+        markCurrentFiltersApplied();
 
         // ── Auto-fetch bootstrap for Living Data Canvas (mini-charts on landing) ──
         autoFetchLandingPreview();
@@ -1520,6 +1633,10 @@
         document.getElementById('filterText')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
         });
+        document.getElementById('filterText')?.addEventListener('input', () => syncFilterDraftState());
+        document.getElementById('filterType')?.addEventListener('change', () => syncFilterDraftState());
+        document.getElementById('filterYearStart')?.addEventListener('input', () => syncFilterDraftState());
+        document.getElementById('filterYearEnd')?.addEventListener('input', () => syncFilterDraftState());
 
         // ── Global keyboard shortcuts (quick-feel upgrade for occasional users) ──
         // "/"      → focus main search (unless user is already typing somewhere)
@@ -2094,50 +2211,8 @@
             window._quickExploreFilter = null;
             setTimeout(() => {
                 try {
-                    // Map landing-chart / landing-search filter types to the dashboard's
-                    // multi-select filter elements. Previously only countries / regions /
-                    // bodies were routed properly — themes and affected_persons fell back
-                    // to a quoted-phrase text search, which returned 0 records (theme
-                    // names like "Constitutional & legislative reform" don't appear as
-                    // literal text in the recommendations). Now all facet-backed filters
-                    // route to their real multi-select, so clicking a bar applies the
-                    // correct filter and shows real results.
-                    const selectMap = {
-                        countries: 'filterCountry',
-                        regions: 'filterRegion',
-                        bodies: 'filterBody',
-                        themes: 'filterTheme',
-                        affected_persons: 'filterAffectedPersons',
-                        sdgs: 'filterSdg'
-                    };
-                    const selectId = selectMap[qf.type];
-                    const cleanValue = (qf.value || '').replace(/^-+\s*/, '').trim();
-                    let applied = false;
-
-                    if (selectId) {
-                        const select = document.getElementById(selectId);
-                        if (select) {
-                            const cleanLower = cleanValue.toLowerCase();
-                            for (const opt of select.options) {
-                                const optClean = opt.value.replace(/^-+\s*/, '').trim();
-                                if (optClean === cleanValue
-                                    || opt.value === qf.value
-                                    || optClean.toLowerCase() === cleanLower) {
-                                    opt.selected = true;
-                                    applied = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (applied) {
-                        if (selectId && _chipSelects[selectId]) _chipSelects[selectId].sync();
-                        // Open the filters section so the user sees the chip they just applied
-                        const details = document.getElementById('filterFacetsDetails');
-                        if (details) details.open = true;
-                        applyFilters();
-                    } else {
+                    const applied = applyFacetSelectionToControls(qf.type, qf.value, { apply: qf.apply !== false });
+                    if (!applied) {
                         console.debug('Quick explore: no matching filter option for', qf);
                     }
                 } catch (e) { console.debug('Quick explore filter apply failed:', e); }
@@ -2349,6 +2424,7 @@
                 if (filters.countries.length) params.set('country', filters.countries.join(','));
                 if (filters.bodies.length) params.set('body', filters.bodies.join(','));
                 if (filters.regions.length) params.set('region', filters.regions.join(','));
+                if (filters.matchMode !== FILTER_MATCH_MODE_DEFAULT) params.set('match', filters.matchMode);
                 if (filters.annotationType.length) params.set('type', filters.annotationType.join(','));
                 // Theme / SDG / affected_persons values may contain commas (e.g. "Children:
                 // definition; general principles; protection"), so we use `|` as the delimiter
@@ -2404,6 +2480,14 @@
                 if (region) {
                     _restoreMultiSelect('filterRegion', region.split(','));
                     restored = true;
+                }
+
+                const matchMode = params.get('match');
+                if (matchMode) {
+                    setFilterMatchMode(matchMode, { syncDraft: false });
+                    restored = true;
+                } else {
+                    setFilterMatchMode(FILTER_MATCH_MODE_DEFAULT, { syncDraft: false });
                 }
 
                 // Restore theme / sdg / affected_persons — pipe-delimited because values
@@ -2684,6 +2768,7 @@
                 themes: getSelectedValues('filterTheme'),
                 affectedPersons: getSelectedValues('filterAffectedPersons'),
                 sdgs: getSelectedValues('filterSdg'),
+                matchMode: getFilterMatchMode(),
                 annotationType: (() => {
                     const value = document.getElementById('filterType').value;
                     return value && value !== 'All' ? [value] : [];
@@ -2905,6 +2990,7 @@
             appendCsvQueryParam(params, 'affected_persons', filters.affectedPersons);
             appendCsvQueryParam(params, 'sdgs', filters.sdgs);
             appendCsvQueryParam(params, 'annotation_type', filters.annotationType);
+            if (filters.matchMode !== FILTER_MATCH_MODE_DEFAULT) params.set('match_mode', filters.matchMode);
             if (filters.yearStart) params.set('year_start', String(filters.yearStart));
             if (filters.yearEnd) params.set('year_end', String(filters.yearEnd));
             if (filters.textQuery) {
@@ -2924,6 +3010,14 @@
             }
             if (options.textFilter) params.set('text_filter', options.textFilter);
 
+            // Dataset toggle: only send the param when the user has opted
+            // out of the default cleaned view. Keeps cleaned-mode URLs
+            // byte-identical to pre-toggle behaviour (and so preserves
+            // the prefetch-reuse check in refreshServerBrowseData).
+            if (currentDataset === 'raw') {
+                params.set('dataset', 'raw');
+            }
+
             if (options.includePagination !== false) {
                 params.set('page', String(options.page || currentPage || 1));
                 params.set('page_size', String(options.pageSize || serverState.pageSize || ROWS_PER_PAGE));
@@ -2936,6 +3030,132 @@
                 params.set('limit', String(options.limit));
             }
             return params;
+        }
+
+        // ── Dataset toggle (Cleaned / Original UHRI) ──────────────────────────
+        function initDatasetToggle() {
+            try {
+                const saved = localStorage.getItem(DATASET_STORAGE_KEY);
+                if (saved === 'raw' || saved === 'cleaned') currentDataset = saved;
+            } catch (_) { /* localStorage blocked — fall through with cleaned */ }
+            updateDatasetIndicator();
+        }
+
+        function updateDatasetIndicator() {
+            const btn = document.getElementById('headerDatasetBtn');
+            const indicator = document.getElementById('datasetIndicator');
+            if (!btn || !indicator) return;
+            const methodologyHint = ' See the info button for details.';
+            if (currentDataset === 'raw') {
+                btn.classList.add('dataset-raw');
+                btn.setAttribute('aria-pressed', 'true');
+                indicator.textContent = 'Original UHRI';
+                btn.title = 'Original UHRI dataset — OCR artefacts preserved. '
+                          + 'Click to switch to the cleaned dataset.'
+                          + methodologyHint;
+            } else {
+                btn.classList.remove('dataset-raw');
+                btn.setAttribute('aria-pressed', 'false');
+                indicator.textContent = 'Cleaned';
+                btn.title = 'Cleaned dataset (default) — OCR fixes applied; '
+                          + 'section headings are searchable. Click to switch '
+                          + 'to the original UHRI dataset for comparison.'
+                          + methodologyHint;
+            }
+        }
+
+        function toggleDataset() {
+            currentDataset = (currentDataset === 'cleaned') ? 'raw' : 'cleaned';
+            try { localStorage.setItem(DATASET_STORAGE_KEY, currentDataset); }
+            catch (_) { /* localStorage blocked — toggle still works this session */ }
+            updateDatasetIndicator();
+            // Refresh the current server-backed view so the user sees the
+            // new dataset immediately. If we're not in server mode, the
+            // toggle will apply the next time server mode is used.
+            if (typeof refreshServerBrowseData === 'function' && serverBrowseMode) {
+                try { refreshServerBrowseData(1, false); } catch (_) { /* noop */ }
+            }
+        }
+
+        // ── Report-a-cleanup-error flow ───────────────────────────────────────
+        function _feedbackReportUrl() {
+            try { return buildApiUrl(VM_BASE_URL, '/api/feedback/report'); }
+            catch (_) { return null; }
+        }
+
+        function openReportModal(prefillAnnotationId) {
+            const overlay = document.getElementById('reportOverlay');
+            if (!overlay) return;
+            const aid = document.getElementById('reportAnnotationId');
+            const reason = document.getElementById('reportReason');
+            const contact = document.getElementById('reportContact');
+            const status = document.getElementById('reportStatus');
+            const submit = document.getElementById('reportSubmit');
+            if (aid && prefillAnnotationId) aid.value = String(prefillAnnotationId);
+            if (reason) reason.value = '';
+            if (contact) contact.value = '';
+            if (status) { status.textContent = ''; status.style.color = ''; }
+            if (submit) { submit.disabled = false; submit.textContent = 'Send report'; }
+            overlay.classList.add('show');
+            overlay.style.display = 'flex';
+            setTimeout(() => {
+                if (aid && !aid.value) aid.focus();
+                else if (reason) reason.focus();
+            }, 60);
+        }
+
+        function closeReportModal() {
+            const overlay = document.getElementById('reportOverlay');
+            if (!overlay) return;
+            overlay.classList.remove('show');
+            overlay.style.display = 'none';
+        }
+
+        async function submitReportForm(event) {
+            event.preventDefault();
+            const status = document.getElementById('reportStatus');
+            const submit = document.getElementById('reportSubmit');
+            const aid = (document.getElementById('reportAnnotationId')?.value || '').trim();
+            const reason = (document.getElementById('reportReason')?.value || '').trim();
+            const category = document.getElementById('reportCategory')?.value || 'other';
+            const contact = (document.getElementById('reportContact')?.value || '').trim();
+            const url = _feedbackReportUrl();
+            if (!url) {
+                if (status) { status.textContent = 'Feedback endpoint is not configured.'; status.style.color = '#c33'; }
+                return;
+            }
+            if (submit) { submit.disabled = true; submit.textContent = 'Sending…'; }
+            if (status) { status.textContent = ''; status.style.color = ''; }
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        annotation_id: aid,
+                        reason,
+                        category,
+                        reporter_contact: contact,
+                        dataset: currentDataset,
+                    }),
+                });
+                if (!response.ok) {
+                    let detail = '';
+                    try { detail = (await response.json()).detail || ''; } catch (_) { /* noop */ }
+                    throw new Error(detail || `Server returned ${response.status}`);
+                }
+                if (status) {
+                    status.textContent = 'Thank you — your report will be reviewed during the next monthly refresh.';
+                    status.style.color = '#1a7a3e';
+                }
+                if (submit) submit.textContent = 'Sent ✓';
+                setTimeout(closeReportModal, 2200);
+            } catch (err) {
+                if (status) {
+                    status.textContent = 'Could not send report: ' + (err.message || 'network error');
+                    status.style.color = '#c33';
+                }
+                if (submit) { submit.disabled = false; submit.textContent = 'Send report'; }
+            }
         }
 
         // ── Plan A: LRU + TTL response cache. Keyed on full URL (which encodes every
@@ -4600,6 +4820,7 @@
             const sel = document.getElementById(id);
             for (let opt of sel.options) opt.selected = false;
             if (_chipSelects[id]) _chipSelects[id].sync();
+            syncFilterDraftState();
         }
 
         // ── Chip-Select Component ──
@@ -4670,6 +4891,7 @@
                     e.stopPropagation();
                     opt.selected = false;
                     this.sync();
+                    syncFilterDraftState();
                 };
                 this.wrap.insertBefore(chip, input);
             });
@@ -4727,6 +4949,7 @@
             this.input.value = '';
             this.sync();
             this._close();
+            syncFilterDraftState();
         };
 
         _ChipSelect.prototype._close = function() {
@@ -4905,7 +5128,8 @@
             if (st.affectedPersons?.length) parts.push(st.affectedPersons.length === 1 ? shortWord(st.affectedPersons[0], 2) : `${st.affectedPersons.length} groups`);
             if (st.sdgs?.length) parts.push(st.sdgs.length === 1 ? shortWord(st.sdgs[0], 2) : `${st.sdgs.length} SDGs`);
             if (st.annotationType?.length && st.annotationType[0] !== 'All') parts.push(st.annotationType.length === 1 ? st.annotationType[0] : `${st.annotationType.length} types`);
-            const label = parts.join(' + ') || 'All records';
+            const prefix = normalizeFilterMatchMode(st.matchMode) === 'any' && parts.length > 1 ? 'ANY · ' : '';
+            const label = prefix + (parts.join(' + ') || 'All records');
             return label.length > 40 ? label.slice(0, 38) + '…' : label;
         }
 
@@ -4941,6 +5165,7 @@
             _restoreMultiSelect('filterTheme', state.themes || []);
             _restoreMultiSelect('filterAffectedPersons', state.affectedPersons || []);
             _restoreMultiSelect('filterSdg', state.sdgs || []);
+            setFilterMatchMode(state.matchMode || FILTER_MATCH_MODE_DEFAULT, { syncDraft: false });
             const typeEl = document.getElementById('filterType');
             if (typeEl) typeEl.value = state.annotationType?.[0] || 'All';
             const ys = document.getElementById('filterYearStart');
@@ -5293,6 +5518,7 @@
             }
 
             btn.disabled = true;
+            btn.classList.remove('pending');
             btn.innerHTML = '<span class="spinner-small"></span> Applying...';
             _pushUrlState();
 
@@ -5304,11 +5530,14 @@
                 _applyInFlightKey = buildServerFilterCacheKey();
                 _applyPendingReapply = false;
                 refreshServerBrowseData(1, true)
-                    .then(() => { saveRecentFilter(); })
+                    .then(() => {
+                        saveRecentFilter();
+                        markCurrentFiltersApplied();
+                    })
                     .finally(() => {
                         markSectionFresh('all');
                         btn.disabled = false;
-                        btn.innerHTML = '<span>Apply Filters</span>';
+                        updateApplyFiltersButton();
                         // Bug #4 — If the form changed while we were running, re-apply now.
                         const currentKey = buildServerFilterCacheKey();
                         const divergent = currentKey !== _applyInFlightKey;
@@ -5328,6 +5557,7 @@
                 const themes = getSelectedValues('filterTheme');
                 const affectedPersons = getSelectedValues('filterAffectedPersons');
                 const sdgs = getSelectedValues('filterSdg');
+                const matchMode = getFilterMatchMode();
                 const type = document.getElementById('filterType').value;
                 const yearStart = parseInt(document.getElementById('filterYearStart').value) || 0;
                 const yearEnd = parseInt(document.getElementById('filterYearEnd').value) || 9999;
@@ -5341,25 +5571,28 @@
                 const _cleanDash = s => (s || '').replace(/^-+\s*/, '').trim().toLowerCase();
 
                 filteredData = rawData.filter(r => {
-                    if (countries.length && !countries.some(c => r._countriesArray.some(rc => _cleanDash(rc) === _cleanDash(c)))) return false;
-                    if (bodies.length && !bodies.some(b => _cleanDash(r._body) === _cleanDash(b))) return false;
-                    if (regions.length && !regions.some(reg => r._regionsArray.some(rr => _cleanDash(rr) === _cleanDash(reg)))) return false;
-                    if (themes.length && !themes.some(t => (r._themesArray || []).some(rt => _cleanDash(rt) === _cleanDash(t) || rt.includes(t) || t.includes(rt)))) return false;
-                    if (affectedPersons.length && !affectedPersons.some(ap => (r._affectedPersonsArray || []).some(ra => _cleanDash(ra) === _cleanDash(ap) || ra.includes(ap) || ap.includes(ra)))) return false;
-                    if (sdgs.length && !sdgs.some(s => (r._sdgsArray || []).some(rs => _cleanDash(rs) === _cleanDash(s) || rs.includes(s)))) return false;
-                    if (type && type !== 'All' && r._type !== type) return false;
-                    if (r._year && (r._year < yearStart || r._year > yearEnd)) return false;
-                    if (!recordMatchesSearch(r, ['_text'], textSearchState)) return false;
-                    return true;
+                    const checks = [];
+                    if (countries.length) checks.push(countries.some(c => r._countriesArray.some(rc => _cleanDash(rc) === _cleanDash(c))));
+                    if (bodies.length) checks.push(bodies.some(b => _cleanDash(r._body) === _cleanDash(b)));
+                    if (regions.length) checks.push(regions.some(reg => r._regionsArray.some(rr => _cleanDash(rr) === _cleanDash(reg))));
+                    if (themes.length) checks.push(themes.some(t => (r._themesArray || []).some(rt => _cleanDash(rt) === _cleanDash(t) || rt.includes(t) || t.includes(rt))));
+                    if (affectedPersons.length) checks.push(affectedPersons.some(ap => (r._affectedPersonsArray || []).some(ra => _cleanDash(ra) === _cleanDash(ap) || ra.includes(ap) || ap.includes(ra))));
+                    if (sdgs.length) checks.push(sdgs.some(s => (r._sdgsArray || []).some(rs => _cleanDash(rs) === _cleanDash(s) || rs.includes(s))));
+                    if (type && type !== 'All') checks.push(r._type === type);
+                    checks.push(!r._year || (r._year >= yearStart && r._year <= yearEnd));
+                    if (textSearchState.type !== 'none') checks.push(recordMatchesSearch(r, ['_text'], textSearchState));
+                    if (!checks.length) return true;
+                    return matchMode === 'any' ? checks.some(Boolean) : checks.every(Boolean);
                 });
 
                 chartData = filteredData.length > MAX_CHART_RECORDS ? sampleData(filteredData, MAX_CHART_RECORDS) : filteredData;
                 currentPage = 1;
                 updateDashboard();
                 saveRecentFilter();
+                markCurrentFiltersApplied();
 
                 btn.disabled = false;
-                btn.innerHTML = '<span>Apply Filters</span>';
+                updateApplyFiltersButton();
             }, 50);
         }
 
@@ -6230,6 +6463,7 @@
             if (unDocsUrl) html += `<a href="${unDocsUrl}" target="_blank" rel="noopener" class="detail-btn-undocs">View UN Document</a>`;
             html += `<button class="detail-btn-cite" onclick="copyFormattedCitation(${id}, this)">Copy Citation</button>`;
             html += `<button class="detail-btn-copy" onclick="copyToClipboard(recordMap.get('${id}')?._text || ''); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy Text',1500)">Copy Text</button>`;
+            html += `<button class="detail-btn-report" onclick="openReportModal(recordMap.get('${id}')?._annotationId || '')" title="Report a cleanup error on this record / Zgłoś nieprawidłowość">🚩 Report issue</button>`;
             html += '</div>';
             const citation = buildFormattedCitation(rec);
             html += `<div style="margin-top:12px; padding:10px 14px; background:#f5f5f5; border-radius:6px; font-size:12px; color:#555; line-height:1.5;">`;
@@ -6367,6 +6601,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Initial injection (may run before charts are built)
             setTimeout(initChartCopyButtons, 500);
+            // Dataset toggle — read persisted choice and paint the header pill.
+            initDatasetToggle();
         });
         // Also hook into renderTabContent completions
         function updateYearlyTrendChart() {
@@ -8900,6 +9136,7 @@
             if (unDocsUrl) html += `<a href="${unDocsUrl}" target="_blank" rel="noopener" class="detail-btn-undocs">View UN Document</a>`;
             html += `<button class="detail-btn-cite" onclick="copyFormattedCitation(${id}, this)">Copy Citation</button>`;
             html += `<button class="detail-btn-copy" onclick="copyToClipboard(recordMap.get('${id}')?._text || ''); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy Text',1500)">Copy Text</button>`;
+            html += `<button class="detail-btn-report" onclick="openReportModal(recordMap.get('${id}')?._annotationId || '')" title="Report a cleanup error on this record / Zgłoś nieprawidłowość">🚩 Report issue</button>`;
             html += '</div>';
             // Citation preview
             const citation = buildFormattedCitation(rec);
@@ -11230,7 +11467,82 @@
         }
         function toggleAboutModal() {
             const overlay = document.getElementById('aboutOverlay');
-            if (overlay) overlay.classList.toggle('visible');
+            if (!overlay) return;
+            const isOpening = !overlay.classList.contains('visible');
+            overlay.classList.toggle('visible');
+            if (isOpening) {
+                // Lazy-fetch the refresh status on first open so researchers
+                // see the current dataset state alongside the methodology
+                // pitch. Cached after first fetch per session.
+                loadRefreshStatusIntoAbout();
+            }
+        }
+
+        // Fetches /api/data/refresh_status and renders it into the About
+        // modal's dataset-status slot. Idempotent; the fetch is only done
+        // once per session (cached via `_cachedRefreshStatus`).
+        let _cachedRefreshStatus = null;
+        async function loadRefreshStatusIntoAbout() {
+            const slot = document.getElementById('aboutRefreshStatus');
+            if (!slot) return;
+            if (_cachedRefreshStatus) {
+                _renderRefreshStatus(slot, _cachedRefreshStatus);
+                return;
+            }
+            slot.innerHTML = '<div style="color:#889; font-size:12px;">Loading current dataset status…</div>';
+            try {
+                const url = buildApiUrl(VM_BASE_URL, '/api/data/refresh_status');
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), 8000);
+                const response = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
+                clearTimeout(t);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                _cachedRefreshStatus = data;
+                _renderRefreshStatus(slot, data);
+            } catch (err) {
+                slot.innerHTML = '<div style="color:#889; font-size:12px;">Dataset status unavailable (' + (err.message || 'network error') + ').</div>';
+            }
+        }
+
+        function _renderRefreshStatus(slot, data) {
+            const _fmt = n => (typeof n === 'number') ? n.toLocaleString() : '—';
+            const lastRefresh = data.last_refresh_date || 'n/a';
+            const cleanedAvailable = data.cleaned_available === true;
+            const llmApplied = data.llm_applied ?? null;
+            const llmReviewed = (data.llm_applied ?? 0) + (data.llm_no_changes ?? 0);
+            const llmPending = data.pending_llm ?? null;
+            const deltaAdded = data.delta_added ?? null;
+            const deltaRemoved = data.delta_removed ?? null;
+            const deltaChanged = data.delta_changed ?? null;
+            const total = data.total_records ?? null;
+            const rows = [];
+            rows.push(`<div style="font-size:12px; color:#556; line-height:1.55;">`);
+            rows.push(`Last refresh: <strong>${escapeHtml(String(lastRefresh))}</strong>`);
+            if (cleanedAvailable) rows.push(` · Cleaned dataset served by default`);
+            else rows.push(` · <span style="color:#a66;">Cleaned dataset not loaded on server — raw only</span>`);
+            rows.push(`</div>`);
+            rows.push(`<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px 18px; margin-top:10px; font-size:12.5px;">`);
+            if (total !== null) rows.push(`<div><strong>${_fmt(total)}</strong><div style="color:#889; font-size:11px;">total records</div></div>`);
+            if (llmApplied !== null) rows.push(`<div><strong>${_fmt(llmApplied)}</strong><div style="color:#889; font-size:11px;">AI-assisted edits</div></div>`);
+            if (llmReviewed) rows.push(`<div><strong>${_fmt(llmReviewed)}</strong><div style="color:#889; font-size:11px;">records LLM-reviewed</div></div>`);
+            if (llmPending !== null) {
+                const colour = llmPending > 0 ? '#a55' : '#2a7a3a';
+                rows.push(`<div><strong style="color:${colour};">${_fmt(llmPending)}</strong><div style="color:#889; font-size:11px;">pending LLM review</div></div>`);
+            }
+            rows.push(`</div>`);
+            // Delta block only when we have a previous refresh to compare against.
+            if (deltaAdded !== null || deltaRemoved !== null || deltaChanged !== null) {
+                rows.push(`<div style="margin-top:10px; font-size:12px; color:#556;">`);
+                rows.push(`Since previous refresh: `);
+                const parts = [];
+                if (deltaAdded !== null) parts.push(`<strong>${_fmt(deltaAdded)}</strong> new`);
+                if (deltaRemoved !== null) parts.push(`<strong>${_fmt(deltaRemoved)}</strong> removed`);
+                if (deltaChanged !== null) parts.push(`<strong>${_fmt(deltaChanged)}</strong> with changed cleaned text`);
+                rows.push(parts.join(' · '));
+                rows.push(`</div>`);
+            }
+            slot.innerHTML = rows.join('');
         }
 
         // ── Offline & Private Mode: triggers a full dataset download (loadRemoteDataset),
