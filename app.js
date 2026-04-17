@@ -122,7 +122,18 @@
         const DATASET_EXPORT_URL = buildApiUrl(VM_BASE_URL, '/api/data/export');
         const DATASET_ANALYTICS_URL = buildApiUrl(VM_BASE_URL, '/api/data/analytics');
         const XLSX_CDN_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        const DISPLAY_NUMBER_LOCALE = 'en-GB';
         // (SetFit API base removed)
+
+        // Standardize count formatting across browsers. Without an explicit locale,
+        // some users see NBSP/space-grouped counts while others see commas.
+        const _nativeNumberToLocaleString = Number.prototype.toLocaleString;
+        Number.prototype.toLocaleString = function(locales, options) {
+            if (locales === undefined) {
+                return _nativeNumberToLocaleString.call(this, DISPLAY_NUMBER_LOCALE, options);
+            }
+            return _nativeNumberToLocaleString.call(this, locales, options);
+        };
 
         const invalidCountryTokens = new Set([
             '', 'all', 'all countries', 'global', 'international', 'multiple countries',
