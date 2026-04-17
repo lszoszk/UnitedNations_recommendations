@@ -398,20 +398,31 @@
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.5);
             z-index: 9999;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
+            padding: 40px 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
         .about-overlay.visible { display: flex; }
         .about-modal {
             background: #fff;
             border-radius: 16px;
             box-shadow: 0 12px 48px rgba(0,0,0,0.25);
-            max-width: 520px;
-            width: 90%;
-            padding: 32px 36px;
+            max-width: 600px;
+            width: 100%;
+            padding: 28px 32px;
             position: relative;
             color: #1e3a5f;
             line-height: 1.6;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            margin: 0 auto;
+        }
+        @media (max-width: 640px) {
+            .about-overlay { padding: 16px 10px; }
+            .about-modal { padding: 22px 20px; max-height: calc(100vh - 32px); }
+            .about-modal h2 { font-size: 18px; }
         }
         .about-modal h2 { margin: 0 0 8px; font-size: 20px; color: #1a365d; }
         .about-modal .about-subtitle { color: #64748b; font-size: 13px; margin-bottom: 20px; }
@@ -979,41 +990,41 @@
             font-size: 14px !important;
             flex-shrink: 0;
         }
-        .filter-match-toggle {
+        /* Per-field ALL/ANY toggle (Themes, Affected Groups, SDGs).
+           Compact pill tucked beside the field label. Hidden by default
+           via the `hidden` attribute; revealed when ≥2 chips are selected
+           so users never see the control until it's actually meaningful. */
+        .field-match-toggle {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 4px;
+            gap: 2px;
+            padding: 2px;
+            margin-left: 8px;
             background: #eef2f7;
-            border: 1px solid var(--border);
+            border: 1px solid #d4dde8;
             border-radius: 999px;
+            font-size: 10px;
             flex-shrink: 0;
         }
-        .filter-match-label {
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.04em;
-            color: #617589;
-            padding: 0 8px 0 6px;
-            text-transform: uppercase;
-        }
-        .filter-match-btn {
+        .field-match-toggle[hidden] { display: none; }
+        .field-match-btn {
             border: none;
             background: transparent;
-            color: #5d7185;
+            color: #64748b;
             border-radius: 999px;
-            padding: 7px 12px;
-            font-size: 12px;
+            padding: 3px 8px;
+            font-size: 10px;
             font-weight: 700;
+            letter-spacing: 0.04em;
             cursor: pointer;
             transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
         }
-        .filter-match-btn.active {
+        .field-match-btn.active {
             background: white;
-            color: var(--primary);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            color: var(--primary, #1a5fb4);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
         }
-        .filter-match-btn:hover:not(.active) {
+        .field-match-btn:hover:not(.active) {
             background: rgba(255,255,255,0.55);
         }
         .filter-query-go.pending {
@@ -2794,15 +2805,15 @@
         body.theme-dark .inline-btn,
         body.theme-dark .recent-filter-quick,
         body.theme-dark .correction-picker,
-        body.theme-dark .filter-match-toggle {
+        body.theme-dark .field-match-toggle {
             background: #0f1723 !important;
             color: #e6edf5 !important;
             border-color: #314154 !important;
         }
-        body.theme-dark .filter-match-label {
+        body.theme-dark .field-match-btn {
             color: #9fb0c4;
         }
-        body.theme-dark .filter-match-btn.active {
+        body.theme-dark .field-match-btn.active {
             background: #1c2a39;
             color: #f2f7fd;
         }
@@ -2816,7 +2827,7 @@
         body.theme-dark .chip-select-option.active,
         body.theme-dark .chip-modal-item:hover,
         body.theme-dark .correction-opt:hover,
-        body.theme-dark .filter-match-btn:hover:not(.active) {
+        body.theme-dark .field-match-btn:hover:not(.active) {
             background: #1b2a3b !important;
         }
         body.theme-dark .tab.active,
@@ -2895,6 +2906,154 @@
             color: #88a0b8;
         }
 
+        /* ── Dark mode: About / Report / Offline modals ────────────────────
+           The overlay stays a translucent scrim, but the modal card swaps to
+           a dark surface with bright text so it reads as part of the theme
+           instead of flashing a white rectangle. */
+        body.theme-dark .about-modal {
+            background: #14202d;
+            color: #e6edf5;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.55);
+        }
+        body.theme-dark .about-modal h2,
+        body.theme-dark .about-modal h3,
+        body.theme-dark .about-modal strong {
+            color: #f2f7fd;
+        }
+        body.theme-dark .about-modal .about-subtitle,
+        body.theme-dark .about-modal .about-section-title {
+            color: #9fb0c4;
+        }
+        body.theme-dark .about-modal p,
+        body.theme-dark .about-modal li,
+        body.theme-dark .about-modal label,
+        body.theme-dark .about-modal .about-section div {
+            color: #cbd5e1;
+        }
+        body.theme-dark .about-modal a { color: #7ab5ff; }
+        body.theme-dark .about-modal hr { border-top-color: #314154; }
+        body.theme-dark .about-modal .about-close { color: #9fb0c4; }
+        body.theme-dark .about-modal .about-close:hover { color: #f2f7fd; }
+        /* The "refresh status" card inside About and any other inline boxes
+           with explicit light-mode backgrounds. */
+        body.theme-dark .about-section[style*="background"],
+        body.theme-dark #aboutRefreshStatus {
+            background: #182838 !important;
+            border-color: #314154 !important;
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark #aboutRefreshStatus strong { color: #f2f7fd; }
+        /* Report modal form controls */
+        body.theme-dark #reportForm input,
+        body.theme-dark #reportForm select,
+        body.theme-dark #reportForm textarea {
+            background: #0f1723 !important;
+            color: #e6edf5 !important;
+            border-color: #314154 !important;
+        }
+        body.theme-dark #reportForm .btn[type="button"] {
+            background: #263243 !important;
+            color: #cbd5e1 !important;
+        }
+
+        /* Labeling tab / landing feature section headings + hints.
+           These were styled for light-mode only (dark-blue text on white)
+           and become invisible on the dark page background. */
+        body.theme-dark #step2Title,
+        body.theme-dark .labeling-step h3,
+        body.theme-dark .labeling-step-title,
+        body.theme-dark .landing-feature h3 {
+            color: #f2f7fd;
+        }
+        body.theme-dark #step3Hint,
+        body.theme-dark .labeling-step-hint,
+        body.theme-dark .landing-feature p {
+            color: #9fb0c4;
+        }
+        body.theme-dark summary,
+        body.theme-dark details summary {
+            color: #cbd5e1;
+        }
+        body.theme-dark summary:hover {
+            color: #f2f7fd;
+        }
+
+        /* Landing-page search box helper chrome */
+        body.theme-dark .landing-search-icon {
+            color: #9fb0c4;
+        }
+        body.theme-dark .landing-search-kbd {
+            background: #1b2838;
+            color: #c7d4e4;
+            border-color: #314154;
+        }
+
+        /* Site footer / credits strip under charts */
+        body.theme-dark .site-footer {
+            background: #0f1723;
+            border-top-color: #314154;
+        }
+        body.theme-dark .site-footer,
+        body.theme-dark .site-footer * {
+            color: #9fb0c4;
+        }
+        body.theme-dark .site-footer strong { color: #cbd5e1; }
+        body.theme-dark .site-footer a { color: #7ab5ff; }
+        body.theme-dark .site-footer a:hover { color: #a8cffe; }
+
+        /* Offline & Private Mode modal — inline hardcoded styles for the
+           three "Full privacy / Works offline / Unlocks advanced" titles
+           and helper copy need a dark-mode override via attribute selector. */
+        body.theme-dark #offlineModeOverlay .about-modal strong[style*="color:#1a3a5c"] {
+            color: #f2f7fd !important;
+        }
+        body.theme-dark #offlineModeOverlay .about-modal div[style*="color:#526783"],
+        body.theme-dark #offlineModeOverlay .about-modal div[style*="color:#667"] {
+            color: #9fb0c4 !important;
+        }
+        /* The amber "things to know" callout at the bottom of the offline
+           modal has a very pale background; dim it so it reads in dark mode
+           without changing its affordance. */
+        body.theme-dark #offlineModeOverlay .about-modal div[style*="background:#fff7ed"],
+        body.theme-dark #offlineModeOverlay .about-modal div[style*="background:#fef3c7"],
+        body.theme-dark #offlineModeOverlay .about-modal div[style*="background:#fffbe6"] {
+            background: #2a2414 !important;
+            border-color: #6a5a2e !important;
+            color: #f3d48e !important;
+        }
+        body.theme-dark #offlineModeOverlay .about-modal div[style*="background:#fff7ed"] *,
+        body.theme-dark #offlineModeOverlay .about-modal div[style*="background:#fef3c7"] *,
+        body.theme-dark #offlineModeOverlay .about-modal div[style*="background:#fffbe6"] * {
+            color: #f3d48e !important;
+        }
+
+        /* Apply-filters pending indicator — bumped amber tint so the
+           unapplied-changes state stays visible against a dark panel. */
+        body.theme-dark .filter-query-go.pending::after {
+            background: #ffc86a;
+            box-shadow: 0 0 0 2px #14202d;
+        }
+
+        /* Dataset toggle pill in dark mode.
+           - cleaned (default): subtle light tint on the already-dark hero.
+           - raw / original UHRI: amber pill stays visible on dark. */
+        body.theme-dark .header-dataset-btn {
+            background: rgba(255,255,255,0.10);
+            color: #e6edf5;
+            border-color: rgba(255,255,255,0.22);
+        }
+        body.theme-dark .header-dataset-btn:hover {
+            background: rgba(255,255,255,0.18);
+        }
+        body.theme-dark .header-dataset-btn.dataset-raw {
+            background: rgba(255,180,0,0.20);
+            border-color: rgba(255,200,80,0.55);
+            color: #ffd98a;
+        }
+        body.theme-dark .header-dataset-btn.dataset-raw:hover {
+            background: rgba(255,180,0,0.32);
+        }
+
         /* Tablet breakpoint */
         @media (max-width: 1024px) {
             .tabs { gap: 4px; }
@@ -2943,9 +3102,7 @@
 
             /* Filters: stack vertically */
             .filter-query-input-wrap { flex-wrap: wrap; }
-            .filter-match-toggle,
             .filter-query-go { width: 100%; }
-            .filter-match-toggle { justify-content: center; }
 
             /* Hero */
             header h1 { font-size: 22px; }

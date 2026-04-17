@@ -257,11 +257,6 @@
                             🔒 = best in <a href="javascript:void(0)" onclick="document.getElementById('filterSearchHelp').classList.add('hidden'); openOfflineModeModal();" style="color:#2563eb; text-decoration:underline;">Offline &amp; Private Mode</a>. Regex works against the VM too, but complex patterns can be slow or time out. In Offline Mode every query runs instantly on your own machine.
                         </div>
                     </div>
-                    <div class="filter-match-toggle" id="filterMatchToggle" role="group" aria-label="How to combine filters" data-mode="all">
-                        <span class="filter-match-label">Match</span>
-                        <button type="button" class="filter-match-btn active" id="filterMatchAllBtn" onclick="setFilterMatchMode('all')" aria-pressed="true">ALL</button>
-                        <button type="button" class="filter-match-btn" id="filterMatchAnyBtn" onclick="setFilterMatchMode('any')" aria-pressed="false">ANY</button>
-                    </div>
                     <button class="btn btn-primary filter-query-go" id="applyFiltersBtn" onclick="applyFilters()">
                         <span>Apply Filters</span>
                     </button>
@@ -336,6 +331,10 @@
                     <div class="filter-group">
                         <div class="filter-label">
                             <label>Theme</label>
+                            <div class="field-match-toggle" id="filterThemeMatchToggle" data-field="themes" data-mode="any" hidden>
+                                <button type="button" class="field-match-btn" data-mode="any" aria-pressed="true" onclick="setFieldMatchMode('themes','any')">ANY</button>
+                                <button type="button" class="field-match-btn" data-mode="all" aria-pressed="false" onclick="setFieldMatchMode('themes','all')" title="Record must have ALL selected themes">ALL</button>
+                            </div>
                             <div style="display:flex; gap:4px; align-items:center;">
                                 <button class="clear-btn" onclick="if(_chipSelects['filterTheme']) _chipSelects['filterTheme']._openExpandedModal()" title="Browse all themes" style="font-size:13px;">⊞</button>
                                 <button class="clear-btn" onclick="clearFilter('filterTheme')">Clear</button>
@@ -350,6 +349,10 @@
                     <div class="filter-group">
                         <div class="filter-label">
                             <label>Affected Groups</label>
+                            <div class="field-match-toggle" id="filterAffectedPersonsMatchToggle" data-field="affected_persons" data-mode="any" hidden>
+                                <button type="button" class="field-match-btn" data-mode="any" aria-pressed="true" onclick="setFieldMatchMode('affected_persons','any')">ANY</button>
+                                <button type="button" class="field-match-btn" data-mode="all" aria-pressed="false" onclick="setFieldMatchMode('affected_persons','all')" title="Record must list ALL selected groups">ALL</button>
+                            </div>
                             <div style="display:flex; gap:4px; align-items:center;">
                                 <button class="clear-btn" onclick="if(_chipSelects['filterAffectedPersons']) _chipSelects['filterAffectedPersons']._openExpandedModal()" title="Browse all groups" style="font-size:13px;">⊞</button>
                                 <button class="clear-btn" onclick="clearFilter('filterAffectedPersons')">Clear</button>
@@ -364,6 +367,10 @@
                     <div class="filter-group">
                         <div class="filter-label">
                             <label>SDG</label>
+                            <div class="field-match-toggle" id="filterSdgMatchToggle" data-field="sdgs" data-mode="any" hidden>
+                                <button type="button" class="field-match-btn" data-mode="any" aria-pressed="true" onclick="setFieldMatchMode('sdgs','any')">ANY</button>
+                                <button type="button" class="field-match-btn" data-mode="all" aria-pressed="false" onclick="setFieldMatchMode('sdgs','all')" title="Record must reference ALL selected SDGs">ALL</button>
+                            </div>
                             <div style="display:flex; gap:4px; align-items:center;">
                                 <button class="clear-btn" onclick="if(_chipSelects['filterSdg']) _chipSelects['filterSdg']._openExpandedModal()" title="Browse all SDGs" style="font-size:13px;">⊞</button>
                                 <button class="clear-btn" onclick="clearFilter('filterSdg')">Clear</button>

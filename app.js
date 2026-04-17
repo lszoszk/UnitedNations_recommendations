@@ -20,7 +20,6 @@
         const UI_MODE_STORAGE_KEY = 'un_hr_dashboard_ui_mode';
         const THEME_STORAGE_KEY = 'un_hr_dashboard_theme';
         const DATASET_STORAGE_KEY = 'un_hr_dashboard_dataset';
-        const FILTER_MATCH_MODE_DEFAULT = 'all';
         // Active dataset: `cleaned` (default — pipeline output with OCR
         // fixes and searchable section headings) or `raw` (original UHRI
         // export, OCR artefacts preserved — useful for comparing hit counts).
@@ -437,13 +436,61 @@
             }
         }
 
-        function normalizeFilterMatchMode(mode) {
-            return String(mode || '').toLowerCase() === 'any' ? 'any' : FILTER_MATCH_MODE_DEFAULT;
+        // ── Per-field ALL/ANY mode ─────────────────────────────────────────
+        // Only applies to the three multi-value facets where a record
+        // legitimately carries >1 value (themes, affected_persons, sdgs).
+        // Country/Body/Region/Type are single-value so a per-field toggle
+        // would be confusing; text search has its own boolean operators.
+        // Default everywhere is `any` (OR inside IN(…)). Toggle becomes
+        // visible only when the user has picked ≥2 chips for that field.
+        const FIELD_MATCH_TOGGLE_IDS = {
+            themes: 'filterThemeMatchToggle',
+            affected_persons: 'filterAffectedPersonsMatchToggle',
+            sdgs: 'filterSdgMatchToggle',
+        };
+        const FIELD_MATCH_SELECT_IDS = {
+            themes: 'filterTheme',
+            affected_persons: 'filterAffectedPersons',
+            sdgs: 'filterSdg',
+        };
+
+        function normalizeFieldMatchMode(mode) {
+            return String(mode || '').toLowerCase() === 'all' ? 'all' : 'any';
         }
 
-        function getFilterMatchMode() {
-            const toggle = document.getElementById('filterMatchToggle');
-            return normalizeFilterMatchMode(toggle?.dataset?.mode);
+        function getFieldMatchMode(field) {
+            const toggle = document.getElementById(FIELD_MATCH_TOGGLE_IDS[field] || '');
+            return normalizeFieldMatchMode(toggle?.dataset?.mode);
+        }
+
+        function setFieldMatchMode(field, mode, options = {}) {
+            const { syncDraft = true } = options;
+            const resolved = normalizeFieldMatchMode(mode);
+            const toggle = document.getElementById(FIELD_MATCH_TOGGLE_IDS[field] || '');
+            if (!toggle) return;
+            toggle.dataset.mode = resolved;
+            toggle.querySelectorAll('.field-match-btn').forEach((btn) => {
+                const active = btn.dataset.mode === resolved;
+                btn.classList.toggle('active', active);
+                btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            if (syncDraft) syncFilterDraftState();
+        }
+
+        // Show the toggle when 2+ chips selected, hide otherwise; reset to
+        // `any` when the field becomes empty so a future selection starts
+        // from the expected default (never silently inherit an old "all").
+        function refreshFieldMatchToggles() {
+            Object.entries(FIELD_MATCH_SELECT_IDS).forEach(([field, selectId]) => {
+                const toggle = document.getElementById(FIELD_MATCH_TOGGLE_IDS[field]);
+                const select = document.getElementById(selectId);
+                if (!toggle || !select) return;
+                const count = Array.from(select.options).filter(o => o.selected).length;
+                toggle.hidden = count < 2;
+                if (count === 0 && toggle.dataset.mode !== 'any') {
+                    setFieldMatchMode(field, 'any', { syncDraft: false });
+                }
+            });
         }
 
         function updateApplyFiltersButton() {
@@ -462,6 +509,10 @@
             if (typeof renderFilterChips === 'function') {
                 renderFilterChips();
             }
+            // Show/hide per-field ALL/ANY toggles based on current chip count.
+            if (typeof refreshFieldMatchToggles === 'function') {
+                refreshFieldMatchToggles();
+            }
             updateApplyFiltersButton();
         }
 
@@ -471,28 +522,12 @@
             if (typeof renderFilterChips === 'function') {
                 renderFilterChips();
             }
+            if (typeof refreshFieldMatchToggles === 'function') {
+                refreshFieldMatchToggles();
+            }
             updateApplyFiltersButton();
         }
 
-        function setFilterMatchMode(mode, options = {}) {
-            const { syncDraft = true } = options;
-            const resolved = normalizeFilterMatchMode(mode);
-            const toggle = document.getElementById('filterMatchToggle');
-            const allBtn = document.getElementById('filterMatchAllBtn');
-            const anyBtn = document.getElementById('filterMatchAnyBtn');
-            if (toggle) toggle.dataset.mode = resolved;
-            if (allBtn) {
-                const active = resolved === 'all';
-                allBtn.classList.toggle('active', active);
-                allBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-            }
-            if (anyBtn) {
-                const active = resolved === 'any';
-                anyBtn.classList.toggle('active', active);
-                anyBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-            }
-            if (syncDraft) syncFilterDraftState();
-        }
 
         /* ── Settings panel toggle ── */
         function toggleSettingsPanel() {
@@ -1619,7 +1654,8 @@
         // ── Sync auto-load toggle in settings panel ──
         const autoLoadToggle = document.getElementById('autoLoadToggle');
         if (autoLoadToggle) autoLoadToggle.checked = isAutoLoadEnabled();
-        setFilterMatchMode(FILTER_MATCH_MODE_DEFAULT, { syncDraft: false });
+        // Per-field ALL/ANY toggles start hidden; refreshed when chip selection changes.
+        refreshFieldMatchToggles();
         markCurrentFiltersApplied();
 
         // ── Auto-fetch bootstrap for Living Data Canvas (mini-charts on landing) ──
@@ -2424,7 +2460,10 @@
                 if (filters.countries.length) params.set('country', filters.countries.join(','));
                 if (filters.bodies.length) params.set('body', filters.bodies.join(','));
                 if (filters.regions.length) params.set('region', filters.regions.join(','));
-                if (filters.matchMode !== FILTER_MATCH_MODE_DEFAULT) params.set('match', filters.matchMode);
+                // Per-field match modes for multi-value facets (default: any).
+                if (filters.themesMatch === 'all') params.set('themes_match', 'all');
+                if (filters.affectedPersonsMatch === 'all') params.set('affected_persons_match', 'all');
+                if (filters.sdgsMatch === 'all') params.set('sdgs_match', 'all');
                 if (filters.annotationType.length) params.set('type', filters.annotationType.join(','));
                 // Theme / SDG / affected_persons values may contain commas (e.g. "Children:
                 // definition; general principles; protection"), so we use `|` as the delimiter
@@ -2482,13 +2521,16 @@
                     restored = true;
                 }
 
-                const matchMode = params.get('match');
-                if (matchMode) {
-                    setFilterMatchMode(matchMode, { syncDraft: false });
-                    restored = true;
-                } else {
-                    setFilterMatchMode(FILTER_MATCH_MODE_DEFAULT, { syncDraft: false });
-                }
+                // Per-field match modes (themes / affected_persons / sdgs).
+                // Absent params default to `any`. Set the toggle dataset before
+                // the chip selection is restored so `refreshFieldMatchToggles`
+                // shows/hides them correctly when chips come in.
+                ['themes_match', 'affected_persons_match', 'sdgs_match'].forEach((key) => {
+                    const field = key.replace('_match', '');
+                    const mode = params.get(key);
+                    setFieldMatchMode(field, mode || 'any', { syncDraft: false });
+                    if (mode) restored = true;
+                });
 
                 // Restore theme / sdg / affected_persons — pipe-delimited because values
                 // can contain commas (e.g. "Children: definition; general principles").
@@ -2768,7 +2810,9 @@
                 themes: getSelectedValues('filterTheme'),
                 affectedPersons: getSelectedValues('filterAffectedPersons'),
                 sdgs: getSelectedValues('filterSdg'),
-                matchMode: getFilterMatchMode(),
+                themesMatch: getFieldMatchMode('themes'),
+                affectedPersonsMatch: getFieldMatchMode('affected_persons'),
+                sdgsMatch: getFieldMatchMode('sdgs'),
                 annotationType: (() => {
                     const value = document.getElementById('filterType').value;
                     return value && value !== 'All' ? [value] : [];
@@ -2990,7 +3034,11 @@
             appendCsvQueryParam(params, 'affected_persons', filters.affectedPersons);
             appendCsvQueryParam(params, 'sdgs', filters.sdgs);
             appendCsvQueryParam(params, 'annotation_type', filters.annotationType);
-            if (filters.matchMode !== FILTER_MATCH_MODE_DEFAULT) params.set('match_mode', filters.matchMode);
+            // Per-field ALL/ANY — only ship the param when user opted into
+            // `all`; absent param means server default (`any` / OR-in-IN).
+            if (filters.themesMatch === 'all') params.set('themes_match', 'all');
+            if (filters.affectedPersonsMatch === 'all') params.set('affected_persons_match', 'all');
+            if (filters.sdgsMatch === 'all') params.set('sdgs_match', 'all');
             if (filters.yearStart) params.set('year_start', String(filters.yearStart));
             if (filters.yearEnd) params.set('year_end', String(filters.yearEnd));
             if (filters.textQuery) {
@@ -5128,7 +5176,13 @@
             if (st.affectedPersons?.length) parts.push(st.affectedPersons.length === 1 ? shortWord(st.affectedPersons[0], 2) : `${st.affectedPersons.length} groups`);
             if (st.sdgs?.length) parts.push(st.sdgs.length === 1 ? shortWord(st.sdgs[0], 2) : `${st.sdgs.length} SDGs`);
             if (st.annotationType?.length && st.annotationType[0] !== 'All') parts.push(st.annotationType.length === 1 ? st.annotationType[0] : `${st.annotationType.length} types`);
-            const prefix = normalizeFilterMatchMode(st.matchMode) === 'any' && parts.length > 1 ? 'ANY · ' : '';
+            // Flag any field that opted into ALL semantics so users can
+            // spot the distinction in the Recent row.
+            const allFields = [];
+            if (st.themesMatch === 'all' && st.themes?.length > 1) allFields.push('Themes');
+            if (st.affectedPersonsMatch === 'all' && st.affectedPersons?.length > 1) allFields.push('Groups');
+            if (st.sdgsMatch === 'all' && st.sdgs?.length > 1) allFields.push('SDGs');
+            const prefix = allFields.length ? `ALL ${allFields.join('/')} · ` : '';
             const label = prefix + (parts.join(' + ') || 'All records');
             return label.length > 40 ? label.slice(0, 38) + '…' : label;
         }
@@ -5165,7 +5219,9 @@
             _restoreMultiSelect('filterTheme', state.themes || []);
             _restoreMultiSelect('filterAffectedPersons', state.affectedPersons || []);
             _restoreMultiSelect('filterSdg', state.sdgs || []);
-            setFilterMatchMode(state.matchMode || FILTER_MATCH_MODE_DEFAULT, { syncDraft: false });
+            setFieldMatchMode('themes', state.themesMatch || 'any', { syncDraft: false });
+            setFieldMatchMode('affected_persons', state.affectedPersonsMatch || 'any', { syncDraft: false });
+            setFieldMatchMode('sdgs', state.sdgsMatch || 'any', { syncDraft: false });
             const typeEl = document.getElementById('filterType');
             if (typeEl) typeEl.value = state.annotationType?.[0] || 'All';
             const ys = document.getElementById('filterYearStart');
@@ -5557,7 +5613,11 @@
                 const themes = getSelectedValues('filterTheme');
                 const affectedPersons = getSelectedValues('filterAffectedPersons');
                 const sdgs = getSelectedValues('filterSdg');
-                const matchMode = getFilterMatchMode();
+                // Per-field match modes — only apply within themes/affected_persons/sdgs,
+                // and only when 2+ chips selected for that field.
+                const themesMatch = getFieldMatchMode('themes');
+                const apMatch = getFieldMatchMode('affected_persons');
+                const sdgsMatch = getFieldMatchMode('sdgs');
                 const type = document.getElementById('filterType').value;
                 const yearStart = parseInt(document.getElementById('filterYearStart').value) || 0;
                 const yearEnd = parseInt(document.getElementById('filterYearEnd').value) || 9999;
@@ -5569,20 +5629,35 @@
                 }
 
                 const _cleanDash = s => (s || '').replace(/^-+\s*/, '').trim().toLowerCase();
+                const _valuesMatch = (selected, recordValues, mode) => {
+                    const eachSelectedHits = selected.map(sel =>
+                        recordValues.some(rv => _cleanDash(rv) === _cleanDash(sel) || rv.includes(sel) || sel.includes(rv))
+                    );
+                    return mode === 'all'
+                        ? eachSelectedHits.every(Boolean)
+                        : eachSelectedHits.some(Boolean);
+                };
 
+                // Filter groups are always AND'd together (user's request).
+                // Per-field ALL/ANY only affects how multiple selected VALUES
+                // within themes / affected_persons / sdgs combine.
                 filteredData = rawData.filter(r => {
-                    const checks = [];
-                    if (countries.length) checks.push(countries.some(c => r._countriesArray.some(rc => _cleanDash(rc) === _cleanDash(c))));
-                    if (bodies.length) checks.push(bodies.some(b => _cleanDash(r._body) === _cleanDash(b)));
-                    if (regions.length) checks.push(regions.some(reg => r._regionsArray.some(rr => _cleanDash(rr) === _cleanDash(reg))));
-                    if (themes.length) checks.push(themes.some(t => (r._themesArray || []).some(rt => _cleanDash(rt) === _cleanDash(t) || rt.includes(t) || t.includes(rt))));
-                    if (affectedPersons.length) checks.push(affectedPersons.some(ap => (r._affectedPersonsArray || []).some(ra => _cleanDash(ra) === _cleanDash(ap) || ra.includes(ap) || ap.includes(ra))));
-                    if (sdgs.length) checks.push(sdgs.some(s => (r._sdgsArray || []).some(rs => _cleanDash(rs) === _cleanDash(s) || rs.includes(s))));
-                    if (type && type !== 'All') checks.push(r._type === type);
-                    checks.push(!r._year || (r._year >= yearStart && r._year <= yearEnd));
-                    if (textSearchState.type !== 'none') checks.push(recordMatchesSearch(r, ['_text'], textSearchState));
-                    if (!checks.length) return true;
-                    return matchMode === 'any' ? checks.some(Boolean) : checks.every(Boolean);
+                    if (countries.length &&
+                        !countries.some(c => r._countriesArray.some(rc => _cleanDash(rc) === _cleanDash(c)))) return false;
+                    if (bodies.length &&
+                        !bodies.some(b => _cleanDash(r._body) === _cleanDash(b))) return false;
+                    if (regions.length &&
+                        !regions.some(reg => r._regionsArray.some(rr => _cleanDash(rr) === _cleanDash(reg)))) return false;
+                    if (themes.length &&
+                        !_valuesMatch(themes, r._themesArray || [], themesMatch)) return false;
+                    if (affectedPersons.length &&
+                        !_valuesMatch(affectedPersons, r._affectedPersonsArray || [], apMatch)) return false;
+                    if (sdgs.length &&
+                        !_valuesMatch(sdgs, r._sdgsArray || [], sdgsMatch)) return false;
+                    if (type && type !== 'All' && r._type !== type) return false;
+                    if (r._year && (r._year < yearStart || r._year > yearEnd)) return false;
+                    if (textSearchState.type !== 'none' && !recordMatchesSearch(r, ['_text'], textSearchState)) return false;
+                    return true;
                 });
 
                 chartData = filteredData.length > MAX_CHART_RECORDS ? sampleData(filteredData, MAX_CHART_RECORDS) : filteredData;
