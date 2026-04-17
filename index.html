@@ -419,14 +419,74 @@
         <!-- stats-section removed — was permanently hidden dead code -->
 
         <div class="tabs hidden" id="tabsSection">
-            <button class="tab active" data-tab="overview">📈 Overview</button>
-            <button class="tab" data-tab="trends">📅 Trends</button>
-            <button class="tab" data-tab="themes">🏷️ Themes</button>
-            <button class="tab" data-tab="bodies">🏛️ Bodies</button>
-            <button class="tab" data-tab="compare">🔀 Compare</button>
-            <button class="tab" data-tab="text">📝 Text</button>
-            <button class="tab" data-tab="data">📋 Data</button>
-            <button class="tab" data-tab="labels">🏷️ My Labels</button>
+            <button class="tab active" data-tab="overview">
+                <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="4" y="4" width="6" height="6" rx="1.5"></rect>
+                    <rect x="14" y="4" width="6" height="10" rx="1.5"></rect>
+                    <rect x="4" y="14" width="6" height="6" rx="1.5"></rect>
+                    <rect x="14" y="16" width="6" height="4" rx="1.5"></rect>
+                </svg>
+                <span>Overview</span>
+            </button>
+            <button class="tab" data-tab="trends">
+                <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M4 18h16"></path>
+                    <path d="M6 15l4-4 3 2 5-6"></path>
+                    <path d="M16 7h2v2"></path>
+                </svg>
+                <span>Trends</span>
+            </button>
+            <button class="tab" data-tab="themes">
+                <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M11 4H6a2 2 0 0 0-2 2v5l8 8 8-8-8-8Z"></path>
+                    <circle cx="8.5" cy="8.5" r="1.2"></circle>
+                </svg>
+                <span>Themes</span>
+            </button>
+            <button class="tab" data-tab="bodies">
+                <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M3 20h18"></path>
+                    <path d="M5 20V10"></path>
+                    <path d="M10 20V10"></path>
+                    <path d="M14 20V10"></path>
+                    <path d="M19 20V10"></path>
+                    <path d="M2 10h20L12 4 2 10Z"></path>
+                </svg>
+                <span>Bodies</span>
+            </button>
+            <button class="tab" data-tab="compare">
+                <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M7 7h11"></path>
+                    <path d="m15 4 3 3-3 3"></path>
+                    <path d="M17 17H6"></path>
+                    <path d="m9 14-3 3 3 3"></path>
+                </svg>
+                <span>Compare</span>
+            </button>
+            <button class="tab" data-tab="text">
+                <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M7 4h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path>
+                    <path d="M14 4v5h5"></path>
+                    <path d="M9 13h6"></path>
+                    <path d="M9 17h6"></path>
+                </svg>
+                <span>Text</span>
+            </button>
+            <button class="tab" data-tab="data">
+                <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="4" y="5" width="16" height="14" rx="2"></rect>
+                    <path d="M4 10h16"></path>
+                    <path d="M10 10v9"></path>
+                    <path d="M15 10v9"></path>
+                </svg>
+                <span>Data</span>
+            </button>
+            <button class="tab" data-tab="labels">
+                <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M7 4h10a2 2 0 0 1 2 2v14l-7-4-7 4V6a2 2 0 0 1 2-2Z"></path>
+                </svg>
+                <span>My Labels</span>
+            </button>
         </div>
 
         <div class="empty-state hidden" id="emptyState">

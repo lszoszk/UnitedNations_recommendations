@@ -1539,6 +1539,9 @@
             flex-wrap: wrap;
         }
         .tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
             padding: 12px 24px;
             background: white;
             border: none;
@@ -1550,6 +1553,16 @@
         }
         .tab:hover { background: var(--light); }
         .tab.active { background: var(--accent); color: white; }
+        .tab-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
 
         /* Data Table */
         .data-table-section {
