@@ -179,7 +179,11 @@
         <div class="server-mode-banner hidden" id="serverModeBanner">
             <div class="server-mode-copy">
                 <div class="server-mode-title" id="serverModeTitle">Server browse mode is active</div>
-                <div class="server-mode-status" id="serverModeStatus">Browse and map run on the VM. You can train from a server sample, then apply the classifier to the full matching dataset when needed.</div>
+                <div class="server-mode-status" id="serverModeStatus">
+                    Running on the shared server — fast for most searches, may be slow on complex queries.
+                    <a href="javascript:void(0)" onclick="openOfflineModeModal()" style="color:#2563eb; text-decoration:underline; font-weight:500;" id="serverModeOfflineLink">🔒 Switch to Offline &amp; Private Mode</a>
+                    for instant results, full privacy, and classifier training (and to free the shared server for others).
+                </div>
             </div>
             <div class="server-mode-actions">
                 <div class="vm-loading-notice hidden" id="vmLoadingNotice" role="status" aria-live="polite">
@@ -862,6 +866,17 @@
                 <div id="wfStep3" class="wf-step" style="flex:1; text-align:center; padding:6px 4px; border-radius:6px; background:#f4f5f7; border:1px solid #e0e0e0;">3. Export</div>
             </div>
 
+            <!-- Offline Mode requirement notice — shown when the user opens the labeling
+                 tool in server-browse mode (full dataset not locally loaded). Training a
+                 classifier needs every record in memory; without it, labeling effectively
+                 works only on the current paginated page. Hidden once rawData is loaded. -->
+            <div id="labelingOfflineModeNotice" class="hidden" style="background:linear-gradient(135deg,#fff6e5 0%,#fff0d0 100%); border:1px solid #ffd98c; border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:12.5px; color:#6b4e00; line-height:1.55;">
+                <strong>🔒 Offline &amp; Private Mode is recommended for labeling.</strong>
+                <div style="margin:4px 0 10px; color:#7d5c00;">Training a classifier needs the full 267K-record dataset in memory. In server mode you can only tag the currently-visible page; your trained model will only apply to what you have loaded.</div>
+                <button class="btn btn-primary" onclick="openOfflineModeModal()" style="padding:6px 12px; font-size:12px;">🔒 Enable Offline &amp; Private Mode</button>
+                <span style="margin-left:10px; font-size:11px; color:#8a6d00;">Queries then run on your machine with full privacy.</span>
+            </div>
+
             <!-- Compact info -->
             <div style="background:#f8f9fb; border:1px solid #e4e8ec; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:12px; color:#556; line-height:1.6;">
                 Tag UN recommendations with your own categories, then download the results.
@@ -1153,7 +1168,7 @@
                 <ul style="margin:6px 0 0; padding-left:20px;">
                     <li>Initial download: <strong>10&ndash;60&nbsp;seconds</strong> on fast WiFi (~350&nbsp;MB JSON)</li>
                     <li>Browser memory: <strong>~400&nbsp;MB</strong> — a modern laptop is recommended</li>
-                    <li>Data reflects a snapshot at download time; OHCHR updates monthly — re-enable to refresh</li>
+                    <li>Data reflects a snapshot at download time; this dataset is refreshed monthly — re-enable Offline Mode to pull the latest</li>
                     <li>Not recommended on phones or tablets</li>
                 </ul>
             </div>

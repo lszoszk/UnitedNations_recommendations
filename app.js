@@ -8639,6 +8639,13 @@
             const hasLabels = (filteredData || rawData || []).some(r => r._predictedLabels && r._predictedLabels.length > 0);
             const hasCats = getStatisticsCategories(trainingState.categories).length > 0;
             updateWorkflowStepper(hasLabels ? 3 : hasCats ? 2 : 1);
+            // Show the Offline & Private Mode notice when we don't have the full dataset
+            // locally (rawData is small or empty) — labeling/training genuinely needs it.
+            const offlineNotice = document.getElementById('labelingOfflineModeNotice');
+            if (offlineNotice) {
+                const fullDatasetLoaded = rawData && rawData.length >= 100000;
+                offlineNotice.classList.toggle('hidden', fullDatasetLoaded);
+            }
         }
 
         function closeTrainingPane() {
