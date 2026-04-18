@@ -3081,8 +3081,15 @@ function setTimelineMode(_m) { /* no-op, kept for callers wired to old toggle */
 function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   const yearlyBodyCounts = _normalizeYearlyBodyCounts(yearlyBodyCountsRaw);
   const W=1000, H=220, pad={l:40,r:20,t:14,b:26};
-  const years = Object.keys(yearlyBodyCounts).map(Number).filter(y => y >= 1990 && y <= 2100).sort((a,b)=>a-b);
-  if (!years.length) { container.innerHTML = '<div class="panel-loading" style="padding:80px 0">No data for this filter</div>'; return; }
+  // Always pad X-axis to the full dataset range (2006–2026 by default) so
+  // sparse results (e.g. body=CCPR for one country → 2 data points) don't
+  // collapse into a single trapezoid and lose their temporal context.
+  const rangeMin = state.facets?.min_year || 2006;
+  const rangeMax = state.facets?.max_year || 2026;
+  const presentYears = Object.keys(yearlyBodyCounts).map(Number).filter(y => y >= 1990 && y <= 2100);
+  if (!presentYears.length) { container.innerHTML = '<div class="panel-loading" style="padding:80px 0">No data for this filter</div>'; return; }
+  const years = [];
+  for (let y = rangeMin; y <= rangeMax; y++) years.push(y);
   const mode = opts.mode || getTimelineMode();  // 'annual' | 'cumulative' | 'total-line'
   // Collect top N bodies by total volume
   const bodyTotals = {};
@@ -3145,17 +3152,34 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
       const col = bi===0?ink:(bi===1?'#3a3a3a':bi===2?'#5c5a55':bi===3?'#7a7872':bi===4?'#98968f':accent);
       g += `<polygon points="${topPts.concat(botPts).join(' ')}" fill="${col}" opacity="${bi===5?0.9:(0.85-bi*0.06)}"><title>${sanitize(b)}</title></polygon>`;
     });
+    // Sparse-data markers: when the dataset only has a handful of years
+    // with non-zero data, plain trapezoids are hard to read. Overlay a
+    // circle at every non-zero year so the viewer can pinpoint them.
+    const nonZeroCount = annualTotals.filter(v => v > 0).length;
+    if (nonZeroCount > 0 && nonZeroCount < 6) {
+      years.forEach((y, i) => {
+        if (annualTotals[i] > 0) {
+          g += `<circle cx="${pad.l+i*xStep}" cy="${yOf(annualTotals[i])}" r="3" fill="${ink}" stroke="${cssVar('--paper')}" stroke-width="1.5"><title>${y}: ${fmt(annualTotals[i])}</title></circle>`;
+        }
+      });
+    }
   }
 
+  // X-axis labels every ~4 years (full range is ~20 years now so every 2nd
+  // label would crowd). Pick a step that keeps labels readable.
+  const labelStep = years.length > 16 ? 4 : (years.length > 10 ? 2 : 1);
   years.forEach((y, i) => {
-    if (i % 2 === 0) g += `<text x="${pad.l+i*xStep}" y="${H-8}" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="${ink}" opacity=".55">${y}</text>`;
+    if (i % labelStep === 0 || i === years.length - 1) {
+      g += `<text x="${pad.l+i*xStep}" y="${H-8}" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="${ink}" opacity=".55">${y}</text>`;
+    }
   });
 
-  const modeHint = mode === 'cumulative'
-    ? 'cumulative total'
-    : mode === 'total-line'
-      ? 'annual total (all bodies)'
-      : `annual · stacked by top ${topBodies.length} bodies (click legend to toggle)`;
+  let modeHint;
+  if (mode === 'cumulative') modeHint = 'cumulative total';
+  else if (mode === 'total-line') modeHint = 'annual total (all bodies)';
+  else if (topBodies.length === 0) modeHint = 'no data';
+  else if (topBodies.length === 1) modeHint = `annual · only ${topBodies[0].replace(/^-\s*/, '')}`;
+  else modeHint = `annual · stacked by top ${topBodies.length} bodies (click legend to toggle)`;
   container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl-svg">${g}</svg><div class="tl-hint">${modeHint} · ${opts.interactive !== false ? 'click year · drag to select range' : 'read-only'}</div>`;
 
   // Click/drag interaction: map pixel x → year, set state.filters.yearA/B
