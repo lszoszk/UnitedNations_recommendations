@@ -1451,35 +1451,51 @@ function memSet(k, d) {
 
 /* Tracks in-flight requests per endpoint so we can cancel stale ones */
 const inflight = {};
+/* Promise memoization — dedupes identical concurrent requests. Two callers
+   firing `api.analytics(sameFilter)` in the same tick now share one network
+   round-trip instead of racing each other (which previously caused the
+   loser to be aborted by the scope guard, wasting the response). */
+const pendingPromises = new Map();  // cacheKey -> { ctrl, promise }
 
 async function apiGet(path, params, opts = {}) {
   const url = API_BASE + path + (params && params.toString() ? '?' + params.toString() : '');
   const key = cacheKey(path, params);
 
-  // Serve from memory cache if we have it and the caller didn't say no
+  // 1. Serve from memory cache if we have it and the caller didn't say no
   if (!opts.noCache) {
     const hit = memGet(key);
     if (hit) return hit;
+    // 2. Piggy-back on an in-flight identical request rather than firing
+    //    another one (SWR fresh + parallel profile render often coincide).
+    const pending = pendingPromises.get(key);
+    if (pending) return pending.promise;
   }
 
-  // Cancel any in-flight request for the same endpoint family (map, analytics, records…)
-  // This is the key trick: if user is clicking rapidly, we only care about the LAST query
+  // 3. Scope abort — cancel any in-flight request under this scope IF it's
+  //    for a different key (user moved on). Same-key hits path (2) above.
   const scope = opts.scope || path;
-  if (inflight[scope]) {
-    try { inflight[scope].abort(); } catch {}
+  if (inflight[scope] && inflight[scope].key !== key) {
+    try { inflight[scope].ctrl.abort(); } catch {}
+    pendingPromises.delete(inflight[scope].key);
   }
   const ctrl = new AbortController();
-  inflight[scope] = ctrl;
 
-  try {
-    const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
-    const data = await res.json();
-    memSet(key, data);
-    return data;
-  } finally {
-    if (inflight[scope] === ctrl) delete inflight[scope];
-  }
+  const promise = (async () => {
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
+      const data = await res.json();
+      memSet(key, data);
+      return data;
+    } finally {
+      if (inflight[scope]?.ctrl === ctrl) delete inflight[scope];
+      pendingPromises.delete(key);
+    }
+  })();
+
+  inflight[scope] = { ctrl, key };
+  pendingPromises.set(key, { ctrl, promise });
+  return promise;
 }
 
 const api = {
@@ -2335,7 +2351,12 @@ function renderRowList(el, rows, opts = {}) {
         refreshFacetUI(opts.facet);
         onFiltersChanged();
       });
-      if (opts.facet === 'country') attachPreloadHover(row);
+      // Preload on hover for every entity whose click can open a profile —
+      // country / theme / group / body / sdg. 250 ms hover threshold + tag
+      // dedupe so the same entity isn't prefetched repeatedly.
+      if (['country','theme','group','body','sdg'].includes(opts.facet)) {
+        attachPreloadHover(row);
+      }
     });
   }
   if (opts.onClick) {
@@ -6141,19 +6162,51 @@ async function backfillCountrySparklines(listEl, minY, maxY) {
 const _preloadQueued = new Set();
 function preloadCountryOnHover(country) {
   if (!country || offline.enabled) return;
-  if (_preloadQueued.has(country)) return;
-  _preloadQueued.add(country);
+  if (_preloadQueued.has('country:' + country)) return;
+  _preloadQueued.add('country:' + country);
   const f = { ...emptyFilters(), country: new Set([country]) };
   api.analytics(f, { scope: 'preload-analytics:' + country }).catch(()=>{});
   api.map(f, { scope: 'preload-map:' + country }).catch(()=>{});
+}
+/* Generic preload for any entity kind the user might click → open profile.
+   Intersects with the current rail so the warm cache matches what the
+   Option-B profile renderers actually request. Fire-and-forget; errors
+   are swallowed because this is speculative. */
+function preloadEntityOnHover(kind, value) {
+  if (!value || offline.enabled) return;
+  const tag = kind + ':' + value;
+  if (_preloadQueued.has(tag)) return;
+  _preloadQueued.add(tag);
+  const override = {};
+  if (kind === 'country') override.country = new Set([value]);
+  else if (kind === 'theme') override.theme = new Set([value]);
+  else if (kind === 'group') override.group = new Set([value]);
+  else if (kind === 'body')  override.body  = new Set([value]);
+  else if (kind === 'sdg') {
+    // SDG rows pass the full label ("16.3 - Promote…"). Feed it straight
+    // to the API via raw params to match the SDG profile's request shape.
+    const f = _scopedFilter({ sdg: new Set() });
+    const p = buildParams(f);
+    p.set('sdgs', value);
+    apiGet(E.analytics, p, { scope: 'preload-analytics:sdg-' + value }).catch(()=>{});
+    apiGet(E.map,       p, { scope: 'preload-map:sdg-' + value }).catch(()=>{});
+    return;
+  } else return;
+  const f = _scopedFilter(override);
+  api.analytics(f, { scope: 'preload-analytics:' + tag }).catch(()=>{});
+  api.map(f, { scope: 'preload-map:' + tag }).catch(()=>{});
 }
 
 function attachPreloadHover(el) {
   let t;
   el.addEventListener('mouseenter', () => {
     t = setTimeout(() => {
-      const country = el.dataset.key;
-      if (country && el.dataset.facet === 'country') preloadCountryOnHover(country);
+      const key = el.dataset.key;
+      const kind = el.dataset.facet;
+      if (!key || !kind) return;
+      // Map facet name → preload kind (most are 1:1)
+      if (kind === 'country') preloadCountryOnHover(key);
+      else preloadEntityOnHover(kind, key);
     }, 250);
   });
   el.addEventListener('mouseleave', () => clearTimeout(t));
