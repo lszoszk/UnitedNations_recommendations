@@ -2038,13 +2038,20 @@ function renderRowList(el, rows, opts = {}) {
       row.addEventListener('click', (e) => {
         const k = row.dataset.key; if (!k) return;
         const val = opts.facet === 'sdg' ? Number(k) : k;
-        // Shift-click: open preview drawer (list of matching records)
-        if (e.shiftKey && (opts.facet === 'theme' || opts.facet === 'group' || opts.facet === 'country')) {
-          openListDrawer(opts.facet === 'theme' ? 'theme'
-                       : opts.facet === 'group' ? 'group' : 'country', val);
+        // Shift-click always toggles rail filter (escape hatch)
+        if (e.shiftKey) {
+          const s = state.filters[opts.facet];
+          if (s.has(val)) s.delete(val); else s.add(val);
+          refreshFacetUI(opts.facet);
+          onFiltersChanged();
           return;
         }
-        // Default click: toggle filter — map + lists + timeline all reflect it
+        // Country rows open drawer list (same as map click).
+        // Theme / group rows → cross-filter (primary action).
+        if (opts.facet === 'country') {
+          openListDrawer('country', val);
+          return;
+        }
         const s = state.filters[opts.facet];
         if (s.has(val)) s.delete(val); else s.add(val);
         refreshFacetUI(opts.facet);
@@ -2261,14 +2268,17 @@ async function renderChoroplethMap(container, countryCounts) {
     p.addEventListener('click', (e) => {
       const apiName = p.dataset.api;
       if (!apiName) return;
-      // Shift-click: open drawer list preview
-      if (e.shiftKey) { openListDrawer('country', apiName); return; }
-      // Default click: toggle the rail filter
-      const s = state.filters.country;
-      if (s.has(apiName)) s.delete(apiName); else s.add(apiName);
-      p.classList.toggle('on', s.has(apiName));
-      refreshFacetUI('country');
-      onFiltersChanged();
+      // Shift-click: toggle rail filter (classic cross-filter)
+      if (e.shiftKey) {
+        const s = state.filters.country;
+        if (s.has(apiName)) s.delete(apiName); else s.add(apiName);
+        p.classList.toggle('on', s.has(apiName));
+        refreshFacetUI('country');
+        onFiltersChanged();
+        return;
+      }
+      // Default: open the drawer with list of all records for this country
+      openListDrawer('country', apiName);
     });
     p.addEventListener('dblclick', () => {
       const apiName = p.dataset.api;
@@ -2624,14 +2634,18 @@ function renderHexMap(container, countryCounts) {
     g.addEventListener('mouseleave', () => tip.classList.remove('show'));
     g.addEventListener('click', (e) => {
       const name = g.dataset.name;
-      // Shift-click: open drawer list preview (infinite-scroll records)
-      if (e.shiftKey) { openListDrawer('country', name); return; }
-      // Default click: toggle the rail filter — map + lists + analytics refresh
-      const s = state.filters.country;
-      if (s.has(name)) s.delete(name); else s.add(name);
-      g.classList.toggle('on', s.has(name));
-      refreshFacetUI('country');
-      onFiltersChanged();
+      // Shift-click: toggle the rail filter (classic cross-filter behavior)
+      if (e.shiftKey) {
+        const s = state.filters.country;
+        if (s.has(name)) s.delete(name); else s.add(name);
+        g.classList.toggle('on', s.has(name));
+        refreshFacetUI('country');
+        onFiltersChanged();
+        return;
+      }
+      // Default: click on a country opens the drawer list with all matching
+      // records — infinite scroll. Theme / group / SDG clicks cross-filter.
+      openListDrawer('country', name);
     });
     g.addEventListener('dblclick', () => {
       state.focusCountry = g.dataset.iso;
@@ -2937,7 +2951,7 @@ function buildOverviewShell() {
         <div class="map-wrap" id="mapWrap">${_skelMap()}</div>
       </div>
       <div class="panel p-top-countries">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter · shift = preview list</span><button class="chart-export small" data-export="topCountries" title="Copy as CSV">📋 CSV</button></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = open records · shift = filter</span><button class="chart-export small" data-export="topCountries" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topCountries">${_skelRowList(10)}</div>
       </div>
       <div class="panel p-top-themes">
