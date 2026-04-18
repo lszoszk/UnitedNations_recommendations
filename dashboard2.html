@@ -1,0 +1,1720 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>UHRI · Analytics Dashboard v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2EFE8; --paper-2:#EAE6DD; --paper-3:#E1DCD0;
+  --ink:#0F0F10; --ink-2:#2A2824; --dim:#6B6863; --dimmer:#A39E94;
+  --line:rgba(15,15,16,.14); --line-2:rgba(15,15,16,.06);
+  --accent:oklch(0.62 0.17 27); --accent-soft:oklch(0.62 0.17 27 / .14);
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:"Instrument Serif","Times New Roman",serif;
+  --rail-w:280px; --drawer-w:340px; --top-h:44px;
+  --row-h:22px;
+}
+[data-palette="terminal"]{--paper:#0b0d0b;--paper-2:#121612;--paper-3:#1a1f1a;--ink:#d6e6cf;--ink-2:#b4c8ac;--dim:#6a7a62;--dimmer:#3e4a39;--line:rgba(214,230,207,.14);--line-2:rgba(214,230,207,.06);--accent:#9cf06b;--accent-soft:rgba(156,240,107,.14);}
+[data-palette="ink"]{--paper:#fff;--paper-2:#f4f4f5;--paper-3:#e9e9eb;--ink:#000;--ink-2:#1a1a1a;--dim:#7a7a7a;--dimmer:#c0c0c0;--line:rgba(0,0,0,.12);--line-2:rgba(0,0,0,.06);--accent:#1d4ed8;--accent-soft:rgba(29,78,216,.14);}
+*{box-sizing:border-box}
+html,body{background:var(--paper);color:var(--ink);margin:0;height:100%}
+body{font-family:var(--mono);font-size:12px;line-height:1.4;-webkit-font-smoothing:antialiased;overflow:hidden}
+::selection{background:var(--accent);color:var(--paper)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+.hidden{display:none!important}
+
+/* ---------- TOP BAR ---------- */
+.topbar{height:var(--top-h);display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;padding:0 16px;border-bottom:1px solid var(--line);background:var(--paper);position:relative;z-index:30}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.04em}
+.brand .mono-sq{width:10px;height:10px;background:var(--ink);display:inline-block}
+.brand .b-name{font-weight:700;letter-spacing:.14em}
+.brand .b-sub{color:var(--dim)}
+.cmdk{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--paper-2);padding:4px 10px;max-width:560px;width:100%;justify-self:center;color:var(--dim);font-size:11px}
+.cmdk:hover{border-color:var(--ink)}
+.cmdk span.k{font-weight:700;color:var(--ink);border:1px solid var(--line);padding:1px 5px;background:var(--paper)}
+.cmdk-hint{color:var(--dim);flex:1;text-align:left;padding-left:8px}
+.meta{display:flex;gap:10px;font-size:10px;color:var(--dim);letter-spacing:.04em;align-items:center}
+.meta .dot{width:6px;height:6px;border-radius:50%;background:#2ecc71;box-shadow:0 0 0 3px rgba(46,204,113,.25);animation:pulse 2s infinite}
+.meta .dot.loading{background:#e6a100;box-shadow:0 0 0 3px rgba(230,161,0,.25)}
+.meta .dot.error{background:#e03131;box-shadow:0 0 0 3px rgba(224,49,49,.25);animation:none}
+.meta a{color:var(--ink);border-bottom:1px dotted var(--line)}
+.meta a:hover{color:var(--accent);border-color:var(--accent)}
+.meta .sep{color:var(--dimmer)}
+@keyframes pulse{50%{opacity:.4}}
+
+/* ---------- APP LAYOUT ---------- */
+.app{display:grid;grid-template-columns:var(--rail-w) 1fr var(--drawer-w);height:calc(100vh - var(--top-h));overflow:hidden}
+.app.drawer-closed{grid-template-columns:var(--rail-w) 1fr 0}
+.app.rail-closed{grid-template-columns:0 1fr var(--drawer-w)}
+.app.rail-closed.drawer-closed{grid-template-columns:0 1fr 0}
+
+/* ---------- RAIL ---------- */
+.rail{border-right:1px solid var(--line);overflow-y:auto;background:var(--paper);padding:0}
+.rail::-webkit-scrollbar{width:8px}
+.rail::-webkit-scrollbar-thumb{background:var(--paper-3)}
+.rail-head,.drawer-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-size:10px;letter-spacing:.16em;color:var(--dim);position:sticky;top:0;background:var(--paper);z-index:2}
+.linkbtn{font-size:10px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border:1px solid transparent}
+.linkbtn:hover{border-color:var(--line);color:var(--ink)}
+
+.filter-result{padding:16px 14px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+.fr-num{font-family:var(--serif);font-size:34px;line-height:1;color:var(--ink);letter-spacing:-.01em;font-variant-numeric:tabular-nums;min-height:34px}
+.fr-lbl{font-size:10px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;margin-top:6px}
+.fr-bar{height:4px;background:var(--paper-3);margin-top:10px;position:relative;overflow:hidden}
+.fr-bar span{display:block;height:100%;background:var(--accent);transition:width .3s}
+.fr-sub{font-size:10px;color:var(--dim);margin-top:6px;letter-spacing:.04em}
+.fr-loading{opacity:.5}
+.fr-loading .fr-num::after{content:"·";animation:dots 1.5s steps(4) infinite}
+@keyframes dots{0%{content:"·"}33%{content:"··"}66%{content:"···"}100%{content:""}}
+
+.facet{border-bottom:1px solid var(--line)}
+.facet-head{display:flex;gap:8px;padding:8px 14px;font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;background:var(--paper-2);cursor:pointer;user-select:none;align-items:center}
+.facet-head .fh-idx{color:var(--dimmer);font-weight:500}
+.facet-head .fh-n{margin-left:auto;color:var(--dimmer);font-weight:400;letter-spacing:0;text-transform:none}
+.facet-head .fh-toggle{color:var(--dimmer);font-size:11px;margin-left:6px}
+.facet-body{padding:6px 10px 10px;max-height:240px;overflow-y:auto}
+.facet-body::-webkit-scrollbar{width:6px}
+.facet-body::-webkit-scrollbar-thumb{background:var(--paper-3)}
+.facet.collapsed .facet-body{display:none}
+.facet.collapsed .facet-head .fh-toggle{transform:rotate(-90deg);display:inline-block}
+
+.kwinput{width:100%;padding:6px 8px;border:1px solid var(--line);background:var(--paper);font-size:11px;font-family:var(--mono)}
+.kwinput:focus{outline:none;border-color:var(--ink)}
+
+.opt{display:grid;grid-template-columns:14px 1fr auto;gap:8px;padding:3px 4px;align-items:center;cursor:pointer;font-size:11px;border-left:2px solid transparent}
+.opt:hover{background:var(--paper-2)}
+.opt.on{border-left-color:var(--accent);background:var(--accent-soft)}
+.opt .box{width:10px;height:10px;border:1px solid var(--ink);background:var(--paper);position:relative;flex-shrink:0}
+.opt.on .box{background:var(--accent);border-color:var(--accent)}
+.opt.on .box::after{content:"×";position:absolute;top:-4px;left:1px;color:var(--paper);font-size:10px}
+.opt .n{color:var(--dim);font-variant-numeric:tabular-nums;font-size:10px}
+.opt .txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.match-mode{display:flex;gap:4px;font-size:9px;letter-spacing:.12em;color:var(--dim);padding:4px 4px 6px;text-transform:uppercase}
+.match-mode button{padding:1px 5px;border:1px solid var(--line)}
+.match-mode button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+.sdg-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;padding:8px 10px 10px}
+.sdg-cell{aspect-ratio:1;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;color:var(--dim);font-variant-numeric:tabular-nums;background:var(--paper)}
+.sdg-cell:hover{border-color:var(--ink)}
+.sdg-cell.on{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+
+.year-slider{position:relative;height:30px;margin:8px 6px 0}
+.ys-track{position:absolute;top:14px;left:0;right:0;height:2px;background:var(--paper-3)}
+.ys-fill{position:absolute;top:14px;height:2px;background:var(--ink)}
+.ys-handle{position:absolute;top:8px;width:14px;height:14px;background:var(--paper);border:1px solid var(--ink);cursor:ew-resize;transform:translateX(-50%)}
+.ys-ticks{position:absolute;top:22px;left:0;right:0;height:6px;display:flex;justify-content:space-between}
+.ys-ticks span{width:1px;height:4px;background:var(--line)}
+.year-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:10px;padding:0 6px}
+.year-labels span{border:1px solid var(--line);padding:1px 6px;background:var(--paper-2)}
+
+.rail-foot{padding:10px 14px;display:flex;gap:8px;border-top:1px solid var(--line);flex-wrap:wrap}
+
+/* ---------- MAIN ---------- */
+.main{overflow-y:auto;background:var(--paper);position:relative}
+.main::-webkit-scrollbar{width:10px}
+.main::-webkit-scrollbar-thumb{background:var(--paper-3)}
+
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:10;overflow-x:auto}
+.tabs::-webkit-scrollbar{height:4px}
+.tab{display:flex;flex-direction:column;gap:2px;padding:8px 14px;border-right:1px solid var(--line);min-width:140px;position:relative;color:var(--dim);flex-shrink:0}
+.tab.active{background:var(--paper-2);color:var(--ink)}
+.tab.active::after{content:"";position:absolute;left:0;bottom:-1px;height:2px;width:100%;background:var(--accent)}
+.tab .t-idx{font-size:9px;letter-spacing:.14em;color:var(--dimmer)}
+.tab .t-lbl{font-size:11px;font-weight:500}
+.tab .t-ctx{font-size:12px;color:var(--dim);font-family:var(--serif);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+
+.view{padding:0}
+.view.loading{opacity:.5;pointer-events:none}
+
+/* overview grid */
+.ov-grid{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:auto auto auto;gap:1px;background:var(--line)}
+.panel{background:var(--paper);padding:14px 16px;min-height:0;overflow:hidden;position:relative}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.panel-title{display:flex;gap:10px;align-items:baseline}
+.panel-title .idx{font-size:10px;color:var(--dim);letter-spacing:.14em}
+.panel-title .t{font-family:var(--serif);font-size:20px;line-height:1.1;letter-spacing:-.01em}
+.panel-title .sub{font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.panel-actions{display:flex;gap:4px;font-size:10px;color:var(--dim)}
+.panel-actions button{padding:2px 6px;border:1px solid var(--line)}
+.panel-actions button:hover{border-color:var(--ink);color:var(--ink)}
+.panel-actions button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.panel-loading{color:var(--dim);font-size:11px;padding:40px 0;text-align:center}
+.panel-loading::after{content:"·";animation:dots 1.5s steps(4) infinite}
+
+.p-map{grid-column:1;grid-row:1 / span 2}
+.p-time{grid-column:1;grid-row:3}
+.p-top-countries{grid-column:2;grid-row:1}
+.p-top-themes{grid-column:2;grid-row:2}
+.p-sankey{grid-column:2;grid-row:3}
+
+/* choropleth grid map */
+.map-wrap{position:relative;height:360px;overflow:hidden}
+.map-grid{display:grid;grid-template-columns:repeat(22,1fr);grid-auto-rows:1fr;gap:2px;height:100%}
+.map-cell{background:var(--paper-2);position:relative;font-size:8px;color:var(--dim);display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:0;transition:transform .1s}
+.map-cell:hover{outline:1px solid var(--ink);z-index:2;transform:scale(1.5)}
+.map-cell.empty{background:transparent;border:none;pointer-events:none}
+.map-cell.on{outline:2px solid var(--ink);z-index:3}
+.map-scale{display:flex;gap:2px;align-items:center;margin-top:8px;font-size:10px;color:var(--dim)}
+.map-scale .s{width:16px;height:8px}
+
+/* bars / rows */
+.row-list{display:flex;flex-direction:column}
+.rl-row{display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:3px 2px;border-bottom:1px dotted var(--line);cursor:pointer;align-items:center;font-size:11px;position:relative}
+.rl-row:hover{background:var(--paper-2)}
+.rl-row .rnk{color:var(--dim);font-variant-numeric:tabular-nums;font-size:10px}
+.rl-row .nm{position:relative;overflow:hidden;padding:2px 4px}
+.rl-row .bar{position:absolute;left:0;top:0;bottom:0;background:var(--accent-soft);border-left:2px solid var(--accent);z-index:0;transition:width .5s cubic-bezier(.2,.7,.2,1)}
+.rl-row .txt{position:relative;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl-row .v{font-variant-numeric:tabular-nums;color:var(--ink)}
+
+/* timeline */
+.tl-wrap{height:220px;position:relative}
+.tl-svg{width:100%;height:100%;display:block}
+
+/* sankey / body-theme matrix */
+.sk-wrap{height:220px;position:relative;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px}
+.sk-svg{width:100%;height:100%}
+
+/* ---------- DRAWER ---------- */
+.drawer{border-left:1px solid var(--line);overflow-y:auto;background:var(--paper);transition:opacity .2s}
+.drawer::-webkit-scrollbar{width:8px}
+.drawer::-webkit-scrollbar-thumb{background:var(--paper-3)}
+.drawer-body{padding:14px}
+.dr-meta{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:12px;font-size:11px}
+.dr-meta dt{color:var(--dim);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.dr-meta dd{margin:0}
+.dr-id{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.08em;border:1px dotted var(--line);padding:3px 6px;margin-bottom:10px;display:inline-block;word-break:break-all}
+.dr-yr{font-family:var(--serif);font-size:38px;line-height:1;margin:6px 0 14px}
+.dr-text{font-family:var(--serif);font-size:15px;line-height:1.45;color:var(--ink);padding:14px;background:var(--paper-2);border-left:2px solid var(--accent);margin-bottom:14px;max-height:260px;overflow-y:auto}
+.dr-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}
+.dr-tag{font-size:10px;letter-spacing:.06em;padding:2px 6px;border:1px solid var(--line);color:var(--dim);cursor:pointer}
+.dr-tag:hover{border-color:var(--ink);color:var(--ink)}
+.dr-tag.theme{border-color:var(--ink);color:var(--ink)}
+.dr-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.dr-btn{padding:5px 10px;border:1px solid var(--ink);background:var(--paper);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
+.dr-btn.primary{background:var(--ink);color:var(--paper)}
+.dr-btn:hover{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+.dr-empty{padding:40px 20px;text-align:center;color:var(--dim);font-size:11px}
+.dr-empty .big{font-family:var(--serif);font-size:22px;color:var(--ink);margin-bottom:8px}
+
+/* ---------- READER ---------- */
+.reader{position:fixed;inset:0;background:rgba(15,15,16,.85);z-index:100;display:flex;align-items:center;justify-content:center;padding:40px;animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.reader-inner{background:var(--paper);max-width:900px;width:100%;max-height:90vh;overflow-y:auto;position:relative;padding:48px 60px;font-family:var(--serif)}
+.rd-close{position:absolute;top:16px;right:20px;font-size:22px;color:var(--dim)}
+.rd-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase;margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap}
+.rd-eyebrow .dot{width:5px;height:5px;background:var(--accent);display:inline-block;border-radius:50%}
+.rd-title{font-size:30px;line-height:1.2;color:var(--ink);letter-spacing:-.005em;margin:0 0 20px;text-wrap:balance}
+.rd-body{font-size:16px;line-height:1.6;color:var(--ink-2);text-wrap:pretty;white-space:pre-wrap}
+.rd-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:28px;padding-top:20px;border-top:1px solid var(--line);font-family:var(--mono)}
+.rd-meta .k{font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+.rd-meta .v{font-size:12px;color:var(--ink);margin-top:2px}
+.rd-foot{margin-top:24px;display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---------- COMMAND PALETTE ---------- */
+.cmd-palette{position:fixed;inset:0;background:rgba(15,15,16,.6);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:14vh 20px 20px;backdrop-filter:blur(4px)}
+.cmd-card{background:var(--paper);width:100%;max-width:640px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.cmd-input-row{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.cmd-prompt{color:var(--accent);font-weight:700}
+.cmd-input-row input{flex:1;border:0;background:transparent;font-size:14px;outline:none;font-family:var(--mono);color:var(--ink)}
+.cmd-esc{font-size:10px;padding:2px 6px;border:1px solid var(--line);color:var(--dim);letter-spacing:.06em}
+.cmd-results{max-height:50vh;overflow-y:auto}
+.cmd-result{display:grid;grid-template-columns:80px 1fr auto;gap:10px;padding:8px 16px;font-size:12px;cursor:pointer;border-bottom:1px dotted var(--line)}
+.cmd-result:hover,.cmd-result.focus{background:var(--paper-2)}
+.cmd-result .kind{font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+.cmd-result .h{background:var(--accent);color:var(--paper);padding:0 2px}
+
+/* ---------- COUNTRY / THEME PROFILE ---------- */
+.cp-head{padding:24px 24px 18px;display:grid;grid-template-columns:1fr auto;gap:20px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+.cp-iso{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--dim)}
+.cp-name{font-family:var(--serif);font-size:52px;line-height:.95;letter-spacing:-.015em;margin:4px 0 8px}
+.cp-sub{color:var(--dim);font-size:11px;letter-spacing:.08em}
+.cp-kpis{display:grid;grid-template-columns:repeat(4,auto);gap:24px;align-items:end;border-top:1px solid var(--line);padding-top:16px;margin-top:18px}
+.cp-kpi .n{font-family:var(--serif);font-size:26px;line-height:1}
+.cp-kpi .l{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-top:4px}
+.cp-picker{display:flex;flex-direction:column;gap:4px;font-size:11px;min-width:180px}
+.cp-picker label{color:var(--dim);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.cp-picker select{padding:6px 8px;border:1px solid var(--ink);background:var(--paper);font-family:var(--mono);font-size:11px;color:var(--ink)}
+.cp-body{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+.cp-body .panel{padding:14px 18px}
+.cp-sample{padding:10px;background:var(--paper-2);border-left:2px solid var(--accent);cursor:pointer;font-family:var(--serif);font-size:14px;line-height:1.45}
+.cp-sample:hover{background:var(--paper-3)}
+.cp-sample .meta{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--dim);margin-bottom:4px}
+
+/* ---------- COMPARE ---------- */
+.cmp-head{display:grid;grid-template-columns:1fr 40px 1fr;gap:0;border-bottom:1px solid var(--line)}
+.cmp-side{padding:20px 24px}
+.cmp-side.b{border-left:1px solid var(--line);background:var(--paper-2)}
+.cmp-vs{display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:28px;color:var(--dim);font-style:italic}
+.cmp-side label{font-size:10px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+.cmp-side select{padding:6px 8px;border:1px solid var(--ink);background:var(--paper);font-family:var(--mono);font-size:11px;width:100%;margin-top:4px;color:var(--ink)}
+.cmp-side .big{font-family:var(--serif);font-size:36px;line-height:1;margin-top:14px}
+.cmp-side .sub{font-size:11px;color:var(--dim);margin-top:4px}
+.cmp-body{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+
+/* ---------- SEARCH ---------- */
+.se-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.se-head .lbl{font-size:10px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+.se-head .q{font-family:var(--serif);font-size:22px}
+.se-head .n{margin-left:auto;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+.se-pager{display:flex;gap:4px;font-size:10px;color:var(--dim);margin-left:12px}
+.se-pager button{padding:2px 8px;border:1px solid var(--line);color:var(--ink)}
+.se-pager button:disabled{opacity:.4;cursor:not-allowed}
+.se-pager button:hover:not(:disabled){border-color:var(--ink);background:var(--paper-2)}
+.se-list{padding:0}
+.se-item{padding:14px 20px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:80px 1fr auto;gap:14px;cursor:pointer}
+.se-item:hover{background:var(--paper-2)}
+.se-item .y{font-family:var(--serif);font-size:22px;line-height:1}
+.se-item .mech{font-size:10px;color:var(--dim);letter-spacing:.1em;margin-top:2px}
+.se-item .tx{font-family:var(--serif);font-size:14px;line-height:1.4}
+.se-item .tg{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.se-item .tg span{font-size:9px;padding:1px 5px;border:1px solid var(--line);color:var(--dim);letter-spacing:.04em}
+.se-item .cc{font-family:var(--mono);font-size:11px;color:var(--ink);text-align:right}
+.se-item .rg{font-size:10px;color:var(--dim);text-align:right}
+.se-item em{background:var(--accent);color:var(--paper);font-style:normal;padding:0 2px}
+
+/* ---------- METHODOLOGY ---------- */
+.me{padding:40px 24px;max-width:900px;margin:0 auto}
+.me h1{font-family:var(--serif);font-size:52px;line-height:1;letter-spacing:-.015em;margin:0 0 24px}
+.me h2{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin:32px 0 10px}
+.me p{font-family:var(--serif);font-size:16px;line-height:1.55;color:var(--ink-2);max-width:64ch}
+.me a{color:var(--accent);border-bottom:1px solid var(--accent-soft)}
+.me .grid-def{display:grid;grid-template-columns:140px 1fr;gap:8px 20px;margin:16px 0}
+.me .grid-def dt{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding-top:4px}
+.me .grid-def dd{margin:0;font-family:var(--serif);font-size:14px}
+
+/* ---------- TWEAKS ---------- */
+.tweaks{position:fixed;right:14px;bottom:14px;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:11px;padding:12px 14px;z-index:90;min-width:240px;display:none;box-shadow:0 20px 50px rgba(0,0,0,.2)}
+.tweaks.open{display:block}
+.tweaks h4{margin:0 0 10px;font-size:10px;letter-spacing:.2em;color:var(--dimmer);text-transform:uppercase;display:flex;justify-content:space-between}
+.tweaks .close{cursor:pointer}
+.tweaks .row{display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;margin-bottom:8px}
+.tweaks select{background:#1b1b1c;color:var(--paper);border:1px solid #2c2c2d;font-family:var(--mono);font-size:11px;padding:3px 5px;width:100%}
+.tweaks .swatches{display:flex;gap:4px}
+.tweaks .sw{width:20px;height:20px;border:1px solid #2c2c2d;cursor:pointer}
+.tweaks .sw.active{outline:2px solid var(--paper);outline-offset:2px}
+.tweaks .toggle{background:#1b1b1c;border:1px solid #2c2c2d;padding:3px 7px;cursor:pointer;color:var(--paper)}
+.tweaks .toggle.on{background:var(--accent);border-color:var(--accent);color:#000}
+.gear{position:fixed;right:14px;bottom:14px;z-index:85;width:30px;height:30px;border:1px solid var(--line);background:var(--paper);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--dim);font-size:14px}
+.gear:hover{color:var(--ink);border-color:var(--ink)}
+
+[data-density="cozy"]{--row-h:26px}
+[data-density="cozy"] body{font-size:13px}
+[data-density="roomy"]{--row-h:30px}
+[data-density="roomy"] body{font-size:13px}
+
+/* ---------- ERROR / TOAST ---------- */
+.toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;font-size:11px;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:520px}
+.toast.error{background:#b91c1c;color:#fff}
+.toast.hidden{display:none}
+
+/* responsive */
+@media(max-width:1200px){
+  :root{--rail-w:240px;--drawer-w:280px}
+}
+@media(max-width:960px){
+  .app{grid-template-columns:1fr!important}
+  .rail,.drawer{display:none}
+  .cmdk-hint{display:none}
+  .ov-grid{grid-template-columns:1fr}
+  .p-map,.p-top-countries,.p-top-themes,.p-time,.p-sankey{grid-column:1;grid-row:auto}
+  .cp-head{grid-template-columns:1fr}
+  .cp-kpis{grid-template-columns:repeat(2,1fr);gap:12px}
+  .cp-body,.cmp-body{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body data-palette="archive" data-density="tight">
+
+<!-- top command bar -->
+<header class="topbar">
+  <div class="brand">
+    <span class="mono-sq"></span>
+    <span class="b-name">UHRI</span>
+    <span class="b-sub">/ analytics v2 (preview)</span>
+  </div>
+  <button class="cmdk" id="cmdkBtn">
+    <span class="k">⌘</span><span class="k">K</span>
+    <span class="cmdk-hint">Search 267,548 recommendations · jump to country, theme, year…</span>
+  </button>
+  <div class="meta">
+    <span class="dot" id="statusDot" title="Live VM connection"></span>
+    <span id="statusLbl">LIVE</span>
+    <span class="sep">·</span>
+    <span>VM · <span id="datasetSize">—</span></span>
+    <span class="sep">·</span>
+    <a href="#methodology" data-nav="methodology">methodology</a>
+    <span class="sep">·</span>
+    <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">classic dashboard ↗</a>
+  </div>
+</header>
+
+<div class="app" id="app">
+
+  <!-- LEFT RAIL -->
+  <aside class="rail" id="rail">
+    <div class="rail-head">
+      <span>FILTERS</span>
+      <button class="linkbtn" id="clearFilters">clear all</button>
+    </div>
+
+    <div class="filter-result" id="filterResult">
+      <div class="fr-num"><span id="hitCount">—</span></div>
+      <div class="fr-lbl">matching recommendations</div>
+      <div class="fr-bar"><span id="hitBar" style="width:100%"></span></div>
+      <div class="fr-sub"><span id="hitPct">100%</span> of full dataset</div>
+    </div>
+
+    <div class="facet" data-facet="kw">
+      <div class="facet-head"><span class="fh-idx">01</span><span>KEYWORD</span><span class="fh-toggle">▾</span></div>
+      <div class="facet-body"><input id="kwInput" class="kwinput" placeholder="e.g. forced labour, death penalty…"/></div>
+    </div>
+    <div class="facet" data-facet="country"><div class="facet-head"><span class="fh-idx">02</span><span>COUNTRY</span><span class="fh-n" id="n-country">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-country"></div></div>
+    <div class="facet" data-facet="body"><div class="facet-head"><span class="fh-idx">03</span><span>RECOMMENDING BODY</span><span class="fh-n" id="n-body">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-body"></div></div>
+    <div class="facet" data-facet="theme"><div class="facet-head"><span class="fh-idx">04</span><span>THEME</span><span class="fh-n" id="n-theme">—</span><span class="fh-toggle">▾</span></div>
+      <div class="match-mode" id="themeMatch"><span style="margin-right:auto">match:</span><button data-m="any" class="on">ANY</button><button data-m="all">ALL</button></div>
+      <div class="facet-body" id="f-theme"></div>
+    </div>
+    <div class="facet" data-facet="group"><div class="facet-head"><span class="fh-idx">05</span><span>AFFECTED GROUP</span><span class="fh-n" id="n-group">—</span><span class="fh-toggle">▾</span></div>
+      <div class="match-mode" id="groupMatch"><span style="margin-right:auto">match:</span><button data-m="any" class="on">ANY</button><button data-m="all">ALL</button></div>
+      <div class="facet-body" id="f-group"></div>
+    </div>
+    <div class="facet" data-facet="region"><div class="facet-head"><span class="fh-idx">06</span><span>REGION</span><span class="fh-n" id="n-region">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-region"></div></div>
+    <div class="facet collapsed" data-facet="sdg"><div class="facet-head"><span class="fh-idx">07</span><span>SDG</span><span class="fh-toggle">▾</span></div><div class="facet-body sdg-grid" id="f-sdg"></div></div>
+    <div class="facet collapsed" data-facet="type"><div class="facet-head"><span class="fh-idx">08</span><span>TYPE</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-type"></div></div>
+    <div class="facet" data-facet="year"><div class="facet-head"><span class="fh-idx">09</span><span>YEAR</span><span class="fh-n"><span id="yrAL">—</span>–<span id="yrBL">—</span></span><span class="fh-toggle">▾</span></div>
+      <div class="facet-body">
+        <div class="year-slider" id="yearSlider">
+          <div class="ys-track"></div>
+          <div class="ys-fill" id="ysFill"></div>
+          <div class="ys-handle" id="ysA" data-which="a"></div>
+          <div class="ys-handle" id="ysB" data-which="b"></div>
+          <div class="ys-ticks" id="ysTicks"></div>
+        </div>
+        <div class="year-labels"><span id="yrA">—</span><span id="yrB">—</span></div>
+      </div>
+    </div>
+
+    <div class="rail-foot">
+      <button class="linkbtn" id="btnShare">↗ share link</button>
+      <button class="linkbtn" id="btnReset">↺ reset</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main" id="main">
+    <nav class="tabs" id="tabs">
+      <a class="tab active" data-nav="overview"><span class="t-idx">01</span><span class="t-lbl">Overview</span></a>
+      <a class="tab" data-nav="country"><span class="t-idx">02</span><span class="t-lbl">Country profile</span><span class="t-ctx" id="tabCountry">—</span></a>
+      <a class="tab" data-nav="theme"><span class="t-idx">03</span><span class="t-lbl">Theme profile</span><span class="t-ctx" id="tabTheme">—</span></a>
+      <a class="tab" data-nav="compare"><span class="t-idx">04</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
+      <a class="tab" data-nav="search"><span class="t-idx">05</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
+      <a class="tab" data-nav="methodology"><span class="t-idx">06</span><span class="t-lbl">Methodology</span></a>
+    </nav>
+
+    <section class="view" id="view-overview"></section>
+    <section class="view hidden" id="view-country"></section>
+    <section class="view hidden" id="view-theme"></section>
+    <section class="view hidden" id="view-compare"></section>
+    <section class="view hidden" id="view-search"></section>
+    <section class="view hidden" id="view-methodology"></section>
+  </main>
+
+  <!-- DRAWER -->
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <span>SELECTED · RECOMMENDATION</span>
+      <button class="linkbtn" id="drawerClear">× clear</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+</div>
+
+<!-- READER -->
+<div class="reader hidden" id="reader">
+  <div class="reader-inner" id="readerBody"></div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div class="cmd-palette hidden" id="cmdPalette">
+  <div class="cmd-card">
+    <div class="cmd-input-row">
+      <span class="cmd-prompt">$</span>
+      <input id="cmdInput" placeholder="Search country, theme, body, view — ↵ to jump"/>
+      <span class="cmd-esc">esc</span>
+    </div>
+    <div class="cmd-results" id="cmdResults"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast hidden" id="toast"></div>
+
+<!-- TWEAKS -->
+<button class="gear" id="gearBtn" title="Appearance & layout">⚙</button>
+<div class="tweaks" id="tweaks">
+  <h4>APPEARANCE <span class="close" id="tweaksClose">×</span></h4>
+  <div class="row"><span>Palette</span>
+    <div class="swatches" id="swPalette">
+      <div class="sw" data-pal="archive" style="background:#F2EFE8" title="Archive"></div>
+      <div class="sw" data-pal="terminal" style="background:#0b0d0b" title="Terminal"></div>
+      <div class="sw" data-pal="ink" style="background:#ffffff" title="Ink+Cobalt"></div>
+    </div>
+  </div>
+  <div class="row"><span>Density</span>
+    <select id="densitySel"><option value="tight">Tight</option><option value="cozy">Cozy</option><option value="roomy">Roomy</option></select>
+  </div>
+  <div class="row"><span>Rail</span><button class="toggle on" id="railTog">ON</button></div>
+  <div class="row"><span>Drawer</span><button class="toggle on" id="drawerTog">ON</button></div>
+</div>
+
+<script>
+/* =========================================================================
+   UHRI Analytics Dashboard v2 — real-data Bloomberg-terminal UX
+   ========================================================================= */
+
+/* ---------- CONFIG ---------- */
+const API_BASE = 'https://150.254.115.204/uhri-api';
+const E = {
+  facets:    '/api/data/facets',
+  records:   '/api/data/records',
+  analytics: '/api/data/analytics',
+  summary:   '/api/data/summary',
+  map:       '/api/data/map',
+  health:    '/api/data/health',
+};
+
+/* Country name → ISO3 for grid-map layout */
+const NAME_TO_ISO = {
+  "China":"CHN","Mexico":"MEX","Iran (Islamic Republic of)":"IRN","Colombia":"COL",
+  "Russian Federation":"RUS","Brazil":"BRA","Türkiye":"TUR","India":"IND",
+  "United States of America":"USA","Indonesia":"IDN","Egypt":"EGY","Philippines":"PHL",
+  "Nigeria":"NGA","Pakistan":"PAK","Ukraine":"UKR","Myanmar":"MMR",
+  "Venezuela (Bolivarian Republic of)":"VEN","Kenya":"KEN","Saudi Arabia":"SAU",
+  "Ethiopia":"ETH","Argentina":"ARG","Algeria":"DZA","Viet Nam":"VNM",
+  "Bangladesh":"BGD","Thailand":"THA","South Africa":"ZAF","Poland":"POL",
+  "Iraq":"IRQ","Hungary":"HUN","Guatemala":"GTM","Peru":"PER","Spain":"ESP",
+  "Italy":"ITA","France":"FRA","United Kingdom of Great Britain and Northern Ireland":"GBR",
+  "Germany":"DEU","Sri Lanka":"LKA","Nepal":"NPL","Uzbekistan":"UZB",
+  "Kazakhstan":"KAZ","Belarus":"BLR","Sudan":"SDN","Syrian Arab Republic":"SYR",
+  "Yemen":"YEM","Libya":"LBY","Afghanistan":"AFG","Cameroon":"CMR",
+  "Ghana":"GHA","Uganda":"UGA","United Republic of Tanzania":"TZA",
+  "Morocco":"MAR","Tunisia":"TUN","Jordan":"JOR","Lebanon":"LBN",
+  "Israel":"ISR","Georgia":"GEO","Azerbaijan":"AZE","Armenia":"ARM",
+  "Romania":"ROU","Serbia":"SRB","Croatia":"HRV","Bulgaria":"BGR",
+  "Greece":"GRC","Portugal":"PRT","Netherlands":"NLD","Belgium":"BEL",
+  "Sweden":"SWE","Norway":"NOR","Finland":"FIN","Denmark":"DNK",
+  "Ireland":"IRL","Austria":"AUT","Switzerland":"CHE","Czechia":"CZE",
+  "Slovakia":"SVK","Slovenia":"SVN","Estonia":"EST","Latvia":"LVA",
+  "Lithuania":"LTU","Canada":"CAN","Australia":"AUS","New Zealand":"NZL",
+  "Japan":"JPN","Republic of Korea":"KOR",
+  "Democratic People's Republic of Korea":"PRK",
+  "Bolivia (Plurinational State of)":"BOL","Ecuador":"ECU","Chile":"CHL",
+  "Cuba":"CUB","Dominican Republic":"DOM","Honduras":"HND","Nicaragua":"NIC",
+  "El Salvador":"SLV","Costa Rica":"CRI","Panama":"PAN","Paraguay":"PRY",
+  "Uruguay":"URY","Jamaica":"JAM","Haiti":"HTI","Lao People's Democratic Republic":"LAO",
+  "Cambodia":"KHM","Malaysia":"MYS","Mongolia":"MNG","Singapore":"SGP",
+  "Democratic Republic of the Congo":"COD","Rwanda":"RWA","Burundi":"BDI",
+  "Zimbabwe":"ZWE","Zambia":"ZMB","Angola":"AGO","Mozambique":"MOZ",
+  "Madagascar":"MDG","Senegal":"SEN","Mali":"MLI","Mauritania":"MRT",
+  "Somalia":"SOM","South Sudan":"SSD","Eritrea":"ERI",
+  "Niger":"NER","Burkina Faso":"BFA","Togo":"TGO","Benin":"BEN",
+  "Côte d'Ivoire":"CIV","Guinea":"GIN","Liberia":"LBR","Sierra Leone":"SLE",
+  "Turkmenistan":"TKM","Tajikistan":"TJK","Kyrgyzstan":"KGZ",
+  "Bhutan":"BTN","Maldives":"MDV","Brunei Darussalam":"BRN","Fiji":"FJI",
+};
+const ISO_TO_NAME = Object.fromEntries(Object.entries(NAME_TO_ISO).map(([n,i])=>[i,n]));
+
+/* 22×12 grid layout (ported from mockup) */
+const MAP_LAYOUT = {
+  CAN:[4,2], USA:[5,4], MEX:[5,5], GTM:[5,6], CUB:[6,5], HTI:[6,5], DOM:[6,5], JAM:[5,5],
+  COL:[6,7], VEN:[7,7], PER:[6,8], BRA:[7,8], ARG:[7,9], CHL:[6,9], BOL:[7,8], ECU:[6,7],
+  PRY:[7,9], URY:[7,9],
+  GBR:[10,3], IRL:[9,3], FRA:[10,4], ESP:[9,4], PRT:[9,5], ITA:[11,4], DEU:[11,3],
+  CHE:[10,4], AUT:[11,4], NLD:[10,3], BEL:[10,3], NOR:[11,2], SWE:[12,2], FIN:[12,2],
+  DNK:[11,3], POL:[12,3], CZE:[11,3], SVK:[12,3], HUN:[12,4], ROU:[13,4], BGR:[13,4],
+  GRC:[12,5], SVN:[11,4], HRV:[12,4], SRB:[12,4], EST:[12,2], LVA:[12,2], LTU:[12,3],
+  UKR:[13,3], BLR:[13,2], RUS:[15,2], GEO:[14,4], AZE:[14,4], ARM:[14,4],
+  TUR:[13,5], SYR:[14,5], LBN:[13,5], ISR:[13,5], JOR:[14,5], IRQ:[14,5], IRN:[15,5],
+  SAU:[14,6], YEM:[14,6],
+  MAR:[10,6], DZA:[11,6], TUN:[11,5], LBY:[12,6], EGY:[13,6], SDN:[13,7], SSD:[13,7],
+  NGA:[11,8], ETH:[13,8], KEN:[14,8], UGA:[13,8], TZA:[13,9], ZAF:[12,10], CMR:[12,8],
+  GHA:[10,8], CIV:[10,8], SEN:[9,7], MLI:[10,7], BFA:[10,8], NER:[11,7], MRT:[9,7],
+  SOM:[14,8], RWA:[13,9], BDI:[13,9], ZMB:[12,10], ZWE:[13,10], MOZ:[13,10], AGO:[12,10],
+  MDG:[14,10], LBR:[10,8], SLE:[10,8], GIN:[9,8], BEN:[11,8], TGO:[11,8], ERI:[14,7],
+  PAK:[16,5], AFG:[16,5], IND:[17,6], NPL:[17,5], BGD:[18,6], LKA:[17,7], CHN:[18,4],
+  JPN:[20,4], KOR:[19,4], PRK:[19,4], VNM:[19,6], THA:[18,6], PHL:[20,6], IDN:[19,7],
+  MMR:[18,6], KAZ:[16,3], UZB:[16,4], TKM:[15,4], TJK:[16,4], KGZ:[17,4], MNG:[18,3],
+  KHM:[18,6], MYS:[19,7], SGP:[19,7], BTN:[18,5], MDV:[17,7], BRN:[19,7],
+  AUS:[20,9], NZL:[21,10], FJI:[21,9],
+};
+
+/* ---------- HELPERS ---------- */
+const $  = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+const fmt = n => (n==null||isNaN(n)) ? '—' : n.toLocaleString('en-US');
+const pct = n => (n*100).toFixed(1).replace(/\.0$/,'')+'%';
+const cssVar = n => getComputedStyle(document.body).getPropertyValue(n).trim();
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+function cleanCountryList(names) {
+  // Filter out 2-letter codes / garbage
+  return names.filter(n => n && n.length > 2 && !/^[A-Z]{2}$/.test(n));
+}
+function sanitize(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+
+/* ---------- STATE ---------- */
+const state = {
+  view: 'overview',
+  filters: {
+    kw: '',
+    country: new Set(),
+    body: new Set(),
+    theme: new Set(),
+    group: new Set(),
+    region: new Set(),
+    sdg: new Set(),
+    type: new Set(),
+    yearA: null, yearB: null,
+    themesMatch: 'any',
+    groupsMatch: 'any',
+  },
+  selectedRec: null,
+  focusCountry: null,   // ISO3
+  focusTheme: null,     // theme string
+  cmpA: null, cmpB: null,
+  facets: null,         // will be populated from /api/data/facets
+  analytics: null,      // last global analytics
+  searchPage: 1,
+  searchPageSize: 30,
+  totalHits: 0,
+  bootstrapDone: false,
+};
+window.__state = state;
+
+/* ---------- API CLIENT ---------- */
+function buildParams(f) {
+  const p = new URLSearchParams();
+  if (f.kw && f.kw.trim()) p.set('text_query', f.kw.trim());
+  if (f.country && f.country.size) p.set('countries', Array.from(f.country).join(','));
+  if (f.body    && f.body.size)    p.set('bodies',    Array.from(f.body).join(','));
+  if (f.theme   && f.theme.size)   p.set('themes',    Array.from(f.theme).join('|'));
+  if (f.group   && f.group.size)   p.set('affected_persons', Array.from(f.group).join('|'));
+  if (f.region  && f.region.size)  p.set('regions',   Array.from(f.region).join(','));
+  if (f.sdg     && f.sdg.size)     p.set('sdgs',      Array.from(f.sdg).map(n=>`SDG ${n}`).join('|'));
+  if (f.type    && f.type.size)    p.set('annotation_type', Array.from(f.type).join(','));
+  if (f.yearA)  p.set('year_start', f.yearA);
+  if (f.yearB)  p.set('year_end',   f.yearB);
+  if (f.themesMatch === 'all') p.set('themes_match', 'all');
+  if (f.groupsMatch === 'all') p.set('affected_persons_match', 'all');
+  return p;
+}
+
+async function apiGet(path, params) {
+  const url = API_BASE + path + (params && params.toString() ? '?' + params.toString() : '');
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
+  return res.json();
+}
+
+const api = {
+  facets:    ()           => apiGet(E.facets),
+  health:    ()           => apiGet(E.health),
+  analytics: (f)          => apiGet(E.analytics, buildParams(f||state.filters)),
+  map:       (f)          => apiGet(E.map,       buildParams(f||state.filters)),
+  summary:   (f)          => apiGet(E.summary,   buildParams(f||state.filters)),
+  records:   (f, page, pageSize) => {
+    const p = buildParams(f||state.filters);
+    p.set('page', page || 1);
+    p.set('page_size', pageSize || 30);
+    return apiGet(E.records, p);
+  },
+};
+
+/* ---------- TOAST ---------- */
+let toastT;
+function toast(msg, isErr=false, ms=3200) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.className = 'toast' + (isErr?' error':'');
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>el.classList.add('hidden'), ms);
+}
+
+/* ---------- STATUS DOT ---------- */
+function setStatus(kind, lbl) {
+  const d = $('#statusDot'), l = $('#statusLbl');
+  d.className = 'dot' + (kind==='loading'?' loading':kind==='error'?' error':'');
+  l.textContent = lbl || (kind==='error'?'OFFLINE':kind==='loading'?'LOADING':'LIVE');
+}
+
+/* ---------- HIT COUNT ---------- */
+let hitReqSeq = 0;
+async function refreshHitCount() {
+  const seq = ++hitReqSeq;
+  const el = $('#filterResult');
+  el.classList.add('fr-loading');
+  try {
+    const r = await api.records(state.filters, 1, 1);
+    if (seq !== hitReqSeq) return;  // stale
+    state.totalHits = r.total_records;
+    $('#hitCount').textContent = fmt(r.total_records);
+    const totalAll = state.facets?.total_records || 267548;
+    const p = r.total_records / totalAll;
+    $('#hitBar').style.width = (p*100) + '%';
+    $('#hitPct').textContent = pct(p);
+  } catch (err) {
+    if (seq !== hitReqSeq) return;
+    console.warn('hit count failed', err);
+    $('#hitCount').textContent = '?';
+  } finally {
+    if (seq === hitReqSeq) el.classList.remove('fr-loading');
+  }
+}
+
+/* =========================================================================
+   RAIL
+   ========================================================================= */
+function buildRail(facets, analytics) {
+  // --- COUNTRY ---
+  const countries = cleanCountryList(facets.countries || []).sort();
+  // Pair with map counts if analytics has them (fallback: just list)
+  const countryCountsByName = {};
+  (analytics?.themes?.theme_counts || []);  // noop
+  // Countries don't have counts from /api/data/facets; use map endpoint or analytics
+  buildFacetList('country', countries.slice(0, 50).map(c => ({ key:c, label:c })), 'country');
+  $('#n-country').textContent = countries.length;
+
+  // --- BODY ---
+  const bodies = (facets.bodies || []).filter(b => b && b !== '-').map(b => b.replace(/^-\s*/,''));
+  buildFacetList('body', bodies.map(b => ({ key:b, label:b })), 'body');
+  $('#n-body').textContent = bodies.length;
+
+  // --- THEME --- (from analytics.themes.theme_counts)
+  const themes = (analytics?.themes?.theme_counts || []).map(t => ({
+    key: t.theme, label: t.theme, count: t.count
+  }));
+  buildFacetList('theme', themes, 'theme');
+  $('#n-theme').textContent = themes.length;
+
+  // --- GROUP (affected_persons) ---
+  const groups = (analytics?.text?.affected_person_counts || []).map(g => ({
+    key: g.affected_person, label: g.affected_person, count: g.count
+  }));
+  buildFacetList('group', groups, 'group');
+  $('#n-group').textContent = groups.length;
+
+  // --- REGION ---
+  const regions = (facets.regions || []).map(r => ({ key: r, label: r }));
+  buildFacetList('region', regions, 'region');
+  $('#n-region').textContent = regions.length;
+
+  // --- SDG --- (1–17 grid)
+  const sdgCountsByN = {};
+  (analytics?.text?.sdg_counts || []).forEach(s => {
+    const m = String(s.sdg||'').match(/(\d+)/);
+    if (m) sdgCountsByN[+m[1]] = s.count;
+  });
+  const sdgEl = $('#f-sdg');
+  sdgEl.innerHTML = Array.from({length:17},(_,i)=>i+1).map(n => {
+    const c = sdgCountsByN[n];
+    return `<div class="sdg-cell" data-k="${n}" title="SDG ${n}${c?': '+fmt(c)+' recs':''}">${n}</div>`;
+  }).join('');
+  sdgEl.querySelectorAll('.sdg-cell').forEach(c => c.addEventListener('click', () => {
+    const k = Number(c.dataset.k);
+    if (state.filters.sdg.has(k)) state.filters.sdg.delete(k); else state.filters.sdg.add(k);
+    c.classList.toggle('on');
+    onFiltersChanged();
+  }));
+
+  // --- TYPE ---
+  const types = (facets.types || []).filter(t => t && t !== '-').map(t => t.replace(/^-\s*/,''));
+  const cleanTypes = types.filter(t => !/^[a-f0-9-]{30,}$/.test(t));  // drop UUIDs
+  buildFacetList('type', cleanTypes.map(t => ({ key:t, label:t })), 'type');
+
+  // --- YEAR SLIDER ---
+  const minY = facets.min_year || 2006;
+  const maxY = facets.max_year || 2026;
+  if (state.filters.yearA == null) state.filters.yearA = minY;
+  if (state.filters.yearB == null) state.filters.yearB = maxY;
+  $('#yrAL').textContent = state.filters.yearA;
+  $('#yrBL').textContent = state.filters.yearB;
+  $('#yrA').textContent = minY;
+  $('#yrB').textContent = maxY;
+  $('#ysTicks').innerHTML = Array.from({length: maxY-minY+1},()=>`<span></span>`).join('');
+  bindYearSlider(minY, maxY);
+
+  // --- Match-mode toggles ---
+  $$('#themeMatch button').forEach(b => b.addEventListener('click', () => {
+    state.filters.themesMatch = b.dataset.m;
+    $$('#themeMatch button').forEach(x => x.classList.toggle('on', x.dataset.m === b.dataset.m));
+    onFiltersChanged();
+  }));
+  $$('#groupMatch button').forEach(b => b.addEventListener('click', () => {
+    state.filters.groupsMatch = b.dataset.m;
+    $$('#groupMatch button').forEach(x => x.classList.toggle('on', x.dataset.m === b.dataset.m));
+    onFiltersChanged();
+  }));
+
+  // Facet collapse toggles (clicking head)
+  $$('.facet-head').forEach(h => h.addEventListener('click', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+    h.parentElement.classList.toggle('collapsed');
+  }));
+}
+
+function buildFacetList(facetKey, items, stateKey) {
+  const el = $('#f-' + facetKey);
+  const set = state.filters[stateKey];
+  el.innerHTML = items.map(it => {
+    const on = set.has(it.key) ? 'on' : '';
+    return `<div class="opt ${on}" data-k="${sanitize(it.key)}">
+      <span class="box"></span>
+      <span class="txt" title="${sanitize(it.label)}">${sanitize(it.label)}</span>
+      ${it.count != null ? `<span class="n">${fmt(it.count)}</span>` : ''}
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.opt').forEach(o => o.addEventListener('click', () => {
+    const k = o.dataset.k;
+    if (set.has(k)) set.delete(k); else set.add(k);
+    o.classList.toggle('on');
+    onFiltersChanged();
+  }));
+}
+
+/* ---------- YEAR SLIDER ---------- */
+function bindYearSlider(minY, maxY) {
+  const slider = $('#yearSlider'), fill = $('#ysFill');
+  const A = $('#ysA'), B = $('#ysB');
+  let dragging = null;
+  const yrToPct = y => ((y-minY)/(maxY-minY))*100;
+  function update(){
+    const pA = yrToPct(state.filters.yearA), pB = yrToPct(state.filters.yearB);
+    A.style.left = pA + '%'; B.style.left = pB + '%';
+    fill.style.left = pA + '%'; fill.style.width = (pB - pA) + '%';
+    $('#yrAL').textContent = state.filters.yearA;
+    $('#yrBL').textContent = state.filters.yearB;
+  }
+  update();
+  function onDown(e){ dragging = e.target.dataset.which; e.preventDefault(); }
+  function onMove(e){
+    if (!dragging) return;
+    const r = slider.getBoundingClientRect();
+    const x = ('touches' in e ? e.touches[0].clientX : e.clientX) - r.left;
+    const p = Math.max(0, Math.min(1, x/r.width));
+    const yr = minY + Math.round(p*(maxY-minY));
+    if (dragging === 'a') state.filters.yearA = Math.min(yr, state.filters.yearB);
+    else state.filters.yearB = Math.max(yr, state.filters.yearA);
+    update();
+  }
+  function onUp(){ if (dragging) { dragging = null; onFiltersChanged(); } }
+  A.addEventListener('mousedown', onDown); B.addEventListener('mousedown', onDown);
+  A.addEventListener('touchstart', onDown); B.addEventListener('touchstart', onDown);
+  document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchmove', onMove); document.addEventListener('touchend', onUp);
+}
+
+/* ---------- Keyword input ---------- */
+const debouncedKw = debounce(() => onFiltersChanged(), 350);
+function bindKwInput() {
+  $('#kwInput').addEventListener('input', e => {
+    state.filters.kw = e.target.value;
+    debouncedKw();
+  });
+  $('#kwInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      $('#tabSearch').textContent = state.filters.kw || '—';
+      navigate('search');
+    }
+  });
+}
+
+/* ---------- Filter-changed pipeline ---------- */
+const debouncedRefresh = debounce(() => refreshCurrentView(), 400);
+function onFiltersChanged() {
+  refreshHitCount();
+  debouncedRefresh();
+  _pushUrlState();
+}
+
+async function refreshCurrentView() {
+  if (state.view === 'overview') await renderOverview();
+  else if (state.view === 'search') await renderSearch();
+  // country/theme/compare: their renderers use their own fetches
+}
+
+/* =========================================================================
+   CHART HELPERS
+   ========================================================================= */
+function renderRowList(el, rows, opts = {}) {
+  const top = Math.max(...rows.map(r => r.v), 1);
+  el.innerHTML = rows.map((r, i) => `
+    <div class="rl-row" data-key="${sanitize(r.key||'')}" data-facet="${opts.facet||''}">
+      <div class="rnk">${String(i+1).padStart(2,'0')}</div>
+      <div class="nm"><span class="bar" style="width:${(r.v/top)*100}%"></span><span class="txt" title="${sanitize(r.label)}">${sanitize(r.label)}</span></div>
+      <div class="v">${fmt(r.v)}</div>
+    </div>`).join('');
+  if (opts.facet) {
+    el.querySelectorAll('.rl-row').forEach(row => row.addEventListener('click', () => {
+      const s = state.filters[opts.facet];
+      const k = row.dataset.key; if (!k) return;
+      const val = opts.facet === 'sdg' ? Number(k) : k;
+      if (s.has(val)) s.delete(val); else s.add(val);
+      // refresh facet UI
+      refreshFacetUI(opts.facet);
+      onFiltersChanged();
+    }));
+  }
+  if (opts.onClick) {
+    el.querySelectorAll('.rl-row').forEach(row => row.addEventListener('click', e => opts.onClick(row.dataset.key, e)));
+  }
+}
+
+function refreshFacetUI(facetKey) {
+  const s = state.filters[facetKey];
+  const el = $('#f-' + facetKey);
+  if (!el) return;
+  el.querySelectorAll('.opt').forEach(o => o.classList.toggle('on', s.has(o.dataset.k)));
+  if (facetKey === 'sdg') {
+    el.querySelectorAll('.sdg-cell').forEach(c => c.classList.toggle('on', s.has(Number(c.dataset.k))));
+  }
+}
+
+/* ---------- MAP (grid) ---------- */
+function renderMap(container, countryCounts) {
+  const ROWS=12, COLS=22;
+  const byCell = {};
+  const nameByIso = {};
+  // Aggregate by cell
+  countryCounts.forEach(c => {
+    const iso = NAME_TO_ISO[c.country];
+    if (!iso || !MAP_LAYOUT[iso]) return;
+    const [col, row] = MAP_LAYOUT[iso];
+    const k = col + '-' + row;
+    if (!byCell[k]) byCell[k] = { iso, total:0, names:[] };
+    byCell[k].total += c.count;
+    byCell[k].names.push(c.country);
+    nameByIso[iso] = c.country;
+  });
+  const max = Math.max(0, ...Object.values(byCell).map(v => v.total));
+  let html = '<div class="map-grid">';
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const k = c + '-' + r;
+    const cell = byCell[k];
+    if (cell) {
+      const intensity = max ? cell.total/max : 0;
+      const bg = `color-mix(in oklab, var(--accent) ${Math.round(8+intensity*80)}%, var(--paper-2))`;
+      const on = state.filters.country.has(cell.names[0]);
+      html += `<div class="map-cell ${on?'on':''}" data-iso="${cell.iso}" data-name="${sanitize(cell.names[0])}" style="background:${bg}" title="${sanitize(cell.names.join(', '))}: ${fmt(cell.total)} recs">${cell.iso}</div>`;
+    } else {
+      html += `<div class="map-cell empty"></div>`;
+    }
+  }
+  html += '</div>';
+  html += `<div class="map-scale"><span>less</span>` +
+    [0.08,0.2,0.4,0.6,0.8].map(v=>`<span class="s" style="background:color-mix(in oklab, var(--accent) ${Math.round(v*100)}%, var(--paper-2))"></span>`).join('') +
+    `<span>more</span><span style="margin-left:auto;color:var(--dim)">click cell = filter · double-click = country profile</span></div>`;
+  container.innerHTML = html;
+  container.querySelectorAll('.map-cell[data-iso]').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const name = cell.dataset.name;
+      const s = state.filters.country;
+      if (s.has(name)) s.delete(name); else s.add(name);
+      refreshFacetUI('country');
+      onFiltersChanged();
+    });
+    cell.addEventListener('dblclick', () => {
+      state.focusCountry = cell.dataset.iso;
+      $('#tabCountry').textContent = cell.dataset.name;
+      navigate('country');
+    });
+  });
+}
+
+/* ---------- TIMELINE (stacked area, year × body) ---------- */
+function renderTimeline(container, yearlyBodyCounts, opts={}) {
+  const W=1000, H=220, pad={l:40,r:20,t:14,b:26};
+  const years = Object.keys(yearlyBodyCounts || {}).map(Number).sort((a,b)=>a-b);
+  if (!years.length) { container.innerHTML = '<div class="panel-loading" style="padding:80px 0">No data</div>'; return; }
+  // Collect top N bodies by total volume
+  const bodyTotals = {};
+  years.forEach(y => {
+    const m = yearlyBodyCounts[y] || {};
+    Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c);
+  });
+  const topBodies = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
+  const stacks = years.map(y => topBodies.map(b => (yearlyBodyCounts[y]||{})[b] || 0));
+  const totals = stacks.map(s => s.reduce((a,b)=>a+b,0));
+  const max = Math.max(1, ...totals);
+  const xStep = (W-pad.l-pad.r) / Math.max(1, years.length-1);
+  const yOf = v => pad.t + (H-pad.t-pad.b)*(1 - v/max);
+  const ink = cssVar('--ink'), accent = cssVar('--accent');
+
+  let g = `<g>`;
+  [0,.25,.5,.75,1].forEach(p => {
+    const y = pad.t + (H-pad.t-pad.b)*(1-p);
+    g += `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${ink}" stroke-opacity=".07"/>`;
+    g += `<text x="${pad.l-6}" y="${y+3}" text-anchor="end" font-family="var(--mono)" font-size="9" fill="${ink}" opacity=".5">${fmt(Math.round(max*p))}</text>`;
+  });
+  g += `</g>`;
+
+  const cumulative = years.map(()=>0);
+  topBodies.forEach((b, bi) => {
+    for (let i = 0; i < years.length; i++) cumulative[i] += stacks[i][bi];
+    const topPts = years.map((_,i)=>`${pad.l+i*xStep},${yOf(cumulative[i])}`);
+    const botPts = years.map((_,i)=>`${pad.l+i*xStep},${yOf(cumulative[i]-stacks[i][bi])}`).reverse();
+    const col = bi===0?ink:(bi===1?'#3a3a3a':bi===2?'#5c5a55':bi===3?'#7a7872':bi===4?'#98968f':accent);
+    g += `<polygon points="${topPts.concat(botPts).join(' ')}" fill="${col}" opacity="${bi===5?0.9:(0.85-bi*0.06)}"><title>${sanitize(b)}</title></polygon>`;
+  });
+  years.forEach((y, i) => {
+    if (i % 2 === 0) g += `<text x="${pad.l+i*xStep}" y="${H-8}" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="${ink}" opacity=".55">${y}</text>`;
+  });
+
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl-svg">${g}</svg>`;
+
+  // legend in opts.legendEl
+  if (opts.legendEl) {
+    opts.legendEl.innerHTML = topBodies.map((b,i) => {
+      const col = i===0?'var(--ink)':i===1?'#3a3a3a':i===2?'#5c5a55':i===3?'#7a7872':i===4?'#98968f':'var(--accent)';
+      return `<span style="display:inline-flex;gap:4px;align-items:center;margin-right:8px;font-size:10px"><span style="width:10px;height:10px;background:${col};display:inline-block"></span>${sanitize(b.length>20?b.slice(0,18)+'…':b)}</span>`;
+    }).join('');
+  }
+}
+
+/* =========================================================================
+   VIEW: OVERVIEW
+   ========================================================================= */
+async function renderOverview() {
+  const root = $('#view-overview');
+  if (!root.dataset.built) {
+    root.innerHTML = `
+      <div class="ov-grid">
+        <div class="panel p-map">
+          <div class="panel-head">
+            <div class="panel-title"><span class="idx">FIG.01</span><span class="t">Where the recommendations land</span></div>
+            <div class="panel-actions"><span style="color:var(--dim);font-size:10px">22 × 12 grid · click = filter · double-click = country profile</span></div>
+          </div>
+          <div class="map-wrap" id="mapWrap"><div class="panel-loading">loading map</div></div>
+        </div>
+        <div class="panel p-top-countries">
+          <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
+          <div class="row-list" id="topCountries"><div class="panel-loading">loading</div></div>
+        </div>
+        <div class="panel p-top-themes">
+          <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
+          <div class="row-list" id="topThemes"><div class="panel-loading">loading</div></div>
+        </div>
+        <div class="panel p-time">
+          <div class="panel-head"><div class="panel-title"><span class="idx">FIG.04</span><span class="t">Volume over time, by recommending body</span></div>
+            <div class="panel-actions" id="tlLegend"></div></div>
+          <div class="tl-wrap" id="tlWrap"><div class="panel-loading">loading</div></div>
+        </div>
+        <div class="panel p-sankey">
+          <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Affected groups</span></div></div>
+          <div class="row-list" id="topGroups"><div class="panel-loading">loading</div></div>
+        </div>
+      </div>`;
+    root.dataset.built = '1';
+  }
+
+  root.classList.add('loading');
+  try {
+    const [analytics, mapD] = await Promise.all([
+      api.analytics(state.filters),
+      api.map(state.filters),
+    ]);
+    state.analytics = analytics;
+
+    renderMap($('#mapWrap'), mapD.country_counts || []);
+
+    // Top countries (from map data)
+    const topC = (mapD.country_counts || []).slice(0, 12).map(c => ({
+      key: c.country, label: c.country, v: c.count
+    }));
+    renderRowList($('#topCountries'), topC, { facet:'country' });
+
+    // Top themes (from analytics)
+    const topT = (analytics?.themes?.theme_counts || []).slice(0, 10).map(t => ({
+      key: t.theme, label: t.theme, v: t.count
+    }));
+    renderRowList($('#topThemes'), topT, { facet:'theme' });
+
+    // Top groups
+    const topG = (analytics?.text?.affected_person_counts || []).slice(0, 10).map(g => ({
+      key: g.affected_person, label: g.affected_person, v: g.count
+    }));
+    renderRowList($('#topGroups'), topG, { facet:'group' });
+
+    // Timeline
+    renderTimeline($('#tlWrap'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#tlLegend') });
+
+  } catch (err) {
+    console.error(err);
+    toast('Failed to load overview: ' + err.message, true);
+  } finally {
+    root.classList.remove('loading');
+  }
+}
+
+/* =========================================================================
+   VIEW: COUNTRY PROFILE
+   ========================================================================= */
+async function renderCountry() {
+  const root = $('#view-country');
+  const iso = state.focusCountry;
+  const name = iso ? (ISO_TO_NAME[iso] || iso) : null;
+
+  if (!iso || !name) {
+    root.innerHTML = `<div class="me"><h1>Pick a country</h1><p>Use the command palette (⌘K), the map on the Overview tab, or the country filter in the left rail to choose a country.</p><button class="dr-btn primary" id="openPaletteFromCP">Open command palette</button></div>`;
+    $('#openPaletteFromCP')?.addEventListener('click', openPalette);
+    return;
+  }
+
+  const countries = cleanCountryList(state.facets?.countries || []).sort();
+  const options = countries.map(c => `<option value="${sanitize(c)}" ${c===name?'selected':''}>${sanitize(c)}</option>`).join('');
+
+  root.innerHTML = `
+    <div class="cp-head">
+      <div>
+        <div class="cp-iso">${iso} · COUNTRY PROFILE</div>
+        <h1 class="cp-name">${sanitize(name)}</h1>
+        <div class="cp-sub">Loading profile…</div>
+        <div class="cp-kpis" id="cpKpis"></div>
+      </div>
+      <div class="cp-picker">
+        <label>Switch country</label>
+        <select id="cpSelect">${options}</select>
+      </div>
+    </div>
+    <div class="cp-body">
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume by year</span></div><div class="panel-actions" id="cpLegend"></div></div><div class="tl-wrap" id="cpTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Themes</span></div></div><div class="row-list" id="cpThemes"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Recommending bodies</span></div></div><div class="row-list" id="cpBodies"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="cpSeeAll">see all →</button></div></div><div id="cpSamples"><div class="panel-loading">loading</div></div></div>
+    </div>`;
+
+  $('#cpSelect').addEventListener('change', e => {
+    const newName = e.target.value;
+    state.focusCountry = NAME_TO_ISO[newName] || newName;
+    $('#tabCountry').textContent = newName;
+    renderCountry();
+  });
+
+  const countryFilter = { ...state.filters, country: new Set([name]) };
+  try {
+    const [analytics, records] = await Promise.all([
+      api.analytics(countryFilter),
+      api.records(countryFilter, 1, 5),
+    ]);
+    const total = records.total_records;
+    const themes = analytics?.themes?.theme_counts || [];
+    const groups = analytics?.text?.affected_person_counts || [];
+    const topTheme = themes[0]?.theme || '—';
+    // Build "bodies" breakdown from yearly_body_counts
+    const bodyTotals = {};
+    Object.values(analytics?.trends?.yearly_body_counts || {}).forEach(m => {
+      Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c);
+    });
+    const nBodies = Object.keys(bodyTotals).length;
+
+    // KPIs
+    $('#cpKpis').innerHTML = `
+      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${nBodies}</div><div class="l">Bodies</div></div>
+      <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
+      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:220px;line-height:1.2">${sanitize(topTheme)}</div><div class="l">Leading theme</div></div>`;
+    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date || '—'} → ${analytics?.trends?.dataset_last_publication_date || '—'} · all mechanisms`;
+
+    // Timeline
+    renderTimeline($('#cpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#cpLegend') });
+
+    // Themes (top 12)
+    renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
+
+    // Bodies
+    const bodyRows = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).map(([k,v]) => ({ key:k, label:k, v }));
+    renderRowList($('#cpBodies'), bodyRows, {});
+
+    // Samples
+    const sampleEl = $('#cpSamples');
+    sampleEl.innerHTML = '';
+    (records.records || []).forEach(r => {
+      const d = document.createElement('div');
+      d.className = 'cp-sample';
+      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(r.Body||'—')} · ${sanitize((r.Themes||[])[0]||'')}</div>${sanitize(txt)}${txt.length>=400?'…':''}`;
+      d.addEventListener('click', () => { state.selectedRec = r; renderDrawer(); openReader(r); });
+      sampleEl.appendChild(d);
+    });
+    if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+
+    $('#cpSeeAll').addEventListener('click', () => {
+      state.filters.country = new Set([name]);
+      refreshFacetUI('country');
+      navigate('search');
+      onFiltersChanged();
+    });
+  } catch (err) {
+    console.error(err);
+    toast('Failed to load country profile: ' + err.message, true);
+  }
+}
+
+/* =========================================================================
+   VIEW: THEME PROFILE
+   ========================================================================= */
+async function renderTheme() {
+  const root = $('#view-theme');
+  const name = state.focusTheme;
+  if (!name) {
+    root.innerHTML = `<div class="me"><h1>Pick a theme</h1><p>Use the command palette (⌘K), click a theme in the Overview, or pick one from the rail.</p></div>`;
+    return;
+  }
+
+  const themesList = (state.analytics?.themes?.theme_counts || []).map(t => t.theme);
+  const opts = themesList.map(t => `<option value="${sanitize(t)}" ${t===name?'selected':''}>${sanitize(t)}</option>`).join('');
+
+  root.innerHTML = `
+    <div class="cp-head">
+      <div>
+        <div class="cp-iso">THEME PROFILE</div>
+        <h1 class="cp-name" style="font-size:42px">${sanitize(name)}</h1>
+        <div class="cp-sub">Loading…</div>
+        <div class="cp-kpis" id="thKpis"></div>
+      </div>
+      <div class="cp-picker"><label>Switch theme</label>
+        <select id="thSelect">${opts}</select></div>
+    </div>
+    <div class="cp-body">
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="thLegend"></div></div><div class="tl-wrap" id="thTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="thCountries"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Related affected groups</span></div></div><div class="row-list" id="thGroups"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="thSeeAll">see all →</button></div></div><div id="thSamples"><div class="panel-loading">loading</div></div></div>
+    </div>`;
+
+  $('#thSelect').addEventListener('change', e => {
+    state.focusTheme = e.target.value;
+    $('#tabTheme').textContent = e.target.value;
+    renderTheme();
+  });
+
+  const themeFilter = { ...state.filters, theme: new Set([name]) };
+  try {
+    const [analytics, mapD, records] = await Promise.all([
+      api.analytics(themeFilter),
+      api.map(themeFilter),
+      api.records(themeFilter, 1, 5),
+    ]);
+    const total = records.total_records;
+    const countries = mapD.country_counts || [];
+    const topC = countries[0]?.country || '—';
+    const groups = analytics?.text?.affected_person_counts || [];
+
+    $('#thKpis').innerHTML = `
+      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
+      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
+      <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Affected groups</div></div>`;
+    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+
+    renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend') });
+    renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
+    renderRowList($('#thGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
+
+    const sampleEl = $('#thSamples'); sampleEl.innerHTML = '';
+    (records.records || []).forEach(r => {
+      const d = document.createElement('div');
+      d.className = 'cp-sample';
+      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize((r.Countries||[])[0]||'')} · ${sanitize(r.Body||'')}</div>${sanitize(txt)}${txt.length>=400?'…':''}`;
+      d.addEventListener('click', () => { state.selectedRec = r; renderDrawer(); openReader(r); });
+      sampleEl.appendChild(d);
+    });
+    if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+    $('#thSeeAll').addEventListener('click', () => {
+      state.filters.theme = new Set([name]);
+      refreshFacetUI('theme');
+      navigate('search');
+      onFiltersChanged();
+    });
+  } catch (err) {
+    console.error(err);
+    toast('Failed to load theme profile: ' + err.message, true);
+  }
+}
+
+/* =========================================================================
+   VIEW: COMPARE (A vs B)
+   ========================================================================= */
+async function renderCompare() {
+  const root = $('#view-compare');
+  const countries = cleanCountryList(state.facets?.countries || []).sort();
+  if (!state.cmpA) state.cmpA = countries[0] || null;
+  if (!state.cmpB) state.cmpB = countries[1] || null;
+  const opts = name => countries.map(c => `<option value="${sanitize(c)}" ${c===name?'selected':''}>${sanitize(c)}</option>`).join('');
+
+  root.innerHTML = `
+    <div class="cmp-head">
+      <div class="cmp-side"><label>A</label><select id="cmpAsel">${opts(state.cmpA)}</select>
+        <div class="big" id="cmpAname">${sanitize(state.cmpA||'—')}</div>
+        <div class="sub" id="cmpAsub">loading…</div></div>
+      <div class="cmp-vs">vs</div>
+      <div class="cmp-side b"><label>B</label><select id="cmpBsel">${opts(state.cmpB)}</select>
+        <div class="big" id="cmpBname">${sanitize(state.cmpB||'—')}</div>
+        <div class="sub" id="cmpBsub">loading…</div></div>
+    </div>
+    <div class="cmp-body">
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">Over time</span></div></div><div class="tl-wrap" id="cmpTimeA"></div></div>
+      <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">Over time</span></div></div><div class="tl-wrap" id="cmpTimeB"></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">Themes</span></div></div><div class="row-list" id="cmpThemesA"></div></div>
+      <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">Themes</span></div></div><div class="row-list" id="cmpThemesB"></div></div>
+    </div>`;
+
+  $('#cmpAsel').addEventListener('change', e => { state.cmpA = e.target.value; renderCompare(); });
+  $('#cmpBsel').addEventListener('change', e => { state.cmpB = e.target.value; renderCompare(); });
+
+  async function loadSide(name, pfx) {
+    const f = { ...state.filters, country: new Set([name]) };
+    try {
+      const [an, recs] = await Promise.all([api.analytics(f), api.records(f, 1, 1)]);
+      $(`#${pfx}sub`).textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes`;
+      renderTimeline($(`#${pfx}Time`), an?.trends?.yearly_body_counts || {});
+      const t = (an?.themes?.theme_counts||[]).slice(0,8).map(x => ({ key:x.theme, label:x.theme, v:x.count }));
+      renderRowList($(`#${pfx}Themes`), t, {});
+    } catch (err) {
+      $(`#${pfx}sub`).textContent = 'load failed';
+      console.error(err);
+    }
+  }
+  if (state.cmpA) loadSide(state.cmpA, 'cmpA');
+  if (state.cmpB) loadSide(state.cmpB, 'cmpB');
+}
+
+/* =========================================================================
+   VIEW: SEARCH RESULTS
+   ========================================================================= */
+async function renderSearch() {
+  const root = $('#view-search');
+  const kw = state.filters.kw.trim();
+  const page = state.searchPage;
+  const pageSize = state.searchPageSize;
+
+  root.innerHTML = `
+    <div class="se-head">
+      <span class="lbl">Search results</span>
+      <span class="q">${kw ? `"${sanitize(kw)}"` : 'all recommendations'}</span>
+      <span class="n" id="seN">loading…</span>
+      <div class="se-pager"><button id="sePrev" ${page<=1?'disabled':''}>← prev</button><button id="seNext">next →</button></div>
+    </div>
+    <div class="se-list" id="seList"><div class="panel-loading" style="padding:40px 0">loading…</div></div>`;
+
+  try {
+    const r = await api.records(state.filters, page, pageSize);
+    const total = r.total_records;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    $('#seN').textContent = `${fmt(total)} matches · page ${page} of ${fmt(totalPages)}`;
+    $('#sePrev').disabled = page <= 1;
+    $('#seNext').disabled = page >= totalPages;
+    $('#sePrev').addEventListener('click', () => { state.searchPage = Math.max(1, page-1); renderSearch(); });
+    $('#seNext').addEventListener('click', () => { state.searchPage = Math.min(totalPages, page+1); renderSearch(); });
+
+    const highlight = txt => kw ? txt.replace(new RegExp(`(${escapeRegex(kw)})`, 'gi'), '<em>$1</em>') : txt;
+
+    $('#seList').innerHTML = (r.records||[]).map((rec, idx) => {
+      const txt = (rec.TextPlainCleaned || rec.Text || '').slice(0, 320);
+      const yr = (rec.PublicationDate||'').slice(0,4);
+      const themes = (rec.Themes||[]).slice(0,3);
+      return `<div class="se-item" data-idx="${idx}">
+        <div><div class="y">${sanitize(yr)}</div><div class="mech">${sanitize(rec.Body||'')}</div></div>
+        <div>
+          <div class="tx">${highlight(sanitize(txt))}${txt.length>=320?'…':''}</div>
+          <div class="tg">${themes.map(t=>`<span>${sanitize(t)}</span>`).join('')}${(rec.AffectedPersons||[]).slice(0,2).map(g=>`<span>${sanitize(g)}</span>`).join('')}</div>
+        </div>
+        <div>
+          <div class="cc">${sanitize((rec.Countries||[])[0]||'')}</div>
+          <div class="rg">${sanitize((rec.Regions||[])[0]||'')}</div>
+        </div>
+      </div>`;
+    }).join('') || '<div class="panel-loading" style="padding:60px 0">No matching records</div>';
+
+    $$('#seList .se-item').forEach(el => el.addEventListener('click', () => {
+      const rec = r.records[+el.dataset.idx];
+      state.selectedRec = rec;
+      renderDrawer();
+      openReader(rec);
+    }));
+  } catch (err) {
+    console.error(err);
+    $('#seN').textContent = 'failed';
+    toast('Search failed: ' + err.message, true);
+  }
+}
+
+/* =========================================================================
+   VIEW: METHODOLOGY
+   ========================================================================= */
+function renderMethodology() {
+  $('#view-methodology').innerHTML = `
+    <div class="me">
+      <h1>Methodology <em style="color:var(--accent)">·</em> notes & caveats</h1>
+      <p>This dashboard aggregates <strong>267,548 observations and recommendations</strong> addressed to UN Member States by Treaty Bodies, Special Procedures and the Universal Periodic Review, covering the twenty-year period 2006 – 2026.</p>
+
+      <h2>Data sources</h2>
+      <p>All records originate from the OHCHR <strong>Universal Human Rights Index</strong> (<a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a>). The dataset is served from a VM-hosted SQLite mirror with a two-stage cleanup pipeline (deterministic rules + LLM-assisted section-heading extraction). You can toggle between cleaned and raw text in the classic dashboard.</p>
+
+      <h2>Architecture</h2>
+      <p>This v2 dashboard is a preview of a new UX pattern — a three-column Bloomberg-terminal layout with rail filters, a main content area and a selected-record drawer. All analytics are computed server-side on demand via the VM API (<code>/api/data/facets</code>, <code>/api/data/analytics</code>, <code>/api/data/records</code>, <code>/api/data/map</code>).</p>
+
+      <h2>Glossary</h2>
+      <dl class="grid-def">
+        <dt>Recommending body</dt><dd>The UN mechanism that issued the recommendation (UPR, Treaty Body, or Special Procedure).</dd>
+        <dt>Theme</dt><dd>Primary thematic tag assigned by OHCHR — records typically carry more than one.</dd>
+        <dt>Affected group</dt><dd>Population specifically addressed by the recommendation.</dd>
+        <dt>SDG</dt><dd>Mapping to the corresponding Sustainable Development Goal (OHCHR crosswalk).</dd>
+        <dt>Type</dt><dd>Recommendation, Observation, or Other (procedural, factual).</dd>
+      </dl>
+
+      <h2>Caveats</h2>
+      <p>Volume differences across countries reflect review frequency and substantive coverage; they are not a direct measure of human rights performance. Counts per theme may double-count where a recommendation addresses multiple issues. Use this dashboard to identify trends and retrieve primary sources — not as a scoring instrument.</p>
+
+      <h2>Citation</h2>
+      <p>Szoszkiewicz, L. (2026). <em>UN Human Rights Analytics Dashboard</em>. Built on OHCHR UHRI data. Supported by re:constitution (Forum Transregionale Studien) and HURIDOCS.</p>
+
+      <h2>Preview build</h2>
+      <p>This v2 dashboard is an <strong>experimental preview</strong> alongside the <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">production dashboard</a>. It reuses the same data and API but reorganises the UX. For full features (offline mode, upload your own data, feedback reporting, XLSX export) use the production build.</p>
+    </div>`;
+}
+
+/* =========================================================================
+   DRAWER
+   ========================================================================= */
+function renderDrawer() {
+  const el = $('#drawerBody');
+  const r = state.selectedRec;
+  if (!r) {
+    el.innerHTML = `<div class="dr-empty"><div class="big">No record selected</div><div>Click any recommendation in a list, map cell or search result to preview it here.<br><br>Or press <kbd style="border:1px solid var(--line);padding:0 4px;font-family:var(--mono)">⌘K</kbd> for the command palette.</div></div>`;
+    return;
+  }
+  const yr = (r.PublicationDate||'').slice(0,4);
+  const country = (r.Countries||[])[0] || '—';
+  const body = r.Body || '—';
+  const themes = r.Themes || [];
+  const groups = r.AffectedPersons || [];
+  const sdgs = r.Sdgs || [];
+  const txt = (r.TextPlainCleaned || r.Text || '');
+
+  el.innerHTML = `
+    <div class="dr-id">${sanitize(r.AnnotationId||'')}</div>
+    <div class="dr-yr">${sanitize(yr||'—')}</div>
+    <div class="dr-text">${sanitize(txt)}</div>
+    <div class="dr-tags">
+      ${themes.slice(0,4).map(t=>`<span class="dr-tag theme" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}
+      ${groups.slice(0,4).map(g=>`<span class="dr-tag">${sanitize(g)}</span>`).join('')}
+      ${sdgs.slice(0,3).map(s=>`<span class="dr-tag">${sanitize(s)}</span>`).join('')}
+    </div>
+    <dl class="dr-meta">
+      <dt>Country</dt><dd>${sanitize(country)}</dd>
+      <dt>Region</dt><dd>${sanitize((r.Regions||[])[0]||'—')}</dd>
+      <dt>Body</dt><dd>${sanitize(body)}</dd>
+      <dt>Symbol</dt><dd>${sanitize(r.Symbol||'—')}</dd>
+      <dt>Type</dt><dd>${sanitize(r.AnnotationType||'—')}</dd>
+    </dl>
+    <div class="dr-actions">
+      <button class="dr-btn primary" id="drOpen">Open full reader →</button>
+      <button class="dr-btn" id="drCountry">Country profile</button>
+      ${themes[0]?`<button class="dr-btn" id="drTheme">Theme profile</button>`:''}
+      <button class="dr-btn" id="drCopy">Copy citation</button>
+    </div>`;
+
+  $('#drOpen').addEventListener('click', () => openReader(r));
+  $('#drCountry').addEventListener('click', () => {
+    state.focusCountry = NAME_TO_ISO[country] || country;
+    $('#tabCountry').textContent = country;
+    navigate('country');
+  });
+  $('#drTheme')?.addEventListener('click', () => {
+    state.focusTheme = themes[0];
+    $('#tabTheme').textContent = themes[0];
+    navigate('theme');
+  });
+  $('#drCopy').addEventListener('click', () => {
+    const cite = `OHCHR UHRI (${yr}). ${country}, ${body}. ${r.Symbol||r.AnnotationId}. https://uhri.ohchr.org/`;
+    navigator.clipboard.writeText(cite).then(()=>toast('Citation copied'));
+  });
+  el.querySelectorAll('.dr-tag.theme').forEach(t => t.addEventListener('click', () => {
+    state.focusTheme = t.dataset.theme;
+    $('#tabTheme').textContent = t.dataset.theme;
+    navigate('theme');
+  }));
+}
+
+/* ---------- READER ---------- */
+function openReader(r) {
+  const yr = (r.PublicationDate||'').slice(0,4);
+  const country = (r.Countries||[])[0] || '—';
+  const themes = r.Themes || [];
+  const txt = (r.TextPlainCleaned || r.Text || '');
+  const sections = r.SectionHeadings || [];
+
+  $('#readerBody').innerHTML = `
+    <button class="rd-close" id="rdClose" aria-label="close">×</button>
+    <div class="rd-eyebrow">
+      <span class="dot"></span>
+      <span>${sanitize(r.Body||'')}</span><span>·</span>
+      <span>${sanitize(yr)}</span><span>·</span>
+      <span>${sanitize(country)}</span>
+      ${themes[0]?`<span>·</span><span>${sanitize(themes[0])}</span>`:''}
+    </div>
+    <h1 class="rd-title">${sanitize((sections[0]||txt.slice(0,120)+(txt.length>120?'…':'')))}</h1>
+    <div class="rd-body">${sanitize(txt)}</div>
+    <dl class="rd-meta">
+      <div><dt class="k">Symbol</dt><dd class="v">${sanitize(r.Symbol||'—')}</dd></div>
+      <div><dt class="k">Country</dt><dd class="v">${sanitize(country)} · ${sanitize((r.Regions||[])[0]||'')}</dd></div>
+      <div><dt class="k">Themes</dt><dd class="v">${sanitize(themes.join(', ')||'—')}</dd></div>
+      <div><dt class="k">Affected groups</dt><dd class="v">${sanitize((r.AffectedPersons||[]).join(', ')||'—')}</dd></div>
+      <div><dt class="k">Type</dt><dd class="v">${sanitize(r.AnnotationType||'—')}</dd></div>
+      <div><dt class="k">Annotation ID</dt><dd class="v" style="word-break:break-all;font-size:10px">${sanitize(r.AnnotationId||'')}</dd></div>
+    </dl>
+    <div class="rd-foot">
+      <button class="dr-btn primary" onclick="document.getElementById('reader').classList.add('hidden')">Close</button>
+    </div>`;
+  $('#reader').classList.remove('hidden');
+  $('#rdClose').addEventListener('click', () => $('#reader').classList.add('hidden'));
+}
+
+/* =========================================================================
+   COMMAND PALETTE
+   ========================================================================= */
+function openPalette() {
+  $('#cmdPalette').classList.remove('hidden');
+  $('#cmdInput').value = '';
+  $('#cmdInput').focus();
+  renderPalette('');
+}
+function closePalette() { $('#cmdPalette').classList.add('hidden'); }
+
+function renderPalette(q) {
+  q = (q||'').trim().toLowerCase();
+  const countries = cleanCountryList(state.facets?.countries || []);
+  const bodies = (state.facets?.bodies || []).filter(b => b && b !== '-').map(b => b.replace(/^-\s*/,''));
+  const themes = (state.analytics?.themes?.theme_counts || []).map(t => t.theme);
+
+  const matches = (s) => !q || s.toLowerCase().includes(q);
+
+  let results = [];
+  countries.forEach(c => matches(c) && results.push({
+    kind: 'COUNTRY', label: c, sub: 'open country profile',
+    action: () => { state.focusCountry = NAME_TO_ISO[c] || c; $('#tabCountry').textContent = c; closePalette(); navigate('country'); }
+  }));
+  themes.forEach(t => matches(t) && results.push({
+    kind: 'THEME', label: t, sub: 'open theme profile',
+    action: () => { state.focusTheme = t; $('#tabTheme').textContent = t; closePalette(); navigate('theme'); }
+  }));
+  bodies.slice(0, 40).forEach(b => matches(b) && results.push({
+    kind: 'BODY', label: b, sub: 'filter by body',
+    action: () => { state.filters.body = new Set([b]); refreshFacetUI('body'); closePalette(); onFiltersChanged(); navigate('overview'); }
+  }));
+  [
+    { kind:'VIEW', label:'Overview', sub:'all recommendations', action:()=>{closePalette();navigate('overview');} },
+    { kind:'VIEW', label:'Compare two countries', sub:'side-by-side', action:()=>{closePalette();navigate('compare');} },
+    { kind:'VIEW', label:'Search results', sub:'all-text search', action:()=>{closePalette();navigate('search');} },
+    { kind:'VIEW', label:'Methodology', sub:'about the dataset', action:()=>{closePalette();navigate('methodology');} },
+  ].forEach(r => matches(r.label) && results.push(r));
+
+  results = results.slice(0, 14);
+
+  $('#cmdResults').innerHTML = results.map((r,i) => `
+    <div class="cmd-result ${i===0?'focus':''}" data-i="${i}">
+      <div class="kind">${r.kind}</div>
+      <div><div>${sanitize(r.label)}</div><div style="color:var(--dim);font-size:10px">${sanitize(r.sub||'')}</div></div>
+      <div style="color:var(--dim)">↵</div>
+    </div>`).join('');
+  $$('#cmdResults .cmd-result').forEach((el,i) => el.addEventListener('click', () => results[i].action()));
+  window.__cmdResults = results;
+}
+
+/* =========================================================================
+   URL STATE (hash)
+   ========================================================================= */
+function _pushUrlState() {
+  const f = state.filters;
+  const p = new URLSearchParams();
+  if (state.view && state.view !== 'overview') p.set('view', state.view);
+  if (f.kw) p.set('q', f.kw);
+  if (f.country.size) p.set('country', Array.from(f.country).join(','));
+  if (f.body.size) p.set('body', Array.from(f.body).join(','));
+  if (f.theme.size) p.set('theme', Array.from(f.theme).join('|'));
+  if (f.group.size) p.set('group', Array.from(f.group).join('|'));
+  if (f.region.size) p.set('region', Array.from(f.region).join(','));
+  if (f.sdg.size) p.set('sdg', Array.from(f.sdg).join(','));
+  if (f.type.size) p.set('type', Array.from(f.type).join(','));
+  if (f.yearA && state.facets && f.yearA !== state.facets.min_year) p.set('y1', f.yearA);
+  if (f.yearB && state.facets && f.yearB !== state.facets.max_year) p.set('y2', f.yearB);
+  if (state.focusCountry) p.set('fc', state.focusCountry);
+  if (state.focusTheme) p.set('ft', state.focusTheme);
+  const h = p.toString();
+  const newHash = h ? '#' + h : '';
+  if (location.hash !== newHash) history.replaceState(null, '', newHash || location.pathname);
+}
+
+function _restoreUrlState() {
+  const h = location.hash.slice(1);
+  if (!h) return;
+  const p = new URLSearchParams(h);
+  const f = state.filters;
+  if (p.get('q')) { f.kw = p.get('q'); $('#kwInput').value = f.kw; }
+  if (p.get('country')) p.get('country').split(',').forEach(v => f.country.add(v));
+  if (p.get('body')) p.get('body').split(',').forEach(v => f.body.add(v));
+  if (p.get('theme')) p.get('theme').split('|').forEach(v => f.theme.add(v));
+  if (p.get('group')) p.get('group').split('|').forEach(v => f.group.add(v));
+  if (p.get('region')) p.get('region').split(',').forEach(v => f.region.add(v));
+  if (p.get('sdg')) p.get('sdg').split(',').forEach(v => f.sdg.add(Number(v)));
+  if (p.get('type')) p.get('type').split(',').forEach(v => f.type.add(v));
+  if (p.get('y1')) f.yearA = Number(p.get('y1'));
+  if (p.get('y2')) f.yearB = Number(p.get('y2'));
+  if (p.get('fc')) state.focusCountry = p.get('fc');
+  if (p.get('ft')) { state.focusTheme = p.get('ft'); $('#tabTheme').textContent = state.focusTheme; }
+  if (p.get('view')) state.view = p.get('view');
+}
+
+/* =========================================================================
+   NAV
+   ========================================================================= */
+async function navigate(view) {
+  state.view = view;
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.nav === view));
+  $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + view));
+  _pushUrlState();
+  if (view === 'overview') await renderOverview();
+  else if (view === 'country') await renderCountry();
+  else if (view === 'theme') await renderTheme();
+  else if (view === 'compare') await renderCompare();
+  else if (view === 'search') { state.searchPage = 1; await renderSearch(); }
+  else if (view === 'methodology') renderMethodology();
+}
+
+/* =========================================================================
+   TWEAKS
+   ========================================================================= */
+const TW = { palette:'archive', density:'tight', rail:true, drawer:true };
+function applyTweaks() {
+  document.body.dataset.palette = TW.palette;
+  document.body.dataset.density = TW.density;
+  $('#app').classList.toggle('rail-closed', !TW.rail);
+  $('#app').classList.toggle('drawer-closed', !TW.drawer);
+  $('#railTog').classList.toggle('on', TW.rail);    $('#railTog').textContent = TW.rail?'ON':'OFF';
+  $('#drawerTog').classList.toggle('on', TW.drawer);$('#drawerTog').textContent = TW.drawer?'ON':'OFF';
+  $('#densitySel').value = TW.density;
+  $$('#swPalette .sw').forEach(s => s.classList.toggle('active', s.dataset.pal === TW.palette));
+  try { localStorage.setItem('uhri_v2_tw', JSON.stringify(TW)); } catch {}
+}
+function loadTweaks() {
+  try { const s = localStorage.getItem('uhri_v2_tw'); if (s) Object.assign(TW, JSON.parse(s)); } catch {}
+}
+function bindTweaks() {
+  $$('#swPalette .sw').forEach(s => s.addEventListener('click', () => { TW.palette = s.dataset.pal; applyTweaks(); }));
+  $('#densitySel').addEventListener('change', e => { TW.density = e.target.value; applyTweaks(); });
+  $('#railTog').addEventListener('click', () => { TW.rail = !TW.rail; applyTweaks(); });
+  $('#drawerTog').addEventListener('click', () => { TW.drawer = !TW.drawer; applyTweaks(); });
+  $('#tweaksClose').addEventListener('click', () => $('#tweaks').classList.remove('open'));
+  $('#gearBtn').addEventListener('click', () => { $('#tweaks').classList.toggle('open'); $('#gearBtn').style.display = $('#tweaks').classList.contains('open')?'none':'flex'; });
+  // When closed, show gear again
+  const obs = new MutationObserver(() => { if (!$('#tweaks').classList.contains('open')) $('#gearBtn').style.display='flex'; });
+  obs.observe($('#tweaks'), { attributes:true, attributeFilter:['class'] });
+}
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+async function boot() {
+  setStatus('loading');
+  loadTweaks(); bindTweaks(); applyTweaks();
+  bindKwInput();
+
+  $('#cmdkBtn').addEventListener('click', openPalette);
+  $('#cmdInput').addEventListener('input', e => renderPalette(e.target.value));
+  $('#cmdPalette').addEventListener('click', e => { if (e.target.id === 'cmdPalette') closePalette(); });
+  $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') $('#reader').classList.add('hidden'); });
+  $('#drawerClear').addEventListener('click', () => { state.selectedRec = null; renderDrawer(); });
+  $('#clearFilters').addEventListener('click', () => {
+    state.filters = { kw:'', country:new Set(), body:new Set(), theme:new Set(), group:new Set(), region:new Set(), sdg:new Set(), type:new Set(), yearA:state.facets?.min_year, yearB:state.facets?.max_year, themesMatch:'any', groupsMatch:'any' };
+    $('#kwInput').value = '';
+    ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
+    // Reset slider
+    if (state.facets) { $('#yrAL').textContent = state.facets.min_year; $('#yrBL').textContent = state.facets.max_year; }
+    $$('.match-mode button').forEach(b => b.classList.toggle('on', b.dataset.m === 'any'));
+    onFiltersChanged();
+    toast('Filters cleared');
+  });
+  $('#btnReset')?.addEventListener('click', () => $('#clearFilters').click());
+  $('#btnShare').addEventListener('click', () => {
+    const u = location.href;
+    navigator.clipboard.writeText(u).then(() => toast('Share link copied'));
+  });
+
+  $$('[data-nav]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.nav); }));
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey||e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
+    else if (e.key === 'Escape') { closePalette(); $('#reader').classList.add('hidden'); }
+    else if (e.key === 'Enter' && !$('#cmdPalette').classList.contains('hidden')) {
+      const first = window.__cmdResults && window.__cmdResults[0]; if (first) first.action();
+    } else if (e.key === '/' && document.activeElement?.tagName !== 'INPUT') {
+      e.preventDefault(); $('#kwInput').focus();
+    }
+  });
+
+  // Boot: fetch facets + baseline analytics in parallel
+  try {
+    const [facets, analytics, health] = await Promise.all([
+      api.facets(),
+      api.analytics({}),
+      api.health().catch(()=>null),
+    ]);
+    state.facets = facets;
+    state.analytics = analytics;
+    if (health?.size_bytes) $('#datasetSize').textContent = (health.size_bytes / 1024 / 1024).toFixed(0) + ' MB';
+    setStatus('live');
+
+    buildRail(facets, analytics);
+
+    // Defaults after facets known
+    const countries = cleanCountryList(facets.countries || []);
+    if (!state.focusCountry) state.focusCountry = 'COL';
+    if (!state.focusTheme) state.focusTheme = (analytics?.themes?.theme_counts||[])[0]?.theme || null;
+    $('#tabCountry').textContent = ISO_TO_NAME[state.focusCountry] || state.focusCountry;
+    if (state.focusTheme) $('#tabTheme').textContent = state.focusTheme;
+    if (!state.cmpA) state.cmpA = countries[0];
+    if (!state.cmpB) state.cmpB = countries[1];
+
+    _restoreUrlState();
+    await refreshHitCount();
+    await navigate(state.view || 'overview');
+    state.bootstrapDone = true;
+  } catch (err) {
+    console.error('Boot failed', err);
+    setStatus('error', 'OFFLINE');
+    toast('Could not reach VM API: ' + err.message + '. Is the VM up?', true, 8000);
+    document.getElementById('view-overview').innerHTML = `
+      <div class="me"><h1>Can't reach the VM</h1>
+      <p>The dashboard failed to load data from <code>${API_BASE}</code>. Error: <code>${sanitize(err.message)}</code></p>
+      <p>This might be a temporary outage, a certificate warning on first visit, or a CORS issue. Try:</p>
+      <ul style="font-family:var(--serif);font-size:15px">
+        <li>Visiting <a href="${API_BASE}/api/data/health" target="_blank">${API_BASE}/api/data/health</a> once to accept the certificate</li>
+        <li>Using the <a href="https://lszoszk.github.io/UnitedNations_recommendations/">classic dashboard</a> which shares the same API</li>
+        <li>Refreshing this page</li>
+      </ul></div>`;
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
