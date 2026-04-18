@@ -363,6 +363,25 @@ a{color:inherit;text-decoration:none}
 .ofl-actions .btn-ghost:hover{border-color:var(--ink);background:var(--paper-2)}
 body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3e}
 
+/* Report-record button inside the drawer */
+.dr-btn.report{background:var(--paper);color:#b91c1c;border-color:#b91c1c}
+.dr-btn.report:hover{background:#b91c1c;color:#fff;border-color:#b91c1c}
+
+/* Small note in the card when data is user-uploaded */
+body.uploaded-mode .offline-btn{background:#854d0e;color:#fff;border-color:#854d0e}
+body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color:#a16207}
+
+/* Report modal */
+.rpt-modal{position:fixed;inset:0;background:rgba(15,15,16,.7);z-index:220;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.rpt-card{background:var(--paper);max-width:480px;width:100%;padding:24px 28px;font-family:var(--mono)}
+.rpt-card h3{font-family:var(--serif);font-size:24px;margin:0 0 6px;line-height:1.1;color:var(--ink)}
+.rpt-card .sub{font-size:10px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;margin-bottom:16px}
+.rpt-card label{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:12px 0 4px}
+.rpt-card select,.rpt-card textarea{width:100%;padding:8px 10px;border:1px solid var(--line);background:var(--paper);font:12px var(--mono);color:var(--ink)}
+.rpt-card select:focus,.rpt-card textarea:focus{outline:none;border-color:var(--ink)}
+.rpt-card textarea{min-height:80px;resize:vertical}
+.rpt-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+
 /* responsive */
 .mobile-menu-btn{display:none;border:1px solid var(--line);background:var(--paper);padding:3px 9px;color:var(--ink);font-size:14px;cursor:pointer;margin-right:4px}
 .mobile-menu-btn:hover{background:var(--paper-2)}
@@ -407,6 +426,10 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
     <span class="cmdk-hint">Search 267,548 recommendations · jump to country, theme, year…</span>
   </button>
   <div class="meta">
+    <button class="offline-btn" id="uploadBtn" title="Upload your own UHRI JSON export to analyse locally">
+      <span>↑</span>
+      <span>UPLOAD</span>
+    </button>
     <button class="offline-btn" id="offlineBtn" title="Enable Offline & Private Mode — download full dataset, work entirely in-browser">
       <span id="offlineIcon">🔒</span>
       <span id="offlineLbl">PRIVATE</span>
@@ -1121,16 +1144,19 @@ function doExport(format) {
   if (offline.enabled) {
     // Offline mode: build file client-side from the filtered data
     const rows = offline.filter(state.filters);
+    const ts = new Date().toISOString().slice(0,10);
     if (format === 'json') {
-      downloadBlob(JSON.stringify(rows, null, 2), 'application/json', `uhri-export-${Date.now()}.json`);
+      downloadBlob(JSON.stringify(rows, null, 2), 'application/json', `uhri-export-${ts}.json`);
+      toast(`Exported ${fmt(rows.length)} records (JSON)`, false, 3000);
     } else if (format === 'csv') {
-      downloadBlob(toCSV(rows), 'text/csv', `uhri-export-${Date.now()}.csv`);
+      downloadBlob(toCSV(rows), 'text/csv', `uhri-export-${ts}.csv`);
+      toast(`Exported ${fmt(rows.length)} records (CSV)`, false, 3000);
     } else if (format === 'xlsx') {
-      // XLSX in offline mode needs a library we don't bundle — fall back to CSV
-      toast('Offline XLSX not supported — downloading CSV instead', false, 4000);
-      downloadBlob(toCSV(rows), 'text/csv', `uhri-export-${Date.now()}.csv`);
+      toast(`Building XLSX for ${fmt(rows.length)} records… fetching SheetJS`, false, 3500);
+      exportXLSXFromRows(rows, `uhri-export-${ts}.xlsx`)
+        .then(() => toast(`Exported ${fmt(rows.length)} records (XLSX)`, false, 3000))
+        .catch(err => toast('XLSX export failed: ' + err.message, true, 6000));
     }
-    toast(`Exported ${fmt(rows.length)} records (${format.toUpperCase()})`, false, 3000);
     return;
   }
   // VM-mode: hand off to the backend export endpoint, which already knows
@@ -1186,7 +1212,7 @@ function progressBar(pct, label) {
 }
 
 /* ---------- CACHE (localStorage, 1h TTL) ---------- */
-const CACHE_KEY = 'uhri_v2_cache_v2';  // bump on schema-shape fixes
+const CACHE_KEY = 'uhri_v2_cache_v3';  // bump on schema-shape fixes
 const CACHE_TTL = 60 * 60 * 1000;  // 1h
 function cacheGet(key) {
   try {
@@ -2077,9 +2103,11 @@ function renderDrawer() {
       <button class="dr-btn" id="drCountry">Country profile</button>
       ${themes[0]?`<button class="dr-btn" id="drTheme">Theme profile</button>`:''}
       <button class="dr-btn" id="drCopy">Copy citation</button>
+      <button class="dr-btn report" id="drReport" title="Report a data-quality issue with this record">🚩 Report</button>
     </div>`;
 
   $('#drOpen').addEventListener('click', () => openReader(r));
+  $('#drReport').addEventListener('click', () => openReportModal(r));
   $('#drCountry').addEventListener('click', () => {
     state.focusCountry = NAME_TO_ISO[country] || country;
     $('#tabCountry').textContent = country;
@@ -2131,10 +2159,13 @@ function openReader(r) {
       <div><dt class="k">Annotation ID</dt><dd class="v" style="word-break:break-all;font-size:10px">${sanitize(r.AnnotationId||'')}</dd></div>
     </dl>
     <div class="rd-foot">
-      <button class="dr-btn primary" onclick="document.getElementById('reader').classList.add('hidden')">Close</button>
+      <button class="dr-btn primary" id="rdCloseFoot">Close</button>
+      <button class="dr-btn report" id="rdReport">🚩 Report issue</button>
     </div>`;
   $('#reader').classList.remove('hidden');
   $('#rdClose').addEventListener('click', () => $('#reader').classList.add('hidden'));
+  $('#rdCloseFoot').addEventListener('click', () => $('#reader').classList.add('hidden'));
+  $('#rdReport').addEventListener('click', () => openReportModal(r));
 }
 
 /* =========================================================================
@@ -2287,6 +2318,149 @@ function bindTweaks() {
 }
 
 /* =========================================================================
+   REPORT RECORD (feedback loop) — POST /api/feedback/report
+   ========================================================================= */
+function openReportModal(rec) {
+  const m = document.createElement('div');
+  m.className = 'rpt-modal';
+  const snippet = (rec.TextPlainCleaned || rec.Text || '').slice(0, 140);
+  m.innerHTML = `
+    <div class="rpt-card">
+      <h3>Report data issue</h3>
+      <div class="sub">${sanitize(rec.AnnotationId||'')}</div>
+      <div style="font-family:var(--serif);font-size:13px;color:var(--ink-2);background:var(--paper-2);padding:10px;border-left:2px solid #b91c1c;margin-bottom:12px;max-height:100px;overflow-y:auto">${sanitize(snippet)}${snippet.length>=140?'…':''}</div>
+      <label for="rptReason">What's wrong?</label>
+      <select id="rptReason">
+        <option value="wrong_country">Wrong country assignment</option>
+        <option value="wrong_themes">Wrong themes / tags</option>
+        <option value="bad_text">Garbled or incomplete text</option>
+        <option value="duplicate">Duplicate of another record</option>
+        <option value="wrong_body">Wrong recommending body</option>
+        <option value="other">Other issue</option>
+      </select>
+      <label for="rptMsg">Details (optional but helpful)</label>
+      <textarea id="rptMsg" placeholder="What did you expect, and what did you see?"></textarea>
+      <div class="rpt-actions">
+        <button class="btn-ghost" id="rptCancel" style="padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--ink);font:11px var(--mono);text-transform:uppercase;letter-spacing:.08em;cursor:pointer">Cancel</button>
+        <button class="btn-primary" id="rptSend" style="padding:8px 14px;background:#b91c1c;color:#fff;border:1px solid #b91c1c;font:11px var(--mono);text-transform:uppercase;letter-spacing:.08em;cursor:pointer">Send report</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  const close = () => m.remove();
+  m.addEventListener('click', e => { if (e.target === m) close(); });
+  $('#rptCancel', m).addEventListener('click', close);
+  $('#rptSend', m).addEventListener('click', async () => {
+    $('#rptSend', m).disabled = true;
+    $('#rptSend', m).textContent = 'Sending…';
+    try {
+      const res = await fetch(API_BASE + '/api/feedback/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          annotation_id: rec.AnnotationId,
+          symbol: rec.Symbol,
+          category: $('#rptReason', m).value,
+          reason: $('#rptReason', m).value,
+          message: $('#rptMsg', m).value,
+          source: 'dashboard2',
+          url: location.href,
+        }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      toast('Thanks — your report was received and will be reviewed.', false, 5000);
+      close();
+    } catch (err) {
+      $('#rptSend', m).disabled = false;
+      $('#rptSend', m).textContent = 'Retry';
+      toast('Report failed: ' + err.message, true, 5000);
+    }
+  });
+}
+
+/* =========================================================================
+   UPLOAD YOUR OWN DATASET (#2 feature parity with classic)
+   ========================================================================= */
+function triggerUpload() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > 700 * 1024 * 1024) {
+      toast('File too large (>700 MB). Uploads are held in memory.', true, 6000);
+      return;
+    }
+    const loading = document.createElement('div');
+    loading.className = 'toast';
+    loading.textContent = `Reading ${file.name} (${(file.size/1024/1024).toFixed(0)} MB)…`;
+    document.body.appendChild(loading);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed) || !parsed.length) throw new Error('Expected a non-empty JSON array of records');
+      // Soft-check record shape
+      const sample = parsed[0];
+      if (!sample.AnnotationId && !sample.annotation_id) {
+        throw new Error('Records must have an AnnotationId field (UHRI JSON format)');
+      }
+      offline.data = parsed;
+      offline.enable();
+      document.body.classList.add('uploaded-mode');
+      $('#offlineIcon').textContent = '📁';
+      $('#offlineLbl').textContent = `${file.name.slice(0,20)}${file.name.length>20?'…':''} · ${fmt(parsed.length)}`;
+      $('#offlineBtn').title = 'Analyzing your uploaded dataset — click to swap back to VM';
+      toast(`Uploaded ${fmt(parsed.length)} records from ${file.name}. All queries now run locally.`, false, 5500);
+      refreshCurrentView(); refreshHitCount();
+    } catch (err) {
+      toast('Upload failed: ' + err.message, true, 6000);
+    } finally {
+      loading.remove();
+    }
+  });
+  input.click();
+}
+
+/* =========================================================================
+   XLSX in offline — lazy-load SheetJS from CDN
+   ========================================================================= */
+let _xlsxPromise = null;
+function ensureXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (_xlsxPromise) return _xlsxPromise;
+  _xlsxPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => resolve(window.XLSX);
+    s.onerror = () => reject(new Error('Failed to load SheetJS from CDN'));
+    document.head.appendChild(s);
+  });
+  return _xlsxPromise;
+}
+
+async function exportXLSXFromRows(rows, filename) {
+  const XLSX = await ensureXLSX();
+  // Flatten array-valued columns so Excel users get clean cells
+  const flat = rows.map(r => ({
+    AnnotationId: r.AnnotationId || '',
+    Symbol: r.Symbol || '',
+    PublicationDate: r.PublicationDate || '',
+    Body: cleanLabel(r.Body || ''),
+    AnnotationType: cleanLabel(r.AnnotationType || ''),
+    Countries: (r.Countries || []).map(cleanCountryName).join('; '),
+    Regions: (r.Regions || []).join('; '),
+    Themes: (r.Themes || []).join('; '),
+    AffectedPersons: (r.AffectedPersons || []).join('; '),
+    Sdgs: (r.Sdgs || []).join('; '),
+    Text: r.TextPlainCleaned || r.Text || '',
+  }));
+  const ws = XLSX.utils.json_to_sheet(flat);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Records');
+  XLSX.writeFile(wb, filename);
+}
+
+/* =========================================================================
    BOOT
    ========================================================================= */
 async function boot() {
@@ -2350,6 +2524,9 @@ async function boot() {
     doExport(fmt);
   }));
 
+  // Upload-your-own-dataset button (#2 feature parity)
+  $('#uploadBtn').addEventListener('click', triggerUpload);
+
   // Offline & Private Mode button (#27)
   $('#offlineBtn').addEventListener('click', () => {
     if (offline.enabled) {
@@ -2381,18 +2558,33 @@ async function boot() {
     }
   });
 
-  // ---- Progressive boot ----
-  // Phase 1 (fast, ~1s): facets + map + health → render rail skeleton + map
-  // Phase 2 (slow, ~10s): analytics → fill theme/group/timeline panels
-  // Cache: analytics response cached in localStorage for 1h
+  // ---- Progressive boot with stale-while-revalidate ----
+  // Three-layer speed strategy:
+  // 1. localStorage: render cached facets/map/analytics instantly (<50ms)
+  // 2. Phase 1 (~1s): fresh facets + map + health in parallel
+  // 3. Phase 2 (~10s): fresh analytics in background, swap silently
+  // User sees *something* in <100ms on every repeat visit.
 
-  progressBar(8, 'FETCHING FACETS');
-
-  // Render shell immediately so user sees layout
+  progressBar(8, 'HYDRATING FROM CACHE');
   buildOverviewShell();
 
-  // Try warm cache first for instant analytics paint
+  // Read all caches upfront
+  const cachedFacets = cacheGet('facets:baseline');
+  const cachedMap = cacheGet('map:baseline');
   const cachedAnalytics = cacheGet('analytics:baseline');
+
+  // If we have a cached everything, render instantly — feels like "already open"
+  if (cachedFacets && cachedMap) {
+    state.facets = cachedFacets;
+    buildRail(cachedFacets, cachedAnalytics || { themes:{theme_counts:[]}, text:{affected_person_counts:[], sdg_counts:[]}, trends:{} });
+    renderOverviewMapOnly(cachedMap);
+    if (cachedAnalytics) {
+      state.analytics = cachedAnalytics;
+      renderOverviewAnalytics(cachedAnalytics);
+    }
+    progressBar(35, 'REFRESHING IN BACKGROUND');
+  }
+
   if (cachedAnalytics) {
     state.analytics = cachedAnalytics;
   }
@@ -2406,6 +2598,8 @@ async function boot() {
       api.health().catch(()=>null),
     ]);
     state.facets = facets;
+    cacheSet('facets:baseline', facets);
+    cacheSet('map:baseline', mapD);
     if (health?.size_bytes) $('#datasetSize').textContent = (health.size_bytes / 1024 / 1024).toFixed(0) + ' MB';
     progressBar(40, 'RENDERING MAP');
 
