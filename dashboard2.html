@@ -727,9 +727,9 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <span>↑</span>
       <span>UPLOAD</span>
     </button>
-    <button class="offline-btn" id="offlineBtn" title="Enable Offline & Private Mode — download full dataset, work entirely in-browser">
-      <span id="offlineIcon">🔒</span>
-      <span id="offlineLbl">PRIVATE</span>
+    <button class="offline-btn" id="offlineBtn" title="Enable Instant Mode — download the full dataset to your browser. Everything filters locally, nothing leaves your machine, and queries run at ~50ms instead of ~10s.">
+      <span id="offlineIcon">⚡</span>
+      <span id="offlineLbl">INSTANT MODE</span>
     </button>
     <span class="sep">·</span>
     <span class="dot" id="statusDot" title="Live VM connection"></span>
@@ -1444,14 +1444,14 @@ const offline = {
     api.health = () => Promise.resolve({ dataset_ready: true, offline: true });
 
     document.body.classList.add('offline-mode');
-    $('#offlineIcon').textContent = '🔓';
-    $('#offlineLbl').textContent = 'PRIVATE · ' + fmt(this.data.length);
+    $('#offlineIcon').textContent = '⚡';
+    $('#offlineLbl').textContent = 'INSTANT · ' + fmt(this.data.length) + ' LOCAL';
     $('#offlineBtn').classList.add('is-active');
-    $('#offlineBtn').title = 'Offline & Private Mode active — all queries run in your browser, no VM round-trips';
+    $('#offlineBtn').title = 'Instant Mode active — all ' + fmt(this.data.length) + ' records in your browser. Filters run locally at ~50ms, nothing leaves your machine.';
     setStatus('live', 'OFFLINE');
     try { localStorage.setItem('uhri_v2_offline_pref', '1'); } catch {}
 
-    toast('Offline & Private Mode active — ' + fmt(this.data.length) + ' records loaded. Filtering is now instant.', false, 5000);
+    toast('⚡ Instant Mode active — ' + fmt(this.data.length) + ' records in browser. Filters are now ~50ms.', false, 5000);
   },
 };
 window.__offline = offline;
@@ -1497,13 +1497,13 @@ function showOfflineModal() {
   m.className = 'ofl-modal';
   m.innerHTML = `
     <div class="ofl-card">
-      <h2>Offline & Private Mode</h2>
+      <h2>⚡ Instant Mode</h2>
       <p>Download the full cleaned UHRI dataset (<span class="bold">~350 MB</span>) into your browser. Afterwards:</p>
       <ul>
-        <li>All filter + search operations run <span class="bold">locally</span> — zero VM round-trips</li>
-        <li>Analytics that currently take 10s become <span class="bold">instant</span> (~50ms)</li>
-        <li>Nothing leaves your machine — useful for sensitive research</li>
-        <li>Data stays for the browser session; close the tab and it's gone</li>
+        <li><span class="bold">Instant filters</span> — analytics that currently take ~10s become ~50ms</li>
+        <li><span class="bold">Works offline</span> — the dataset lives in your browser for the session</li>
+        <li><span class="bold">Fully private</span> — nothing leaves your machine after the initial download; useful for sensitive research</li>
+        <li>Close the tab and it's gone — no traces left behind</li>
       </ul>
       <div class="ofl-progress" id="oflProg" style="display:none">
         <div class="lbl" id="oflPhase">downloading…</div>
@@ -2627,9 +2627,20 @@ function renderHexMap(container, countryCounts) {
         <div class="row"><span>Recommendations</span><b>${fmt(n)}</b></div>
         <div class="row"><span>Rank</span><b>${rank ? '#' + rank : '—'}</b></div>`;
       const r = container.getBoundingClientRect();
-      tip.style.left = (e.clientX - r.left) + 'px';
-      tip.style.top = (e.clientY - r.top) + 'px';
+      const relX = e.clientX - r.left;
+      const relY = e.clientY - r.top;
+      tip.style.transform = 'translate(12px, 12px)';
+      tip.style.left = relX + 'px';
+      tip.style.top  = relY + 'px';
       tip.classList.add('show');
+      // Flip tip position if it would overflow the map container
+      const tipRect = tip.getBoundingClientRect();
+      let dx = 12, dy = 12;
+      if (tipRect.right  > r.right  - 4) dx = -tipRect.width  - 12;
+      if (tipRect.bottom > r.bottom - 4) dy = -tipRect.height - 12;
+      if (relX + dx < 4) dx = 12;
+      if (relY + dy < 4) dy = 12;
+      tip.style.transform = `translate(${dx}px, ${dy}px)`;
     });
     g.addEventListener('mouseleave', () => tip.classList.remove('show'));
     g.addEventListener('click', (e) => {
@@ -5157,7 +5168,7 @@ const TOUR_STEPS = [
   { target: '#rail',          title: 'Filter from the rail',  text: 'Every filter is here — country, body, theme, year, SDG. Live hit count updates as you click; chips appear above the main content so you always know what\'s applied.' },
   { target: '#tabs',          title: 'Six angles on the data',text: 'Overview · Country profile · Theme profile · Compare two countries · full-text Search · Methodology. Drag the timeline on Overview to scope by year.' },
   { target: '#drawer',        title: 'Drawer follows you',    text: 'Click any record in a list, map cell or search result — it opens here. Press <kbd>j</kbd> / <kbd>k</kbd> to flip through results without losing your place.' },
-  { target: '#offlineBtn',    title: 'Offline & Private Mode',text: 'Download the full 267k-record dataset into your browser. Filtering becomes instant (~50ms) and nothing leaves your machine — useful for sensitive research.' },
+  { target: '#offlineBtn',    title: '⚡ Instant Mode',       text: 'Download the full 267k-record dataset into your browser. Filters run at ~50ms instead of ~10s, works offline, and nothing leaves your machine after the initial download.' },
 ];
 
 function startTour() {
@@ -5423,8 +5434,7 @@ async function boot() {
   // Offline & Private Mode button (#27)
   $('#offlineBtn').addEventListener('click', () => {
     if (offline.enabled) {
-      // Already enabled — just hint at current state
-      toast(`Offline mode active · ${fmt(offline.data?.length||0)} records in browser`, false, 3000);
+      toast(`⚡ Instant Mode active · ${fmt(offline.data?.length||0)} records in browser`, false, 3000);
       return;
     }
     showOfflineModal();
@@ -5433,8 +5443,8 @@ async function boot() {
   // If user previously enabled offline mode, auto-offer to re-enable
   try {
     if (localStorage.getItem('uhri_v2_offline_pref') === '1') {
-      $('#offlineLbl').textContent = 'RE-ENABLE?';
-      $('#offlineBtn').title = 'Previously used Offline & Private Mode — click to re-download & re-enable';
+      $('#offlineLbl').textContent = 'RELOAD LOCAL';
+      $('#offlineBtn').title = 'You previously enabled Instant Mode — click to re-download the dataset and re-activate';
     }
   } catch {}
 

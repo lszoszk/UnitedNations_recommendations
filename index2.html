@@ -67,7 +67,8 @@
   .topbar {
     position: sticky; top: 0; z-index: 40;
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: auto 1fr auto;
+    gap: 18px;
     align-items: center;
     padding: 10px 28px;
     font-family: var(--mono);
@@ -618,63 +619,48 @@
   [data-palette="ink"] .headline em { color: var(--accent); }
 
   /* -------- section nav arrows -------- */
-  /* Elegant side-rail navigation — editorial magazine style.
-     A thin vertical line + section numbers + labels. Active section
-     shows accent color + filled number. Hover expands to show all labels. */
+  /* Horizontal section nav — lives inside the topbar so it never overlaps
+     visualisations. Compact numbered pills; active pill fills with accent. */
   .section-nav {
-    position: fixed;
-    right: 28px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 60;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    gap: 0;
     font-family: var(--mono);
+    border: 1px solid var(--line);
+    align-items: stretch;
   }
   .nav-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    justify-content: flex-end;
+    gap: 6px;
     cursor: pointer;
     color: var(--dim);
-    padding: 4px 0;
-    transition: color .2s, gap .25s;
-    text-decoration: none;
-    border: none;
+    padding: 4px 10px;
+    transition: color .2s, background .2s;
     background: transparent;
+    border: 0;
+    border-right: 1px solid var(--line);
     font-family: inherit;
-  }
-  .nav-item .n {
     font-size: 10px;
-    letter-spacing: .14em;
+    letter-spacing: .08em;
+  }
+  .nav-item:last-child { border-right: 0; }
+  .nav-item .n {
+    font-size: 9px;
+    letter-spacing: .12em;
     color: var(--dimmer);
     font-variant-numeric: tabular-nums;
-    transition: color .2s, font-weight .2s;
+    transition: color .2s;
   }
   .nav-item .lbl {
-    font-size: 11px;
-    letter-spacing: .08em;
+    font-size: 10px;
+    letter-spacing: .12em;
     text-transform: uppercase;
-    opacity: 0;
-    transform: translateX(6px);
-    transition: opacity .25s, transform .25s, color .2s;
-    pointer-events: none;
-    white-space: nowrap;
+    transition: color .2s;
   }
-  .nav-item .tick {
-    width: 18px; height: 1px;
-    background: var(--dimmer);
-    transition: width .25s, background .2s;
-  }
-  .nav-item:hover .tick,
-  .nav-item.active .tick { background: var(--ink); width: 26px; }
-  .nav-item.active .n { color: var(--accent); font-weight: 700; }
-  .nav-item.active .lbl { color: var(--ink); }
-  .section-nav:hover .nav-item .lbl,
-  .nav-item.active .lbl { opacity: 1; transform: translateX(0); }
-  .section-nav:hover .nav-item { gap: 16px; }
+  .nav-item:hover { background: var(--paper-2); color: var(--ink); }
+  .nav-item:hover .n { color: var(--ink); }
+  .nav-item.active { background: var(--ink); color: var(--paper); }
+  .nav-item.active .n { color: var(--paper); opacity: .6; }
 
   /* Scroll progress bar at very top of page */
   .scroll-progress {
@@ -687,7 +673,10 @@
     transition: width .1s linear;
   }
 
-  @media (max-width: 900px) { .section-nav { display: none; } }
+  @media (max-width: 760px) {
+    .section-nav .nav-item .lbl { display: none; }
+    .section-nav .nav-item { padding: 4px 7px; }
+  }
 
   /* responsive */
   @media (max-width: 900px) {
@@ -706,13 +695,19 @@
 <div class="topbar">
   <div class="left">
     <span class="dot" title="live"></span>
-    <span>OHCHR · UHRI</span>
-    <span class="sep">/</span>
+    <span style="color:var(--ink);letter-spacing:.14em;font-weight:500">UN HUMAN RIGHTS ANALYTICS</span>
+    <span class="sep">·</span>
     <span>Dataset v2026.04</span>
   </div>
-  <div class="brand" style="text-align:center;">UN HUMAN RIGHTS ANALYTICS</div>
+  <!-- Section nav lives inside the topbar so it never overlaps content -->
+  <nav class="section-nav" id="sectionNav" aria-label="Page sections" style="justify-self:center">
+    <button class="nav-item active" data-to="#hero">      <span class="n">01</span><span class="lbl">Hero</span></button>
+    <button class="nav-item"        data-to="#themes">    <span class="n">02</span><span class="lbl">What</span></button>
+    <button class="nav-item"        data-to="#countries"> <span class="n">03</span><span class="lbl">Where</span></button>
+    <button class="nav-item"        data-to="#timeline">  <span class="n">04</span><span class="lbl">When</span></button>
+    <button class="nav-item"        data-to="#dashboard"> <span class="n">05</span><span class="lbl">Open</span></button>
+  </nav>
   <div class="right">
-    <a href="#about">About</a>
     <a href="#methodology">Methodology</a>
     <a href="./dashboard2.html">Open Dashboard →</a>
   </div>
@@ -720,15 +715,6 @@
 
 <!-- Scroll progress bar at top of page -->
 <div class="scroll-progress" id="scrollProgress"></div>
-
-<!-- Editorial side-rail nav — tick marks with labels on hover/active -->
-<nav class="section-nav" id="sectionNav" aria-label="Page sections">
-  <button class="nav-item active" data-to="#hero">      <span class="lbl">Hero</span>      <span class="n">01</span><span class="tick"></span></button>
-  <button class="nav-item"        data-to="#themes">    <span class="lbl">What</span>      <span class="n">02</span><span class="tick"></span></button>
-  <button class="nav-item"        data-to="#countries"> <span class="lbl">Where</span>     <span class="n">03</span><span class="tick"></span></button>
-  <button class="nav-item"        data-to="#timeline">  <span class="lbl">When</span>      <span class="n">04</span><span class="tick"></span></button>
-  <button class="nav-item"        data-to="#dashboard"> <span class="lbl">Open</span>      <span class="n">05</span><span class="tick"></span></button>
-</nav>
 
 <!-- HERO -->
 <section class="hero" id="hero">
@@ -1433,9 +1419,22 @@
           <div class="ln"></div>
           <div class="row"><span>Recommendations</span><b>${fmt(n)}</b></div>`;
         const r = hexWrap.getBoundingClientRect();
-        hexTip.style.left = (e.clientX - r.left) + 'px';
-        hexTip.style.top = (e.clientY - r.top) + 'px';
+        const relX = e.clientX - r.left;
+        const relY = e.clientY - r.top;
+        // Reset transform so we can measure, then flip position if tip would
+        // overflow the container on either axis. Offset 12px away from cursor.
+        hexTip.style.transform = 'translate(12px, 12px)';
+        hexTip.style.left = relX + 'px';
+        hexTip.style.top = relY + 'px';
         hexTip.classList.add('show');
+        // Now measure and flip if needed
+        const tipRect = hexTip.getBoundingClientRect();
+        let dx = 12, dy = 12;
+        if (tipRect.right > r.right - 4) dx = -tipRect.width - 12;
+        if (tipRect.bottom > r.bottom - 4) dy = -tipRect.height - 12;
+        if (relX + dx < 4) dx = 12;  // don't flip past the left edge
+        if (relY + dy < 4) dy = 12;
+        hexTip.style.transform = `translate(${dx}px, ${dy}px)`;
       });
       g.addEventListener('mouseleave', () => hexTip.classList.remove('show'));
       g.addEventListener('click', () => {
