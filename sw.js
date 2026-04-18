@@ -3,9 +3,9 @@
  * - Stale-while-revalidate for /api/data/facets, /api/data/map, /api/data/analytics
  * - Network-only for /api/feedback/report, /api/data/full
  */
-const SHELL_CACHE  = 'uhri-v2-shell-v1';
-const DATA_CACHE   = 'uhri-v2-data-v1';
-const FONT_CACHE   = 'uhri-v2-font-v1';
+const SHELL_CACHE  = 'uhri-v2-shell-v3';  // bump to invalidate stale caches on ship
+const DATA_CACHE   = 'uhri-v2-data-v2';
+const FONT_CACHE   = 'uhri-v2-font-v2';
 
 const SHELL_ASSETS = [
   './dashboard2.html',
@@ -51,11 +51,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Shell files: cache-first; fallback to network
+  // Navigation requests (HTML) → NETWORK-FIRST so users always get fresh
+  // dashboard code; fall back to cache if offline.
+  if (req.mode === 'navigate' || (url.origin === location.origin && req.destination === 'document')) {
+    event.respondWith(networkFirst(req, SHELL_CACHE));
+    return;
+  }
+
+  // Other same-origin static assets (icons, manifest) → cache-first
   if (url.origin === location.origin) {
     event.respondWith(cacheFirst(req, SHELL_CACHE));
   }
 });
+
+async function networkFirst(req, cacheName) {
+  const cache = await caches.open(cacheName);
+  try {
+    const res = await fetch(req);
+    if (res.ok) cache.put(req, res.clone()).catch(() => {});
+    return res;
+  } catch {
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    throw new Error('offline and no cache');
+  }
+}
 
 async function cacheFirst(req, cacheName) {
   const cache = await caches.open(cacheName);

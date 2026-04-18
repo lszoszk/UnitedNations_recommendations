@@ -210,6 +210,12 @@ a{color:inherit;text-decoration:none}
 .view.updating .panel{transition:opacity .3s}
 .view.updating .rl-row,.view.updating .map-cell,.view.updating .tl-svg{transition:opacity .2s;opacity:.75}
 
+/* Per-panel refreshing indicator — stronger signal than view-level */
+.panel.pending{position:relative}
+.panel.pending::after{content:"recomputing for current filter…";position:absolute;top:10px;right:12px;font:9px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);padding:2px 7px;background:var(--paper);border:1px solid var(--accent);animation:pulse 1.4s infinite;z-index:10;white-space:nowrap}
+.panel.pending .rl-row .v,.panel.pending .tl-svg,.panel.pending .sk-spark{opacity:.35;transition:opacity .2s}
+.panel.pending::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:refreshSlide 1.4s infinite;pointer-events:none;z-index:11}
+
 /* overview grid */
 .ov-grid{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:auto auto auto;gap:1px;background:var(--line)}
 .panel{background:var(--paper);padding:14px 16px;min-height:0;overflow:hidden;position:relative}
@@ -2681,9 +2687,17 @@ async function renderOverview(opts = {}) {
   buildOverviewShell();
   const root = $('#view-overview');
 
-  // Keep-previous-content pattern: dim the whole grid while fetching,
-  // but don't clear the existing charts — user always sees something
   if (opts.keepPrevious) root.classList.add('updating');
+
+  // Explicitly mark the analytics-dependent panels as "pending" so the
+  // user knows themes / groups / timeline are being recomputed for the
+  // current filter (they depend on the slow ~10s analytics endpoint
+  // while map + top countries update from the fast ~1s map endpoint)
+  if (opts.keepPrevious) {
+    ['.p-top-themes', '.p-time', '.p-sankey'].forEach(sel => {
+      const el = root.querySelector(sel); if (el) el.classList.add('pending');
+    });
+  }
 
   // Parallel: map is fast (~1s, cached per-filter-key), analytics is slow (~10s)
   const mapP = api.map(state.filters).then(d => {
@@ -2697,6 +2711,10 @@ async function renderOverview(opts = {}) {
   const anP = api.analytics(state.filters).then(d => {
     state.analytics = d;
     renderOverviewAnalytics(d);
+    // Clear pending state on the themes/groups/timeline panels
+    ['.p-top-themes', '.p-time', '.p-sankey'].forEach(sel => {
+      const el = root.querySelector(sel); if (el) el.classList.remove('pending');
+    });
     return d;
   }).catch(err => {
     if (err.name !== 'AbortError') console.warn('analytics failed', err);
@@ -4536,10 +4554,30 @@ async function boot() {
   loadTweaks(); bindTweaks(); applyTweaks();
   bindKwInput();
 
-  // PWA: register service worker for offline shell + data SWR cache
+  // PWA: register service worker for offline shell + data SWR cache.
+  // We listen for updates — if a new SW installs, a small toast invites
+  // the user to refresh so they get the latest dashboard code.
   if ('serviceWorker' in navigator) {
     try {
-      navigator.serviceWorker.register('./sw.js').catch(e => console.warn('SW register failed', e));
+      navigator.serviceWorker.register('./sw.js').then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const sw = reg.installing;
+          if (!sw) return;
+          sw.addEventListener('statechange', () => {
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+              // A new SW installed while an older one was controlling.
+              // Build a small "reload for new version" toast with an action.
+              const t = document.createElement('div');
+              t.className = 'toast';
+              t.style.cursor = 'pointer';
+              t.innerHTML = '<b style="color:var(--accent)">⟳</b> New dashboard version available — <u>click to refresh</u>';
+              t.addEventListener('click', () => location.reload());
+              document.body.appendChild(t);
+              setTimeout(() => t.remove(), 15000);
+            }
+          });
+        });
+      }).catch(e => console.warn('SW register failed', e));
     } catch (e) { /* ignore */ }
   }
 
