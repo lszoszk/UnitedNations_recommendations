@@ -2035,12 +2035,18 @@ function renderRowList(el, rows, opts = {}) {
       row.addEventListener('click', (e) => {
         const k = row.dataset.key; if (!k) return;
         const val = opts.facet === 'sdg' ? Number(k) : k;
-        // Theme / group rows open a preview drawer with infinite-scroll
-        // list of matching records. Shift-click toggles the rail filter
-        // (escape hatch for power users who want the old behavior).
-        if ((opts.facet === 'theme' || opts.facet === 'group') && !e.shiftKey) {
-          openListDrawer(opts.facet === 'theme' ? 'theme' : 'group', val);
-          return;
+        const focus = document.body.classList.contains('focus-mode');
+        // Theme / group rows always open a preview drawer; country rows
+        // do so only in Focus mode. Shift-click toggles the rail filter.
+        if (!e.shiftKey) {
+          if (opts.facet === 'theme' || opts.facet === 'group') {
+            openListDrawer(opts.facet === 'theme' ? 'theme' : 'group', val);
+            return;
+          }
+          if (opts.facet === 'country' && focus) {
+            openListDrawer('country', val);
+            return;
+          }
         }
         const s = state.filters[opts.facet];
         if (s.has(val)) s.delete(val); else s.add(val);
@@ -2050,7 +2056,6 @@ function renderRowList(el, rows, opts = {}) {
       // Preload country analytics on hover
       if (opts.facet === 'country') attachPreloadHover(row);
     });
-    // Hint text only for theme/group so users know clicks do something special
     if (opts.facet === 'theme' || opts.facet === 'group') {
       el.setAttribute('data-hint', 'click: preview records · shift-click: add to filter');
     }
@@ -2128,6 +2133,21 @@ function apiToTopoName(apiName) {
   return NAME_RECONCILER[apiName] || apiName;
 }
 
+/* Region assignment for choropleth features — built from HEX_LAYOUT
+   (our canonical region dictionary) on first use. */
+let _regionByTopoName = null;
+function getRegionByTopoName() {
+  if (_regionByTopoName) return _regionByTopoName;
+  _regionByTopoName = {};
+  if (typeof HEX_LAYOUT !== 'undefined') {
+    HEX_LAYOUT.forEach(([col, row, iso, apiName, region]) => {
+      const topo = NAME_RECONCILER[apiName] || apiName;
+      _regionByTopoName[topo] = region;
+    });
+  }
+  return _regionByTopoName;
+}
+
 let _mapLibsPromise = null;
 function loadMapLibs() {
   if (_mapLibsPromise) return _mapLibsPromise;
@@ -2195,8 +2215,15 @@ async function renderChoroplethMap(container, countryCounts) {
   const gratPath = graticule ? pathGen(graticule) : '';
   const spherePath = pathGen({type:'Sphere'});
 
+  const regions = ['world','americas','europe','mena','africa','asia','oceania'];
+  const currentRegion = state.geoRegion || 'world';
+  const regionBtnsHtml = regions.map(r =>
+    `<button data-region="${r}" class="${r === currentRegion ? 'on' : ''}">${r === 'world' ? 'World' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
+  ).join('');
+
   container.innerHTML = `
-    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+    <div class="map-regions" id="geoRegions" role="group" aria-label="Zoom to region">${regionBtnsHtml}<button id="geoReset" class="geo-reset" title="Reset view">⟲ Reset</button></div>
+    <svg class="geo-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="cursor:grab;user-select:none">
       <path class="sphere" d="${spherePath}" />
       <path class="graticule" d="${gratPath}" />
       ${paths}
@@ -2208,7 +2235,7 @@ async function renderChoroplethMap(container, countryCounts) {
         `<span class="s" style="background:color-mix(in oklab, var(--accent) ${Math.round(v*90)}%, var(--paper-2))"></span>`
       ).join('')}
       <span>${fmt(maxCount)}</span>
-      <span style="margin-left:auto;color:var(--dim)">click = filter · double-click = country profile</span>
+      <span style="margin-left:auto;color:var(--dim);font-size:10px">drag to pan · scroll to zoom · click = filter · dblclick = profile</span>
     </div>`;
 
   const tip = $('#mapTip', container);
@@ -2223,9 +2250,14 @@ async function renderChoroplethMap(container, countryCounts) {
       tip.classList.add('show');
     });
     p.addEventListener('mouseleave', () => tip.classList.remove('show'));
-    p.addEventListener('click', () => {
+    p.addEventListener('click', (e) => {
       const apiName = p.dataset.api;
       if (!apiName) return;  // no records for this country
+      // Focus mode: click → list drawer with all records (matches hex behavior)
+      if (document.body.classList.contains('focus-mode') && !e.shiftKey) {
+        openListDrawer('country', apiName);
+        return;
+      }
       const s = state.filters.country;
       if (s.has(apiName)) s.delete(apiName); else s.add(apiName);
       p.classList.toggle('on', s.has(apiName));
@@ -2235,7 +2267,7 @@ async function renderChoroplethMap(container, countryCounts) {
     p.addEventListener('dblclick', () => {
       const apiName = p.dataset.api;
       if (!apiName) return;
-      const iso = NAME_TO_ISO[apiName];
+      const iso = getHexNameToIso()[apiName];
       if (iso) {
         state.focusCountry = iso;
         $('#tabCountry').textContent = apiName;
@@ -2243,6 +2275,92 @@ async function renderChoroplethMap(container, countryCounts) {
       }
     });
   });
+
+  // ----- Pan + scroll zoom -----
+  const svg = container.querySelector('.geo-svg');
+  const initialVB = svg.getAttribute('viewBox').split(' ').map(Number);
+  let panning = false, panStart = null, vbStart = null;
+
+  function getVB() {
+    return svg.getAttribute('viewBox').split(' ').map(Number);
+  }
+  function setVB(x, y, w, h) {
+    svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+  }
+  function fitToRegion(region) {
+    state.geoRegion = region;
+    if (region === 'world') {
+      setVB(...initialVB);
+    } else {
+      const regionMap = getRegionByTopoName();
+      const hit = features.filter(f => regionMap[f.properties.name] === region);
+      if (!hit.length) return;
+      const bounds = pathGen.bounds({ type: 'FeatureCollection', features: hit });
+      const padX = Math.max(20, (bounds[1][0] - bounds[0][0]) * 0.08);
+      const padY = Math.max(20, (bounds[1][1] - bounds[0][1]) * 0.08);
+      setVB(bounds[0][0] - padX, bounds[0][1] - padY,
+            bounds[1][0] - bounds[0][0] + padX * 2,
+            bounds[1][1] - bounds[0][1] + padY * 2);
+    }
+    // Sync buttons
+    container.querySelectorAll('#geoRegions button[data-region]').forEach(b =>
+      b.classList.toggle('on', b.dataset.region === region));
+  }
+
+  // Region buttons
+  container.querySelectorAll('#geoRegions button[data-region]').forEach(b =>
+    b.addEventListener('click', () => {
+      fitToRegion(b.dataset.region);
+      announce('Zoomed to ' + b.dataset.region);
+    }));
+  $('#geoReset', container)?.addEventListener('click', () => fitToRegion('world'));
+
+  // Pan with drag
+  svg.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('country')) return;  // let click on country take precedence
+    panning = true;
+    panStart = { x: e.clientX, y: e.clientY };
+    vbStart = getVB();
+    svg.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!panning) return;
+    const vb = vbStart;
+    const rect = svg.getBoundingClientRect();
+    const scale = vb[2] / rect.width;
+    setVB(vb[0] - (e.clientX - panStart.x) * scale,
+          vb[1] - (e.clientY - panStart.y) * scale,
+          vb[2], vb[3]);
+  });
+  window.addEventListener('mouseup', () => {
+    if (panning) { panning = false; svg.style.cursor = 'grab'; }
+  });
+  // Also allow click-through to countries — track pan-distance to distinguish
+  let clickStartX = 0, clickStartY = 0;
+  svg.addEventListener('mousedown', e => { clickStartX = e.clientX; clickStartY = e.clientY; });
+
+  // Scroll to zoom (centered on cursor position in SVG coords)
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.12 : 0.89;
+    const vb = getVB();
+    const rect = svg.getBoundingClientRect();
+    // Cursor position in SVG coords
+    const sx = vb[0] + (e.clientX - rect.left) / rect.width * vb[2];
+    const sy = vb[1] + (e.clientY - rect.top) / rect.height * vb[3];
+    const newW = vb[2] * factor;
+    const newH = vb[3] * factor;
+    // Keep the cursor over the same SVG point
+    const newX = sx - (e.clientX - rect.left) / rect.width * newW;
+    const newY = sy - (e.clientY - rect.top) / rect.height * newH;
+    setVB(newX, newY, newW, newH);
+  }, { passive: false });
+
+  // Apply any saved region on first render
+  if (state.geoRegion && state.geoRegion !== 'world') {
+    fitToRegion(state.geoRegion);
+  }
 }
 
 /* =========================================================================
@@ -2334,12 +2452,26 @@ const HEX_LAYOUT = [
   [25,14,'NZL','New Zealand','oceania'],[26,12,'FJI','Fiji','oceania'],
 ];
 
+/* Build a canonical name → ISO3 map from HEX_LAYOUT — this is more complete
+   than NAME_TO_ISO (which was missing Papua New Guinea, several Oceania +
+   African states, etc.). Falls back to NAME_TO_ISO for anything not in
+   HEX_LAYOUT (shouldn't happen but defensive). */
+let _hexNameToIso = null;
+function getHexNameToIso() {
+  if (_hexNameToIso) return _hexNameToIso;
+  _hexNameToIso = {};
+  HEX_LAYOUT.forEach(([c, r, iso, name]) => { _hexNameToIso[name] = iso; });
+  Object.assign(_hexNameToIso, NAME_TO_ISO);  // defensive fallback
+  return _hexNameToIso;
+}
+
 function renderHexMap(container, countryCounts) {
-  // Count lookup by ISO3, via cleaned country names
+  const nameToIso = getHexNameToIso();
+  // Count lookup by ISO3
   const byIso = {};
   (countryCounts || []).forEach(c => {
     const name = cleanCountryName(c.country);
-    const iso = NAME_TO_ISO[name];
+    const iso = nameToIso[name];
     if (iso) byIso[iso] = (byIso[iso] || 0) + c.count;
   });
   const MAX = Math.max(1, ...Object.values(byIso));
@@ -2469,8 +2601,14 @@ function renderHexMap(container, countryCounts) {
       tip.classList.add('show');
     });
     g.addEventListener('mouseleave', () => tip.classList.remove('show'));
-    g.addEventListener('click', () => {
+    g.addEventListener('click', (e) => {
       const name = g.dataset.name;
+      // Focus mode: click = open list drawer with all records for this country.
+      // Shift-click always toggles the filter (escape hatch).
+      if (document.body.classList.contains('focus-mode') && !e.shiftKey) {
+        openListDrawer('country', name);
+        return;
+      }
       const s = state.filters.country;
       if (s.has(name)) s.delete(name); else s.add(name);
       g.classList.toggle('on', s.has(name));
@@ -2506,11 +2644,11 @@ function setMapMode(m) {
 
 function renderMap(container, countryCounts) {
   state._lastCountryCounts = countryCounts;
-  const mode = getMapMode();
+  // Migrate old localStorage value
+  let mode = getMapMode();
+  if (mode === 'grid') { mode = 'hex'; setMapMode(mode); }
   if (mode === 'hex') {
     renderHexMap(container, countryCounts);
-  } else if (mode === 'grid') {
-    renderGridMap(container, countryCounts);
   } else {
     renderChoroplethMap(container, countryCounts).catch(err => {
       console.warn('Choropleth failed, falling back to hex', err);
@@ -2773,8 +2911,7 @@ function buildOverviewShell() {
           <div class="panel-actions">
             <div class="map-modes" id="mapModes" role="group" aria-label="Map style">
               <button data-mode="hex"        title="Hex tiles — visual fairness, one cell per country">HEX</button>
-              <button data-mode="choropleth" title="Geographic choropleth — real country shapes">GEO</button>
-              <button data-mode="grid"       title="Abstract ISO3 grid">GRID</button>
+              <button data-mode="choropleth" title="Geographic choropleth — real country shapes, pan + zoom">GEO</button>
             </div>
             <button class="map-export" id="mapExport" title="Export current map as SVG">⬇ SVG</button>
           </div>
@@ -3571,6 +3708,7 @@ function listDrawerFilter() {
   const f = { ...emptyFilters() };
   if (kind === 'theme') f.theme = new Set([value]);
   else if (kind === 'group') f.group = new Set([value]);
+  else if (kind === 'country') f.country = new Set([value]);
   return f;
 }
 
@@ -3606,7 +3744,7 @@ function renderDrawerListMode() {
   const el = $('#drawerBody');
   const ctx = state.drawerList;
   if (!ctx) { state.drawerMode = 'record'; return renderDrawer(); }
-  const kindLabel = ctx.kind === 'theme' ? 'THEME' : 'CONCERNED GROUP';
+  const kindLabel = ctx.kind === 'theme' ? 'THEME' : ctx.kind === 'group' ? 'CONCERNED GROUP' : 'COUNTRY';
   const cards = ctx.records.map((r, i) => {
     const yr = (r.PublicationDate||'').slice(0,4);
     const country = cleanCountryName((r.Countries||[])[0]||'');
@@ -3630,7 +3768,7 @@ function renderDrawerListMode() {
       <div class="n">${fmt(ctx.total)} matching records · showing ${fmt(ctx.records.length)}</div>
       <div class="actions">
         <button class="primary" id="drListFilter">+ Filter by this ${ctx.kind}</button>
-        <button id="drListProfile">Open ${ctx.kind} profile →</button>
+        ${(ctx.kind === 'theme' || ctx.kind === 'country') ? `<button id="drListProfile">Open ${ctx.kind} profile →</button>` : ''}
         <button id="drListClose">× Close</button>
       </div>
     </div>
@@ -3652,6 +3790,7 @@ function renderDrawerListMode() {
     const { kind, value } = ctx;
     if (kind === 'theme') { state.filters.theme.add(value); refreshFacetUI('theme'); }
     else if (kind === 'group') { state.filters.group.add(value); refreshFacetUI('group'); }
+    else if (kind === 'country') { state.filters.country.add(value); refreshFacetUI('country'); state.hexRegion = 'world'; }
     onFiltersChanged();
     toast(`Added "${value}" to filter`, false, 2500);
   });
@@ -3661,6 +3800,14 @@ function renderDrawerListMode() {
       $('#tabTheme').textContent = ctx.value;
       navigate('theme');
       closeListDrawer();
+    } else if (ctx.kind === 'country') {
+      const iso = getHexNameToIso()[ctx.value];
+      if (iso) {
+        state.focusCountry = iso;
+        $('#tabCountry').textContent = ctx.value;
+        navigate('country');
+        closeListDrawer();
+      }
     }
   });
   $('#drListClose')?.addEventListener('click', closeListDrawer);
