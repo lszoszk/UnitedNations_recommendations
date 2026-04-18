@@ -66,7 +66,7 @@ a{color:inherit;text-decoration:none}
 .fr-num{font-family:var(--serif);font-size:34px;line-height:1;color:var(--ink);letter-spacing:-.01em;font-variant-numeric:tabular-nums;min-height:34px}
 .fr-lbl{font-size:10px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;margin-top:6px}
 .fr-bar{height:4px;background:var(--paper-3);margin-top:10px;position:relative;overflow:hidden}
-.fr-bar span{display:block;height:100%;background:var(--accent);transition:width .3s}
+.fr-bar span{display:block;height:100%;background:var(--accent);transition:width .3s;min-width:2px}
 .fr-sub{font-size:10px;color:var(--dim);margin-top:6px;letter-spacing:.04em}
 .fr-loading{opacity:.5}
 .fr-loading .fr-num::after{content:"·";animation:dots 1.5s steps(4) infinite}
@@ -134,6 +134,49 @@ a{color:inherit;text-decoration:none}
 
 .view{padding:0}
 .view.loading{opacity:.5;pointer-events:none}
+
+/* Active-filter chip strip — between tabs and view content */
+.active-filters{display:none;gap:6px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--paper-2);align-items:center}
+.active-filters.on{display:flex}
+.active-filters .af-label{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-right:4px}
+.active-filters .af-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;background:var(--paper);border:1px solid var(--line);border-left:2px solid var(--accent);font-size:11px;font-family:var(--mono);color:var(--ink);cursor:default}
+.active-filters .af-chip.kind-country{border-left-color:#2563eb}
+.active-filters .af-chip.kind-body{border-left-color:#16a34a}
+.active-filters .af-chip.kind-theme{border-left-color:var(--accent)}
+.active-filters .af-chip.kind-group{border-left-color:#9333ea}
+.active-filters .af-chip.kind-region{border-left-color:#ea580c}
+.active-filters .af-chip.kind-sdg{border-left-color:#0891b2}
+.active-filters .af-chip.kind-type{border-left-color:#6b7280}
+.active-filters .af-chip.kind-year{border-left-color:#737373}
+.active-filters .af-chip.kind-kw{border-left-color:#be185d}
+.active-filters .af-chip .k{color:var(--dim);font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-right:2px}
+.active-filters .af-chip .v{color:var(--ink);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.active-filters .af-chip .x{border:0;background:transparent;color:var(--dim);font-size:14px;line-height:1;padding:0 2px;cursor:pointer;margin-left:2px}
+.active-filters .af-chip .x:hover{color:var(--ink)}
+.active-filters .af-clear{font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border:1px dashed var(--line);cursor:pointer;margin-left:auto;background:transparent}
+.active-filters .af-clear:hover{border-color:var(--ink);color:var(--ink)}
+
+/* Empty state CTA */
+.empty-state{padding:60px 24px;text-align:center;color:var(--dim);font-family:var(--mono)}
+.empty-state .es-title{font-family:var(--serif);font-size:26px;color:var(--ink);margin:0 0 8px;line-height:1.2}
+.empty-state .es-sub{font-size:12px;margin-bottom:20px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.5}
+.empty-state button{margin:4px;padding:8px 14px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.empty-state button.primary{background:var(--ink);color:var(--paper)}
+.empty-state button:hover{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+
+/* Timeline drag-select overlay */
+.tl-wrap{position:relative}
+.tl-sel{position:absolute;top:14px;bottom:26px;background:var(--accent-soft);border-left:2px solid var(--accent);border-right:2px solid var(--accent);pointer-events:none;z-index:2}
+.tl-wrap svg{cursor:crosshair}
+.tl-hint{position:absolute;top:4px;right:8px;font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;pointer-events:none;background:color-mix(in oklab, var(--paper) 80%, transparent);padding:2px 4px}
+
+/* Drawer record-navigation hint */
+.dr-nav{display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px dotted var(--line);font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;background:var(--paper-2)}
+.dr-nav .dr-nav-pos{font-variant-numeric:tabular-nums}
+.dr-nav button{border:1px solid var(--line);background:var(--paper);padding:2px 7px;font:10px var(--mono);color:var(--ink);cursor:pointer}
+.dr-nav button:hover:not(:disabled){border-color:var(--ink);background:var(--paper-2)}
+.dr-nav button:disabled{opacity:.3;cursor:not-allowed}
+.dr-nav kbd{border:1px solid var(--line);padding:0 4px;font-size:9px;background:var(--paper);color:var(--ink)}
 /* Keep-previous-content pattern: soft "refreshing" indicator, content stays visible & interactive */
 .view.updating{position:relative}
 .view.updating::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:refreshSlide 1.4s infinite;z-index:20;pointer-events:none}
@@ -531,6 +574,8 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="search"><span class="t-idx">05</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
       <a class="tab" data-nav="methodology"><span class="t-idx">06</span><span class="t-lbl">Methodology</span></a>
     </nav>
+
+    <div class="active-filters" id="activeFilters"></div>
 
     <section class="view" id="view-overview"></section>
     <section class="view hidden" id="view-country"></section>
@@ -1464,6 +1509,58 @@ function bindKwInput() {
   });
 }
 
+/* ---------- Active-filter chip strip (#1) ----------
+   Shows every non-default filter above the view. Click × to remove just
+   that one; click "clear all" to reset. Kept in sync with rail via
+   refreshFacetUI on change. */
+function renderActiveFilters() {
+  const f = state.filters;
+  const chips = [];
+  const push = (kind, label, value, remove) => chips.push({ kind, label, value, remove });
+
+  if (f.kw && f.kw.trim()) push('kw', 'Q', f.kw, () => { f.kw = ''; $('#kwInput').value = ''; });
+
+  for (const c of f.country) push('country', 'Country', c, () => f.country.delete(c));
+  for (const b of f.body)    push('body',    'Body',    b, () => f.body.delete(b));
+  for (const t of f.theme)   push('theme',   'Theme',   t, () => f.theme.delete(t));
+  for (const g of f.group)   push('group',   'Group',   g, () => f.group.delete(g));
+  for (const r of f.region)  push('region',  'Region',  r, () => f.region.delete(r));
+  for (const s of f.sdg)     push('sdg',     'SDG',     'SDG ' + s, () => f.sdg.delete(s));
+  for (const t of f.type)    push('type',    'Type',    t, () => f.type.delete(t));
+
+  const minY = state.facets?.min_year;
+  const maxY = state.facets?.max_year;
+  if ((minY && f.yearA > minY) || (maxY && f.yearB < maxY)) {
+    push('year', 'Years', `${f.yearA}–${f.yearB}`,
+      () => { f.yearA = minY; f.yearB = maxY; if (typeof window._syncYearSlider === 'function') window._syncYearSlider(); });
+  }
+
+  const bar = $('#activeFilters');
+  if (!chips.length) { bar.classList.remove('on'); bar.innerHTML = ''; return; }
+  bar.classList.add('on');
+  bar.innerHTML =
+    '<span class="af-label">filtering</span>' +
+    chips.map((c, i) => `
+      <span class="af-chip kind-${c.kind}">
+        <span class="k">${sanitize(c.label)}</span>
+        <span class="v" title="${sanitize(c.value)}">${sanitize(c.value)}</span>
+        <button class="x" data-i="${i}" aria-label="Remove filter">×</button>
+      </span>`).join('') +
+    '<button class="af-clear" id="afClearAll">clear all ×</button>';
+
+  bar.querySelectorAll('.af-chip .x').forEach(btn => btn.addEventListener('click', () => {
+    const i = Number(btn.dataset.i);
+    chips[i].remove();
+    // Sync rail + UI
+    refreshFacetUI(chips[i].kind === 'group' ? 'group'
+                 : chips[i].kind === 'kw' || chips[i].kind === 'year' ? null
+                 : chips[i].kind);
+    if (chips[i].kind === 'kw') $('#tabSearch').textContent = '—';
+    onFiltersChanged();
+  }));
+  $('#afClearAll').addEventListener('click', () => $('#clearFilters').click());
+}
+
 /* ---------- Filter-changed pipeline ----------
    - Hit count runs on every click (fast, debounced lightly)
    - Heavy view re-render waits 650ms of silence before firing, so rapid
@@ -1473,6 +1570,7 @@ function bindKwInput() {
 const debouncedHit = debounce(() => refreshHitCount(), 200);
 const debouncedRefresh = debounce(() => refreshCurrentView(), 650);
 function onFiltersChanged() {
+  renderActiveFilters();
   debouncedHit();
   debouncedRefresh();
   _pushUrlState();
@@ -1814,7 +1912,53 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
     if (i % 2 === 0) g += `<text x="${pad.l+i*xStep}" y="${H-8}" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="${ink}" opacity=".55">${y}</text>`;
   });
 
-  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl-svg">${g}</svg>`;
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl-svg">${g}</svg><div class="tl-hint">click year · drag to select range</div>`;
+
+  // Click/drag interaction: map pixel x → year, set state.filters.yearA/B
+  // Only on Overview's timeline (opts.interactive !== false). Skips country
+  // & theme profile timelines since they're showing a scoped view.
+  if (opts.interactive !== false) {
+    const svg = container.querySelector('svg');
+    const xToYear = clientX => {
+      const rect = svg.getBoundingClientRect();
+      const relX = (clientX - rect.left) / rect.width;
+      const innerPct = (relX * W - pad.l) / (W - pad.l - pad.r);
+      const year = years[0] + Math.round(innerPct * (years.length - 1));
+      return Math.max(years[0], Math.min(years[years.length - 1], year));
+    };
+    let dragStart = null, selEl = null;
+    svg.addEventListener('mousedown', e => {
+      dragStart = xToYear(e.clientX);
+      selEl = document.createElement('div');
+      selEl.className = 'tl-sel';
+      const rect = svg.getBoundingClientRect();
+      const startX = e.clientX - rect.left;
+      selEl.style.left = startX + 'px';
+      selEl.style.width = '1px';
+      container.appendChild(selEl);
+    });
+    svg.addEventListener('mousemove', e => {
+      if (!dragStart || !selEl) return;
+      const rect = svg.getBoundingClientRect();
+      const startX = ((dragStart - years[0]) / (years.length - 1)) * (rect.width * (W - pad.l - pad.r) / W) + rect.width * pad.l / W;
+      const curX = e.clientX - rect.left;
+      selEl.style.left = Math.min(startX, curX) + 'px';
+      selEl.style.width = Math.abs(curX - startX) + 'px';
+    });
+    const finish = e => {
+      if (dragStart == null) return;
+      const endYear = xToYear(e.clientX);
+      const [a, b] = dragStart <= endYear ? [dragStart, endYear] : [endYear, dragStart];
+      state.filters.yearA = a;
+      state.filters.yearB = b;
+      if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
+      if (selEl) { selEl.remove(); selEl = null; }
+      dragStart = null;
+      onFiltersChanged();
+    };
+    svg.addEventListener('mouseup', finish);
+    svg.addEventListener('mouseleave', e => { if (dragStart != null) finish(e); });
+  }
 
   // legend in opts.legendEl
   if (opts.legendEl) {
@@ -1993,8 +2137,8 @@ async function renderCountry() {
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:220px;line-height:1.2">${sanitize(topTheme)}</div><div class="l">Leading theme</div></div>`;
     root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date || '—'} → ${analytics?.trends?.dataset_last_publication_date || '—'} · all mechanisms`;
 
-    // Timeline
-    renderTimeline($('#cpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#cpLegend') });
+    // Timeline (non-interactive — profile is scoped already)
+    renderTimeline($('#cpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#cpLegend'), interactive: false });
 
     // Themes (top 12)
     renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
@@ -2006,12 +2150,14 @@ async function renderCountry() {
     // Samples
     const sampleEl = $('#cpSamples');
     sampleEl.innerHTML = '';
-    (records.records || []).forEach(r => {
+    state.currentResultList = records.records || [];
+    state.currentResultSource = 'country';
+    (records.records || []).forEach((r, i) => {
       const d = document.createElement('div');
       d.className = 'cp-sample';
       const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
       d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanLabel(r.Body)||'—')} · ${sanitize((r.Themes||[])[0]||'')}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
-      d.addEventListener('click', () => { state.selectedRec = r; renderDrawer(); openReader(r); });
+      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
       sampleEl.appendChild(d);
     });
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
@@ -2087,18 +2233,20 @@ async function renderTheme() {
       <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Affected groups</div></div>`;
     root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
 
-    renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend') });
+    renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false });
     renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
     renderRowList($('#thGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
 
     const sampleEl = $('#thSamples'); sampleEl.innerHTML = '';
-    (records.records || []).forEach(r => {
+    state.currentResultList = records.records || [];
+    state.currentResultSource = 'theme';
+    (records.records || []).forEach((r, i) => {
       const d = document.createElement('div');
       d.className = 'cp-sample';
       const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
       const rCountry = cleanCountryName((r.Countries||[])[0]||'');
       d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(rCountry)} · ${sanitize(cleanLabel(r.Body))}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
-      d.addEventListener('click', () => { state.selectedRec = r; renderDrawer(); openReader(r); });
+      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
       sampleEl.appendChild(d);
     });
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
@@ -2149,7 +2297,7 @@ async function renderCompare() {
     try {
       const [an, recs] = await Promise.all([api.analytics(f), api.records(f, 1, 1)]);
       $(`#${pfx}sub`).textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes`;
-      renderTimeline($(`#${pfx}Time`), an?.trends?.yearly_body_counts || {});
+      renderTimeline($(`#${pfx}Time`), an?.trends?.yearly_body_counts || {}, { interactive: false });
       const t = (an?.themes?.theme_counts||[]).slice(0,8).map(x => ({ key:x.theme, label:x.theme, v:x.count }));
       renderRowList($(`#${pfx}Themes`), t, {});
     } catch (err) {
@@ -2191,6 +2339,21 @@ async function renderSearch() {
 
     const highlight = txt => kw ? txt.replace(new RegExp(`(${escapeRegex(kw)})`, 'gi'), '<em>$1</em>') : txt;
 
+    if (!(r.records || []).length) {
+      const hasFilters = state.filters.country.size || state.filters.body.size || state.filters.theme.size || state.filters.group.size || state.filters.region.size || state.filters.sdg.size || state.filters.type.size || state.filters.kw.trim() || (state.facets && (state.filters.yearA > state.facets.min_year || state.filters.yearB < state.facets.max_year));
+      $('#seList').innerHTML = `
+        <div class="empty-state">
+          <div class="es-title">No records match your filters</div>
+          <div class="es-sub">${hasFilters ? 'Try removing one or two filters, broadening the year range, or using a different keyword.' : 'Hmm, the dataset should have 267,548 records — something went wrong.'}</div>
+          ${hasFilters ? `
+            <button class="primary" onclick="document.getElementById('clearFilters').click()">Clear all filters</button>
+            ${state.filters.kw.trim() ? `<button onclick="document.getElementById('kwInput').value='';state.filters.kw='';onFiltersChanged();">Drop keyword "${sanitize(state.filters.kw.trim().slice(0,40))}"</button>` : ''}
+            ${state.filters.country.size ? `<button onclick="state.filters.country=new Set();['country'].forEach(refreshFacetUI);onFiltersChanged();">Include all countries</button>` : ''}
+            ${state.filters.theme.size ? `<button onclick="state.filters.theme=new Set();['theme'].forEach(refreshFacetUI);onFiltersChanged();">Include all themes</button>` : ''}
+          ` : ''}
+        </div>`;
+      return;
+    }
     $('#seList').innerHTML = (r.records||[]).map((rec, idx) => {
       const txt = (rec.TextPlainCleaned || rec.Text || '').slice(0, 320);
       const yr = (rec.PublicationDate||'').slice(0,4);
@@ -2210,11 +2373,16 @@ async function renderSearch() {
       </div>`;
     }).join('') || '<div class="panel-loading" style="padding:60px 0">No matching records</div>';
 
+    // Save the list so j/k navigation can cycle through it
+    state.currentResultList = r.records || [];
+    state.currentResultSource = 'search';
+
     $$('#seList .se-item').forEach(el => el.addEventListener('click', () => {
-      const rec = r.records[+el.dataset.idx];
-      state.selectedRec = rec;
+      const idx = +el.dataset.idx;
+      state.selectedRec = r.records[idx];
+      state.currentResultIndex = idx;
       renderDrawer();
-      openReader(rec);
+      openReader(r.records[idx]);
     }));
   } catch (err) {
     console.error(err);
@@ -2261,6 +2429,17 @@ function renderMethodology() {
 /* =========================================================================
    DRAWER
    ========================================================================= */
+function navigateRec(step) {
+  if (!state.currentResultList || !state.currentResultList.length) return;
+  const idx = (state.currentResultIndex ?? 0) + step;
+  if (idx < 0 || idx >= state.currentResultList.length) return;
+  state.currentResultIndex = idx;
+  state.selectedRec = state.currentResultList[idx];
+  renderDrawer();
+  // Open reader if it's already open
+  if (!$('#reader').classList.contains('hidden')) openReader(state.selectedRec);
+}
+
 function renderDrawer() {
   const el = $('#drawerBody');
   const r = state.selectedRec;
@@ -2268,6 +2447,16 @@ function renderDrawer() {
     el.innerHTML = `<div class="dr-empty"><div class="big">No record selected</div><div>Click any recommendation in a list, map cell or search result to preview it here.<br><br>Or press <kbd style="border:1px solid var(--line);padding:0 4px;font-family:var(--mono)">⌘K</kbd> for the command palette.</div></div>`;
     return;
   }
+  const list = state.currentResultList || [];
+  const idx = state.currentResultIndex ?? -1;
+  const navHtml = list.length > 1 && idx >= 0 ? `
+    <div class="dr-nav">
+      <button id="drPrev" ${idx<=0?'disabled':''} title="Previous record (k)">↑ prev</button>
+      <button id="drNext" ${idx>=list.length-1?'disabled':''} title="Next record (j)">↓ next</button>
+      <span class="dr-nav-pos">${idx+1} / ${list.length}</span>
+      <span style="margin-left:auto">press <kbd>j</kbd>/<kbd>k</kbd></span>
+    </div>` : '';
+  el.dataset.hasNav = navHtml ? '1' : '0';
   const yr = (r.PublicationDate||'').slice(0,4);
   const country = cleanCountryName((r.Countries||[])[0] || '—');
   const body = cleanLabel(r.Body) || '—';
@@ -2278,6 +2467,7 @@ function renderDrawer() {
   const type = cleanAnnotationType(r.AnnotationType);
 
   el.innerHTML = `
+    ${navHtml}
     <div class="dr-id">${sanitize(r.AnnotationId||'')}</div>
     <div class="dr-yr">${sanitize(yr||'—')}</div>
     <div class="dr-text">${sanitize(txt)}</div>
@@ -2303,6 +2493,8 @@ function renderDrawer() {
 
   $('#drOpen').addEventListener('click', () => openReader(r));
   $('#drReport').addEventListener('click', () => openReportModal(r));
+  $('#drPrev')?.addEventListener('click', () => navigateRec(-1));
+  $('#drNext')?.addEventListener('click', () => navigateRec(1));
   $('#drCountry').addEventListener('click', () => {
     state.focusCountry = NAME_TO_ISO[country] || country;
     $('#tabCountry').textContent = country;
@@ -2380,28 +2572,63 @@ function renderPalette(q) {
   const bodies = (state.facets?.bodies || []).filter(b => b && b !== '-').map(b => b.replace(/^-\s*/,''));
   const themes = (state.analytics?.themes?.theme_counts || []).map(t => t.theme);
 
-  const matches = (s) => !q || s.toLowerCase().includes(q);
+  // Rank: exact prefix > word-boundary > contains; empty q shows pinned views first
+  function scoreMatch(s) {
+    if (!q) return 0;
+    const lc = s.toLowerCase();
+    if (lc === q) return 100;
+    if (lc.startsWith(q)) return 80;
+    if (new RegExp('\\b' + escapeRegex(q)).test(lc)) return 50;
+    if (lc.includes(q)) return 20;
+    return -1;
+  }
+  const matches = s => !q || scoreMatch(s) >= 0;
+
+  // VIEWS (always first when empty; searchable when typing)
+  const VIEWS = [
+    { kind:'VIEW', label:'Overview', sub:'map + top countries + themes + timeline', score: 100, action:()=>{closePalette();navigate('overview');} },
+    { kind:'VIEW', label:'Search results', sub:'paginated full-text', score: 99, action:()=>{closePalette();navigate('search');} },
+    { kind:'VIEW', label:'Compare countries', sub:'A vs B side-by-side', score: 98, action:()=>{closePalette();navigate('compare');} },
+    { kind:'VIEW', label:'Country profile', sub:`drill into ${ISO_TO_NAME[state.focusCountry]||'a country'}`, score: 97, action:()=>{closePalette();navigate('country');} },
+    { kind:'VIEW', label:'Theme profile', sub:`drill into ${state.focusTheme||'a theme'}`, score: 96, action:()=>{closePalette();navigate('theme');} },
+    { kind:'VIEW', label:'Methodology', sub:'about the dataset', score: 95, action:()=>{closePalette();navigate('methodology');} },
+  ];
 
   let results = [];
-  countries.forEach(c => matches(c) && results.push({
-    kind: 'COUNTRY', label: c, sub: 'open country profile',
-    action: () => { state.focusCountry = NAME_TO_ISO[c] || c; $('#tabCountry').textContent = c; closePalette(); navigate('country'); }
-  }));
-  themes.forEach(t => matches(t) && results.push({
-    kind: 'THEME', label: t, sub: 'open theme profile',
-    action: () => { state.focusTheme = t; $('#tabTheme').textContent = t; closePalette(); navigate('theme'); }
-  }));
-  bodies.slice(0, 40).forEach(b => matches(b) && results.push({
-    kind: 'BODY', label: b, sub: 'filter by body',
-    action: () => { state.filters.body = new Set([b]); refreshFacetUI('body'); closePalette(); onFiltersChanged(); navigate('overview'); }
-  }));
-  [
-    { kind:'VIEW', label:'Overview', sub:'all recommendations', action:()=>{closePalette();navigate('overview');} },
-    { kind:'VIEW', label:'Compare two countries', sub:'side-by-side', action:()=>{closePalette();navigate('compare');} },
-    { kind:'VIEW', label:'Search results', sub:'all-text search', action:()=>{closePalette();navigate('search');} },
-    { kind:'VIEW', label:'Methodology', sub:'about the dataset', action:()=>{closePalette();navigate('methodology');} },
-  ].forEach(r => matches(r.label) && results.push(r));
+  VIEWS.forEach(v => { if (matches(v.label)) results.push({ ...v, _score: q ? scoreMatch(v.label) + 30 : 200 - VIEWS.indexOf(v) }); });
 
+  // Themes — boosted above countries when query matches a theme word
+  themes.forEach(t => {
+    const s = scoreMatch(t);
+    if (s < 0 && q) return;
+    results.push({
+      kind: 'THEME', label: t, sub: 'open theme profile', _score: (q ? s : 50) + 10,
+      action: () => { state.focusTheme = t; $('#tabTheme').textContent = t; closePalette(); navigate('theme'); }
+    });
+  });
+
+  countries.forEach(c => {
+    const s = scoreMatch(c);
+    if (s < 0 && q) return;
+    results.push({
+      kind: 'COUNTRY', label: c, sub: 'open country profile', _score: q ? s : 40,
+      action: () => { state.focusCountry = NAME_TO_ISO[c] || c; $('#tabCountry').textContent = c; closePalette(); navigate('country'); }
+    });
+  });
+
+  bodies.slice(0, 60).forEach(b => {
+    const s = scoreMatch(b);
+    if (s < 0 && q) return;
+    results.push({
+      kind: 'BODY', label: b, sub: 'filter by body', _score: q ? s - 10 : 30,
+      action: () => { state.filters.body = new Set([b]); refreshFacetUI('body'); closePalette(); onFiltersChanged(); navigate('overview'); }
+    });
+  });
+
+  // Sort by score desc, then dedupe by label
+  results.sort((a, b) => b._score - a._score);
+  const seen = new Set();
+  results = results.filter(r => { const k = r.kind + ':' + r.label; if (seen.has(k)) return false; seen.add(k); return true; });
   results = results.slice(0, 14);
 
   $('#cmdResults').innerHTML = results.map((r,i) => `
@@ -2744,12 +2971,22 @@ async function boot() {
 
   // Keyboard
   document.addEventListener('keydown', e => {
+    const tag = document.activeElement?.tagName;
+    const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
     if ((e.metaKey||e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
     else if (e.key === 'Escape') { closePalette(); $('#reader').classList.add('hidden'); }
     else if (e.key === 'Enter' && !$('#cmdPalette').classList.contains('hidden')) {
       const first = window.__cmdResults && window.__cmdResults[0]; if (first) first.action();
-    } else if (e.key === '/' && document.activeElement?.tagName !== 'INPUT') {
+    } else if (e.key === '/' && !inInput) {
       e.preventDefault(); $('#kwInput').focus();
+    }
+    // j/k — navigate between records in the drawer (Gmail-style)
+    else if ((e.key === 'j' || e.key === 'k') && !inInput) {
+      if (state.currentResultList && state.currentResultList.length > 1 && (state.currentResultIndex ?? -1) >= 0) {
+        e.preventDefault();
+        navigateRec(e.key === 'j' ? 1 : -1);
+      }
     }
   });
 
@@ -2815,6 +3052,7 @@ async function boot() {
     if (!state.cmpB) state.cmpB = topByVolume[1] || 'Brazil';
 
     _restoreUrlState();
+    renderActiveFilters();
     setStatus('live');
     progressBar(60, cachedAnalytics ? 'USING CACHED ANALYTICS' : 'AGGREGATING ANALYTICS (267K RECORDS)');
   } catch (err) {
