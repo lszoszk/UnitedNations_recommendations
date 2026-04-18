@@ -817,19 +817,23 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <nav class="tabs" id="tabs" role="tablist" aria-label="Dashboard views">
       <a class="tab active" data-nav="overview" role="tab" aria-selected="true" tabindex="0"><span class="t-idx">01</span><span class="t-lbl">Overview</span></a>
       <a class="tab" data-nav="country" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">02</span><span class="t-lbl">Country profile</span><span class="t-ctx" id="tabCountry">—</span></a>
-      <a class="tab" data-nav="theme" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">03</span><span class="t-lbl">Theme profile</span><span class="t-ctx" id="tabTheme">—</span></a>
-      <a class="tab" data-nav="compare" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">04</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
-      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">05</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
-      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">06</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">07</span><span class="t-lbl">Methodology</span></a>
+      <a class="tab" data-nav="compare" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">03</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
+      <a class="tab" data-nav="group" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">04</span><span class="t-lbl">Group profile</span><span class="t-ctx" id="tabGroup">—</span></a>
+      <a class="tab" data-nav="theme" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">05</span><span class="t-lbl">Theme profile</span><span class="t-ctx" id="tabTheme">—</span></a>
+      <a class="tab" data-nav="sdg" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">06</span><span class="t-lbl">SDG profile</span><span class="t-ctx" id="tabSdg">—</span></a>
+      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">07</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
+      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">08</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
+      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">09</span><span class="t-lbl">Methodology</span></a>
     </nav>
 
     <div class="active-filters" id="activeFilters"></div>
 
     <section class="view" id="view-overview"></section>
     <section class="view hidden" id="view-country"></section>
-    <section class="view hidden" id="view-theme"></section>
     <section class="view hidden" id="view-compare"></section>
+    <section class="view hidden" id="view-group"></section>
+    <section class="view hidden" id="view-theme"></section>
+    <section class="view hidden" id="view-sdg"></section>
     <section class="view hidden" id="view-search"></section>
     <section class="view hidden" id="view-bookmarks"></section>
     <section class="view hidden" id="view-methodology"></section>
@@ -1144,6 +1148,8 @@ const state = {
   selectedRec: null,
   focusCountry: null,   // ISO3
   focusTheme: null,     // theme string
+  focusGroup: null,     // concerned group string
+  focusSdg: null,       // SDG label e.g. "SDG 16.3"
   cmpA: null, cmpB: null,
   facets: null,         // will be populated from /api/data/facets
   analytics: null,      // last global analytics
@@ -2296,13 +2302,28 @@ async function renderChoroplethMap(container, countryCounts) {
       const hit = features.filter(f => regionMap[f.properties.name] === region);
       if (!hit.length) return;
       const bounds = pathGen.bounds({ type: 'FeatureCollection', features: hit });
-      const padX = Math.max(20, (bounds[1][0] - bounds[0][0]) * 0.08);
-      const padY = Math.max(20, (bounds[1][1] - bounds[0][1]) * 0.08);
-      setVB(bounds[0][0] - padX, bounds[0][1] - padY,
-            bounds[1][0] - bounds[0][0] + padX * 2,
-            bounds[1][1] - bounds[0][1] + padY * 2);
+      let x0 = bounds[0][0], y0 = bounds[0][1];
+      let x1 = bounds[1][0], y1 = bounds[1][1];
+      let rawW = x1 - x0, rawH = y1 - y0;
+      // Aspect-match the container so the region sits CENTERED without the
+      // viewBox being squished — this is why Europe / Oceania looked "off".
+      const rect = svg.getBoundingClientRect();
+      const containerAspect = (rect.width && rect.height) ? (rect.width / rect.height) : 2;
+      const contentAspect = rawW / rawH;
+      let vbW, vbH;
+      if (contentAspect > containerAspect) {
+        // Content is wider than container → grow height
+        vbW = rawW; vbH = rawW / containerAspect;
+      } else {
+        // Content narrower → grow width
+        vbH = rawH; vbW = rawH * containerAspect;
+      }
+      // Add 8% padding on each axis, then centre the content in the viewBox
+      const padFactor = 1.12;
+      vbW *= padFactor; vbH *= padFactor;
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      setVB(cx - vbW/2, cy - vbH/2, vbW, vbH);
     }
-    // Sync buttons
     container.querySelectorAll('#geoRegions button[data-region]').forEach(b =>
       b.classList.toggle('on', b.dataset.region === region));
   }
@@ -3332,6 +3353,175 @@ async function renderTheme() {
 }
 
 /* =========================================================================
+   VIEW: GROUP PROFILE — mirrors Theme profile, scoped by concerned group
+   ========================================================================= */
+async function renderGroup() {
+  const root = $('#view-group');
+  const name = state.focusGroup;
+  if (!name) {
+    root.innerHTML = `<div class="me"><h1>Pick a concerned group</h1><p>Click a group on Overview's Top Groups, use the rail facet, or ⌘K → "Group profile".</p></div>`;
+    return;
+  }
+  const groupsList = (state.analytics?.text?.affected_person_counts || []).map(g => g.affected_person);
+  const opts = groupsList.map(g => `<option value="${sanitize(g)}" ${g===name?'selected':''}>${sanitize(g)}</option>`).join('');
+  root.innerHTML = `
+    <div class="cp-head">
+      <div>
+        <div class="cp-iso">CONCERNED GROUP</div>
+        <h1 class="cp-name" style="font-size:42px">${sanitize(name)}</h1>
+        <div class="cp-sub">Loading…</div>
+        <div class="cp-kpis" id="gpKpis"></div>
+      </div>
+      <div class="cp-picker"><label>Switch group</label><select id="gpSelect">${opts}</select></div>
+    </div>
+    <div class="cp-body">
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="gpLegend"></div></div><div class="tl-wrap" id="gpTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="gpCountries"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Top themes</span></div></div><div class="row-list" id="gpThemes"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Top SDGs</span></div></div><div class="row-list" id="gpSdgs"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="gpSeeAll">see all →</button></div></div><div id="gpSamples"><div class="panel-loading">loading</div></div></div>
+    </div>`;
+  $('#gpSelect').addEventListener('change', e => {
+    state.focusGroup = e.target.value;
+    $('#tabGroup').textContent = e.target.value;
+    renderGroup();
+  });
+  const filter = { ...emptyFilters(), group: new Set([name]) };
+  try {
+    const [analytics, mapD, records] = await Promise.all([
+      api.analytics(filter, { scope: 'analytics:group-' + name }),
+      api.map(filter, { scope: 'map:group-' + name }),
+      api.records(filter, 1, 5, { scope: 'records:group-' + name }),
+    ]);
+    const total = records.total_records;
+    const countries = mapD.country_counts || [];
+    const themes = analytics?.themes?.theme_counts || [];
+    const sdgs = analytics?.text?.sdg_counts || [];
+    const topC = countries[0]?.country || '—';
+
+    $('#gpKpis').innerHTML = `
+      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
+      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
+      <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>`;
+    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false });
+    renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
+    renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
+    renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
+
+    const sampleEl = $('#gpSamples'); sampleEl.innerHTML = '';
+    state.currentResultList = records.records || [];
+    state.currentResultSource = 'group';
+    (records.records || []).forEach((r, i) => {
+      const d = document.createElement('div');
+      d.className = 'cp-sample';
+      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
+      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
+      sampleEl.appendChild(d);
+    });
+    if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+    $('#gpSeeAll').addEventListener('click', () => {
+      state.filters.group = new Set([name]);
+      refreshFacetUI('group');
+      navigate('search');
+      onFiltersChanged();
+    });
+  } catch (err) {
+    if (err.name !== 'AbortError') console.error(err);
+    toast('Failed to load group profile: ' + err.message, true);
+  }
+}
+
+/* =========================================================================
+   VIEW: SDG PROFILE — scoped by SDG target (e.g. "SDG 16.3")
+   ========================================================================= */
+async function renderSDG() {
+  const root = $('#view-sdg');
+  const sdg = state.focusSdg;
+  if (!sdg) {
+    root.innerHTML = `<div class="me"><h1>Pick an SDG</h1><p>Use ⌘K → "SDG profile" or the rail's SDG grid, then click "Open SDG profile".</p></div>`;
+    return;
+  }
+  const sdgsList = (state.analytics?.text?.sdg_counts || []).map(s => s.sdg);
+  const opts = sdgsList.map(s => `<option value="${sanitize(s)}" ${s===sdg?'selected':''}>${sanitize(formatSdgLabel(s))}</option>`).join('');
+  root.innerHTML = `
+    <div class="cp-head">
+      <div>
+        <div class="cp-iso">SUSTAINABLE DEVELOPMENT GOAL</div>
+        <h1 class="cp-name" style="font-size:38px">${sanitize(formatSdgLabel(sdg))}</h1>
+        <div class="cp-sub">Loading…</div>
+        <div class="cp-kpis" id="spKpis"></div>
+      </div>
+      <div class="cp-picker"><label>Switch SDG</label><select id="spSelect">${opts}</select></div>
+    </div>
+    <div class="cp-body">
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="spLegend"></div></div><div class="tl-wrap" id="spTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="spCountries"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Top themes</span></div></div><div class="row-list" id="spThemes"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="spGroups"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="spSeeAll">see all →</button></div></div><div id="spSamples"><div class="panel-loading">loading</div></div></div>
+    </div>`;
+  $('#spSelect').addEventListener('change', e => {
+    state.focusSdg = e.target.value;
+    $('#tabSdg').textContent = e.target.value.replace(/^SDG /, 'SDG ');
+    renderSDG();
+  });
+  const filter = { ...emptyFilters(), sdg: new Set([sdg]) };
+  // Our sdg filter stores numbers in the state, but API expects "SDG 16.3"
+  // so we override sdg handling here — pass raw string directly.
+  const filterForApi = { ...filter, sdg: new Set() };
+  // Build params manually to bypass the number conversion
+  const rawParams = buildParams(filterForApi);
+  rawParams.set('sdgs', sdg);
+  const rawAnalytics = () => apiGet(E.analytics, rawParams, { scope: 'analytics:sdg-' + sdg });
+  const rawMap       = () => apiGet(E.map,       rawParams, { scope: 'map:sdg-' + sdg });
+  const rawRecords   = () => { const p = new URLSearchParams(rawParams); p.set('page','1'); p.set('page_size','5'); return apiGet(E.records, p, { scope: 'records:sdg-' + sdg }); };
+  try {
+    const [analytics, mapD, records] = await Promise.all([rawAnalytics(), rawMap(), rawRecords()]);
+    const total = records.total_records;
+    const countries = mapD.country_counts || [];
+    const themes = analytics?.themes?.theme_counts || [];
+    const groups = analytics?.text?.affected_person_counts || [];
+
+    $('#spKpis').innerHTML = `
+      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
+      <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
+      <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Groups</div></div>`;
+    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false });
+    renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
+    renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
+    renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
+
+    const sampleEl = $('#spSamples'); sampleEl.innerHTML = '';
+    state.currentResultList = records.records || [];
+    state.currentResultSource = 'sdg';
+    (records.records || []).forEach((r, i) => {
+      const d = document.createElement('div');
+      d.className = 'cp-sample';
+      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
+      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
+      sampleEl.appendChild(d);
+    });
+    if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+    $('#spSeeAll').addEventListener('click', () => {
+      // SDG filter in the rail expects a number; parse & set both rail + navigate
+      const m = String(sdg).match(/(\d+)/);
+      if (m) { state.filters.sdg.add(Number(m[1])); refreshFacetUI('sdg'); }
+      navigate('search');
+      onFiltersChanged();
+    });
+  } catch (err) {
+    if (err.name !== 'AbortError') console.error(err);
+    toast('Failed to load SDG profile: ' + err.message, true);
+  }
+}
+
+/* =========================================================================
    VIEW: COMPARE (A vs B)
    ========================================================================= */
 async function renderCompare() {
@@ -3768,7 +3958,7 @@ function renderDrawerListMode() {
       <div class="n">${fmt(ctx.total)} matching records · showing ${fmt(ctx.records.length)}</div>
       <div class="actions">
         <button class="primary" id="drListFilter">+ Filter by this ${ctx.kind}</button>
-        ${(ctx.kind === 'theme' || ctx.kind === 'country') ? `<button id="drListProfile">Open ${ctx.kind} profile →</button>` : ''}
+        <button id="drListProfile">Open ${ctx.kind} profile →</button>
         <button id="drListClose">× Close</button>
       </div>
     </div>
@@ -3799,16 +3989,19 @@ function renderDrawerListMode() {
       state.focusTheme = ctx.value;
       $('#tabTheme').textContent = ctx.value;
       navigate('theme');
-      closeListDrawer();
     } else if (ctx.kind === 'country') {
       const iso = getHexNameToIso()[ctx.value];
       if (iso) {
         state.focusCountry = iso;
         $('#tabCountry').textContent = ctx.value;
         navigate('country');
-        closeListDrawer();
       }
+    } else if (ctx.kind === 'group') {
+      state.focusGroup = ctx.value;
+      $('#tabGroup').textContent = ctx.value;
+      navigate('group');
     }
+    closeListDrawer();
   });
   $('#drListClose')?.addEventListener('click', closeListDrawer);
 
@@ -4033,7 +4226,9 @@ function renderPalette(q) {
     { kind:'VIEW', label:'Search results', sub:'paginated full-text', score: 99, action:()=>{closePalette();navigate('search');} },
     { kind:'VIEW', label:'Compare countries', sub:'A vs B side-by-side', score: 98, action:()=>{closePalette();navigate('compare');} },
     { kind:'VIEW', label:'Country profile', sub:`drill into ${ISO_TO_NAME[state.focusCountry]||'a country'}`, score: 97, action:()=>{closePalette();navigate('country');} },
+    { kind:'VIEW', label:'Group profile', sub:`drill into ${state.focusGroup||'a concerned group'}`, score: 96.5, action:()=>{closePalette();navigate('group');} },
     { kind:'VIEW', label:'Theme profile', sub:`drill into ${state.focusTheme||'a theme'}`, score: 96, action:()=>{closePalette();navigate('theme');} },
+    { kind:'VIEW', label:'SDG profile', sub:`drill into ${state.focusSdg||'an SDG target'}`, score: 95.5, action:()=>{closePalette();navigate('sdg');} },
     { kind:'VIEW', label:'Methodology', sub:'about the dataset', score: 95, action:()=>{closePalette();navigate('methodology');} },
     { kind:'VIEW', label:'Bookmarks', sub:`${bmLoad().length} saved records`, score: 94, action:()=>{closePalette();navigate('bookmarks');} },
   ];
@@ -4122,6 +4317,8 @@ function _pushUrlState() {
   if (f.yearB && state.facets && f.yearB !== state.facets.max_year) p.set('y2', f.yearB);
   if (state.focusCountry) p.set('fc', state.focusCountry);
   if (state.focusTheme) p.set('ft', state.focusTheme);
+  if (state.focusGroup) p.set('fg', state.focusGroup);
+  if (state.focusSdg) p.set('fsdg', state.focusSdg);
   const h = p.toString();
   const newHash = h ? '#' + h : '';
   if (location.hash !== newHash) history.replaceState(null, '', newHash || location.pathname);
@@ -4147,6 +4344,8 @@ function _restoreUrlState() {
     $('#tabCountry').textContent = ISO_TO_NAME[state.focusCountry] || state.focusCountry;
   }
   if (p.get('ft')) { state.focusTheme = p.get('ft'); $('#tabTheme').textContent = state.focusTheme; }
+  if (p.get('fg')) { state.focusGroup = p.get('fg'); $('#tabGroup').textContent = state.focusGroup; }
+  if (p.get('fsdg')) { state.focusSdg = p.get('fsdg'); const t = $('#tabSdg'); if (t) t.textContent = state.focusSdg; }
   if (p.get('view')) state.view = p.get('view');
 
   // Sync UI to restored state — handles, rail checkboxes, search tab badge
@@ -4172,6 +4371,8 @@ async function navigate(view) {
   if (view === 'overview') await renderOverview();
   else if (view === 'country') await renderCountry();
   else if (view === 'theme') await renderTheme();
+  else if (view === 'group') await renderGroup();
+  else if (view === 'sdg') await renderSDG();
   else if (view === 'compare') await renderCompare();
   else if (view === 'search') { state.searchPage = 1; await renderSearch(); }
   else if (view === 'bookmarks') renderBookmarks();
