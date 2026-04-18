@@ -1,0 +1,32 @@
+{
+  "name": "UHRI Analytics Dashboard v2",
+  "short_name": "UHRI v2",
+  "description": "Explore 267,548 UN human rights recommendations — filter, compare, and annotate across Treaty Bodies, Special Procedures, and UPR cycles.",
+  "start_url": "./dashboard2.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F2EFE8",
+  "theme_color": "#0F0F10",
+  "categories": ["productivity", "education", "government", "news"],
+  "lang": "en",
+  "icons": [
+    {
+      "src": "icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Search recommendations",  "short_name": "Search",    "description": "Full-text search across the dataset", "url": "./dashboard2.html#view=search" },
+    { "name": "Bookmarks",                "short_name": "Bookmarks", "description": "Your saved recommendations",         "url": "./dashboard2.html#view=bookmarks" },
+    { "name": "Compare countries",        "short_name": "Compare",   "description": "A-vs-B country comparison",          "url": "./dashboard2.html#view=compare" }
+  ]
+}

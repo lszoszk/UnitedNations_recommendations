@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0F0F10"/>
+  <rect x="64" y="64" width="64" height="64" fill="#F2EFE8"/>
+  <text x="256" y="312" font-family="'Instrument Serif', 'Times New Roman', serif" font-size="232" fill="#F2EFE8" text-anchor="middle" font-style="italic" font-weight="400">U</text>
+  <text x="256" y="406" font-family="'JetBrains Mono', monospace" font-size="32" fill="#d97706" text-anchor="middle" letter-spacing="8">HRI · V2</text>
+</svg>

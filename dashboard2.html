@@ -7,6 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#F2EFE8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0d0b" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="icon-192.svg">
+<link rel="apple-touch-icon" href="icon-192.svg">
 <style>
 :root{
   --paper:#F2EFE8; --paper-2:#EAE6DD; --paper-3:#E1DCD0;
@@ -28,6 +33,13 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 input{font:inherit;color:inherit}
 a{color:inherit;text-decoration:none}
 .hidden{display:none!important}
+
+/* Accessibility helpers */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.sr-skip:focus{position:fixed;width:auto;height:auto;clip:auto;margin:0;top:8px;left:8px;padding:8px 14px;background:var(--ink);color:var(--paper);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;z-index:9999;text-decoration:none}
+/* Visible focus rings across the board — override browser default */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:1px}
+.opt:focus-visible,.sdg-cell:focus-visible,.rl-row:focus-visible,.map-cell:focus-visible,.tab:focus-visible,.sw:focus-visible,.cite-item:focus-visible,.export-item:focus-visible,.af-chip:focus-visible,path.country:focus-visible{outline-offset:-2px;background:var(--paper-2)}
 
 /* ---------- TOP BAR ---------- */
 .topbar{height:var(--top-h);display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;padding:0 16px;border-bottom:1px solid var(--line);background:var(--paper);position:relative;z-index:30}
@@ -385,6 +397,11 @@ a{color:inherit;text-decoration:none}
 .se-item .cc{font-family:var(--mono);font-size:11px;color:var(--ink);text-align:right}
 .se-item .rg{font-size:10px;color:var(--dim);text-align:right}
 .se-item em{background:var(--accent);color:var(--paper);font-style:normal;padding:0 2px}
+/* Virtualized/content-visibility: modern browsers render only rows in/near viewport */
+.se-list .se-item{content-visibility:auto;contain-intrinsic-size:auto 120px}
+.se-sentinel{height:40px;display:flex;align-items:center;justify-content:center;color:var(--dim);font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;padding:12px}
+.se-sentinel.done{color:var(--dimmer)}
+.se-sentinel .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:8px;animation:pulse 1.4s infinite}
 
 /* ---------- METHODOLOGY ---------- */
 .me{padding:40px 24px;max-width:900px;margin:0 auto}
@@ -502,6 +519,19 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 body.uploaded-mode .offline-btn{background:#854d0e;color:#fff;border-color:#854d0e}
 body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color:#a16207}
 
+/* Changelog badge — pulsing dot in topbar when a new pipeline refresh is available */
+.changelog-btn{position:relative;border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;cursor:pointer;color:var(--dim);display:inline-flex;align-items:center;gap:4px}
+.changelog-btn:hover{border-color:var(--ink);color:var(--ink)}
+.changelog-btn .pulse{width:6px;height:6px;border-radius:50%;background:#d97706;animation:pulse 1.4s infinite;box-shadow:0 0 0 3px rgba(217,119,6,.25)}
+.changelog-btn.seen .pulse{display:none}
+.changelog-modal .ch-card{background:var(--paper);max-width:620px;width:100%;padding:28px 32px;font-family:var(--mono);box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:82vh;overflow-y:auto}
+.changelog-modal .ch-card h2{font-family:var(--serif);font-size:28px;margin:0 0 6px;line-height:1.1;color:var(--ink)}
+.changelog-modal .ch-card .sub{font-size:11px;color:var(--dim);letter-spacing:.08em;margin-bottom:18px}
+.changelog-modal .ch-block{margin-bottom:16px;padding:14px 16px;background:var(--paper-2);border-left:2px solid var(--accent)}
+.changelog-modal .ch-block h4{margin:0 0 6px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.changelog-modal .ch-block .v{font-family:var(--serif);font-size:14px;line-height:1.5;color:var(--ink-2);white-space:pre-wrap}
+.changelog-modal .ch-num{font-family:var(--serif);font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
+
 /* Onboarding tour — first-visit spotlight */
 .tour-backdrop{position:fixed;inset:0;background:rgba(15,15,16,.72);z-index:240;animation:fadeIn .25s}
 .tour-pop{position:fixed;z-index:241;background:var(--paper);color:var(--ink);font-family:var(--mono);max-width:340px;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.4);border-left:3px solid var(--accent)}
@@ -616,17 +646,18 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <span class="sep">·</span>
     <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">classic ↗</a>
     <span class="sep">·</span>
-    <button class="tw-btn" id="twBtn" title="Appearance & layout (shift+?)"><span class="sw-preview" id="twPreview"></span>THEME</button>
+    <button class="changelog-btn seen" id="changelogBtn" title="Data pipeline changelog" aria-label="Pipeline changelog"><span class="pulse" aria-hidden="true"></span>NEW</button>
+    <button class="tw-btn" id="twBtn" title="Appearance & layout" aria-label="Appearance settings"><span class="sw-preview" id="twPreview"></span>THEME</button>
   </div>
 </header>
 
 <div class="app" id="app">
 
   <!-- LEFT RAIL -->
-  <aside class="rail" id="rail">
+  <aside class="rail" id="rail" aria-label="Filters">
     <div class="rail-head">
-      <span>FILTERS</span>
-      <button class="linkbtn" id="clearFilters">clear all</button>
+      <h2 style="margin:0;font:inherit;color:inherit">FILTERS</h2>
+      <button class="linkbtn" id="clearFilters" aria-label="Clear all filters">clear all</button>
     </div>
 
     <div class="filter-result" id="filterResult">
@@ -684,15 +715,15 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   </aside>
 
   <!-- MAIN -->
-  <main class="main" id="main">
-    <nav class="tabs" id="tabs">
-      <a class="tab active" data-nav="overview"><span class="t-idx">01</span><span class="t-lbl">Overview</span></a>
-      <a class="tab" data-nav="country"><span class="t-idx">02</span><span class="t-lbl">Country profile</span><span class="t-ctx" id="tabCountry">—</span></a>
-      <a class="tab" data-nav="theme"><span class="t-idx">03</span><span class="t-lbl">Theme profile</span><span class="t-ctx" id="tabTheme">—</span></a>
-      <a class="tab" data-nav="compare"><span class="t-idx">04</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
-      <a class="tab" data-nav="search"><span class="t-idx">05</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
-      <a class="tab" data-nav="bookmarks"><span class="t-idx">06</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="methodology"><span class="t-idx">07</span><span class="t-lbl">Methodology</span></a>
+  <main class="main" id="main" tabindex="-1" aria-label="Dashboard main content">
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Dashboard views">
+      <a class="tab active" data-nav="overview" role="tab" aria-selected="true" tabindex="0"><span class="t-idx">01</span><span class="t-lbl">Overview</span></a>
+      <a class="tab" data-nav="country" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">02</span><span class="t-lbl">Country profile</span><span class="t-ctx" id="tabCountry">—</span></a>
+      <a class="tab" data-nav="theme" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">03</span><span class="t-lbl">Theme profile</span><span class="t-ctx" id="tabTheme">—</span></a>
+      <a class="tab" data-nav="compare" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">04</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
+      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">05</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
+      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">06</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
+      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">07</span><span class="t-lbl">Methodology</span></a>
     </nav>
 
     <div class="active-filters" id="activeFilters"></div>
@@ -707,10 +738,10 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   </main>
 
   <!-- DRAWER -->
-  <aside class="drawer" id="drawer">
+  <aside class="drawer" id="drawer" aria-label="Selected recommendation details">
     <div class="drawer-head">
-      <span>SELECTED · RECOMMENDATION</span>
-      <button class="linkbtn" id="drawerClear">× clear</button>
+      <h2 style="margin:0;font:inherit;color:inherit">SELECTED · RECOMMENDATION</h2>
+      <button class="linkbtn" id="drawerClear" aria-label="Clear selected record">× clear</button>
     </div>
     <div class="drawer-body" id="drawerBody"></div>
   </aside>
@@ -732,6 +763,10 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <div class="cmd-results" id="cmdResults"></div>
   </div>
 </div>
+
+<!-- Screen-reader live region for announcing filter/nav changes -->
+<div class="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true"></div>
+<a class="sr-only sr-skip" href="#main" id="skipMain">Skip to main content</a>
 
 <!-- MOBILE BACKDROP (for rail overlay) -->
 <div class="mobile-backdrop hidden" id="mobileBackdrop"></div>
@@ -1381,6 +1416,40 @@ function toCSV(rows) {
   return [cols.join(',')].concat(rows.map(r => cols.map(c => esc(r[c])).join(','))).join('\n');
 }
 
+/* =========================================================================
+   ACCESSIBILITY HELPERS
+   ========================================================================= */
+function announce(msg) {
+  const el = $('#srLive'); if (!el) return;
+  // Clear then set so repeats are announced
+  el.textContent = '';
+  setTimeout(() => { el.textContent = msg; }, 50);
+}
+
+/* Simple focus trap for modals — cycles focus between first/last focusable
+   elements inside `el`. Returns a cleanup function. */
+function trapFocus(el) {
+  if (!el) return () => {};
+  const sel = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  const getFocusable = () => Array.from(el.querySelectorAll(sel)).filter(n => !n.disabled && n.offsetParent !== null);
+  const first = () => getFocusable()[0];
+  const last = () => { const f = getFocusable(); return f[f.length - 1]; };
+  const onKey = (e) => {
+    if (e.key !== 'Tab') return;
+    const f = first(); const l = last();
+    if (!f || !l) return;
+    if (e.shiftKey && document.activeElement === f) { e.preventDefault(); l.focus(); }
+    else if (!e.shiftKey && document.activeElement === l) { e.preventDefault(); f.focus(); }
+  };
+  el.addEventListener('keydown', onKey);
+  const prevFocus = document.activeElement;
+  setTimeout(() => { first()?.focus(); }, 10);
+  return () => {
+    el.removeEventListener('keydown', onKey);
+    try { prevFocus?.focus(); } catch {}
+  };
+}
+
 /* ---------- TOP PROGRESS BAR ---------- */
 function progressBar(pct, label) {
   let el = document.getElementById('topProgress');
@@ -1732,6 +1801,7 @@ function onFiltersChanged() {
   debouncedHit();
   debouncedRefresh();
   _pushUrlState();
+  _announceHit();
 }
 
 async function refreshCurrentView() {
@@ -1739,6 +1809,14 @@ async function refreshCurrentView() {
   else if (state.view === 'search') await renderSearch();
   // country/theme/compare: their renderers use their own fetches
 }
+
+// Announce hit-count updates to screen readers
+const _announceHit = debounce(() => {
+  const n = state.totalHits;
+  if (n != null && state.facets) {
+    announce(`${fmt(n)} of ${fmt(state.facets.total_records)} records match current filters`);
+  }
+}, 800);
 
 /* =========================================================================
    CHART HELPERS
@@ -2543,34 +2621,67 @@ async function renderCompare() {
 /* =========================================================================
    VIEW: SEARCH RESULTS
    ========================================================================= */
+/* Renders a single search-result item HTML string */
+function _renderSearchItem(rec, idx, kw) {
+  const txt = (rec.TextPlainCleaned || rec.Text || '').slice(0, 320);
+  const yr = (rec.PublicationDate||'').slice(0,4);
+  const themes = (rec.Themes||[]).slice(0,3);
+  const body = cleanLabel(rec.Body);
+  const country = cleanCountryName((rec.Countries||[])[0]||'');
+  const highlight = kw ? sanitize(txt).replace(new RegExp('(' + escapeRegex(kw) + ')', 'gi'), '<em>$1</em>') : sanitize(txt);
+  return `<div class="se-item" data-idx="${idx}" role="article">
+    <div><div class="y">${sanitize(yr)}</div><div class="mech">${sanitize(body)}</div></div>
+    <div>
+      <div class="tx">${highlight}${txt.length>=320?'…':''}</div>
+      <div class="tg">${themes.map(t=>`<span>${sanitize(t)}</span>`).join('')}${(rec.AffectedPersons||[]).slice(0,2).map(g=>`<span>${sanitize(g)}</span>`).join('')}</div>
+    </div>
+    <div>
+      <div class="cc">${sanitize(country)}</div>
+      <div class="rg">${sanitize((rec.Regions||[])[0]||'')}</div>
+    </div>
+  </div>`;
+}
+
+/* Search view — infinite scroll with IntersectionObserver sentinel.
+   Modern browsers use CSS content-visibility:auto on rows so only visible
+   rows pay layout cost, enabling lists with thousands of records to scroll
+   smoothly without a virtualization library. */
+let _seObserver = null;
 async function renderSearch() {
   const root = $('#view-search');
   const kw = state.filters.kw.trim();
-  const page = state.searchPage;
-  const pageSize = state.searchPageSize;
+  state.searchPage = 1;
+  state.searchLoaded = [];
+  state.searchExhausted = false;
+  state.currentResultList = [];
+  state.currentResultSource = 'search';
+  if (_seObserver) { _seObserver.disconnect(); _seObserver = null; }
 
   root.innerHTML = `
     <div class="se-head">
       <span class="lbl">Search results</span>
       <span class="q">${kw ? `"${sanitize(kw)}"` : 'all recommendations'}</span>
-      <span class="n" id="seN">loading…</span>
-      <div class="se-pager"><button id="sePrev" ${page<=1?'disabled':''}>← prev</button><button id="seNext">next →</button></div>
+      <span class="n" id="seN" aria-live="polite">loading…</span>
     </div>
-    <div class="se-list" id="seList"><div class="panel-loading" style="padding:40px 0">loading…</div></div>`;
+    <div class="se-list" id="seList" role="list"></div>
+    <div class="se-sentinel" id="seSentinel" aria-live="polite"><span class="dot"></span>Loading more…</div>`;
 
+  await loadNextSearchPage();
+}
+
+async function loadNextSearchPage() {
+  if (state.searchExhausted) return;
+  const kw = state.filters.kw.trim();
+  const pageSize = state.searchPageSize;
   try {
-    const r = await api.records(state.filters, page, pageSize);
+    const r = await api.records(state.filters, state.searchPage, pageSize);
     const total = r.total_records;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    $('#seN').textContent = `${fmt(total)} matches · page ${page} of ${fmt(totalPages)}`;
-    $('#sePrev').disabled = page <= 1;
-    $('#seNext').disabled = page >= totalPages;
-    $('#sePrev').addEventListener('click', () => { state.searchPage = Math.max(1, page-1); renderSearch(); });
-    $('#seNext').addEventListener('click', () => { state.searchPage = Math.min(totalPages, page+1); renderSearch(); });
+    const n = $('#seN');
+    if (n) n.textContent = `${fmt(total)} matches · showing ${fmt(state.searchLoaded.length + (r.records||[]).length)}`;
 
-    const highlight = txt => kw ? txt.replace(new RegExp(`(${escapeRegex(kw)})`, 'gi'), '<em>$1</em>') : txt;
-
-    if (!(r.records || []).length) {
+    if (state.searchPage === 1 && !(r.records || []).length) {
+      // Empty state on first page
       const hasFilters = state.filters.country.size || state.filters.body.size || state.filters.theme.size || state.filters.group.size || state.filters.region.size || state.filters.sdg.size || state.filters.type.size || state.filters.kw.trim() || (state.facets && (state.filters.yearA > state.facets.min_year || state.filters.yearB < state.facets.max_year));
       $('#seList').innerHTML = `
         <div class="empty-state">
@@ -2583,41 +2694,62 @@ async function renderSearch() {
             ${state.filters.theme.size ? `<button onclick="state.filters.theme=new Set();['theme'].forEach(refreshFacetUI);onFiltersChanged();">Include all themes</button>` : ''}
           ` : ''}
         </div>`;
+      const sentinel = $('#seSentinel'); if (sentinel) sentinel.style.display = 'none';
+      state.searchExhausted = true;
       return;
     }
-    $('#seList').innerHTML = (r.records||[]).map((rec, idx) => {
-      const txt = (rec.TextPlainCleaned || rec.Text || '').slice(0, 320);
-      const yr = (rec.PublicationDate||'').slice(0,4);
-      const themes = (rec.Themes||[]).slice(0,3);
-      const body = cleanLabel(rec.Body);
-      const country = cleanCountryName((rec.Countries||[])[0]||'');
-      return `<div class="se-item" data-idx="${idx}">
-        <div><div class="y">${sanitize(yr)}</div><div class="mech">${sanitize(body)}</div></div>
-        <div>
-          <div class="tx">${highlight(sanitize(txt))}${txt.length>=320?'…':''}</div>
-          <div class="tg">${themes.map(t=>`<span>${sanitize(t)}</span>`).join('')}${(rec.AffectedPersons||[]).slice(0,2).map(g=>`<span>${sanitize(g)}</span>`).join('')}</div>
-        </div>
-        <div>
-          <div class="cc">${sanitize(country)}</div>
-          <div class="rg">${sanitize((rec.Regions||[])[0]||'')}</div>
-        </div>
-      </div>`;
-    }).join('') || '<div class="panel-loading" style="padding:60px 0">No matching records</div>';
 
-    // Save the list so j/k navigation can cycle through it
-    state.currentResultList = r.records || [];
-    state.currentResultSource = 'search';
+    // Append new rows
+    const startIdx = state.searchLoaded.length;
+    const newRows = (r.records || []);
+    state.searchLoaded.push(...newRows);
+    state.currentResultList = state.searchLoaded;
 
-    $$('#seList .se-item').forEach(el => el.addEventListener('click', () => {
-      const idx = +el.dataset.idx;
-      state.selectedRec = r.records[idx];
-      state.currentResultIndex = idx;
-      renderDrawer();
-      openReader(r.records[idx]);
-    }));
+    const html = newRows.map((rec, i) => _renderSearchItem(rec, startIdx + i, kw)).join('');
+    const list = $('#seList');
+    if (list) list.insertAdjacentHTML('beforeend', html);
+
+    // Wire clicks on the new rows only
+    (list ? list.querySelectorAll('.se-item:not([data-wired])') : []).forEach(el => {
+      el.dataset.wired = '1';
+      el.addEventListener('click', () => {
+        const idx = +el.dataset.idx;
+        state.selectedRec = state.searchLoaded[idx];
+        state.currentResultIndex = idx;
+        renderDrawer();
+        openReader(state.searchLoaded[idx]);
+      });
+    });
+
+    // Are we done?
+    if (state.searchPage >= totalPages) {
+      state.searchExhausted = true;
+      const sentinel = $('#seSentinel');
+      if (sentinel) {
+        sentinel.classList.add('done');
+        sentinel.innerHTML = `— end of results (${fmt(total)} total) —`;
+      }
+      if (_seObserver) { _seObserver.disconnect(); _seObserver = null; }
+      return;
+    }
+
+    state.searchPage++;
+
+    // Arm an IntersectionObserver on the sentinel for infinite scroll
+    const sentinel = $('#seSentinel');
+    if (sentinel && !_seObserver) {
+      _seObserver = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting && !state.searchExhausted) loadNextSearchPage();
+        });
+      }, { rootMargin: '240px' });  // start fetching before sentinel is visible
+      _seObserver.observe(sentinel);
+    }
   } catch (err) {
+    if (err.name === 'AbortError') return;
     console.error(err);
-    $('#seN').textContent = 'failed';
+    const n = $('#seN');
+    if (n) n.textContent = 'failed';
     toast('Search failed: ' + err.message, true);
   }
 }
@@ -3068,8 +3200,14 @@ function _restoreUrlState() {
    ========================================================================= */
 async function navigate(view) {
   state.view = view;
-  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.nav === view));
+  $$('.tab').forEach(t => {
+    const isActive = t.dataset.nav === view;
+    t.classList.toggle('active', isActive);
+    t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    t.setAttribute('tabindex', isActive ? '0' : '-1');
+  });
   $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + view));
+  announce('Navigated to ' + view);
   _pushUrlState();
   if (view === 'overview') await renderOverview();
   else if (view === 'country') await renderCountry();
@@ -3342,28 +3480,114 @@ function openReportModal(rec) {
 }
 
 /* =========================================================================
-   UPLOAD YOUR OWN DATASET (#2 feature parity with classic)
-   ========================================================================= */
+   UPLOAD — file upload + OHCHR URL auto-parse
+   =========================================================================
+   Two input modes:
+   1. JSON file export from OHCHR UHRI → parse directly, load into offline
+   2. Paste a uhri.ohchr.org URL → parse query params, apply as filters */
+function parseOhchrUrl(urlStr) {
+  try {
+    const u = new URL(urlStr);
+    if (!/uhri\.ohchr\.org/i.test(u.hostname)) return null;
+    const p = u.searchParams;
+
+    // OHCHR URL params come in several shapes. Extract what we can:
+    // - ?country[]=Afghanistan, ?annotation_country[]=X
+    // - ?mechanism[]=CCPR, ?annotation_body[]=X
+    // - ?theme[]=X, ?annotation_theme[]=X
+    // - ?search=text, ?q=text
+    // - ?from=2015&to=2024, ?year_from=, ?year_to=
+    const take = (names) => {
+      const out = [];
+      for (const n of names) {
+        p.getAll(n).forEach(v => { if (v) out.push(v); });
+        p.getAll(n + '[]').forEach(v => { if (v) out.push(v); });
+      }
+      return out;
+    };
+
+    const result = {
+      countries: take(['country','annotation_country','state','state_under_review']),
+      bodies: take(['mechanism','annotation_body','body']),
+      themes: take(['theme','annotation_theme']),
+      kw: p.get('search') || p.get('q') || p.get('fulltext') || '',
+      yearA: Number(p.get('from') || p.get('year_from') || p.get('yearFrom')) || null,
+      yearB: Number(p.get('to') || p.get('year_to') || p.get('yearTo')) || null,
+    };
+
+    // Handle hash-based params too (some OHCHR pages use # for state)
+    if (u.hash) {
+      try {
+        const hp = new URLSearchParams(u.hash.slice(1));
+        if (!result.kw && (hp.get('search') || hp.get('q'))) result.kw = hp.get('search') || hp.get('q');
+        if (!result.countries.length) result.countries = take.call({get:(n)=>hp.get(n),getAll:(n)=>hp.getAll(n)}, ['country']);
+      } catch {}
+    }
+
+    return result;
+  } catch { return null; }
+}
+
+function applyOhchrUrlFilters(parsed) {
+  if (!parsed) return 0;
+  let n = 0;
+  if (parsed.kw) { state.filters.kw = parsed.kw; $('#kwInput').value = parsed.kw; n++; }
+  if (parsed.countries?.length) { parsed.countries.forEach(c => state.filters.country.add(c)); n++; }
+  if (parsed.bodies?.length) { parsed.bodies.forEach(b => state.filters.body.add(b)); n++; }
+  if (parsed.themes?.length) { parsed.themes.forEach(t => state.filters.theme.add(t)); n++; }
+  if (parsed.yearA) { state.filters.yearA = parsed.yearA; n++; }
+  if (parsed.yearB) { state.filters.yearB = parsed.yearB; n++; }
+  if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
+  ['country','body','theme'].forEach(refreshFacetUI);
+  $('#tabSearch').textContent = state.filters.kw || '—';
+  renderActiveFilters();
+  return n;
+}
+
 function triggerUpload() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json,application/json';
-  input.addEventListener('change', async () => {
-    const file = input.files?.[0];
+  const m = document.createElement('div');
+  m.className = 'ofl-modal';
+  m.setAttribute('role', 'dialog');
+  m.setAttribute('aria-modal', 'true');
+  m.innerHTML = `
+    <div class="ofl-card" style="max-width:560px">
+      <h2 style="font-family:var(--serif);font-size:28px;margin:0 0 8px;line-height:1.1">Upload or link</h2>
+      <p style="font-family:var(--serif);font-size:14px;line-height:1.5;color:var(--ink-2);margin:0 0 18px">
+        Load your own UHRI-format JSON export — or paste an <code style="background:var(--paper-2);padding:1px 4px;font-size:12px">uhri.ohchr.org</code> search URL to apply its filters to the dashboard.
+      </p>
+
+      <label style="display:block;font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">JSON file</label>
+      <input type="file" id="uplFile" accept=".json,application/json" style="width:100%;padding:8px;border:1px dashed var(--line);font-family:var(--mono);font-size:11px;margin-bottom:14px;background:var(--paper-2)" />
+
+      <label style="display:block;font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">OHCHR UHRI URL</label>
+      <div style="display:flex;gap:6px;margin-bottom:4px">
+        <input type="url" id="uplUrl" placeholder="https://uhri.ohchr.org/en/search/annotations?..." style="flex:1;padding:8px 10px;border:1px solid var(--line);font:12px var(--mono);background:var(--paper);color:var(--ink)" />
+        <button id="uplApplyUrl" style="padding:8px 14px;background:var(--ink);color:var(--paper);border:0;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Apply</button>
+      </div>
+      <div id="uplUrlHint" style="font:10px var(--mono);color:var(--dim);margin-bottom:14px;min-height:14px"></div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button id="uplCancel" style="padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--ink);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  const close = () => m.remove();
+  m.addEventListener('click', e => { if (e.target === m) close(); });
+  $('#uplCancel', m).addEventListener('click', close);
+
+  // File path
+  $('#uplFile', m).addEventListener('change', async e => {
+    const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 700 * 1024 * 1024) {
       toast('File too large (>700 MB). Uploads are held in memory.', true, 6000);
       return;
     }
-    const loading = document.createElement('div');
-    loading.className = 'toast';
-    loading.textContent = `Reading ${file.name} (${(file.size/1024/1024).toFixed(0)} MB)…`;
-    document.body.appendChild(loading);
+    const tEl = $('#uplUrlHint', m); tEl.textContent = `Reading ${file.name} (${(file.size/1024/1024).toFixed(0)} MB)…`;
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed) || !parsed.length) throw new Error('Expected a non-empty JSON array of records');
-      // Soft-check record shape
       const sample = parsed[0];
       if (!sample.AnnotationId && !sample.annotation_id) {
         throw new Error('Records must have an AnnotationId field (UHRI JSON format)');
@@ -3375,14 +3599,41 @@ function triggerUpload() {
       $('#offlineLbl').textContent = `${file.name.slice(0,20)}${file.name.length>20?'…':''} · ${fmt(parsed.length)}`;
       $('#offlineBtn').title = 'Analyzing your uploaded dataset — click to swap back to VM';
       toast(`Uploaded ${fmt(parsed.length)} records from ${file.name}. All queries now run locally.`, false, 5500);
+      close();
       refreshCurrentView(); refreshHitCount();
     } catch (err) {
-      toast('Upload failed: ' + err.message, true, 6000);
-    } finally {
-      loading.remove();
+      $('#uplUrlHint', m).textContent = 'Upload failed: ' + err.message;
     }
   });
-  input.click();
+
+  // URL path
+  $('#uplUrl', m).addEventListener('input', e => {
+    const parsed = parseOhchrUrl(e.target.value);
+    const hint = $('#uplUrlHint', m);
+    if (!e.target.value.trim()) { hint.textContent = ''; return; }
+    if (!parsed) { hint.textContent = 'Not a uhri.ohchr.org URL — paste a search link'; hint.style.color = '#b91c1c'; return; }
+    const bits = [];
+    if (parsed.kw) bits.push(`kw="${parsed.kw.slice(0,25)}"`);
+    if (parsed.countries?.length) bits.push(`${parsed.countries.length} countries`);
+    if (parsed.themes?.length) bits.push(`${parsed.themes.length} themes`);
+    if (parsed.bodies?.length) bits.push(`${parsed.bodies.length} bodies`);
+    if (parsed.yearA || parsed.yearB) bits.push(`${parsed.yearA||'…'}–${parsed.yearB||'…'}`);
+    hint.style.color = '';
+    hint.textContent = bits.length ? 'Detected: ' + bits.join(' · ') : 'No filters detected in URL';
+  });
+  $('#uplApplyUrl', m).addEventListener('click', () => {
+    const url = $('#uplUrl', m).value.trim();
+    const parsed = parseOhchrUrl(url);
+    if (!parsed) { toast('Not a uhri.ohchr.org URL', true); return; }
+    const n = applyOhchrUrlFilters(parsed);
+    if (n) {
+      toast(`Applied ${n} filter${n>1?'s':''} from OHCHR URL`, false, 3500);
+      close();
+      onFiltersChanged();
+    } else {
+      toast('No filters to apply from that URL', true);
+    }
+  });
 }
 
 /* =========================================================================
@@ -3792,6 +4043,90 @@ function startTour() {
   render();
 }
 
+/* =========================================================================
+   CHANGELOG BADGE — surface pipeline refreshes in the UI
+   =========================================================================
+   /api/data/refresh_status returns info about the last pipeline run. We
+   compare it to a localStorage marker; if newer, show a pulsing orange
+   dot next to the THEME button. Click opens a modal with what changed. */
+async function initChangelog() {
+  try {
+    const res = await fetch(API_BASE + '/api/data/refresh_status');
+    if (!res.ok) return;
+    const data = await res.json();
+    state.refreshStatus = data;
+    // Build a stable signature from the fields the API returns
+    const sig = JSON.stringify({
+      updated_at: data.updated_at || data.date || data.dataset_updated_at,
+      total_records: data.total_records,
+      headline: data.headline || data.summary,
+    });
+    const seen = localStorage.getItem('uhri_v2_changelog_seen');
+    const btn = $('#changelogBtn');
+    if (!btn) return;
+    btn.dataset.sig = sig;
+    if (seen !== sig) btn.classList.remove('seen');
+    btn.addEventListener('click', openChangelogModal);
+  } catch (e) {
+    console.warn('refresh_status failed', e);
+    const btn = $('#changelogBtn');
+    if (btn) btn.style.display = 'none';
+  }
+}
+
+function openChangelogModal() {
+  const data = state.refreshStatus || {};
+  const btn = $('#changelogBtn');
+  // Mark as seen
+  if (btn?.dataset.sig) localStorage.setItem('uhri_v2_changelog_seen', btn.dataset.sig);
+  btn?.classList.add('seen');
+
+  const m = document.createElement('div');
+  m.className = 'sh-modal changelog-modal';
+  m.setAttribute('role', 'dialog');
+  m.setAttribute('aria-modal', 'true');
+  m.setAttribute('aria-labelledby', 'chTitle');
+
+  const blocks = [];
+  const fmtDate = d => d ? new Date(d).toISOString().slice(0, 10) : null;
+
+  if (data.updated_at || data.dataset_updated_at) {
+    blocks.push(`<div class="ch-block"><h4>Last updated</h4><div class="v">${fmtDate(data.updated_at || data.dataset_updated_at)}</div></div>`);
+  }
+  if (data.total_records) {
+    blocks.push(`<div class="ch-block"><h4>Dataset size</h4><div class="ch-num">${fmt(data.total_records)}</div><div style="font-size:10px;color:var(--dim);margin-top:2px">records</div></div>`);
+  }
+  if (data.headline) {
+    blocks.push(`<div class="ch-block"><h4>Headline</h4><div class="v">${sanitize(data.headline)}</div></div>`);
+  }
+  if (data.summary) {
+    blocks.push(`<div class="ch-block"><h4>Summary</h4><div class="v">${sanitize(data.summary)}</div></div>`);
+  }
+  if (Array.isArray(data.changes) && data.changes.length) {
+    blocks.push(`<div class="ch-block"><h4>Recent changes</h4><div class="v">${data.changes.map(c => '• ' + sanitize(c)).join('\n')}</div></div>`);
+  }
+  if (data.stage2_stats) {
+    const s = data.stage2_stats;
+    blocks.push(`<div class="ch-block"><h4>Stage 2 pipeline</h4><div class="v" style="font-family:var(--mono);font-size:11px">${Object.entries(s).map(([k,v]) => `${sanitize(k)}: ${sanitize(String(v))}`).join('\n')}</div></div>`);
+  }
+  if (!blocks.length) {
+    blocks.push(`<div class="ch-block"><h4>Status</h4><div class="v">No additional pipeline metadata available.</div></div>`);
+  }
+
+  m.innerHTML = `
+    <div class="ch-card">
+      <h2 id="chTitle">Data pipeline changelog</h2>
+      <div class="sub">Automatic updates from /api/data/refresh_status</div>
+      ${blocks.join('')}
+      <div style="margin-top:20px;text-align:right">
+        <button id="chClose" style="padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--ink);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  $('#chClose', m).addEventListener('click', () => m.remove());
+}
+
 function maybeShowTour() {
   try {
     if (localStorage.getItem('uhri_v2_tour_done')) return;
@@ -3807,6 +4142,13 @@ async function boot() {
   setStatus('loading');
   loadTweaks(); bindTweaks(); applyTweaks();
   bindKwInput();
+
+  // PWA: register service worker for offline shell + data SWR cache
+  if ('serviceWorker' in navigator) {
+    try {
+      navigator.serviceWorker.register('./sw.js').catch(e => console.warn('SW register failed', e));
+    } catch (e) { /* ignore */ }
+  }
 
   $('#cmdkBtn').addEventListener('click', openPalette);
   $('#cmdInput').addEventListener('input', e => renderPalette(e.target.value));
@@ -4055,6 +4397,9 @@ async function boot() {
 
   // Deep-link: if URL has ?sel=<id>, fetch that record + open reader
   handleSelParam();
+
+  // Changelog badge — pulses if pipeline refreshed since last visit
+  initChangelog();
 
   // First-visit onboarding tour (dismissible, shown once)
   maybeShowTour();
