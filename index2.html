@@ -50,16 +50,30 @@
     text-rendering: optimizeLegibility;
     overflow-x: hidden;
   }
-  /* Sections fill the viewport — each is one "page" in the flip */
-  .hero, section.band, .final {
+  /* Sections fill the viewport — each is one "page" in the flip.
+     The hero leaves room for the topbar (~44px) + the LIVE ticker
+     (~56px) so all three fit within the first screen. */
+  .hero {
     scroll-snap-align: start;
     scroll-snap-stop: normal;
-    min-height: 100vh;
+    min-height: calc(100vh - 104px);
+    min-height: calc(100dvh - 104px);  /* dvh for mobile address bars */
     display: flex;
     flex-direction: column;
     justify-content: center;
   }
-  .ticker-wrap { scroll-snap-align: start; min-height: 56px; }
+  section.band, .final {
+    scroll-snap-align: start;
+    scroll-snap-stop: normal;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  /* Ticker is part of the hero "page" — no separate snap stop, no min-height
+     that would bump it off-screen. It flows right at the bottom of the hero. */
+  .ticker-wrap { scroll-snap-align: none; }
   * { box-sizing: border-box; }
   ::selection { background: var(--accent); color: var(--paper); }
 
