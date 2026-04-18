@@ -131,6 +131,12 @@ a{color:inherit;text-decoration:none}
 
 .view{padding:0}
 .view.loading{opacity:.5;pointer-events:none}
+/* Keep-previous-content pattern: soft "refreshing" indicator, content stays visible & interactive */
+.view.updating{position:relative}
+.view.updating::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:refreshSlide 1.4s infinite;z-index:20;pointer-events:none}
+@keyframes refreshSlide{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.view.updating .panel{transition:opacity .3s}
+.view.updating .rl-row,.view.updating .map-cell,.view.updating .tl-svg{transition:opacity .2s;opacity:.75}
 
 /* overview grid */
 .ov-grid{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:auto auto auto;gap:1px;background:var(--line)}
@@ -616,24 +622,75 @@ function buildParams(f) {
   return p;
 }
 
-async function apiGet(path, params) {
+/* In-memory cache keyed by (endpoint + filter params) — 5min TTL
+   Lets rapid filter toggling (on→off→on) reuse responses instantly */
+const memCache = new Map();
+const MEM_TTL = 5 * 60 * 1000;
+function cacheKey(path, params) { return path + '?' + (params ? params.toString() : ''); }
+function memGet(k) {
+  const v = memCache.get(k);
+  if (!v) return null;
+  if (Date.now() - v.t > MEM_TTL) { memCache.delete(k); return null; }
+  return v.d;
+}
+function memSet(k, d) {
+  memCache.set(k, { t: Date.now(), d });
+  if (memCache.size > 80) {  // LRU-ish cap
+    const firstKey = memCache.keys().next().value;
+    memCache.delete(firstKey);
+  }
+}
+
+/* Tracks in-flight requests per endpoint so we can cancel stale ones */
+const inflight = {};
+
+async function apiGet(path, params, opts = {}) {
   const url = API_BASE + path + (params && params.toString() ? '?' + params.toString() : '');
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
-  return res.json();
+  const key = cacheKey(path, params);
+
+  // Serve from memory cache if we have it and the caller didn't say no
+  if (!opts.noCache) {
+    const hit = memGet(key);
+    if (hit) return hit;
+  }
+
+  // Cancel any in-flight request for the same endpoint family (map, analytics, records…)
+  // This is the key trick: if user is clicking rapidly, we only care about the LAST query
+  const scope = opts.scope || path;
+  if (inflight[scope]) {
+    try { inflight[scope].abort(); } catch {}
+  }
+  const ctrl = new AbortController();
+  inflight[scope] = ctrl;
+
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
+    const data = await res.json();
+    memSet(key, data);
+    return data;
+  } finally {
+    if (inflight[scope] === ctrl) delete inflight[scope];
+  }
 }
 
 const api = {
-  facets:    ()           => apiGet(E.facets),
-  health:    ()           => apiGet(E.health),
-  analytics: (f)          => apiGet(E.analytics, buildParams(f||state.filters)),
-  map:       (f)          => apiGet(E.map,       buildParams(f||state.filters)),
-  summary:   (f)          => apiGet(E.summary,   buildParams(f||state.filters)),
-  records:   (f, page, pageSize) => {
+  facets:    ()           => apiGet(E.facets, null, { scope: 'facets' }),
+  health:    ()           => apiGet(E.health, null, { scope: 'health' }),
+  analytics: (f, opts={}) => apiGet(E.analytics, buildParams(f||state.filters), { scope: 'analytics', ...opts }),
+  map:       (f, opts={}) => apiGet(E.map,       buildParams(f||state.filters), { scope: 'map', ...opts }),
+  summary:   (f, opts={}) => apiGet(E.summary,   buildParams(f||state.filters), { scope: 'summary', ...opts }),
+  records:   (f, page, pageSize, opts={}) => {
     const p = buildParams(f||state.filters);
     p.set('page', page || 1);
     p.set('page_size', pageSize || 30);
-    return apiGet(E.records, p);
+    return apiGet(E.records, p, { scope: 'records', ...opts });
+  },
+  recordsCount: (f) => {
+    // Separate scope so the hit-count probe doesn't cancel the records list in Search view
+    const p = buildParams(f||state.filters);
+    p.set('page', 1); p.set('page_size', 1);
+    return apiGet(E.records, p, { scope: 'recordsCount' });
   },
 };
 
@@ -694,27 +751,26 @@ function setStatus(kind, lbl) {
   l.textContent = lbl || (kind==='error'?'OFFLINE':kind==='loading'?'LOADING':'LIVE');
 }
 
-/* ---------- HIT COUNT ---------- */
-let hitReqSeq = 0;
+/* ---------- HIT COUNT ----------
+   Keep the previous number visible while loading — only swap when new data
+   arrives. Avoids jarring ? / — flashes. Abort-safe: stale responses are
+   dropped by the api.js sequence guard. */
 async function refreshHitCount() {
-  const seq = ++hitReqSeq;
   const el = $('#filterResult');
   el.classList.add('fr-loading');
   try {
-    const r = await api.records(state.filters, 1, 1);
-    if (seq !== hitReqSeq) return;  // stale
+    const r = await api.recordsCount(state.filters);
     state.totalHits = r.total_records;
     $('#hitCount').textContent = fmt(r.total_records);
     const totalAll = state.facets?.total_records || 267548;
     const p = r.total_records / totalAll;
     $('#hitBar').style.width = (p*100) + '%';
     $('#hitPct').textContent = pct(p);
+    el.classList.remove('fr-loading');
   } catch (err) {
-    if (seq !== hitReqSeq) return;
+    if (err.name === 'AbortError') return;  // stale — newer call took over
     console.warn('hit count failed', err);
-    $('#hitCount').textContent = '?';
-  } finally {
-    if (seq === hitReqSeq) el.classList.remove('fr-loading');
+    el.classList.remove('fr-loading');
   }
 }
 
@@ -875,16 +931,22 @@ function bindKwInput() {
   });
 }
 
-/* ---------- Filter-changed pipeline ---------- */
-const debouncedRefresh = debounce(() => refreshCurrentView(), 400);
+/* ---------- Filter-changed pipeline ----------
+   - Hit count runs on every click (fast, debounced lightly)
+   - Heavy view re-render waits 650ms of silence before firing, so rapid
+     checkbox toggles batch into a single request
+   - AbortController (in apiGet) cancels in-flight stale requests when
+     a fresher one starts */
+const debouncedHit = debounce(() => refreshHitCount(), 200);
+const debouncedRefresh = debounce(() => refreshCurrentView(), 650);
 function onFiltersChanged() {
-  refreshHitCount();
+  debouncedHit();
   debouncedRefresh();
   _pushUrlState();
 }
 
 async function refreshCurrentView() {
-  if (state.view === 'overview') await renderOverview();
+  if (state.view === 'overview') await renderOverview({ keepPrevious: true });
   else if (state.view === 'search') await renderSearch();
   // country/theme/compare: their renderers use their own fetches
 }
@@ -1085,23 +1147,34 @@ function renderOverviewAnalytics(analytics) {
   renderTimeline($('#tlWrap'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#tlLegend') });
 }
 
-async function renderOverview() {
+async function renderOverview(opts = {}) {
   buildOverviewShell();
   const root = $('#view-overview');
 
-  // Parallel: map is fast (~1s), analytics is slow (~10s)
+  // Keep-previous-content pattern: dim the whole grid while fetching,
+  // but don't clear the existing charts — user always sees something
+  if (opts.keepPrevious) root.classList.add('updating');
+
+  // Parallel: map is fast (~1s, cached per-filter-key), analytics is slow (~10s)
   const mapP = api.map(state.filters).then(d => {
     renderOverviewMapOnly(d);
     return d;
-  }).catch(err => { console.warn('map failed', err); return null; });
+  }).catch(err => {
+    if (err.name !== 'AbortError') console.warn('map failed', err);
+    return null;
+  });
 
   const anP = api.analytics(state.filters).then(d => {
     state.analytics = d;
     renderOverviewAnalytics(d);
     return d;
-  }).catch(err => { console.warn('analytics failed', err); return null; });
+  }).catch(err => {
+    if (err.name !== 'AbortError') console.warn('analytics failed', err);
+    return null;
+  });
 
   await Promise.all([mapP, anP]);
+  root.classList.remove('updating');
 }
 
 /* =========================================================================
