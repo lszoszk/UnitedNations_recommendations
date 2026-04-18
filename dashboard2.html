@@ -566,25 +566,59 @@ a{color:inherit;text-decoration:none}
 .cmp-body{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
 
 /* ---------- SEARCH ---------- */
-.se-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.se-head{padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--paper);position:sticky;top:0;z-index:3}
 .se-head .lbl{font-size:10px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
 .se-head .q{font-family:var(--serif);font-size:22px}
 .se-head .n{margin-left:auto;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+/* Explainer — tells first-time users WHAT each row is (a paragraph from a UN
+   document) and flashes the Recommendation vs Observation breakdown so
+   lawyers immediately know what kind of instrument they're scanning. */
+.se-explainer{padding:8px 20px 10px;background:var(--paper-2);border-bottom:1px solid var(--line-2);font:11px var(--mono);color:var(--ink-2);line-height:1.55;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.se-explainer strong{color:var(--ink);font-weight:600}
+.se-explainer .pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink-2);font-size:10px}
+.se-explainer .pill .v{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.se-explainer .pill.rec{border-color:var(--accent);background:color-mix(in oklab, var(--accent) 12%, var(--paper))}
+.se-explainer kbd{border:1px solid var(--line);padding:0 4px;font-family:var(--mono);font-size:10px;color:var(--ink);background:var(--paper)}
 .se-pager{display:flex;gap:4px;font-size:10px;color:var(--dim);margin-left:12px}
 .se-pager button{padding:2px 8px;border:1px solid var(--line);color:var(--ink)}
 .se-pager button:disabled{opacity:.4;cursor:not-allowed}
 .se-pager button:hover:not(:disabled){border-color:var(--ink);background:var(--paper-2)}
 .se-list{padding:0}
-.se-item{padding:14px 20px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:80px 1fr auto;gap:14px;cursor:pointer}
+/* Heavy-user result card — single column, every row shows citation-grade
+   metadata first, then the full paragraph with keyword highlight, then the
+   tagged categories (THEMES/GROUPS/SDGs). Actions surface on hover. */
+.se-item{padding:16px 22px;border-bottom:1px solid var(--line);cursor:pointer;position:relative}
 .se-item:hover{background:var(--paper-2)}
-.se-item .y{font-family:var(--serif);font-size:22px;line-height:1}
-.se-item .mech{font-size:10px;color:var(--dim);letter-spacing:.1em;margin-top:2px}
-.se-item .tx{font-family:var(--serif);font-size:14px;line-height:1.4}
-.se-item .tg{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
-.se-item .tg span{font-size:9px;padding:1px 5px;border:1px solid var(--line);color:var(--dim);letter-spacing:.04em}
-.se-item .cc{font-family:var(--mono);font-size:11px;color:var(--ink);text-align:right}
-.se-item .rg{font-size:10px;color:var(--dim);text-align:right}
-.se-item em,.se-item mark.kw-match{background:var(--accent);color:var(--paper);font-style:normal;padding:0 2px;border-radius:1px}
+.se-item.expanded{background:var(--paper-2)}
+.se-item .se-hdr{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+.se-item .se-hdr .yr{font-family:var(--serif);font-size:22px;line-height:1;color:var(--ink);letter-spacing:-0.01em}
+.se-item .se-hdr .country{font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);font-weight:700}
+.se-item .se-hdr .body{font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.se-item .se-hdr .type{padding:2px 7px;border:1px solid var(--line);background:var(--paper);color:var(--ink-2);font:9px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.se-item .se-hdr .type.rec{background:color-mix(in oklab, var(--accent) 22%, var(--paper));border-color:var(--accent);color:var(--ink)}
+.se-item .se-hdr .type.obs{background:var(--paper-2);border-color:var(--dim);color:var(--dim)}
+.se-item .se-hdr .sym{font:10px var(--mono);color:var(--dim);letter-spacing:.04em}
+.se-item .se-hdr .region{font:9px var(--mono);color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-left:auto}
+.se-item .se-hdr .marks{display:inline-flex;gap:4px;align-items:center;font-size:11px}
+.se-item .se-hdr .kw{padding:2px 7px;border:1px solid var(--accent);background:color-mix(in oklab, var(--accent) 15%, var(--paper));color:var(--ink);font:9px var(--mono);letter-spacing:.08em;font-weight:700}
+.se-item .se-tx{font-family:var(--serif);font-size:15px;line-height:1.6;color:var(--ink);max-height:7.2em;overflow:hidden;position:relative;transition:max-height .25s}
+.se-item.expanded .se-tx{max-height:999em}
+.se-item .se-tx::after{content:"";position:absolute;bottom:0;left:0;right:0;height:2em;background:linear-gradient(to bottom, transparent, var(--paper) 85%);pointer-events:none}
+.se-item:hover .se-tx::after{background:linear-gradient(to bottom, transparent, var(--paper-2) 85%)}
+.se-item.expanded .se-tx::after{display:none}
+.se-item .se-tx mark,.se-item .se-tx em,.se-item .se-tx mark.kw-match{background:color-mix(in oklab, var(--accent) 35%, transparent);color:var(--ink);font-weight:600;font-style:normal;padding:0 2px;border-radius:1px}
+.se-item .se-more-btn{font:9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);border:0;background:transparent;padding:6px 0 2px;cursor:pointer}
+.se-item .se-more-btn:hover{color:var(--ink)}
+.se-item .se-tags{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.se-item .se-tags .tg-kind{font:9px var(--mono);color:var(--dimmer);font-weight:700;letter-spacing:.12em;margin-right:2px}
+.se-item .se-tags .tg-kind:not(:first-child){margin-left:6px}
+.se-item .se-tags span.tg-val{font:10px var(--mono);padding:2px 8px;border:1px solid var(--line);color:var(--ink-2);letter-spacing:.04em;background:var(--paper)}
+.se-item .se-actions{display:flex;gap:6px;margin-top:10px;opacity:.25;transition:opacity .15s}
+.se-item:hover .se-actions,.se-item.expanded .se-actions{opacity:1}
+.se-item .se-actions button{padding:4px 10px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.se-item .se-actions button:hover{border-color:var(--ink);background:var(--paper-2)}
+.se-item .se-actions button.pinned{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+.se-item .se-actions button.starred{color:#d97706;border-color:#d97706}
 .se-item .kw-count{display:inline-block;background:var(--accent);color:var(--paper);font-size:9px;letter-spacing:.04em;padding:1px 5px;margin-right:6px;font-family:var(--mono);border-radius:1px;vertical-align:1px}
 /* Virtualized/content-visibility: modern browsers render only rows in/near viewport */
 .se-list .se-item{content-visibility:auto;contain-intrinsic-size:auto 120px}
@@ -4217,43 +4251,59 @@ async function renderCompare() {
    VIEW: SEARCH RESULTS
    ========================================================================= */
 /* Renders a single search-result item HTML string */
+/* Heavy-user result card (A–E redesign):
+ *  A. Explainer banner above the list (done in renderSearch).
+ *  B. Citation-grade header row: year · country · body · TYPE · symbol · marks.
+ *  C. Full text with fade-out + "Show full" toggle (no 320-char slice).
+ *  D. Per-row action bar appears on hover: Read · Bookmark · Pin · Copy · Note.
+ *  E. Tags grouped by kind with visible category labels (THEMES / GROUPS / SDGs). */
 function _renderSearchItem(rec, idx, kw) {
-  const fullTxt = (rec.TextPlainCleaned || rec.Text || '');
-  let snippet, moreBefore = false, moreAfter = false;
-  if (kw && kw.trim()) {
-    const lc = fullTxt.toLowerCase();
-    const firstMatch = lc.indexOf(kw.trim().toLowerCase());
-    if (firstMatch >= 0) {
-      const start = Math.max(0, firstMatch - 80);
-      const end = Math.min(fullTxt.length, firstMatch + 240);
-      snippet = fullTxt.slice(start, end);
-      moreBefore = start > 0;
-      moreAfter = end < fullTxt.length;
-    } else {
-      snippet = fullTxt.slice(0, 320);
-      moreAfter = fullTxt.length >= 320;
-    }
-  } else {
-    snippet = fullTxt.slice(0, 320);
-    moreAfter = fullTxt.length >= 320;
-  }
+  const fullTxt = rec.TextPlainCleaned || rec.Text || '';
   const kwCount = kw ? countMatches(fullTxt, kw) : 0;
   const starred = bmHas(rec.AnnotationId);
+  const hasNote = noteHas(rec.AnnotationId);
+  const isPinned = diffIsPinned(rec.AnnotationId);
   const yr = (rec.PublicationDate||'').slice(0,4);
-  const themes = (rec.Themes||[]).slice(0,3);
+  const themes = (rec.Themes||[]).slice(0,4);
+  const groups = (rec.AffectedPersons||[]).slice(0,3);
+  const sdgs = (rec.Sdgs||[]).slice(0,2);
   const body = cleanLabel(rec.Body);
-  const country = cleanCountryName((rec.Countries||[])[0]||'');
-  const prefix = moreBefore ? '…' : '';
-  const suffix = moreAfter ? '…' : '';
-  return `<div class="se-item" data-idx="${idx}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
-    <div><div class="y">${sanitize(yr)}</div><div class="mech">${sanitize(body)}</div></div>
-    <div>
-      <div class="tx">${kwCount ? `<span class="kw-count" title="${kwCount} match${kwCount!==1?'es':''}">${kwCount}×</span>` : ''}${prefix}${highlightKeyword(snippet, kw)}${suffix}</div>
-      <div class="tg">${themes.map(t=>`<span>${sanitize(t)}</span>`).join('')}${(rec.AffectedPersons||[]).slice(0,2).map(g=>`<span>${sanitize(g)}</span>`).join('')}</div>
+  const country = cleanCountryName((rec.Countries||[])[0] || '');
+  const region = (rec.Regions||[])[0] || '';
+  const typeRaw = cleanAnnotationType(rec.AnnotationType);
+  const typeLower = String(typeRaw||'').toLowerCase();
+  const typeClass = typeLower.includes('recommend') ? 'rec' : (typeLower.includes('observ') ? 'obs' : '');
+  const typeLabel = (typeRaw && typeRaw !== '—') ? typeRaw : '';
+  const symbol = rec.Symbol || '';
+  const isLong = fullTxt.length > 520;
+  return `<div class="se-item" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
+    <div class="se-hdr">
+      <span class="yr">${sanitize(yr || '—')}</span>
+      <span class="country" title="${sanitize(country)}">${sanitize(country)}</span>
+      <span class="body" title="Recommending body">${sanitize(body || '—')}</span>
+      ${typeLabel ? `<span class="type ${typeClass}" title="Annotation type">${sanitize(typeLabel)}</span>` : ''}
+      ${symbol ? `<span class="sym" title="UN document symbol — cite this">${sanitize(symbol)}</span>` : ''}
+      ${kwCount ? `<span class="kw" title="${kwCount} keyword match${kwCount!==1?'es':''}">${kwCount}× "${sanitize(kw)}"</span>` : ''}
+      ${(hasNote || starred || isPinned) ? `<span class="marks">
+        ${hasNote ? '<span title="You have a note on this record">📝</span>' : ''}
+        ${starred ? '<span style="color:#d97706" title="Bookmarked">★</span>' : ''}
+        ${isPinned ? '<span title="Pinned for compare">📌</span>' : ''}
+      </span>` : ''}
+      ${region ? `<span class="region">${sanitize(region)}</span>` : ''}
     </div>
-    <div>
-      <div class="cc">${starred ? '<span style="color:#d97706" title="Bookmarked">★</span> ' : ''}${sanitize(country)}</div>
-      <div class="rg">${sanitize((rec.Regions||[])[0]||'')}</div>
+    <div class="se-tx">${highlightKeyword(fullTxt, kw)}</div>
+    ${isLong ? `<button class="se-more-btn">↓ Show full text (${fullTxt.length.toLocaleString()} chars)</button>` : ''}
+    ${(themes.length || groups.length || sdgs.length) ? `<div class="se-tags">
+      ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val">${sanitize(t)}</span>`).join('')}` : ''}
+      ${groups.length ? `<span class="tg-kind">Groups</span>${groups.map(g=>`<span class="tg-val">${sanitize(g)}</span>`).join('')}` : ''}
+      ${sdgs.length ? `<span class="tg-kind">SDGs</span>${sdgs.map(s=>`<span class="tg-val">${sanitize(formatSdgLabel(s))}</span>`).join('')}` : ''}
+    </div>` : ''}
+    <div class="se-actions">
+      <button data-act="read" data-idx="${idx}" title="Open full reader (r for reading mode)">📖 Read</button>
+      <button data-act="bookmark" data-idx="${idx}" class="${starred?'starred':''}" title="Toggle bookmark (b)">${starred?'★ Bookmarked':'☆ Bookmark'}</button>
+      <button data-act="pin" data-idx="${idx}" class="${isPinned?'pinned':''}" title="Pin for side-by-side compare">${isPinned?'📌 Pinned':'📌 Pin'}</button>
+      <button data-act="copy" data-idx="${idx}" title="Copy quote with APA citation">Copy quote</button>
+      <button data-act="note" data-idx="${idx}" title="Open drawer + focus the note field">📝 Note</button>
     </div>
   </div>`;
 }
@@ -4279,10 +4329,43 @@ async function renderSearch() {
       <span class="q">${kw ? `"${sanitize(kw)}"` : 'all recommendations'}</span>
       <span class="n" id="seN" aria-live="polite">loading…</span>
     </div>
+    <div class="se-explainer">
+      <span>Each row is <strong>one paragraph</strong> extracted from a UN concluding observation, UPR report or Special Procedure communication.</span>
+      <span class="pill rec" id="seBreakRec" title="Formal UN recommendations — 'The Committee recommends that…'"><span class="v">…</span> Recommendations</span>
+      <span class="pill" id="seBreakObs" title="Observations — findings, concerns, notes"><span class="v">…</span> Observations</span>
+      <span class="pill" id="seBreakOther" title="Follow-up requests, procedural paragraphs, etc."><span class="v">…</span> Other</span>
+      <span style="flex:1"></span>
+      <span style="color:var(--dim)">Click row → full reader · hover for actions · <kbd>/</kbd> focus keyword</span>
+    </div>
     <div class="se-list" id="seList" role="list"></div>
     <div class="se-sentinel" id="seSentinel" aria-live="polite"><span class="dot"></span>Loading more…</div>`;
 
   await loadNextSearchPage();
+}
+
+/* Update the type-breakdown pills in the explainer based on whatever
+   records are loaded so far. Starts as "…" and refines as pages arrive. */
+function _seUpdateBreakdown() {
+  const counts = { rec: 0, obs: 0, other: 0 };
+  state.searchLoaded.forEach(r => {
+    const t = String(cleanAnnotationType(r.AnnotationType) || '').toLowerCase();
+    if (t.includes('recommend')) counts.rec++;
+    else if (t.includes('observ')) counts.obs++;
+    else counts.other++;
+  });
+  const total = state.searchLoaded.length;
+  const suffix = state.searchExhausted ? '' : ' so far';
+  const setPill = (id, label, n) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = el.querySelector('.v');
+    if (v) v.textContent = total ? fmt(n) : '—';
+    el.style.display = (total === 0 || n === 0) ? (id === 'seBreakRec' ? '' : 'none') : '';
+    el.title = label + ' — ' + fmt(n) + ' of ' + fmt(total) + ' loaded' + suffix;
+  };
+  setPill('seBreakRec', 'Recommendations', counts.rec);
+  setPill('seBreakObs', 'Observations', counts.obs);
+  setPill('seBreakOther', 'Other', counts.other);
 }
 
 async function loadNextSearchPage() {
@@ -4325,21 +4408,59 @@ async function loadNextSearchPage() {
     const list = $('#seList');
     if (list) list.insertAdjacentHTML('beforeend', html);
 
-    // Wire clicks on the new rows only
+    // Wire card click (→ reader) separately from action-button clicks so
+    // hovering/clicking an action doesn't also open the full reader.
     (list ? list.querySelectorAll('.se-item:not([data-wired])') : []).forEach(el => {
       el.dataset.wired = '1';
-      el.addEventListener('click', () => {
+      el.addEventListener('click', (e) => {
+        // Ignore clicks on buttons + the expand chevron — they handle themselves
+        if (e.target.closest('button, .se-more-btn')) return;
         const idx = +el.dataset.idx;
         state.selectedRec = state.searchLoaded[idx];
         state.currentResultIndex = idx;
         renderDrawer();
         openReader(state.searchLoaded[idx]);
       });
+      // Expand/collapse — same pattern as drawer list cards.
+      el.querySelector('.se-more-btn')?.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const on = el.classList.toggle('expanded');
+        ev.currentTarget.textContent = on ? '↑ Collapse' : '↓ Show full text';
+      });
+      // Per-row actions: read / bookmark / pin / copy / note
+      el.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const idx = +btn.dataset.idx;
+        const rec = state.searchLoaded[idx]; if (!rec) return;
+        const act = btn.dataset.act;
+        if (act === 'read') {
+          state.selectedRec = rec; state.currentResultIndex = idx; renderDrawer(); openReader(rec);
+        } else if (act === 'bookmark') {
+          const on = bmToggle(rec);
+          btn.textContent = on ? '★ Bookmarked' : '☆ Bookmark';
+          btn.classList.toggle('starred', on);
+          toast(on ? '★ Bookmarked' : 'Bookmark removed', false, 1400);
+        } else if (act === 'pin') {
+          const outcome = diffPinToggle(rec);
+          const on = outcome === 'added';
+          btn.classList.toggle('pinned', on);
+          btn.textContent = on ? '📌 Pinned' : '📌 Pin';
+          toast(on ? `Pinned ${state.diffPins.length}/2 for compare` : 'Unpinned', false, 1400);
+        } else if (act === 'copy') {
+          const quote = `"${(rec.TextPlainCleaned || rec.Text || '').trim()}"\n\n${citeAPA(rec)}`;
+          navigator.clipboard.writeText(quote).then(() => toast('Copied with citation', false, 1600));
+        } else if (act === 'note') {
+          state.selectedRec = rec; state.currentResultIndex = idx; renderDrawer();
+          setTimeout(() => { $('#drNote')?.focus(); }, 120);
+        }
+      }));
     });
+    _seUpdateBreakdown();
 
     // Are we done?
     if (state.searchPage >= totalPages) {
       state.searchExhausted = true;
+      _seUpdateBreakdown();
       const sentinel = $('#seSentinel');
       if (sentinel) {
         sentinel.classList.add('done');
