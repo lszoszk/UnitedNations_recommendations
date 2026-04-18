@@ -1425,5 +1425,9 @@
          executing before app.js runs. XLSX is loaded on-demand by app.js when
          a spreadsheet import/export action is used. -->
     <script src="app.js" defer></script>
+    <!-- Command palette (⌘K / Ctrl+K) — additive, self-contained.
+         Opens over the classic dashboard, searches facets, navigates
+         via URL hash (picked up by app.js's URL-state restorer). -->
+    <script src="cmdk.js" defer></script>
 </body>
 </html>
