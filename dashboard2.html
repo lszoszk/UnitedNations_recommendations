@@ -169,14 +169,17 @@ a{color:inherit;text-decoration:none}
 .main::-webkit-scrollbar{width:10px}
 .main::-webkit-scrollbar-thumb{background:var(--paper-3)}
 
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:10;overflow-x:auto}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:10;overflow-x:auto;scrollbar-width:thin}
 .tabs::-webkit-scrollbar{height:4px}
-.tab{display:flex;flex-direction:column;gap:2px;padding:8px 14px;border-right:1px solid var(--line);min-width:140px;position:relative;color:var(--dim);flex-shrink:0}
+.tabs::-webkit-scrollbar-thumb{background:var(--paper-3);border-radius:2px}
+.tabs::after{content:"";position:sticky;right:0;width:18px;background:linear-gradient(to right, transparent, var(--paper) 70%);flex-shrink:0;pointer-events:none}
+.tabs::-webkit-scrollbar{height:4px}
+.tab{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-right:1px solid var(--line);min-width:96px;max-width:200px;position:relative;color:var(--dim);flex-shrink:0}
 .tab.active{background:var(--paper-2);color:var(--ink)}
 .tab.active::after{content:"";position:absolute;left:0;bottom:-1px;height:2px;width:100%;background:var(--accent)}
 .tab .t-idx{font-size:9px;letter-spacing:.14em;color:var(--dimmer)}
 .tab .t-lbl{font-size:11px;font-weight:500}
-.tab .t-ctx{font-size:12px;color:var(--dim);font-family:var(--serif);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.tab .t-ctx{font-size:11px;color:var(--dim);font-family:var(--serif);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
 
 .view{padding:0}
 .view.loading{opacity:.5;pointer-events:none}
@@ -345,12 +348,14 @@ a{color:inherit;text-decoration:none}
    Drawer always open and wider (460px) so previewed records are always
    within reach. Everything below the map scrolls naturally. */
 :root{--drawer-w:460px}
-.ov-grid{display:grid;grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto;gap:1px;background:var(--line)}
+.ov-grid{display:grid;grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto auto auto;gap:1px;background:var(--line)}
 .ov-grid .p-map{grid-column:1;grid-row:1}
 .ov-grid .p-time{grid-column:1;grid-row:2}
 .ov-grid .p-top-countries{grid-column:1;grid-row:3}
 .ov-grid .p-top-themes{grid-column:1;grid-row:4}
 .ov-grid .p-sankey{grid-column:1;grid-row:5}
+.ov-grid .p-top-bodies{grid-column:1;grid-row:6}
+.ov-grid .p-top-sdgs{grid-column:1;grid-row:7}
 .panel{background:var(--paper);padding:14px 16px;min-height:0;overflow:hidden;position:relative}
 .panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
 .panel-title{display:flex;gap:10px;align-items:baseline}
@@ -591,13 +596,33 @@ a{color:inherit;text-decoration:none}
 .se-bulk button:hover{background:var(--ink);color:var(--paper)}
 .se-bulk .clear{margin-left:auto;color:var(--dim);background:transparent;border:0;cursor:pointer;padding:2px 4px;font-size:12px}
 .se-bulk .clear:hover{color:#b91c1c}
-/* Checkbox on each search result — small + flush to the left edge so it
-   doesn't change the card's rhythm when nothing is selected. */
-.se-item{padding-left:44px;position:relative}
-.se-item .se-check{position:absolute;left:16px;top:18px;padding:0;cursor:pointer}
+/* Checkbox on each search result — placed in a reserved left gutter so it
+   never overlaps the year (the previous `.se-item{padding:16px 22px}` rule
+   was winning over `padding-left:44px`; using `padding:16px 22px 16px 46px`
+   applies the gutter explicitly without risk of shorthand collisions). */
+.se-item{padding:16px 22px 16px 46px !important;position:relative}
+.se-item .se-check{position:absolute;left:18px;top:22px;padding:0;cursor:pointer;z-index:2}
 .se-item .se-check input{width:14px;height:14px;cursor:pointer;accent-color:var(--accent);margin:0}
 .se-item.selected{background:color-mix(in oklab, var(--accent) 9%, var(--paper))}
 .se-item.selected:hover{background:color-mix(in oklab, var(--accent) 14%, var(--paper))}
+/* Slow-load banner — shown when a filter refresh exceeds 2s */
+.slow-load-banner{position:fixed;left:50%;top:88px;transform:translateX(-50%);z-index:180;background:var(--paper);border:1px solid var(--accent);border-left-width:3px;box-shadow:0 10px 30px rgba(0,0,0,.16);padding:12px 16px;display:flex;align-items:center;gap:14px;min-width:520px;max-width:780px;font:12px var(--mono)}
+.slow-load-banner .sl-left{display:flex;align-items:center;gap:12px;flex:1}
+.slow-load-banner .sl-spinner{width:20px;height:20px;border:2px solid var(--paper-3);border-top-color:var(--accent);border-radius:50%;animation:slspin .9s linear infinite;flex-shrink:0}
+@keyframes slspin{to{transform:rotate(360deg)}}
+.slow-load-banner .sl-title{font-family:var(--serif);font-size:15px;color:var(--ink);line-height:1.2}
+.slow-load-banner .sl-sub{font-size:10px;color:var(--dim);letter-spacing:.04em;margin-top:3px;line-height:1.4}
+.slow-load-banner .sl-export{padding:6px 12px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+.slow-load-banner .sl-export:hover{background:var(--accent);border-color:var(--accent)}
+.slow-load-banner .sl-close{border:0;background:transparent;color:var(--dim);font-size:18px;line-height:1;padding:2px 4px;cursor:pointer}
+.slow-load-banner .sl-close:hover{color:var(--ink)}
+/* SW-update chip in topbar — never overlays content */
+.sw-refresh-chip{position:relative;padding:2px 9px;border:1px solid var(--accent);background:color-mix(in oklab, var(--accent) 15%, var(--paper));color:var(--ink);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-left:auto;animation:pulse 2s infinite}
+.sw-refresh-chip:hover{background:var(--accent);color:var(--paper)}
+/* Region buttons — same padding + min-width so OCEANIA and MENA look uniform.
+   User observed OCEANIA felt disproportionate; since intrinsic padding already
+   matches, we pin a shared min-width that fits the longest word. */
+.map-modes button[data-region]{min-width:86px;text-align:center;padding-left:8px;padding-right:8px}
 .se-pager{display:flex;gap:4px;font-size:10px;color:var(--dim);margin-left:12px}
 .se-pager button{padding:2px 8px;border:1px solid var(--line);color:var(--ink)}
 .se-pager button:disabled{opacity:.4;cursor:not-allowed}
@@ -966,7 +991,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <span class="dot" id="statusDot" title="Live VM connection"></span>
     <span id="statusLbl">LIVE</span>
     <span class="sep">·</span>
-    <span>VM · <span id="datasetSize">—</span></span>
+    <span title="Total records in the served dataset">VM · <span id="datasetSize">—</span></span>
     <span class="sep">·</span>
     <a href="#methodology" data-nav="methodology">methodology</a>
     <span class="sep">·</span>
@@ -1043,17 +1068,17 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <!-- MAIN -->
   <main class="main" id="main" tabindex="-1" aria-label="Dashboard main content">
     <nav class="tabs" id="tabs" role="tablist" aria-label="Dashboard views">
-      <a class="tab active" data-nav="overview" role="tab" aria-selected="true" tabindex="0"><span class="t-idx">01</span><span class="t-lbl">Overview</span></a>
-      <a class="tab" data-nav="country" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">02</span><span class="t-lbl">Country profile</span><span class="t-ctx" id="tabCountry">—</span></a>
-      <a class="tab" data-nav="compare" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">03</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
-      <a class="tab" data-nav="group" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">04</span><span class="t-lbl">Group profile</span><span class="t-ctx" id="tabGroup">—</span></a>
-      <a class="tab" data-nav="theme" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">05</span><span class="t-lbl">Theme profile</span><span class="t-ctx" id="tabTheme">—</span></a>
-      <a class="tab" data-nav="sdg" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">06</span><span class="t-lbl">SDG profile</span><span class="t-ctx" id="tabSdg">—</span></a>
-      <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">07</span><span class="t-lbl">Mechanism profile</span><span class="t-ctx" id="tabMechanism">—</span></a>
-      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">08</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
-      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">09</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">10</span><span class="t-lbl">Labels</span><span class="t-ctx" id="tabLabels">—</span></a>
-      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
+      <a class="tab active" data-nav="overview" role="tab" aria-selected="true" tabindex="0" title="Overview"><span class="t-idx">01</span><span class="t-lbl">Overview</span></a>
+      <a class="tab" data-nav="country" role="tab" aria-selected="false" tabindex="-1" title="Country profile"><span class="t-idx">02</span><span class="t-lbl">Country</span><span class="t-ctx" id="tabCountry">—</span></a>
+      <a class="tab" data-nav="compare" role="tab" aria-selected="false" tabindex="-1" title="Compare two countries"><span class="t-idx">03</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
+      <a class="tab" data-nav="group" role="tab" aria-selected="false" tabindex="-1" title="Concerned-group profile"><span class="t-idx">04</span><span class="t-lbl">Group</span><span class="t-ctx" id="tabGroup">—</span></a>
+      <a class="tab" data-nav="theme" role="tab" aria-selected="false" tabindex="-1" title="Theme profile"><span class="t-idx">05</span><span class="t-lbl">Theme</span><span class="t-ctx" id="tabTheme">—</span></a>
+      <a class="tab" data-nav="sdg" role="tab" aria-selected="false" tabindex="-1" title="SDG profile"><span class="t-idx">06</span><span class="t-lbl">SDG</span><span class="t-ctx" id="tabSdg">—</span></a>
+      <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1" title="Recommending-body profile"><span class="t-idx">07</span><span class="t-lbl">Mechanism</span><span class="t-ctx" id="tabMechanism">—</span></a>
+      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1" title="Full-text search results"><span class="t-idx">08</span><span class="t-lbl">Search</span><span class="t-ctx" id="tabSearch">—</span></a>
+      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1" title="Bookmarked records"><span class="t-idx">09</span><span class="t-lbl">★ Saved</span><span class="t-ctx" id="tabBookmarks">—</span></a>
+      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Train your own classifier"><span class="t-idx">10</span><span class="t-lbl">Labels</span><span class="t-ctx" id="tabLabels">—</span></a>
+      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1" title="Dataset notes & caveats"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
     </nav>
 
     <div class="active-filters" id="activeFilters"></div>
@@ -1263,6 +1288,29 @@ function cleanAnnotationType(s) {
   // If it looks like a UUID, hide it — we don't have a human label yet
   if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v)) return '—';
   return v || '—';
+}
+/* Infer the annotation type from the record itself when AnnotationType is a
+   UUID (~67% of recent imports carry UUIDs instead of human labels). Uses
+   (1) the raw text's UN-diplomatic verbs and (2) SectionHeadings hints. */
+const _TYPE_CACHE = new Map();
+function inferAnnotationType(rec) {
+  if (!rec) return '—';
+  const existing = cleanAnnotationType(rec.AnnotationType);
+  if (existing && existing !== '—') return existing;
+  const id = rec.AnnotationId || '';
+  if (id && _TYPE_CACHE.has(id)) return _TYPE_CACHE.get(id);
+  const txt = String(rec.TextPlainCleaned || rec.Text || '').slice(0, 400).toLowerCase();
+  const heads = (rec.SectionHeadings || []).join(' ').toLowerCase();
+  let label = 'Other';
+  if (/\brecommend(s|ations?)\b|\burges\b|\bcalls upon\b|\brequests the state/i.test(txt) ||
+      /recommend/i.test(heads)) {
+    label = 'Recommendations';
+  } else if (/\b(notes|observes|regrets|expresses (deep )?concern|is concerned|acknowledges|welcomes|takes note)\b/i.test(txt) ||
+             /concern|observation|positive/i.test(heads)) {
+    label = 'Observations';
+  }
+  if (id) _TYPE_CACHE.set(id, label);
+  return label;
 }
 /* Normalize 2-letter ISO codes that leak into the Countries field as if
    they were separate countries. Maps PK → Pakistan, CZ → Czechia, etc. */
@@ -1918,7 +1966,7 @@ function showOfflineModal() {
   m.innerHTML = `
     <div class="ofl-card">
       <h2>⚡ Instant Mode</h2>
-      <p>Download the full cleaned UHRI dataset (<span class="bold">~350 MB</span>) into your browser. Afterwards:</p>
+      <p>Download the full cleaned UHRI dataset (<span class="bold">~420 MB</span>) into your browser. Afterwards:</p>
       <ul>
         <li><span class="bold">Instant filters</span> — analytics that currently take ~10s become ~50ms</li>
         <li><span class="bold">Works offline</span> — the dataset lives in your browser for the session</li>
@@ -2432,14 +2480,65 @@ function onFiltersChanged() {
 async function refreshCurrentView() {
   // Profile views now intersect the rail (Option B) so a rail-filter change
   // must re-fetch them just like Overview/Search.
-  if (state.view === 'overview') await renderOverview({ keepPrevious: true });
-  else if (state.view === 'search') await renderSearch();
-  else if (state.view === 'country') await renderCountry();
-  else if (state.view === 'theme')   await renderTheme();
-  else if (state.view === 'group')   await renderGroup();
-  else if (state.view === 'sdg')     await renderSDG();
-  else if (state.view === 'mechanism') await renderMechanism();
-  else if (state.view === 'compare') await renderCompare();
+  // Visual slow-load chip — if the render doesn't finish in 2s, show a
+  // prominent banner so user knows we're working + offer a direct .xlsx
+  // download bypass.
+  _slowLoadSchedule();
+  try {
+    if (state.view === 'overview') await renderOverview({ keepPrevious: true });
+    else if (state.view === 'search') await renderSearch();
+    else if (state.view === 'country') await renderCountry();
+    else if (state.view === 'theme')   await renderTheme();
+    else if (state.view === 'group')   await renderGroup();
+    else if (state.view === 'sdg')     await renderSDG();
+    else if (state.view === 'mechanism') await renderMechanism();
+    else if (state.view === 'compare') await renderCompare();
+  } finally {
+    _slowLoadClear();
+  }
+}
+
+/* ---------- Slow-load banner ----------
+   Shows a visible chip when a filter refresh takes > 2s. Lets heavy users
+   bypass the render and download the filtered dataset directly as .xlsx
+   via the backend's /api/data/export endpoint. */
+let _slowLoadTimer = null;
+function _slowLoadSchedule() {
+  _slowLoadClear();
+  _slowLoadTimer = setTimeout(() => {
+    _slowLoadShow();
+  }, 2000);
+}
+function _slowLoadClear() {
+  if (_slowLoadTimer) { clearTimeout(_slowLoadTimer); _slowLoadTimer = null; }
+  document.getElementById('slowLoadBanner')?.remove();
+}
+function _slowLoadShow() {
+  let el = document.getElementById('slowLoadBanner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'slowLoadBanner';
+    el.className = 'slow-load-banner';
+    document.body.appendChild(el);
+  }
+  const hits = state.totalHits != null ? fmt(state.totalHits) : '…';
+  el.innerHTML = `
+    <div class="sl-left">
+      <div class="sl-spinner"></div>
+      <div class="sl-text">
+        <div class="sl-title">Building analytics for ${hits} records</div>
+        <div class="sl-sub">This filter hasn't been computed before — first hit takes ~10–15 s. Next hit will be instant.</div>
+      </div>
+    </div>
+    <button class="sl-export" id="slowLoadExport" title="Skip the render and download the matching records as .xlsx">↓ Download .xlsx while we wait</button>
+    <button class="sl-close" id="slowLoadClose" title="Dismiss">×</button>`;
+  document.getElementById('slowLoadClose').addEventListener('click', _slowLoadClear);
+  document.getElementById('slowLoadExport').addEventListener('click', () => {
+    const p = buildParams(state.filters);
+    const url = API_BASE + '/api/data/export?' + p.toString();
+    window.open(url, '_blank');
+    toast('Download started (check the browser download tray).', false, 2400);
+  });
 }
 
 // Announce hit-count updates to screen readers
@@ -2980,9 +3079,16 @@ function renderHexMap(container, countryCounts) {
   const region = state.hexRegion || 'world';
 
   // Base hex size; zoomed regions use a bigger base so each hex reads larger
-  // when there are fewer of them on screen.
-  const SIZE_BY_REGION = { world: 24, americas: 34, europe: 32, mena: 34, africa: 30, asia: 32, oceania: 36 };
-  const SIZE = SIZE_BY_REGION[region] || 24;
+  // when there are fewer of them on screen. Auto-shrink further when a
+  // region is dense enough that the default size would force vertical
+  // scrolling (user feedback: Americas + Africa don't fit on one screen).
+  const SIZE_BY_REGION = { world: 24, americas: 30, europe: 28, mena: 34, africa: 26, asia: 30, oceania: 36 };
+  let SIZE = SIZE_BY_REGION[region] || 24;
+  const regionHexCount = (region === 'world' ? HEX_LAYOUT : HEX_LAYOUT.filter(h => h[4] === region)).length;
+  if (region !== 'world') {
+    if (regionHexCount >= 35) SIZE = Math.round(SIZE * 0.82);
+    else if (regionHexCount >= 25) SIZE = Math.round(SIZE * 0.9);
+  }
 
   const hexCenter = (col, row) => {
     const w = Math.sqrt(3) * SIZE;
@@ -3477,8 +3583,16 @@ function buildOverviewShell() {
         <div class="tl-wrap" id="tlWrap">${_skelTimeline()}</div>
       </div>
       <div class="panel p-sankey">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter · shift = preview list</span><button class="chart-export small" data-export="topGroups" title="Copy as CSV">📋 CSV</button></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = open records · shift = filter</span><button class="chart-export small" data-export="topGroups" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topGroups">${_skelRowList(8)}</div>
+      </div>
+      <div class="panel p-top-bodies">
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.06</span><span class="t">Top bodies</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = open records · ⌘ = profile</span><button class="chart-export small" data-export="topBodies" title="Copy as CSV">📋 CSV</button></div></div>
+        <div class="row-list" id="topBodies">${_skelRowList(8)}</div>
+      </div>
+      <div class="panel p-top-sdgs">
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.07</span><span class="t">Top SDGs</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = open records · ⌘ = profile</span><button class="chart-export small" data-export="topSdgs" title="Copy as CSV">📋 CSV</button></div></div>
+        <div class="row-list" id="topSdgs">${_skelRowList(8)}</div>
       </div>
     </div>`;
   root.dataset.built = '1';
@@ -3612,6 +3726,23 @@ function renderOverviewAnalytics(analytics) {
     key: g.affected_person, label: g.affected_person, v: g.count
   }));
   renderRowList($('#topGroups'), topG, { facet:'group' });
+
+  // Top bodies — derive from yearly_body_counts since there's no body_counts array
+  const ybc = analytics?.trends?.yearly_body_counts || [];
+  const bodyTotals = {};
+  if (Array.isArray(ybc)) {
+    ybc.forEach(row => { const b = cleanLabel(row.body||''); if (!b) return; bodyTotals[b] = (bodyTotals[b]||0) + Number(row.count||0); });
+  } else {
+    Object.values(ybc).forEach(m => Object.entries(m).forEach(([b,c]) => { const bn = cleanLabel(b); bodyTotals[bn] = (bodyTotals[bn]||0) + c; }));
+  }
+  const topB = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v])=>({ key:k, label:k, v }));
+  renderRowList($('#topBodies'), topB, { facet:'body' });
+
+  // Top SDGs — from text.sdg_counts
+  const topS = (analytics?.text?.sdg_counts || []).slice(0, 10).map(s => ({
+    key: s.sdg, label: formatSdgLabel(s.sdg), v: s.count
+  }));
+  renderRowList($('#topSdgs'), topS, { facet:'sdg' });
 
   const mode = getTimelineMode();
   renderTimeline($('#tlWrap'), analytics?.trends?.yearly_body_counts || {}, {
@@ -4296,7 +4427,7 @@ function _renderSearchItem(rec, idx, kw) {
   const body = cleanLabel(rec.Body);
   const country = cleanCountryName((rec.Countries||[])[0] || '');
   const region = (rec.Regions||[])[0] || '';
-  const typeRaw = cleanAnnotationType(rec.AnnotationType);
+  const typeRaw = inferAnnotationType(rec);
   const typeLower = String(typeRaw||'').toLowerCase();
   const typeClass = typeLower.includes('recommend') ? 'rec' : (typeLower.includes('observ') ? 'obs' : '');
   const typeLabel = (typeRaw && typeRaw !== '—') ? typeRaw : '';
@@ -4322,9 +4453,9 @@ function _renderSearchItem(rec, idx, kw) {
     <div class="se-tx">${highlightKeyword(fullTxt, kw)}</div>
     ${isLong ? `<button class="se-more-btn">↓ Show full text (${fullTxt.length.toLocaleString()} chars)</button>` : ''}
     ${(themes.length || groups.length || sdgs.length) ? `<div class="se-tags">
-      ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val">${sanitize(t)}</span>`).join('')}` : ''}
-      ${groups.length ? `<span class="tg-kind">Groups</span>${groups.map(g=>`<span class="tg-val">${sanitize(g)}</span>`).join('')}` : ''}
-      ${sdgs.length ? `<span class="tg-kind">SDGs</span>${sdgs.map(s=>`<span class="tg-val">${sanitize(formatSdgLabel(s))}</span>`).join('')}` : ''}
+      ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val" data-tag-kind="theme" data-tag-value="${sanitize(t)}">${sanitize(t)}</span>`).join('')}` : ''}
+      ${groups.length ? `<span class="tg-kind">Groups</span>${groups.map(g=>`<span class="tg-val" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}` : ''}
+      ${sdgs.length ? `<span class="tg-kind">SDGs</span>${sdgs.map(s=>`<span class="tg-val" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(formatSdgLabel(s))}</span>`).join('')}` : ''}
     </div>` : ''}
     <div class="se-actions">
       <button data-act="read" data-idx="${idx}" title="Open full reader (r for reading mode)">📖 Read</button>
@@ -4371,6 +4502,8 @@ async function renderSearch() {
           <option value="type:asc"              ${sortKey==='type:asc'?'selected':''}>type · recommendation first</option>
         </select>
       </label>
+      <button id="seExpandAll" title="Expand all result texts on the current page">↓ Expand all</button>
+      <button id="seCollapseAll" title="Collapse all result texts">↑ Collapse all</button>
     </div>
     <div class="se-explainer">
       <span>Each row is <strong>one paragraph</strong> extracted from a UN concluding observation, UPR report or Special Procedure communication.</span>
@@ -4405,6 +4538,16 @@ async function renderSearch() {
     state.searchSort = { by, dir };
     renderSearch();
   });
+  // Expand / Collapse all — toggles `.expanded` on every loaded item. Also
+  // refresh any "Show full text" button label to match its state.
+  const flipExpansion = (on) => {
+    document.querySelectorAll('#seList .se-item').forEach(el => el.classList.toggle('expanded', on));
+    document.querySelectorAll('#seList .se-more-btn').forEach(btn => {
+      btn.textContent = on ? '↑ Collapse' : '↓ Show full text';
+    });
+  };
+  $('#seExpandAll')?.addEventListener('click', () => flipExpansion(true));
+  $('#seCollapseAll')?.addEventListener('click', () => flipExpansion(false));
   // G. Bulk-bar wiring — selection persists across pagination by AnnotationId.
   _seUpdateBulkBar();
   $('#seBulkBookmark')?.addEventListener('click', _seBulkBookmark);
@@ -4437,6 +4580,28 @@ function _seToggleSelect(rec, onClass) {
   if (state.searchSelection.has(id)) state.searchSelection.delete(id);
   else state.searchSelection.add(id);
   _seUpdateBulkBar();
+  // Selection → drawer (third drawer mode). Auto-switch iff the drawer
+  // isn't currently busy with another context:
+  //  - empty drawer (no selectedRec, not in list mode) → open selection
+  //  - already showing selection → refresh
+  //  - showing a theme/country/etc. list → don't steal the scope
+  //  - showing a single record → don't steal
+  const mode = state.drawerMode;
+  const listKind = state.drawerList?.kind;
+  if (state.searchSelection.size > 0) {
+    if (mode === 'list' && listKind === 'selection') {
+      openSelectionDrawer();  // refresh list
+    } else if (!state.selectedRec && (mode !== 'list' || !listKind)) {
+      openSelectionDrawer();
+    } else {
+      refreshSelectionDrawer();
+    }
+  } else if (listKind === 'selection') {
+    // Cleared all selections while viewing them — close drawer list.
+    state.drawerList = null;
+    state.drawerMode = 'record';
+    renderDrawer();
+  }
   return state.searchSelection.has(id);
 }
 function _seBulkBookmark() {
@@ -4480,7 +4645,7 @@ function _seExportSelected(kind) {
 function _seUpdateBreakdown() {
   const counts = { rec: 0, obs: 0, other: 0 };
   state.searchLoaded.forEach(r => {
-    const t = String(cleanAnnotationType(r.AnnotationType) || '').toLowerCase();
+    const t = String(inferAnnotationType(r) || '').toLowerCase();
     if (t.includes('recommend')) counts.rec++;
     else if (t.includes('observ')) counts.obs++;
     else counts.other++;
@@ -5493,17 +5658,47 @@ function navigateRec(step) {
 let _drListObserver = null;
 
 async function openListDrawer(kind, value) {
-  // kind: 'theme' | 'group' | 'country' | 'body' | 'sdg'
+  // kind: 'theme' | 'group' | 'country' | 'body' | 'sdg' | 'selection'
   state.drawerMode = 'list';
   state.drawerList = { kind, value, records: [], page: 1, exhausted: false, total: 0 };
   if (!TW.drawer) { TW.drawer = true; applyTweaks(); }
   renderDrawer();
-  await loadMoreListDrawer();
+  if (kind !== 'selection') await loadMoreListDrawer();
 }
 const _LIST_KIND_LABEL = {
   theme: 'THEME', group: 'CONCERNED GROUP', country: 'COUNTRY',
   body: 'RECOMMENDING BODY', sdg: 'SDG',
+  selection: '★ YOUR SELECTION',
 };
+/* Selection drawer mode — shows records the user has ticked in Search as
+   a reviewable list in the drawer. Doesn't fetch from API (records are
+   already loaded in `state.searchLoaded`), just pulls them by AnnotationId. */
+function openSelectionDrawer() {
+  const sel = state.searchSelection || new Set();
+  if (!sel.size) return;
+  const recs = (state.searchLoaded || []).filter(r => sel.has(r.AnnotationId));
+  state.drawerMode = 'list';
+  state.drawerList = {
+    kind: 'selection',
+    value: sel.size === 1 ? 'one record' : sel.size + ' records',
+    records: recs,
+    page: 1,
+    exhausted: true,
+    total: recs.length,
+    source: 'selection',
+  };
+  state.currentResultList = recs;
+  state.currentResultSource = 'selection';
+  if (!TW.drawer) { TW.drawer = true; applyTweaks(); }
+  renderDrawer();
+}
+/* Refresh the selection drawer when the selection changes (add/remove).
+   No-op if the drawer isn't currently showing the selection. */
+function refreshSelectionDrawer() {
+  if (state.drawerMode === 'list' && state.drawerList?.kind === 'selection') {
+    openSelectionDrawer();
+  }
+}
 
 /* SDG rows in row-lists pass the stored label ("16.3 - Promote…"). The rail
    filter expects a numeric goal. Returns null if we can't parse — caller
@@ -5885,9 +6080,9 @@ function renderDrawer() {
     ${kwCount ? `<div class="rd-kw-hint" style="margin-top:-6px;margin-bottom:8px"><kbd>${sanitize(kw)}</kbd> matched ${kwCount}× in this text</div>` : ''}
     <div class="dr-text">${highlightKeyword(txt, kw)}</div>
     <div class="dr-tags">
-      ${themes.slice(0,4).map(t=>`<span class="dr-tag theme" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}
-      ${groups.slice(0,4).map(g=>`<span class="dr-tag">${sanitize(g)}</span>`).join('')}
-      ${sdgs.slice(0,3).map(s=>`<span class="dr-tag">${sanitize(s)}</span>`).join('')}
+      ${themes.slice(0,4).map(t=>`<span class="dr-tag theme" data-tag-kind="theme" data-tag-value="${sanitize(t)}" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}
+      ${groups.slice(0,4).map(g=>`<span class="dr-tag" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}
+      ${sdgs.slice(0,3).map(s=>`<span class="dr-tag" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(s)}</span>`).join('')}
     </div>
     <dl class="dr-meta">
       <dt>Country</dt><dd>${sanitize(country)}</dd>
@@ -6233,7 +6428,12 @@ async function navigate(view) {
    2. Keyboard: t (palette cycle), [ (rail), ] (drawer)
    3. Command palette: type "palette archive" / "density cozy" / "toggle rail"
    All changes persist to localStorage. */
-const TW = { palette: 'archive', density: 'tight', rail: true, drawer: true };  // drawer always on — the overview is now a vertical stack + side drawer
+// First-visit Overview: drawer starts hidden so the map + analytics get full
+// breathing room. Drawer auto-opens when a record / list context is selected
+// (renderDrawer does `if (state.selectedRec && TW.drawer===false) TW.drawer=true`).
+// After first visit, TW.drawer persists to `true` via the existing tweak write path.
+const _firstVisit = !localStorage.getItem('uhri_v2_tour_done');
+const TW = { palette: 'archive', density: 'tight', rail: true, drawer: !_firstVisit };
 const PALETTES = ['archive', 'terminal', 'ink'];
 const PALETTE_PREVIEW = { archive: '#F2EFE8', terminal: '#0b0d0b', ink: '#ffffff' };
 
@@ -7175,7 +7375,7 @@ const TOUR_STEPS = [
   { target: '#rail',          title: 'Filter from the rail',  text: 'Country, body, theme, year, SDG — live hit count updates as you click. Clicking a country, theme or SDG on the map also filters here.' },
   { target: '#tabs',          title: 'Eleven workspaces',     text: 'Overview · Country / Group / Theme / SDG / Mechanism profiles · Compare two countries · Search · Bookmarks · Labels · Methodology. Shift-click a country / body / theme in the rail to jump straight to its profile.' },
   { target: '#drawer',        title: 'Drawer follows you',    text: 'Click any record in a list, map cell or search result — it opens here. Use <kbd>j</kbd> / <kbd>k</kbd> to flip between results, <kbd>b</kbd> to bookmark.' },
-  { target: '#offlineBtn',    title: '⚡ Instant Mode',       text: 'Load the full dataset (~350 MB) into your browser once — filters drop from ~10 s to ~50 ms, works offline, fully private.' },
+  { target: '#offlineBtn',    title: '⚡ Instant Mode',       text: 'Load the full dataset (~420 MB) into your browser once — filters drop from ~10 s to ~50 ms, works offline, fully private.' },
   { target: '[data-nav="labels"]', title: 'Train your own classifier', text: 'Define categories, tag a dozen examples, hit Train — the dashboard predicts labels across the full dataset and exports them as CSV / XLSX. Shortcuts <kbd>1</kbd>-<kbd>9</kbd> to tag, <kbd>n</kbd>/<kbd>p</kbd> to navigate.' },
 ];
 
@@ -7398,13 +7598,16 @@ async function boot() {
             if (sw.state === 'installed' && navigator.serviceWorker.controller) {
               // A new SW installed while an older one was controlling.
               // Build a small "reload for new version" toast with an action.
-              const t = document.createElement('div');
-              t.className = 'toast';
-              t.style.cursor = 'pointer';
-              t.innerHTML = '<b style="color:var(--accent)">⟳</b> New dashboard version available — <u>click to refresh</u>';
+              // Use a discrete chip in the topbar (not an overlay toast)
+              // so it never obscures the tab row.
+              const t = document.createElement('button');
+              t.className = 'sw-refresh-chip';
+              t.type = 'button';
+              t.title = 'Click to load the latest dashboard';
+              t.innerHTML = '⟳ new version · refresh';
               t.addEventListener('click', () => location.reload());
-              document.body.appendChild(t);
-              setTimeout(() => t.remove(), 15000);
+              const host = document.querySelector('.topbar') || document.body;
+              host.appendChild(t);
             }
           });
         });
@@ -7489,6 +7692,26 @@ async function boot() {
   } catch {}
 
   $$('[data-nav]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.nav); }));
+
+  // Unified tag-click delegation — every chip with data-tag-kind / value
+  // opens the drawer list for that tag (click-to-read contract). Theme /
+  // group / sdg / body / country all handled here; SDG value is the stored
+  // label so openListDrawer('sdg', value) piggy-backs on the existing
+  // _sdgToFilterValue path.
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-tag-kind][data-tag-value]');
+    if (!chip) return;
+    const kind = chip.dataset.tagKind;
+    const value = chip.dataset.tagValue;
+    if (!kind || !value) return;
+    // Don't fire if the chip lives inside a form input or button that handles
+    // its own click (defensive — nothing in the dashboard should, but still).
+    if (e.target.closest('button, input, select')) return;
+    e.stopPropagation();
+    if (typeof window.openListDrawer === 'function') {
+      window.openListDrawer(kind, value);
+    }
+  });
 
   // Keyboard
   document.addEventListener('keydown', e => {
@@ -7611,7 +7834,11 @@ async function boot() {
     state.facets = facets;
     cacheSet('facets:baseline', facets);
     cacheSet('map:baseline', mapD);
-    if (health?.size_bytes) $('#datasetSize').textContent = (health.size_bytes / 1024 / 1024).toFixed(0) + ' MB';
+    // Prefer record count (authoritative, from facets) over file size
+    // (ambiguous — original vs cleaned). Fall back to MB if facets absent.
+    const n = facets?.total_records;
+    if (n != null) $('#datasetSize').textContent = fmt(n) + ' records';
+    else if (health?.size_bytes) $('#datasetSize').textContent = (health.size_bytes / 1024 / 1024).toFixed(0) + ' MB';
     progressBar(40, 'RENDERING MAP');
 
     // Render map + top countries immediately — user sees content at ~1s
