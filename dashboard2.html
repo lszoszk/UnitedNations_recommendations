@@ -713,7 +713,7 @@ function progressBar(pct, label) {
 }
 
 /* ---------- CACHE (localStorage, 1h TTL) ---------- */
-const CACHE_KEY = 'uhri_v2_cache';
+const CACHE_KEY = 'uhri_v2_cache_v2';  // bump on schema-shape fixes
 const CACHE_TTL = 60 * 60 * 1000;  // 1h
 function cacheGet(key) {
   try {
@@ -1039,11 +1039,29 @@ function renderMap(container, countryCounts) {
   });
 }
 
-/* ---------- TIMELINE (stacked area, year × body) ---------- */
-function renderTimeline(container, yearlyBodyCounts, opts={}) {
+/* ---------- TIMELINE (stacked area, year × body) ----------
+   Accepts either:
+   - A list of {year, body, count} objects (what the API returns)
+   - A dict {year: {body: count}} (legacy shape) */
+function _normalizeYearlyBodyCounts(input) {
+  if (!input) return {};
+  if (Array.isArray(input)) {
+    const out = {};
+    input.forEach(row => {
+      const y = Number(row.year); const b = String(row.body||''); const c = Number(row.count||0);
+      if (!Number.isFinite(y) || !b) return;
+      if (!out[y]) out[y] = {};
+      out[y][b] = (out[y][b] || 0) + c;
+    });
+    return out;
+  }
+  return input;
+}
+function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
+  const yearlyBodyCounts = _normalizeYearlyBodyCounts(yearlyBodyCountsRaw);
   const W=1000, H=220, pad={l:40,r:20,t:14,b:26};
-  const years = Object.keys(yearlyBodyCounts || {}).map(Number).sort((a,b)=>a-b);
-  if (!years.length) { container.innerHTML = '<div class="panel-loading" style="padding:80px 0">No data</div>'; return; }
+  const years = Object.keys(yearlyBodyCounts).map(Number).filter(y => y >= 1990 && y <= 2100).sort((a,b)=>a-b);
+  if (!years.length) { container.innerHTML = '<div class="panel-loading" style="padding:80px 0">No data for this filter</div>'; return; }
   // Collect top N bodies by total volume
   const bodyTotals = {};
   years.forEach(y => {
@@ -1231,11 +1249,17 @@ async function renderCountry() {
     const themes = analytics?.themes?.theme_counts || [];
     const groups = analytics?.text?.affected_person_counts || [];
     const topTheme = themes[0]?.theme || '—';
-    // Build "bodies" breakdown from yearly_body_counts
+    // Build "bodies" breakdown from yearly_body_counts (list of {year, body, count})
     const bodyTotals = {};
-    Object.values(analytics?.trends?.yearly_body_counts || {}).forEach(m => {
-      Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c);
-    });
+    const ybc = analytics?.trends?.yearly_body_counts || [];
+    if (Array.isArray(ybc)) {
+      ybc.forEach(row => {
+        const b = String(row.body||''); if (!b) return;
+        bodyTotals[b] = (bodyTotals[b] || 0) + Number(row.count||0);
+      });
+    } else {
+      Object.values(ybc).forEach(m => Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c));
+    }
     const nBodies = Object.keys(bodyTotals).length;
 
     // KPIs
