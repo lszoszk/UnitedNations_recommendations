@@ -260,15 +260,20 @@ a{color:inherit;text-decoration:none}
 .map-cell.empty{background:transparent;border:none;pointer-events:none}
 .map-cell.on{outline:2px solid var(--ink);z-index:3;color:var(--ink);font-weight:700;box-shadow:inset 0 0 0 1px var(--paper)}
 
-/* bars / rows */
+/* bars / rows — optional 4th column with sparkline */
 .row-list{display:flex;flex-direction:column}
 .rl-row{display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:3px 2px;border-bottom:1px dotted var(--line);cursor:pointer;align-items:center;font-size:11px;position:relative}
+.rl-row.has-spark{grid-template-columns:22px 1fr 56px auto}
 .rl-row:hover{background:var(--paper-2)}
 .rl-row .rnk{color:var(--dim);font-variant-numeric:tabular-nums;font-size:10px}
 .rl-row .nm{position:relative;overflow:hidden;padding:2px 4px}
 .rl-row .bar{position:absolute;left:0;top:0;bottom:0;background:var(--accent-soft);border-left:2px solid var(--accent);z-index:0;transition:width .5s cubic-bezier(.2,.7,.2,1)}
 .rl-row .txt{position:relative;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rl-row .v{font-variant-numeric:tabular-nums;color:var(--ink)}
+.rl-row .spark{display:flex;align-items:center;justify-content:flex-end;opacity:.85}
+.rl-row .spark svg{display:block;height:16px;width:54px}
+.rl-row:hover .spark{opacity:1}
+.rl-row.loading-spark .spark{opacity:.3}
 
 /* timeline */
 .tl-wrap{height:220px;position:relative}
@@ -309,6 +314,9 @@ a{color:inherit;text-decoration:none}
 .rd-eyebrow .dot{width:5px;height:5px;background:var(--accent);display:inline-block;border-radius:50%}
 .rd-title{font-size:30px;line-height:1.2;color:var(--ink);letter-spacing:-.005em;margin:0 0 20px;text-wrap:balance}
 .rd-body{font-size:16px;line-height:1.6;color:var(--ink-2);text-wrap:pretty;white-space:pre-wrap}
+.rd-body mark.kw-match,.dr-text mark.kw-match{background:var(--accent);color:var(--paper);padding:0 2px;font-style:normal;border-radius:1px}
+.rd-kw-hint{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;margin:-10px 0 14px;padding:6px 10px;background:var(--paper-2);border-left:2px solid var(--accent)}
+.rd-kw-hint kbd{background:var(--accent);color:var(--paper);padding:0 4px;margin:0 2px;font-style:normal;border-radius:1px;font-family:inherit}
 .rd-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:28px;padding-top:20px;border-top:1px solid var(--line);font-family:var(--mono)}
 .rd-meta .k{font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
 .rd-meta .v{font-size:12px;color:var(--ink);margin-top:2px}
@@ -465,6 +473,30 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 /* Report-record button inside the drawer */
 .dr-btn.report{background:var(--paper);color:#b91c1c;border-color:#b91c1c}
 .dr-btn.report:hover{background:#b91c1c;color:#fff;border-color:#b91c1c}
+
+/* Bookmark star in drawer + reader */
+.bm-star{border:0;background:transparent;color:var(--dim);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;transition:color .15s,transform .15s}
+.bm-star:hover{color:#d97706;transform:scale(1.12)}
+.bm-star.on{color:#d97706}
+.dr-id-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.dr-id-row .dr-id{margin-bottom:0}
+.rd-eyebrow .bm-star{margin-left:auto;font-size:20px}
+
+/* Bookmark tab badge */
+.tab .bm-count{background:#d97706;color:#fff;padding:0 5px;font:9px var(--mono);letter-spacing:.06em;border-radius:1px;margin-left:4px}
+
+/* Bookmarks view */
+.bm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1px;background:var(--line);padding:1px;max-width:1600px;margin:0 auto}
+.bm-card{background:var(--paper);padding:16px 18px;cursor:pointer;position:relative;font-family:var(--serif);font-size:14px;line-height:1.45;color:var(--ink-2);min-height:120px;display:flex;flex-direction:column;gap:8px;transition:background .15s}
+.bm-card:hover{background:var(--paper-2)}
+.bm-card .meta{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+.bm-card .tx{flex:1;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.bm-card .tg{display:flex;flex-wrap:wrap;gap:4px;margin-top:auto}
+.bm-card .tg span{font-family:var(--mono);font-size:9px;padding:1px 5px;border:1px solid var(--line);color:var(--dim);letter-spacing:.04em}
+.bm-card .remove{position:absolute;top:8px;right:8px;border:0;background:transparent;color:var(--dim);font-size:18px;cursor:pointer;line-height:1;opacity:.4}
+.bm-card .remove:hover{color:#b91c1c;opacity:1}
+.bm-empty{padding:80px 24px;text-align:center;color:var(--dim);font-family:var(--mono)}
+.bm-empty .big{font-family:var(--serif);font-size:28px;color:var(--ink);margin-bottom:8px;line-height:1.1}
 
 /* Small note in the card when data is user-uploaded */
 body.uploaded-mode .offline-btn{background:#854d0e;color:#fff;border-color:#854d0e}
@@ -659,7 +691,8 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="theme"><span class="t-idx">03</span><span class="t-lbl">Theme profile</span><span class="t-ctx" id="tabTheme">—</span></a>
       <a class="tab" data-nav="compare"><span class="t-idx">04</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
       <a class="tab" data-nav="search"><span class="t-idx">05</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
-      <a class="tab" data-nav="methodology"><span class="t-idx">06</span><span class="t-lbl">Methodology</span></a>
+      <a class="tab" data-nav="bookmarks"><span class="t-idx">06</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
+      <a class="tab" data-nav="methodology"><span class="t-idx">07</span><span class="t-lbl">Methodology</span></a>
     </nav>
 
     <div class="active-filters" id="activeFilters"></div>
@@ -669,6 +702,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <section class="view hidden" id="view-theme"></section>
     <section class="view hidden" id="view-compare"></section>
     <section class="view hidden" id="view-search"></section>
+    <section class="view hidden" id="view-bookmarks"></section>
     <section class="view hidden" id="view-methodology"></section>
   </main>
 
@@ -1711,25 +1745,47 @@ async function refreshCurrentView() {
    ========================================================================= */
 function renderRowList(el, rows, opts = {}) {
   const top = Math.max(...rows.map(r => r.v), 1);
-  el.innerHTML = rows.map((r, i) => `
-    <div class="rl-row" data-key="${sanitize(r.key||'')}" data-facet="${opts.facet||''}">
+  const sparkSource = opts.sparklines;  // dict key → {year→count}
+  const minY = state.facets?.min_year || 2006;
+  const maxY = state.facets?.max_year || 2026;
+  const showSpark = !!sparkSource || opts.facet === 'country';
+  el.innerHTML = rows.map((r, i) => {
+    let sparkHtml = '';
+    if (showSpark) {
+      if (sparkSource && sparkSource[r.key]) {
+        sparkHtml = buildSparklineSVG(sparkSource[r.key], minY, maxY);
+      } else {
+        sparkHtml = '';  // placeholder — will be filled by backfillCountrySparklines
+      }
+    }
+    return `
+    <div class="rl-row ${showSpark?'has-spark':''}" data-key="${sanitize(r.key||'')}" data-facet="${opts.facet||''}">
       <div class="rnk">${String(i+1).padStart(2,'0')}</div>
       <div class="nm"><span class="bar" style="width:${(r.v/top)*100}%"></span><span class="txt" title="${sanitize(r.label)}">${sanitize(r.label)}</span></div>
+      ${showSpark ? `<div class="spark" title="2006–2026 evolution">${sparkHtml}</div>` : ''}
       <div class="v">${fmt(r.v)}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   if (opts.facet) {
-    el.querySelectorAll('.rl-row').forEach(row => row.addEventListener('click', () => {
-      const s = state.filters[opts.facet];
-      const k = row.dataset.key; if (!k) return;
-      const val = opts.facet === 'sdg' ? Number(k) : k;
-      if (s.has(val)) s.delete(val); else s.add(val);
-      // refresh facet UI
-      refreshFacetUI(opts.facet);
-      onFiltersChanged();
-    }));
+    el.querySelectorAll('.rl-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const s = state.filters[opts.facet];
+        const k = row.dataset.key; if (!k) return;
+        const val = opts.facet === 'sdg' ? Number(k) : k;
+        if (s.has(val)) s.delete(val); else s.add(val);
+        refreshFacetUI(opts.facet);
+        onFiltersChanged();
+      });
+      // Preload country analytics on hover
+      if (opts.facet === 'country') attachPreloadHover(row);
+    });
   }
   if (opts.onClick) {
     el.querySelectorAll('.rl-row').forEach(row => row.addEventListener('click', e => opts.onClick(row.dataset.key, e)));
+  }
+  // Backfill country sparklines asynchronously (uses cache + lazy fetch)
+  if (opts.facet === 'country' && !sparkSource) {
+    backfillCountrySparklines(el, minY, maxY);
   }
 }
 
@@ -2156,10 +2212,11 @@ function renderOverviewMapOnly(mapD) {
 }
 
 function renderOverviewAnalytics(analytics) {
+  updateSparklineCaches();
   const topT = (analytics?.themes?.theme_counts || []).slice(0, 10).map(t => ({
     key: t.theme, label: t.theme, v: t.count
   }));
-  renderRowList($('#topThemes'), topT, { facet:'theme' });
+  renderRowList($('#topThemes'), topT, { facet:'theme', sparklines: _themeSparklines });
 
   const topG = (analytics?.text?.affected_person_counts || []).slice(0, 10).map(g => ({
     key: g.affected_person, label: g.affected_person, v: g.count
@@ -2714,11 +2771,18 @@ function renderDrawer() {
   const txt = (r.TextPlainCleaned || r.Text || '');
   const type = cleanAnnotationType(r.AnnotationType);
 
+  const starred = bmHas(r.AnnotationId);
+  const kw = state.filters.kw?.trim();
+  const kwCount = kw ? countMatches(txt, kw) : 0;
   el.innerHTML = `
     ${navHtml}
-    <div class="dr-id">${sanitize(r.AnnotationId||'')}</div>
+    <div class="dr-id-row">
+      <div class="dr-id">${sanitize(r.AnnotationId||'')}</div>
+      <button class="bm-star ${starred?'on':''}" id="drStar" title="${starred?'Remove bookmark':'Bookmark this record'} (b)" aria-label="Toggle bookmark">${starred?'★':'☆'}</button>
+    </div>
     <div class="dr-yr">${sanitize(yr||'—')}</div>
-    <div class="dr-text">${sanitize(txt)}</div>
+    ${kwCount ? `<div class="rd-kw-hint" style="margin-top:-6px;margin-bottom:8px"><kbd>${sanitize(kw)}</kbd> matched ${kwCount}× in this text</div>` : ''}
+    <div class="dr-text">${highlightKeyword(txt, kw)}</div>
     <div class="dr-tags">
       ${themes.slice(0,4).map(t=>`<span class="dr-tag theme" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}
       ${groups.slice(0,4).map(g=>`<span class="dr-tag">${sanitize(g)}</span>`).join('')}
@@ -2752,6 +2816,12 @@ function renderDrawer() {
   $('#drReport').addEventListener('click', () => openReportModal(r));
   $('#drPrev')?.addEventListener('click', () => navigateRec(-1));
   $('#drNext')?.addEventListener('click', () => navigateRec(1));
+  $('#drStar').addEventListener('click', () => {
+    const nowOn = bmToggle(r);
+    toast(nowOn ? '★ Bookmarked' : 'Bookmark removed', false, 1800);
+    renderDrawer();
+    if (state.view === 'bookmarks') renderBookmarks();
+  });
   $('#drCountry').addEventListener('click', () => {
     state.focusCountry = NAME_TO_ISO[country] || country;
     $('#tabCountry').textContent = country;
@@ -2796,6 +2866,9 @@ function openReader(r) {
   const sections = r.SectionHeadings || [];
   const type = cleanAnnotationType(r.AnnotationType);
 
+  const starred = bmHas(r.AnnotationId);
+  const kw = state.filters.kw?.trim();
+  const kwCount = kw ? countMatches(txt, kw) : 0;
   $('#readerBody').innerHTML = `
     <button class="rd-close" id="rdClose" aria-label="close">×</button>
     <div class="rd-eyebrow">
@@ -2804,9 +2877,11 @@ function openReader(r) {
       <span>${sanitize(yr)}</span><span>·</span>
       <span>${sanitize(country)}</span>
       ${themes[0]?`<span>·</span><span>${sanitize(themes[0])}</span>`:''}
+      <button class="bm-star ${starred?'on':''}" id="rdStar" title="${starred?'Remove bookmark':'Bookmark this record'} (b)" aria-label="Toggle bookmark">${starred?'★':'☆'}</button>
     </div>
     <h1 class="rd-title">${sanitize((sections[0]||txt.slice(0,120)+(txt.length>120?'…':'')))}</h1>
-    <div class="rd-body">${sanitize(txt)}</div>
+    ${kwCount ? `<div class="rd-kw-hint"><kbd>${sanitize(kw)}</kbd> highlighted — matched ${kwCount}× in this record</div>` : ''}
+    <div class="rd-body">${highlightKeyword(txt, kw)}</div>
     <dl class="rd-meta">
       <div><dt class="k">Symbol</dt><dd class="v">${sanitize(r.Symbol||'—')}</dd></div>
       <div><dt class="k">Country</dt><dd class="v">${sanitize(country)} · ${sanitize((r.Regions||[])[0]||'')}</dd></div>
@@ -2823,6 +2898,13 @@ function openReader(r) {
   $('#rdClose').addEventListener('click', () => $('#reader').classList.add('hidden'));
   $('#rdCloseFoot').addEventListener('click', () => $('#reader').classList.add('hidden'));
   $('#rdReport').addEventListener('click', () => openReportModal(r));
+  $('#rdStar').addEventListener('click', () => {
+    const nowOn = bmToggle(r);
+    toast(nowOn ? '★ Bookmarked' : 'Bookmark removed', false, 1800);
+    openReader(r);  // re-render with new star state
+    renderDrawer();
+    if (state.view === 'bookmarks') renderBookmarks();
+  });
 }
 
 /* =========================================================================
@@ -2862,6 +2944,7 @@ function renderPalette(q) {
     { kind:'VIEW', label:'Country profile', sub:`drill into ${ISO_TO_NAME[state.focusCountry]||'a country'}`, score: 97, action:()=>{closePalette();navigate('country');} },
     { kind:'VIEW', label:'Theme profile', sub:`drill into ${state.focusTheme||'a theme'}`, score: 96, action:()=>{closePalette();navigate('theme');} },
     { kind:'VIEW', label:'Methodology', sub:'about the dataset', score: 95, action:()=>{closePalette();navigate('methodology');} },
+    { kind:'VIEW', label:'Bookmarks', sub:`${bmLoad().length} saved records`, score: 94, action:()=>{closePalette();navigate('bookmarks');} },
   ];
 
   // ACTIONS — appearance & layout commands surfaced in palette
@@ -2993,6 +3076,7 @@ async function navigate(view) {
   else if (view === 'theme') await renderTheme();
   else if (view === 'compare') await renderCompare();
   else if (view === 'search') { state.searchPage = 1; await renderSearch(); }
+  else if (view === 'bookmarks') renderBookmarks();
   else if (view === 'methodology') renderMethodology();
 }
 
@@ -3341,6 +3425,251 @@ async function exportXLSXFromRows(rows, filename) {
 }
 
 /* =========================================================================
+   SPARKLINES (Batch 5) — tiny year-over-year mini-charts per row
+   =========================================================================
+   Two sources of truth:
+   - Themes use analytics.themes.yearly_theme_counts (server has this)
+   - Countries use a lazy per-country fetch (already cached by warmer)
+   Groups have no yearly breakdown on the server — we skip those for now. */
+function _yearlyCountsByKey(list, keyField) {
+  // Build { key → { year → count } } from a list of {year, <keyField>, count}
+  const out = {};
+  if (!Array.isArray(list)) return out;
+  for (const r of list) {
+    const k = r[keyField]; if (!k) continue;
+    if (!out[k]) out[k] = {};
+    out[k][r.year] = (out[k][r.year] || 0) + (r.count || 0);
+  }
+  return out;
+}
+
+function buildSparklineSVG(yearToCount, minYear, maxYear) {
+  const W = 54, H = 16, pad = 1;
+  if (!yearToCount) return '';
+  const years = [];
+  for (let y = minYear; y <= maxYear; y++) years.push(y);
+  const values = years.map(y => yearToCount[y] || 0);
+  const max = Math.max(1, ...values);
+  if (values.every(v => v === 0)) return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><line x1="0" y1="${H-1}" x2="${W}" y2="${H-1}" stroke="currentColor" stroke-opacity=".3"/></svg>`;
+  const pts = values.map((v, i) => {
+    const x = (i / Math.max(1, years.length - 1)) * W;
+    const y = H - pad - (v / max) * (H - pad * 2);
+    return [x, y];
+  });
+  const line = pts.map(([x,y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const fill = `M 0,${H} L ${line} L ${W},${H} Z`;
+  // Last point highlighted
+  const last = pts[pts.length - 1];
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <path d="${fill}" fill="var(--accent)" opacity="0.16"/>
+    <polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="1.5" fill="var(--accent)"/>
+  </svg>`;
+}
+
+/* Precomputed sparkline data maps — updated when analytics lands */
+let _themeSparklines = {};
+
+function updateSparklineCaches() {
+  const a = state.analytics;
+  if (!a) return;
+  _themeSparklines = _yearlyCountsByKey(a?.themes?.yearly_theme_counts, 'theme');
+}
+
+/* Lazy country sparklines — fetch per country on demand, cache in localStorage
+   (small: 10 countries × 20 years × ~30 bytes ≈ 6KB) */
+const _countrySparkCache = {};
+const COUNTRY_SPARK_CACHE_KEY = 'uhri_v2_country_sparks_v1';
+try { Object.assign(_countrySparkCache, JSON.parse(localStorage.getItem(COUNTRY_SPARK_CACHE_KEY) || '{}')); } catch {}
+function saveCountrySparkCache() {
+  try { localStorage.setItem(COUNTRY_SPARK_CACHE_KEY, JSON.stringify(_countrySparkCache)); } catch {}
+}
+
+async function getCountrySparkline(country) {
+  if (_countrySparkCache[country]) return _countrySparkCache[country];
+  try {
+    const an = await api.analytics({...emptyFilters(), country: new Set([country])}, { scope: 'spark:' + country });
+    const yearly = (an?.trends?.yearly_counts || []);
+    const data = {};
+    yearly.forEach(r => data[r.year] = r.count);
+    _countrySparkCache[country] = data;
+    saveCountrySparkCache();
+    return data;
+  } catch { return null; }
+}
+
+/* Fill country sparklines after the list is rendered. Runs in background,
+   writes SVG into already-rendered `.spark` cells. */
+async function backfillCountrySparklines(listEl, minY, maxY) {
+  const rows = listEl.querySelectorAll('.rl-row[data-facet="country"]');
+  const tasks = [];
+  for (const row of rows) {
+    const country = row.dataset.key;
+    if (!country) continue;
+    const sparkEl = row.querySelector('.spark');
+    if (!sparkEl) continue;
+    if (_countrySparkCache[country]) {
+      sparkEl.innerHTML = buildSparklineSVG(_countrySparkCache[country], minY, maxY);
+    } else {
+      row.classList.add('loading-spark');
+      tasks.push(
+        getCountrySparkline(country).then(data => {
+          if (data) sparkEl.innerHTML = buildSparklineSVG(data, minY, maxY);
+          row.classList.remove('loading-spark');
+        })
+      );
+    }
+  }
+  // Don't await — let them fill in as they arrive
+}
+
+/* =========================================================================
+   PRELOAD ON HOVER (Batch 5) — warm the cache for what the user might click
+   =========================================================================
+   Hover ≥ 250ms → fire api.analytics + api.map for that country. Uses the
+   same route cache as everything else. Offline-mode is a no-op (data is
+   already local). */
+const _preloadQueued = new Set();
+function preloadCountryOnHover(country) {
+  if (!country || offline.enabled) return;
+  if (_preloadQueued.has(country)) return;
+  _preloadQueued.add(country);
+  const f = { ...emptyFilters(), country: new Set([country]) };
+  api.analytics(f, { scope: 'preload-analytics:' + country }).catch(()=>{});
+  api.map(f, { scope: 'preload-map:' + country }).catch(()=>{});
+}
+
+function attachPreloadHover(el) {
+  let t;
+  el.addEventListener('mouseenter', () => {
+    t = setTimeout(() => {
+      const country = el.dataset.key;
+      if (country && el.dataset.facet === 'country') preloadCountryOnHover(country);
+    }, 250);
+  });
+  el.addEventListener('mouseleave', () => clearTimeout(t));
+}
+
+/* =========================================================================
+   FULL-TEXT HIGHLIGHTING (Batch 5) — glow the keyword in drawer + reader
+   ========================================================================= */
+function highlightKeyword(text, kw) {
+  if (!kw || !kw.trim()) return sanitize(text);
+  const safe = sanitize(text);
+  // Match on already-escaped text, but the pattern is the raw keyword
+  const pattern = new RegExp('(' + escapeRegex(kw.trim()) + ')', 'gi');
+  return safe.replace(pattern, '<mark class="kw-match">$1</mark>');
+}
+
+function countMatches(text, kw) {
+  if (!kw || !kw.trim() || !text) return 0;
+  const pattern = new RegExp(escapeRegex(kw.trim()), 'gi');
+  return (text.match(pattern) || []).length;
+}
+
+/* =========================================================================
+   BOOKMARKS (Batch 5) — starred records, stored in localStorage
+   ========================================================================= */
+const BM_KEY = 'uhri_v2_bookmarks_v1';
+function bmLoad() { try { return JSON.parse(localStorage.getItem(BM_KEY) || '[]'); } catch { return []; } }
+function bmSave(list) { try { localStorage.setItem(BM_KEY, JSON.stringify(list)); } catch {} }
+function bmHas(id) { return bmLoad().some(b => b.AnnotationId === id); }
+function bmToggle(rec) {
+  if (!rec || !rec.AnnotationId) return false;
+  const list = bmLoad();
+  const idx = list.findIndex(b => b.AnnotationId === rec.AnnotationId);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+    bmSave(list);
+    updateBookmarkCount();
+    return false;  // removed
+  } else {
+    const yr = (rec.PublicationDate || '').slice(0, 4);
+    const txt = (rec.TextPlainCleaned || rec.Text || '').slice(0, 500);
+    list.unshift({
+      AnnotationId: rec.AnnotationId,
+      Symbol: rec.Symbol,
+      PublicationDate: rec.PublicationDate,
+      year: yr,
+      country: cleanCountryName((rec.Countries || [])[0] || ''),
+      body: cleanLabel(rec.Body || ''),
+      theme: (rec.Themes || [])[0] || '',
+      themes: rec.Themes || [],
+      affected: rec.AffectedPersons || [],
+      text_snippet: txt,
+      bookmarked_at: Date.now(),
+    });
+    bmSave(list);
+    updateBookmarkCount();
+    return true;  // added
+  }
+}
+function updateBookmarkCount() {
+  const n = bmLoad().length;
+  const badge = $('#tabBookmarks');
+  if (badge) badge.textContent = n ? `${n} saved` : '—';
+}
+
+function renderBookmarks() {
+  const root = $('#view-bookmarks');
+  const list = bmLoad();
+  if (!list.length) {
+    root.innerHTML = `
+      <div class="bm-empty">
+        <div class="big">No bookmarks yet</div>
+        <p>Click the ★ icon next to any record to save it here.<br>
+        Keyboard: press <kbd style="border:1px solid var(--line);padding:0 4px;font-family:var(--mono)">b</kbd> with a record selected to toggle.</p>
+      </div>`;
+    return;
+  }
+  root.innerHTML = `
+    <div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px">
+      <span style="font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase">Bookmarked recommendations</span>
+      <span style="font-family:var(--serif);font-size:22px">${fmt(list.length)}</span>
+      <span style="margin-left:auto;display:flex;gap:6px">
+        <button id="bmExport" style="padding:5px 10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer">⬇ Export JSON</button>
+        <button id="bmClear" style="padding:5px 10px;border:1px solid var(--line);background:var(--paper);color:#b91c1c;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Clear all</button>
+      </span>
+    </div>
+    <div class="bm-grid">
+      ${list.map((b, i) => `
+        <div class="bm-card" data-i="${i}" data-id="${sanitize(b.AnnotationId)}">
+          <button class="remove" data-rm="${sanitize(b.AnnotationId)}" title="Remove">×</button>
+          <div class="meta">${sanitize(b.year||'—')} · ${sanitize(b.country||'')} · ${sanitize(b.body||'')}</div>
+          <div class="tx">${sanitize(b.text_snippet)}${b.text_snippet.length >= 500 ? '…' : ''}</div>
+          <div class="tg">
+            ${(b.themes||[]).slice(0,2).map(t => `<span>${sanitize(t)}</span>`).join('')}
+            ${(b.affected||[]).slice(0,2).map(a => `<span>${sanitize(a)}</span>`).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  // Card click opens reader (fetch if we only have snippet)
+  $$('#view-bookmarks .bm-card').forEach(card => card.addEventListener('click', async e => {
+    if (e.target.classList.contains('remove')) return;
+    const id = card.dataset.id;
+    const rec = await fetchRecordById(id);
+    if (rec) { state.selectedRec = rec; state.currentResultList = [rec]; state.currentResultIndex = 0; renderDrawer(); openReader(rec); }
+    else toast('Record not accessible (network offline or VM down)', true, 4000);
+  }));
+  $$('#view-bookmarks .remove').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const id = btn.dataset.rm;
+    bmSave(bmLoad().filter(b => b.AnnotationId !== id));
+    updateBookmarkCount();
+    renderBookmarks();
+  }));
+  $('#bmClear')?.addEventListener('click', () => {
+    if (confirm('Clear all ' + list.length + ' bookmarks? This cannot be undone.')) {
+      bmSave([]); updateBookmarkCount(); renderBookmarks();
+    }
+  });
+  $('#bmExport')?.addEventListener('click', () => {
+    downloadBlob(JSON.stringify(list, null, 2), 'application/json', 'uhri-bookmarks-' + new Date().toISOString().slice(0,10) + '.json');
+    toast('Exported ' + list.length + ' bookmarks (JSON)', false, 3000);
+  });
+}
+
+/* =========================================================================
    RECORD DEEP-LINK (#18) — ?sel=<id> opens a record in the reader modal
    =========================================================================
    Supports three data-source paths:
@@ -3581,6 +3910,17 @@ async function boot() {
     else if (e.key === '[' && !inInput) { e.preventDefault(); toggleRail(); }
     else if (e.key === ']' && !inInput) { e.preventDefault(); toggleDrawer(); }
     else if (e.key === '?' && !inInput) { e.preventDefault(); startTour(); }
+    // Bookmark toggle — b (only when a record is selected)
+    else if (e.key === 'b' && !inInput) {
+      if (state.selectedRec) {
+        e.preventDefault();
+        const on = bmToggle(state.selectedRec);
+        toast(on ? '★ Bookmarked' : 'Bookmark removed', false, 1800);
+        renderDrawer();
+        if (state.view === 'bookmarks') renderBookmarks();
+        if (!$('#reader').classList.contains('hidden')) openReader(state.selectedRec);
+      }
+    }
   });
 
   // ---- Progressive boot with stale-while-revalidate ----
@@ -3592,6 +3932,7 @@ async function boot() {
 
   progressBar(8, 'HYDRATING FROM CACHE');
   buildOverviewShell();
+  updateBookmarkCount();
 
   // Read all caches upfront
   const cachedFacets = cacheGet('facets:baseline');
