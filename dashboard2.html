@@ -61,7 +61,25 @@ a{color:inherit;text-decoration:none}
 @keyframes pulse{50%{opacity:.4}}
 
 /* ---------- APP LAYOUT ---------- */
-.app{display:grid;grid-template-columns:var(--rail-w) 1fr var(--drawer-w);height:calc(100vh - var(--top-h));overflow:hidden}
+.app{display:grid;grid-template-columns:var(--rail-w) 1fr var(--drawer-w);height:calc(100vh - var(--top-h) - 30px);overflow:hidden}
+/* ---------- FOOTER (always visible at bottom) ---------- */
+.dash-footer{position:fixed;bottom:0;left:0;right:0;height:30px;background:var(--paper);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;z-index:25;gap:16px;overflow:hidden;white-space:nowrap}
+.dash-footer .df-left{overflow:hidden;text-overflow:ellipsis;display:flex;gap:12px;align-items:center}
+.dash-footer .df-right{display:flex;gap:10px;align-items:center;flex-shrink:0}
+.dash-footer a{color:var(--dim);border-bottom:1px dotted var(--line);cursor:pointer}
+.dash-footer a:hover{color:var(--ink);border-color:var(--ink)}
+.dash-footer .df-sep{color:var(--dimmer)}
+.dash-footer .sup{border:1px solid var(--line);padding:1px 6px;letter-spacing:.12em;text-transform:uppercase;font-size:9px}
+.dash-footer .disclaimer{cursor:help;color:var(--dim);border-bottom:1px dotted var(--dim)}
+.dash-footer .disclaimer:hover{color:var(--accent)}
+@media(max-width:1200px){
+  .dash-footer .df-middle{display:none}
+  .dash-footer{font-size:9px}
+}
+@media(max-width:900px){
+  .dash-footer .sup:nth-child(n+3){display:none}
+  .dash-footer .df-left span:nth-child(n+3){display:none}
+}
 .app.drawer-closed{grid-template-columns:var(--rail-w) 1fr 0}
 .app.rail-closed{grid-template-columns:0 1fr var(--drawer-w)}
 .app.rail-closed.drawer-closed{grid-template-columns:0 1fr 0}
@@ -299,8 +317,15 @@ a{color:inherit;text-decoration:none}
 .hex-tip .ln{height:1px;background:rgba(255,255,255,.16);margin:8px 0}
 .hex-tip .row{display:flex;justify-content:space-between;gap:20px;color:rgba(255,255,255,.7)}
 .hex-tip .row b{color:var(--paper);font-weight:500}
-.map-export{padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--dim);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-left:8px}
-.map-export:hover{border-color:var(--ink);color:var(--ink)}
+.map-export,.chart-export{padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--dim);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-left:8px}
+.map-export:hover,.chart-export:hover{border-color:var(--ink);color:var(--ink)}
+.chart-export.small{padding:2px 6px;margin-left:4px;font-size:9px}
+
+/* Interactive timeline legend — click a body to hide/show its area */
+#tlLegend span.legend-body{cursor:pointer;padding:1px 4px;user-select:none;transition:opacity .15s}
+#tlLegend span.legend-body:hover{background:var(--paper-2)}
+#tlLegend span.legend-body.off{opacity:.35;text-decoration:line-through}
+#tlLegend span.legend-body.off .swatch{filter:grayscale(1)}
 
 /* Legacy grid map — kept for fallback */
 .map-grid{display:grid;grid-template-columns:repeat(22,1fr);grid-auto-rows:1fr;gap:2px;height:100%}
@@ -805,6 +830,25 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <!-- Screen-reader live region for announcing filter/nav changes -->
 <div class="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true"></div>
 <a class="sr-only sr-skip" href="#main" id="skipMain">Skip to main content</a>
+
+<!-- Always-visible footer: credits, methodology link, supporters -->
+<footer class="dash-footer" role="contentinfo">
+  <div class="df-left">
+    <span><b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> · 267,548 records · cleaned pipeline</span>
+    <span class="df-sep">·</span>
+    <span>Developed by <b style="color:var(--ink);font-weight:500">L. Szoszkiewicz</b></span>
+    <span class="df-sep">·</span>
+    <span class="df-middle">re:constitution fellowship · Forum Transregionale Studien</span>
+    <span class="df-sep df-middle">·</span>
+    <span class="disclaimer" title="The institutions supporting this project do so in different capacities. This dashboard is an individual project and does not represent their views or endorsement.">about this project</span>
+  </div>
+  <div class="df-right">
+    <span class="sup">UN · OHCHR</span>
+    <span class="sup">re:constitution</span>
+    <span class="sup">HURIDOCS</span>
+    <a data-nav="methodology">Methodology ↗</a>
+  </div>
+</footer>
 
 <!-- MOBILE BACKDROP (for rail overlay) -->
 <div class="mobile-backdrop hidden" id="mobileBackdrop"></div>
@@ -2497,7 +2541,10 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
     Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c);
   });
   const topBodies = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
-  const stacks = years.map(y => topBodies.map(b => (yearlyBodyCounts[y]||{})[b] || 0));
+  // Hidden bodies are zeroed out in the stacks so their area disappears,
+  // but they still appear in the legend (dimmed + strikethrough) for toggle.
+  const hidden = state._hiddenBodies || new Set();
+  const stacks = years.map(y => topBodies.map(b => hidden.has(b) ? 0 : ((yearlyBodyCounts[y]||{})[b] || 0)));
   const annualTotals = stacks.map(s => s.reduce((a,b)=>a+b,0));
   // Cumulative: running sum — each year includes everything before it
   const cumulTotals = [];
@@ -2603,14 +2650,25 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
     svg.addEventListener('mouseleave', e => { if (dragStart != null) finish(e); });
   }
 
-  // legend in opts.legendEl
+  // Interactive legend — each body can be toggled off/on via click
   if (opts.legendEl) {
     opts.legendEl.innerHTML = topBodies.map((b,i) => {
       const col = i===0?'var(--ink)':i===1?'#3a3a3a':i===2?'#5c5a55':i===3?'#7a7872':i===4?'#98968f':'var(--accent)';
       const lbl = cleanLabel(b);
       const short = lbl.length > 20 ? lbl.slice(0,18)+'…' : lbl;
-      return `<span title="${sanitize(lbl)}" style="display:inline-flex;gap:4px;align-items:center;margin-right:8px;font-size:10px"><span style="width:10px;height:10px;background:${col};display:inline-block"></span>${sanitize(short)}</span>`;
+      const isOff = (state._hiddenBodies || new Set()).has(b);
+      return `<span class="legend-body${isOff?' off':''}" data-body="${sanitize(b)}" title="${sanitize(lbl)} — click to ${isOff?'show':'hide'}" style="display:inline-flex;gap:4px;align-items:center;margin-right:6px;font-size:10px"><span class="swatch" style="width:10px;height:10px;background:${col};display:inline-block"></span>${sanitize(short)}</span>`;
     }).join('');
+    opts.legendEl.querySelectorAll('.legend-body').forEach(span => {
+      span.addEventListener('click', () => {
+        if (!state._hiddenBodies) state._hiddenBodies = new Set();
+        const b = span.dataset.body;
+        if (state._hiddenBodies.has(b)) state._hiddenBodies.delete(b);
+        else state._hiddenBodies.add(b);
+        // Re-render same timeline with same data
+        renderTimeline(container, yearlyBodyCountsRaw, opts);
+      });
+    });
   }
 }
 
@@ -2653,11 +2711,11 @@ function buildOverviewShell() {
         <div class="map-wrap" id="mapWrap">${_skelMap()}</div>
       </div>
       <div class="panel p-top-countries">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span><button class="chart-export small" data-export="topCountries" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topCountries">${_skelRowList(10)}</div>
       </div>
       <div class="panel p-top-themes">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span><button class="chart-export small" data-export="topThemes" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topThemes">${_skelRowList(8)}</div>
       </div>
       <div class="panel p-time">
@@ -2668,12 +2726,13 @@ function buildOverviewShell() {
               <button data-tlmode="total-line" title="Annual totals, one line (all bodies summed)">TOTAL</button>
               <button data-tlmode="cumulative" title="Cumulative running total across years">CUMUL.</button>
             </div>
+            <button class="chart-export small" id="tlExport" title="Export timeline as SVG">⬇ SVG</button>
             <span id="tlLegend" style="margin-left:8px"></span>
           </div></div>
         <div class="tl-wrap" id="tlWrap">${_skelTimeline()}</div>
       </div>
       <div class="panel p-sankey">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span><button class="chart-export small" data-export="topGroups" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topGroups">${_skelRowList(8)}</div>
       </div>
     </div>`;
@@ -2726,11 +2785,50 @@ function _wireTimelineModeToggle() {
       const mode = btn.dataset.tlmode;
       setTimelineMode(mode);
       modes.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tlmode === mode));
-      // Re-render timeline with the last known analytics data
       if (state.analytics) {
         renderTimeline($('#tlWrap'), state.analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#tlLegend'), mode });
       }
       announce('Timeline mode switched to ' + mode);
+    });
+  });
+
+  // Timeline SVG export
+  const tlExp = $('#tlExport');
+  if (tlExp && !tlExp.dataset.wired) {
+    tlExp.dataset.wired = '1';
+    tlExp.addEventListener('click', () => {
+      const svg = $('#tlWrap svg');
+      if (!svg) return toast('No timeline to export yet', true);
+      const clone = svg.cloneNode(true);
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = `text{font-family:monospace}polygon,polyline,path{stroke:#0F0F10}`;
+      clone.insertBefore(style, clone.firstChild);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      downloadBlob('<?xml version="1.0" encoding="UTF-8"?>\n' + clone.outerHTML, 'image/svg+xml', `uhri-timeline-${getTimelineMode()}-${new Date().toISOString().slice(0,10)}.svg`);
+      toast('Timeline exported as SVG', false, 2500);
+    });
+  }
+
+  // Row-list CSV copy
+  $$('.chart-export[data-export]').forEach(btn => {
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', async () => {
+      const which = btn.dataset.export;
+      const rows = $$(`#${which} .rl-row`).map((row, i) => {
+        const label = row.querySelector('.txt')?.textContent?.trim() || '';
+        const val = row.querySelector('.v')?.textContent?.trim() || '';
+        return { rank: i + 1, label, value: val.replace(/[,\s]/g, '') };
+      });
+      if (!rows.length) return toast('Nothing to copy yet', true);
+      const csv = 'rank,label,value\n' + rows.map(r => `${r.rank},"${r.label.replace(/"/g, '""')}",${r.value}`).join('\n');
+      try {
+        await navigator.clipboard.writeText(csv);
+        toast(`Copied ${rows.length} rows as CSV`, false, 2500);
+      } catch {
+        downloadBlob(csv, 'text/csv', `uhri-${which}-${new Date().toISOString().slice(0,10)}.csv`);
+        toast('Downloaded as CSV', false, 2500);
+      }
     });
   });
 }
