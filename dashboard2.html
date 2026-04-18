@@ -2177,14 +2177,29 @@ async function renderChoroplethMap(container, countryCounts) {
   const projection = d3geo.geoEqualEarth().fitSize([w, h-8], featureCollection);
   const pathGen = d3geo.geoPath(projection);
 
-  // Aggregate counts by topo-name so we can colour each feature
+  // Build a feature-name index so we can try several name variants
+  // (API sometimes uses long-form, atlas might use short-form or vice
+  // versa — e.g. Czechia / Czech Republic, Türkiye / Turkey).
+  const featuresByName = Object.create(null);
+  features.forEach(f => { featuresByName[f.properties.name] = true; });
+
   const countByTopoName = Object.create(null);
-  const topoToApi = Object.create(null);  // reverse lookup for click handler
+  const topoToApi = Object.create(null);
   countryCounts.forEach(c => {
     const apiName = cleanCountryName(c.country);
-    const topoName = apiToTopoName(apiName);
-    countByTopoName[topoName] = (countByTopoName[topoName] || 0) + c.count;
-    topoToApi[topoName] = apiName;
+    // Ordered candidates: raw name, reconciler match, stripped parenthetical
+    const candidates = [
+      apiName,
+      apiToTopoName(apiName),
+      apiName.replace(/\s*\([^)]*\)\s*/g, '').trim(),  // "Iran (Islamic Republic of)" → "Iran"
+    ];
+    let hit = null;
+    for (const cand of candidates) {
+      if (cand && featuresByName[cand]) { hit = cand; break; }
+    }
+    if (!hit) hit = apiToTopoName(apiName);  // fallback for reporting
+    countByTopoName[hit] = (countByTopoName[hit] || 0) + c.count;
+    topoToApi[hit] = apiName;
   });
   const maxCount = Math.max(0, ...Object.values(countByTopoName));
 
@@ -2303,8 +2318,8 @@ async function renderChoroplethMap(container, countryCounts) {
         // Content narrower → grow width
         vbH = rawH; vbW = rawH * containerAspect;
       }
-      // Add 8% padding on each axis, then centre the content in the viewBox
-      const padFactor = 1.12;
+      // Very small safety padding — users can scroll-zoom out if they want more context
+      const padFactor = 1.03;
       vbW *= padFactor; vbH *= padFactor;
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
       setVB(cx - vbW/2, cy - vbH/2, vbW, vbH);
