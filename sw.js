@@ -3,7 +3,7 @@
  * - Stale-while-revalidate for /api/data/facets, /api/data/map, /api/data/analytics
  * - Network-only for /api/feedback/report, /api/data/full
  */
-const SHELL_CACHE  = 'uhri-v2-shell-v16';  // bump to invalidate stale caches on ship
+const SHELL_CACHE  = 'uhri-v2-shell-v17';  // bump to invalidate stale caches on ship
 const DATA_CACHE   = 'uhri-v2-data-v2';
 const FONT_CACHE   = 'uhri-v2-font-v2';
 

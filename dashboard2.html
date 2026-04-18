@@ -3725,7 +3725,7 @@ function renderOverviewAnalytics(analytics) {
   const topG = (analytics?.text?.affected_person_counts || []).slice(0, 10).map(g => ({
     key: g.affected_person, label: g.affected_person, v: g.count
   }));
-  renderRowList($('#topGroups'), topG, { facet:'group' });
+  renderRowList($('#topGroups'), topG, { facet:'group', sparklines: _groupSparklines });
 
   // Top bodies — derive from yearly_body_counts since there's no body_counts array
   const ybc = analytics?.trends?.yearly_body_counts || [];
@@ -3736,13 +3736,18 @@ function renderOverviewAnalytics(analytics) {
     Object.values(ybc).forEach(m => Object.entries(m).forEach(([b,c]) => { const bn = cleanLabel(b); bodyTotals[bn] = (bodyTotals[bn]||0) + c; }));
   }
   const topB = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v])=>({ key:k, label:k, v }));
-  renderRowList($('#topBodies'), topB, { facet:'body' });
+  // Body sparkline cache is keyed by the RAW body name (includes "- " prefix
+  // for dash-prefixed bodies). Re-map so `row.key = "CCPR"` finds data under
+  // either "CCPR" or "- CCPR".
+  const bodySparklinesClean = {};
+  Object.entries(_bodySparklines || {}).forEach(([k, v]) => { bodySparklinesClean[cleanLabel(k)] = v; });
+  renderRowList($('#topBodies'), topB, { facet:'body', sparklines: bodySparklinesClean });
 
   // Top SDGs — from text.sdg_counts
   const topS = (analytics?.text?.sdg_counts || []).slice(0, 10).map(s => ({
     key: s.sdg, label: formatSdgLabel(s.sdg), v: s.count
   }));
-  renderRowList($('#topSdgs'), topS, { facet:'sdg' });
+  renderRowList($('#topSdgs'), topS, { facet:'sdg', sparklines: _sdgSparklines });
 
   const mode = getTimelineMode();
   renderTimeline($('#tlWrap'), analytics?.trends?.yearly_body_counts || {}, {
@@ -6965,13 +6970,23 @@ function buildSparklineSVG(yearToCount, minYear, maxYear) {
   </svg>`;
 }
 
-/* Precomputed sparkline data maps — updated when analytics lands */
+/* Precomputed sparkline data maps — updated when analytics lands.
+   Fed into renderRowList via `opts.sparklines` so every entity row in
+   Top Themes / Concerned Groups / Top SDGs / Top Bodies gets its own
+   mini year-by-year curve. Countries have their own cache because they
+   need a per-country fetch (no baseline yearly breakdown). */
 let _themeSparklines = {};
+let _groupSparklines = {};
+let _sdgSparklines = {};
+let _bodySparklines = {};
 
 function updateSparklineCaches() {
   const a = state.analytics;
   if (!a) return;
   _themeSparklines = _yearlyCountsByKey(a?.themes?.yearly_theme_counts, 'theme');
+  _groupSparklines = _yearlyCountsByKey(a?.text?.yearly_affected_person_counts, 'affected_person');
+  _sdgSparklines   = _yearlyCountsByKey(a?.text?.yearly_sdg_counts, 'sdg');
+  _bodySparklines  = _yearlyCountsByKey(a?.trends?.yearly_body_counts, 'body');
 }
 
 /* Lazy country sparklines — fetch per country on demand, cache in localStorage
