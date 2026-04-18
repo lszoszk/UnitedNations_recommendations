@@ -165,7 +165,7 @@ a{color:inherit;text-decoration:none}
 .map-cell{background:var(--paper-2);position:relative;font-size:8px;color:var(--dim);display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:0;transition:transform .1s}
 .map-cell:hover{outline:1px solid var(--ink);z-index:2;transform:scale(1.5)}
 .map-cell.empty{background:transparent;border:none;pointer-events:none}
-.map-cell.on{outline:2px solid var(--ink);z-index:3}
+.map-cell.on{outline:2px solid var(--ink);z-index:3;color:var(--ink);font-weight:700;box-shadow:inset 0 0 0 1px var(--paper)}
 .map-scale{display:flex;gap:2px;align-items:center;margin-top:8px;font-size:10px;color:var(--dim)}
 .map-scale .s{width:16px;height:8px}
 
@@ -249,9 +249,11 @@ a{color:inherit;text-decoration:none}
 .cp-picker select{padding:6px 8px;border:1px solid var(--ink);background:var(--paper);font-family:var(--mono);font-size:11px;color:var(--ink)}
 .cp-body{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
 .cp-body .panel{padding:14px 18px}
-.cp-sample{padding:10px;background:var(--paper-2);border-left:2px solid var(--accent);cursor:pointer;font-family:var(--serif);font-size:14px;line-height:1.45}
-.cp-sample:hover{background:var(--paper-3)}
+.cp-sample{padding:10px 40px 10px 10px;background:var(--paper-2);border-left:2px solid var(--accent);cursor:pointer;font-family:var(--serif);font-size:14px;line-height:1.45;position:relative;transition:background .15s,transform .15s}
+.cp-sample:hover{background:var(--paper-3);transform:translateX(2px)}
 .cp-sample .meta{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--dim);margin-bottom:4px}
+.cp-sample-arrow{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase;opacity:0;transition:opacity .15s}
+.cp-sample:hover .cp-sample-arrow{opacity:1;color:var(--accent)}
 
 /* ---------- COMPARE ---------- */
 .cmp-head{display:grid;grid-template-columns:1fr 40px 1fr;gap:0;border-bottom:1px solid var(--line)}
@@ -575,6 +577,32 @@ function cleanCountryList(names) {
 function sanitize(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 
+/* Central label cleaners — API data carries "- " prefixes and UUIDs in
+   several fields. Strip them consistently wherever the value reaches
+   the UI (drawer, reader, tables, timeline legend, tooltips). */
+function cleanLabel(s) {
+  // Strip leading "- " (dashes + whitespace)
+  return (s == null ? '' : String(s)).replace(/^[-\s]+/, '').trim();
+}
+function cleanAnnotationType(s) {
+  const v = cleanLabel(s);
+  // If it looks like a UUID, hide it — we don't have a human label yet
+  if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v)) return '—';
+  return v || '—';
+}
+/* Normalize 2-letter ISO codes that leak into the Countries field as if
+   they were separate countries. Maps PK → Pakistan, CZ → Czechia, etc. */
+const ISO2_TO_NAME = {
+  AU:'Australia', CO:'Colombia', CZ:'Czechia', ES:'Spain', ET:'Ethiopia',
+  GH:'Ghana', ID:'Indonesia', IQ:'Iraq', MV:'Maldives', MY:'Malaysia',
+  PK:'Pakistan', SG:'Singapore', SV:'El Salvador',
+};
+function cleanCountryName(s) {
+  const v = (s==null?'':String(s)).trim();
+  if (ISO2_TO_NAME[v]) return ISO2_TO_NAME[v];
+  return v;
+}
+
 /* ---------- STATE ---------- */
 const state = {
   view: 'overview',
@@ -897,6 +925,8 @@ function bindYearSlider(minY, maxY) {
     $('#yrAL').textContent = state.filters.yearA;
     $('#yrBL').textContent = state.filters.yearB;
   }
+  // Expose so _restoreUrlState and "clear all" can re-sync the handles
+  window._syncYearSlider = update;
   update();
   function onDown(e){ dragging = e.target.dataset.which; e.preventDefault(); }
   function onMove(e){
@@ -921,6 +951,7 @@ const debouncedKw = debounce(() => onFiltersChanged(), 350);
 function bindKwInput() {
   $('#kwInput').addEventListener('input', e => {
     state.filters.kw = e.target.value;
+    $('#tabSearch').textContent = e.target.value.trim() || '—';
     debouncedKw();
   });
   $('#kwInput').addEventListener('keydown', e => {
@@ -992,17 +1023,17 @@ function refreshFacetUI(facetKey) {
 function renderMap(container, countryCounts) {
   const ROWS=12, COLS=22;
   const byCell = {};
-  const nameByIso = {};
-  // Aggregate by cell
+  // Aggregate by cell — normalize 2-letter ISO codes that leak as if they
+  // were countries (e.g. "PK" → "Pakistan") so counts fold correctly
   countryCounts.forEach(c => {
-    const iso = NAME_TO_ISO[c.country];
+    const normalized = cleanCountryName(c.country);
+    const iso = NAME_TO_ISO[normalized];
     if (!iso || !MAP_LAYOUT[iso]) return;
     const [col, row] = MAP_LAYOUT[iso];
     const k = col + '-' + row;
     if (!byCell[k]) byCell[k] = { iso, total:0, names:[] };
     byCell[k].total += c.count;
-    byCell[k].names.push(c.country);
-    nameByIso[iso] = c.country;
+    if (!byCell[k].names.includes(normalized)) byCell[k].names.push(normalized);
   });
   const max = Math.max(0, ...Object.values(byCell).map(v => v.total));
   let html = '<div class="map-grid">';
@@ -1012,7 +1043,8 @@ function renderMap(container, countryCounts) {
     if (cell) {
       const intensity = max ? cell.total/max : 0;
       const bg = `color-mix(in oklab, var(--accent) ${Math.round(8+intensity*80)}%, var(--paper-2))`;
-      const on = state.filters.country.has(cell.names[0]);
+      // Cell is "on" if ANY of its aggregated country names is filtered
+      const on = cell.names.some(n => state.filters.country.has(n));
       html += `<div class="map-cell ${on?'on':''}" data-iso="${cell.iso}" data-name="${sanitize(cell.names[0])}" style="background:${bg}" title="${sanitize(cell.names.join(', '))}: ${fmt(cell.total)} recs">${cell.iso}</div>`;
     } else {
       html += `<div class="map-cell empty"></div>`;
@@ -1028,6 +1060,9 @@ function renderMap(container, countryCounts) {
       const name = cell.dataset.name;
       const s = state.filters.country;
       if (s.has(name)) s.delete(name); else s.add(name);
+      // IMMEDIATE visual feedback — toggle .on on this cell without waiting
+      // for the 650ms-debounced full re-render
+      cell.classList.toggle('on', s.has(name));
       refreshFacetUI('country');
       onFiltersChanged();
     });
@@ -1102,7 +1137,9 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   if (opts.legendEl) {
     opts.legendEl.innerHTML = topBodies.map((b,i) => {
       const col = i===0?'var(--ink)':i===1?'#3a3a3a':i===2?'#5c5a55':i===3?'#7a7872':i===4?'#98968f':'var(--accent)';
-      return `<span style="display:inline-flex;gap:4px;align-items:center;margin-right:8px;font-size:10px"><span style="width:10px;height:10px;background:${col};display:inline-block"></span>${sanitize(b.length>20?b.slice(0,18)+'…':b)}</span>`;
+      const lbl = cleanLabel(b);
+      const short = lbl.length > 20 ? lbl.slice(0,18)+'…' : lbl;
+      return `<span title="${sanitize(lbl)}" style="display:inline-flex;gap:4px;align-items:center;margin-right:8px;font-size:10px"><span style="width:10px;height:10px;background:${col};display:inline-block"></span>${sanitize(short)}</span>`;
     }).join('');
   }
 }
@@ -1287,7 +1324,7 @@ async function renderCountry() {
       const d = document.createElement('div');
       d.className = 'cp-sample';
       const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(r.Body||'—')} · ${sanitize((r.Themes||[])[0]||'')}</div>${sanitize(txt)}${txt.length>=400?'…':''}`;
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanLabel(r.Body)||'—')} · ${sanitize((r.Themes||[])[0]||'')}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
       d.addEventListener('click', () => { state.selectedRec = r; renderDrawer(); openReader(r); });
       sampleEl.appendChild(d);
     });
@@ -1371,7 +1408,8 @@ async function renderTheme() {
       const d = document.createElement('div');
       d.className = 'cp-sample';
       const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize((r.Countries||[])[0]||'')} · ${sanitize(r.Body||'')}</div>${sanitize(txt)}${txt.length>=400?'…':''}`;
+      const rCountry = cleanCountryName((r.Countries||[])[0]||'');
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(rCountry)} · ${sanitize(cleanLabel(r.Body))}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
       d.addEventListener('click', () => { state.selectedRec = r; renderDrawer(); openReader(r); });
       sampleEl.appendChild(d);
     });
@@ -1469,14 +1507,16 @@ async function renderSearch() {
       const txt = (rec.TextPlainCleaned || rec.Text || '').slice(0, 320);
       const yr = (rec.PublicationDate||'').slice(0,4);
       const themes = (rec.Themes||[]).slice(0,3);
+      const body = cleanLabel(rec.Body);
+      const country = cleanCountryName((rec.Countries||[])[0]||'');
       return `<div class="se-item" data-idx="${idx}">
-        <div><div class="y">${sanitize(yr)}</div><div class="mech">${sanitize(rec.Body||'')}</div></div>
+        <div><div class="y">${sanitize(yr)}</div><div class="mech">${sanitize(body)}</div></div>
         <div>
           <div class="tx">${highlight(sanitize(txt))}${txt.length>=320?'…':''}</div>
           <div class="tg">${themes.map(t=>`<span>${sanitize(t)}</span>`).join('')}${(rec.AffectedPersons||[]).slice(0,2).map(g=>`<span>${sanitize(g)}</span>`).join('')}</div>
         </div>
         <div>
-          <div class="cc">${sanitize((rec.Countries||[])[0]||'')}</div>
+          <div class="cc">${sanitize(country)}</div>
           <div class="rg">${sanitize((rec.Regions||[])[0]||'')}</div>
         </div>
       </div>`;
@@ -1541,12 +1581,13 @@ function renderDrawer() {
     return;
   }
   const yr = (r.PublicationDate||'').slice(0,4);
-  const country = (r.Countries||[])[0] || '—';
-  const body = r.Body || '—';
+  const country = cleanCountryName((r.Countries||[])[0] || '—');
+  const body = cleanLabel(r.Body) || '—';
   const themes = r.Themes || [];
   const groups = r.AffectedPersons || [];
   const sdgs = r.Sdgs || [];
   const txt = (r.TextPlainCleaned || r.Text || '');
+  const type = cleanAnnotationType(r.AnnotationType);
 
   el.innerHTML = `
     <div class="dr-id">${sanitize(r.AnnotationId||'')}</div>
@@ -1562,7 +1603,7 @@ function renderDrawer() {
       <dt>Region</dt><dd>${sanitize((r.Regions||[])[0]||'—')}</dd>
       <dt>Body</dt><dd>${sanitize(body)}</dd>
       <dt>Symbol</dt><dd>${sanitize(r.Symbol||'—')}</dd>
-      <dt>Type</dt><dd>${sanitize(r.AnnotationType||'—')}</dd>
+      <dt>Type</dt><dd>${sanitize(type)}</dd>
     </dl>
     <div class="dr-actions">
       <button class="dr-btn primary" id="drOpen">Open full reader →</button>
@@ -1596,16 +1637,18 @@ function renderDrawer() {
 /* ---------- READER ---------- */
 function openReader(r) {
   const yr = (r.PublicationDate||'').slice(0,4);
-  const country = (r.Countries||[])[0] || '—';
+  const country = cleanCountryName((r.Countries||[])[0] || '—');
+  const body = cleanLabel(r.Body);
   const themes = r.Themes || [];
   const txt = (r.TextPlainCleaned || r.Text || '');
   const sections = r.SectionHeadings || [];
+  const type = cleanAnnotationType(r.AnnotationType);
 
   $('#readerBody').innerHTML = `
     <button class="rd-close" id="rdClose" aria-label="close">×</button>
     <div class="rd-eyebrow">
       <span class="dot"></span>
-      <span>${sanitize(r.Body||'')}</span><span>·</span>
+      <span>${sanitize(body)}</span><span>·</span>
       <span>${sanitize(yr)}</span><span>·</span>
       <span>${sanitize(country)}</span>
       ${themes[0]?`<span>·</span><span>${sanitize(themes[0])}</span>`:''}
@@ -1617,7 +1660,7 @@ function openReader(r) {
       <div><dt class="k">Country</dt><dd class="v">${sanitize(country)} · ${sanitize((r.Regions||[])[0]||'')}</dd></div>
       <div><dt class="k">Themes</dt><dd class="v">${sanitize(themes.join(', ')||'—')}</dd></div>
       <div><dt class="k">Affected groups</dt><dd class="v">${sanitize((r.AffectedPersons||[]).join(', ')||'—')}</dd></div>
-      <div><dt class="k">Type</dt><dd class="v">${sanitize(r.AnnotationType||'—')}</dd></div>
+      <div><dt class="k">Type</dt><dd class="v">${sanitize(type)}</dd></div>
       <div><dt class="k">Annotation ID</dt><dd class="v" style="word-break:break-all;font-size:10px">${sanitize(r.AnnotationId||'')}</dd></div>
     </dl>
     <div class="rd-foot">
@@ -1717,9 +1760,17 @@ function _restoreUrlState() {
   if (p.get('type')) p.get('type').split(',').forEach(v => f.type.add(v));
   if (p.get('y1')) f.yearA = Number(p.get('y1'));
   if (p.get('y2')) f.yearB = Number(p.get('y2'));
-  if (p.get('fc')) state.focusCountry = p.get('fc');
+  if (p.get('fc')) {
+    state.focusCountry = p.get('fc');
+    $('#tabCountry').textContent = ISO_TO_NAME[state.focusCountry] || state.focusCountry;
+  }
   if (p.get('ft')) { state.focusTheme = p.get('ft'); $('#tabTheme').textContent = state.focusTheme; }
   if (p.get('view')) state.view = p.get('view');
+
+  // Sync UI to restored state — handles, rail checkboxes, search tab badge
+  if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
+  ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
+  $('#tabSearch').textContent = f.kw || '—';
 }
 
 /* =========================================================================
