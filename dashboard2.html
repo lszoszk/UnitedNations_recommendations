@@ -2293,16 +2293,25 @@ async function renderCompare() {
   $('#cmpBsel').addEventListener('change', e => { state.cmpB = e.target.value; renderCompare(); });
 
   async function loadSide(name, pfx) {
-    const f = { ...state.filters, country: new Set([name]) };
+    // Scoped filter — Compare ignores the rail like the profile views do
+    const f = { ...emptyFilters(), country: new Set([name]) };
+    // CRITICAL: unique abort-scope per side so A and B don't cancel each
+    // other. Without this, loading side A then side B fires two analytics
+    // requests with the same default scope and the second aborts the first.
+    const scope = 'compare-' + pfx;
     try {
-      const [an, recs] = await Promise.all([api.analytics(f), api.records(f, 1, 1)]);
+      const [an, recs] = await Promise.all([
+        api.analytics(f, { scope: 'analytics:' + scope }),
+        api.records(f, 1, 1, { scope: 'records:' + scope }),
+      ]);
       $(`#${pfx}sub`).textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes`;
       renderTimeline($(`#${pfx}Time`), an?.trends?.yearly_body_counts || {}, { interactive: false });
       const t = (an?.themes?.theme_counts||[]).slice(0,8).map(x => ({ key:x.theme, label:x.theme, v:x.count }));
       renderRowList($(`#${pfx}Themes`), t, {});
     } catch (err) {
+      if (err.name === 'AbortError') return;  // the user switched country — don't complain
       $(`#${pfx}sub`).textContent = 'load failed';
-      console.error(err);
+      console.error('compare side ' + pfx + ' failed:', err);
     }
   }
   if (state.cmpA) loadSide(state.cmpA, 'cmpA');
