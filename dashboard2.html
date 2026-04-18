@@ -83,6 +83,16 @@ a{color:inherit;text-decoration:none}
 .app.drawer-closed{grid-template-columns:var(--rail-w) 1fr 0}
 .app.rail-closed{grid-template-columns:0 1fr var(--drawer-w)}
 .app.rail-closed.drawer-closed{grid-template-columns:0 1fr 0}
+/* Reading mode — expand drawer width, collapse rail, bump text size so the
+   user can actually read long recommendations without squinting. Toggled
+   via the drawer-head 📖 button or keyboard shortcut R. */
+.app.reading-mode{grid-template-columns:0 minmax(0, 1fr) minmax(560px, 720px)}
+.app.reading-mode .drawer .dr-list-card .tx{font-size:17px;line-height:1.65}
+.app.reading-mode .drawer .dr-text{font-size:17px;line-height:1.65;max-height:none}
+.app.reading-mode .drawer{border-left-color:var(--accent)}
+.reading-toggle{border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink);margin-right:6px}
+.reading-toggle:hover{border-color:var(--ink);background:var(--paper-2)}
+.app.reading-mode .reading-toggle{background:var(--accent);color:var(--paper);border-color:var(--accent)}
 
 /* ---------- RAIL ---------- */
 .rail{border-right:1px solid var(--line);overflow-y:auto;background:var(--paper);padding:0}
@@ -224,14 +234,33 @@ a{color:inherit;text-decoration:none}
 .dr-list-head .actions button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .dr-list-head .actions button:hover:not(.primary){border-color:var(--ink)}
 .dr-list-head .actions button.primary:hover{background:var(--accent);border-color:var(--accent)}
+.dr-breadcrumb{margin-top:8px;padding:6px 10px;background:color-mix(in oklab, var(--accent) 10%, var(--paper));border-left:2px solid var(--accent);font:11px var(--mono);color:var(--ink-2);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.dr-breadcrumb .lbl{font-size:9px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.dr-breadcrumb .val{color:var(--ink);flex:1}
+.dr-breadcrumb button{padding:2px 8px;font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.dr-breadcrumb button:hover{border-color:var(--ink);background:var(--paper-2)}
 .dr-list-items{padding:4px 0}
-.dr-list-card{padding:10px 14px 12px;border-bottom:1px dotted var(--line);cursor:pointer;transition:background .12s}
+.dr-list-card{padding:14px 16px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
 .dr-list-card:hover{background:var(--paper-2)}
-.dr-list-card .meta{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;margin-bottom:4px;display:flex;gap:8px;flex-wrap:wrap}
+.dr-list-card .meta{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .dr-list-card .meta .yr{color:var(--ink);font-weight:700}
-.dr-list-card .tx{font-family:var(--serif);font-size:13px;line-height:1.45;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.dr-list-card .tg{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
-.dr-list-card .tg span{font:9px var(--mono);padding:1px 5px;border:1px solid var(--line);color:var(--dim);letter-spacing:.04em}
+.dr-list-card .meta .star{color:#d97706;margin-left:auto}
+.dr-list-card .tx{font-family:var(--serif);font-size:15px;line-height:1.55;color:var(--ink);max-height:7.8em;overflow:hidden;position:relative;transition:max-height .25s}
+.dr-list-card.expanded .tx{max-height:999em}
+.dr-list-card .tx::after{content:"";position:absolute;bottom:0;left:0;right:0;height:1.9em;background:linear-gradient(to bottom, transparent, var(--paper) 85%);pointer-events:none}
+.dr-list-card.expanded .tx::after{display:none}
+.dr-list-card .tx mark{background:color-mix(in oklab, var(--accent) 35%, transparent);color:var(--ink);font-weight:600;padding:0 2px;border-radius:1px}
+.dr-list-card .more-btn{margin-top:6px;font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);border:0;background:transparent;padding:4px 0;cursor:pointer}
+.dr-list-card .more-btn:hover{color:var(--ink)}
+.dr-list-card .actions{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
+.dr-list-card .actions button{padding:3px 8px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.dr-list-card .actions button:hover{border-color:var(--ink);background:var(--paper-2)}
+.dr-list-card .actions .spacer{flex:1}
+.dr-list-card .tg{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.dr-list-card .tg span{font:9px var(--mono);padding:2px 6px;border:1px solid var(--line);color:var(--dim);letter-spacing:.04em;background:var(--paper-2)}
+/* Row-list 3-action hint under every panel (click/shift/cmd) */
+.rl-hint{padding:8px 4px 4px;font:9px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;border-top:1px dotted var(--line-2);margin-top:6px}
+.rl-hint strong{color:var(--ink);font-weight:600}
 .dr-list-sentinel{padding:14px;text-align:center;font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
 .dr-list-sentinel .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:8px;vertical-align:middle;animation:pulse 1.4s infinite}
 
@@ -936,7 +965,10 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <aside class="drawer" id="drawer" aria-label="Selected recommendation details">
     <div class="drawer-head">
       <h2 style="margin:0;font:inherit;color:inherit">SELECTED · RECOMMENDATION</h2>
-      <button class="linkbtn" id="drawerClear" aria-label="Clear selected record">× clear</button>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="reading-toggle" id="drawerReadingMode" title="Reading mode — wide drawer + larger text (shortcut: r)">📖 Read</button>
+        <button class="linkbtn" id="drawerClear" aria-label="Clear selected record">× clear</button>
+      </div>
     </div>
     <div class="drawer-body" id="drawerBody"></div>
   </aside>
@@ -2331,25 +2363,40 @@ function renderRowList(el, rows, opts = {}) {
     el.querySelectorAll('.rl-row').forEach(row => {
       row.addEventListener('click', (e) => {
         const k = row.dataset.key; if (!k) return;
-        const val = opts.facet === 'sdg' ? Number(k) : k;
-        // Shift-click always toggles rail filter (escape hatch)
+        // UNIFIED CLICK CONTRACT (recommendations-first UX):
+        //   plain click        → read: open drawer list of the recommendations
+        //                        that compose this bar
+        //   Shift+click        → narrow: toggle the rail filter
+        //   Cmd / Ctrl + click → zoom: open the entity's profile tab
+        // The ⓘ hint under every list panel reminds the user of all three.
+        if (e.metaKey || e.ctrlKey) {
+          if (opts.facet === 'country') {
+            state.focusCountry = NAME_TO_ISO[k] || k;
+            $('#tabCountry').textContent = k;
+            navigate('country');
+          } else if (opts.facet === 'theme') {
+            state.focusTheme = k; $('#tabTheme').textContent = k; navigate('theme');
+          } else if (opts.facet === 'group') {
+            state.focusGroup = k; $('#tabGroup').textContent = k; navigate('group');
+          } else if (opts.facet === 'body') {
+            state.focusMechanism = k; $('#tabMechanism').textContent = k; navigate('mechanism');
+          } else if (opts.facet === 'sdg') {
+            state.focusSdg = k; const t = $('#tabSdg'); if (t) t.textContent = k; navigate('sdg');
+          }
+          return;
+        }
         if (e.shiftKey) {
+          const val = opts.facet === 'sdg' ? _sdgToFilterValue(k) : k;
           const s = state.filters[opts.facet];
-          if (s.has(val)) s.delete(val); else s.add(val);
+          if (val != null) {
+            if (s.has(val)) s.delete(val); else s.add(val);
+          }
           refreshFacetUI(opts.facet);
           onFiltersChanged();
           return;
         }
-        // Country rows open drawer list (same as map click).
-        // Theme / group rows → cross-filter (primary action).
-        if (opts.facet === 'country') {
-          openListDrawer('country', val);
-          return;
-        }
-        const s = state.filters[opts.facet];
-        if (s.has(val)) s.delete(val); else s.add(val);
-        refreshFacetUI(opts.facet);
-        onFiltersChanged();
+        // Primary action — read the records behind this data point.
+        openListDrawer(opts.facet, k);
       });
       // Preload on hover for every entity whose click can open a profile —
       // country / theme / group / body / sdg. 250 ms hover threshold + tag
@@ -2358,6 +2405,14 @@ function renderRowList(el, rows, opts = {}) {
         attachPreloadHover(row);
       }
     });
+    // Add the 3-action hint under every interactive panel list, once per
+    // render. Scoped to facets that actually support all three actions.
+    if (['country','theme','group','body','sdg'].includes(opts.facet) && !el.querySelector('.rl-hint')) {
+      const hint = document.createElement('div');
+      hint.className = 'rl-hint';
+      hint.innerHTML = 'click = <strong>read</strong> records · Shift = filter · ⌘ = profile';
+      el.appendChild(hint);
+    }
   }
   if (opts.onClick) {
     el.querySelectorAll('.rl-row').forEach(row => row.addEventListener('click', e => opts.onClick(row.dataset.key, e)));
@@ -5117,23 +5172,42 @@ function navigateRec(step) {
 let _drListObserver = null;
 
 async function openListDrawer(kind, value) {
-  // kind: 'theme' | 'group'
+  // kind: 'theme' | 'group' | 'country' | 'body' | 'sdg'
   state.drawerMode = 'list';
   state.drawerList = { kind, value, records: [], page: 1, exhausted: false, total: 0 };
   if (!TW.drawer) { TW.drawer = true; applyTweaks(); }
   renderDrawer();
   await loadMoreListDrawer();
 }
+const _LIST_KIND_LABEL = {
+  theme: 'THEME', group: 'CONCERNED GROUP', country: 'COUNTRY',
+  body: 'RECOMMENDING BODY', sdg: 'SDG',
+};
+
+/* SDG rows in row-lists pass the stored label ("16.3 - Promote…"). The rail
+   filter expects a numeric goal. Returns null if we can't parse — caller
+   should skip the toggle rather than poisoning state.filters.sdg. */
+function _sdgToFilterValue(label) {
+  const m = String(label || '').match(/^\s*(\d{1,2})/);
+  return m ? Number(m[1]) : null;
+}
 
 function listDrawerFilter() {
-  // Drawer list ("All records with this theme") respects the rail so it
-  // matches what Overview shows. The drawer's own facet (theme/group/
-  // country) is layered on top.
+  // Drawer list ("All records with this theme/body/SDG/group/country")
+  // respects the rail so counts line up with Overview. The drawer's own
+  // facet is layered on top.
   const { kind, value } = state.drawerList || {};
   const override = {};
-  if (kind === 'theme') override.theme = new Set([value]);
-  else if (kind === 'group') override.group = new Set([value]);
+  if (kind === 'theme')   override.theme   = new Set([value]);
+  else if (kind === 'group')   override.group   = new Set([value]);
   else if (kind === 'country') override.country = new Set([value]);
+  else if (kind === 'body')    override.body    = new Set([value]);
+  else if (kind === 'sdg') {
+    // Pass the raw label through rawParams on the SDG profile; for drawer
+    // list we rely on buildParams converting Set<number> via 'SDG N'.
+    const n = _sdgToFilterValue(value);
+    if (n != null) override.sdg = new Set([n]);
+  }
   return _scopedFilter(override);
 }
 
@@ -5169,72 +5243,153 @@ function renderDrawerListMode() {
   const el = $('#drawerBody');
   const ctx = state.drawerList;
   if (!ctx) { state.drawerMode = 'record'; return renderDrawer(); }
-  const kindLabel = ctx.kind === 'theme' ? 'THEME' : ctx.kind === 'group' ? 'CONCERNED GROUP' : 'COUNTRY';
+  const kindLabel = _LIST_KIND_LABEL[ctx.kind] || ctx.kind.toUpperCase();
+  const kw = (state.filters.kw || '').trim();
   const cards = ctx.records.map((r, i) => {
     const yr = (r.PublicationDate||'').slice(0,4);
     const country = cleanCountryName((r.Countries||[])[0]||'');
     const body = cleanLabel(r.Body || '');
-    const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 220);
-    const themes = (r.Themes||[]).slice(0,2);
+    const fullTxt = r.TextPlainCleaned || r.Text || '';
+    const themes = (r.Themes||[]).slice(0,3);
     const starred = bmHas(r.AnnotationId);
-    return `<div class="dr-list-card" data-idx="${i}" role="button" tabindex="0" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
-      <div class="meta"><span class="yr">${sanitize(yr)}</span><span>·</span><span>${sanitize(country)}</span><span>·</span><span>${sanitize(body)}</span>${starred?'<span style="color:#d97706;margin-left:auto">★</span>':''}</div>
-      <div class="tx">${sanitize(txt)}${txt.length >= 220 ? '…' : ''}</div>
+    const isLong = fullTxt.length > 420;
+    const kwCount = kw ? countMatches(fullTxt, kw) : 0;
+    return `<div class="dr-list-card" data-idx="${i}" data-id="${sanitize(r.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
+      <div class="meta">
+        <span class="yr">${sanitize(yr)}</span>
+        <span>·</span><span>${sanitize(country)}</span>
+        <span>·</span><span>${sanitize(body)}</span>
+        ${kwCount ? `<span style="color:var(--accent);font-weight:700" title="${kwCount} keyword match${kwCount!==1?'es':''}">${kwCount}× "${sanitize(kw)}"</span>` : ''}
+        ${starred ? '<span class="star" title="Bookmarked">★</span>' : ''}
+      </div>
+      <div class="tx">${highlightKeyword(fullTxt, kw)}</div>
+      ${isLong ? `<button class="more-btn" data-more="${i}">↓ Show full text (${fullTxt.length.toLocaleString()} chars)</button>` : ''}
       ${themes.length?`<div class="tg">${themes.map(t=>`<span>${sanitize(t)}</span>`).join('')}</div>`:''}
+      <div class="actions">
+        <button data-act="read" data-idx="${i}" title="Open full reader">📖 Read</button>
+        <button data-act="bookmark" data-idx="${i}" title="Toggle bookmark (b)">${starred?'★ Bookmarked':'☆ Bookmark'}</button>
+        <button data-act="copy" data-idx="${i}" title="Copy quote with citation">Copy</button>
+        <span class="spacer"></span>
+        <span style="font:9px var(--mono);color:var(--dimmer);letter-spacing:.1em">${i+1}/${fmt(ctx.total)}</span>
+      </div>
     </div>`;
   }).join('');
   const sentinelHtml = ctx.exhausted
     ? `<div class="dr-list-sentinel" style="color:var(--dimmer)">— end · ${fmt(ctx.total)} total —</div>`
     : `<div class="dr-list-sentinel" id="drListSentinel"><span class="dot"></span>Loading more…</div>`;
+  // Breadcrumb: show the rail filters that are ALSO applied on top of
+  // ctx.kind=ctx.value. Lets the researcher see exactly why the count is
+  // what it is, and click off individual filters without leaving the drawer.
+  const railDesc = _activeRailDescription(ctx.kind);
+  const breadcrumb = railDesc
+    ? `<div class="dr-breadcrumb">
+         <span class="lbl">also filtered by</span>
+         <span class="val">${sanitize(railDesc)}</span>
+         <button data-clear-rail-in-list>clear rail ×</button>
+       </div>`
+    : '';
   el.innerHTML = `
     <div class="dr-list-head">
       <div class="k">${kindLabel}</div>
       <div class="v">${sanitize(ctx.value)}</div>
-      <div class="n">${fmt(ctx.total)} matching records · showing ${fmt(ctx.records.length)}</div>
+      <div class="n">${fmt(ctx.total)} matching records · showing ${fmt(ctx.records.length)}${kw ? ` · keyword "${sanitize(kw)}"` : ''}</div>
+      ${breadcrumb}
       <div class="actions">
-        <button class="primary" id="drListFilter">+ Filter by this ${ctx.kind}</button>
+        <button class="primary" id="drListFilter">+ Narrow view by this ${ctx.kind}</button>
         <button id="drListProfile">Open ${ctx.kind} profile →</button>
         <button id="drListClose">× Close</button>
       </div>
     </div>
     <div class="dr-list-items">${cards}${sentinelHtml}</div>`;
 
+  // Clear the rail's other filters while staying on this drawer list.
+  el.querySelector('[data-clear-rail-in-list]')?.addEventListener('click', () => {
+    const f = state.filters;
+    if (ctx.kind !== 'country') f.country = new Set();
+    if (ctx.kind !== 'body')    f.body    = new Set();
+    if (ctx.kind !== 'theme')   f.theme   = new Set();
+    if (ctx.kind !== 'group')   f.group   = new Set();
+    if (ctx.kind !== 'sdg')     f.sdg     = new Set();
+    f.region = new Set(); f.type = new Set(); f.kw = '';
+    const minY = state.facets?.min_year, maxY = state.facets?.max_year;
+    if (minY) f.yearA = minY; if (maxY) f.yearB = maxY;
+    if ($('#kwInput')) $('#kwInput').value = '';
+    if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
+    ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
+    // Re-fetch the drawer list with the relaxed filter
+    state.drawerList = { ...ctx, records: [], page: 1, exhausted: false, total: 0 };
+    onFiltersChanged();
+    loadMoreListDrawer();
+  });
+
+  // Card-level: clicking the card body (not a button) just selects it as
+  // the reader's "current record" (for j/k nav) and opens the full reader.
+  // The expand/action buttons stop propagation so they don't also trigger
+  // the reader.
   el.querySelectorAll('.dr-list-card').forEach(card => {
-    const openCard = () => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;  // actions handled below
       const idx = +card.dataset.idx;
       const rec = ctx.records[idx];
-      state.selectedRec = rec;
-      state.currentResultIndex = idx;
+      state.selectedRec = rec; state.currentResultIndex = idx;
       openReader(rec);
-    };
-    card.addEventListener('click', openCard);
-    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCard(); } });
+    });
+  });
+  // "Show full text" toggle — expands the serif text in-place.
+  el.querySelectorAll('.dr-list-card .more-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.dr-list-card');
+      const expanded = card.classList.toggle('expanded');
+      btn.textContent = expanded ? '↑ Collapse' : `↓ Show full text`;
+    });
+  });
+  // Per-card actions — keep them compact so cards stay scannable.
+  el.querySelectorAll('.dr-list-card [data-act]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = +btn.dataset.idx;
+      const rec = ctx.records[idx];
+      const act = btn.dataset.act;
+      if (act === 'read') {
+        state.selectedRec = rec; state.currentResultIndex = idx; openReader(rec);
+      } else if (act === 'bookmark') {
+        const on = bmToggle(rec);
+        btn.textContent = on ? '★ Bookmarked' : '☆ Bookmark';
+        toast(on ? 'Bookmarked' : 'Bookmark removed', false, 1400);
+      } else if (act === 'copy') {
+        const citation = citeAPA(rec);
+        const quote = `"${(rec.TextPlainCleaned || rec.Text || '').trim()}"\n\n${citation}`;
+        navigator.clipboard.writeText(quote).then(() => toast('Copied with citation', false, 1600));
+      }
+    });
   });
 
   $('#drListFilter')?.addEventListener('click', () => {
     const { kind, value } = ctx;
-    if (kind === 'theme') { state.filters.theme.add(value); refreshFacetUI('theme'); }
-    else if (kind === 'group') { state.filters.group.add(value); refreshFacetUI('group'); }
+    if (kind === 'theme')   { state.filters.theme.add(value);   refreshFacetUI('theme'); }
+    else if (kind === 'group')   { state.filters.group.add(value);   refreshFacetUI('group'); }
     else if (kind === 'country') { state.filters.country.add(value); refreshFacetUI('country'); state.hexRegion = 'world'; }
+    else if (kind === 'body')    { state.filters.body.add(value);    refreshFacetUI('body'); }
+    else if (kind === 'sdg') {
+      const n = _sdgToFilterValue(value);
+      if (n != null) { state.filters.sdg.add(n); refreshFacetUI('sdg'); }
+    }
     onFiltersChanged();
     toast(`Added "${value}" to filter`, false, 2500);
   });
   $('#drListProfile')?.addEventListener('click', () => {
     if (ctx.kind === 'theme') {
-      state.focusTheme = ctx.value;
-      $('#tabTheme').textContent = ctx.value;
-      navigate('theme');
+      state.focusTheme = ctx.value; $('#tabTheme').textContent = ctx.value; navigate('theme');
     } else if (ctx.kind === 'country') {
-      const iso = getHexNameToIso()[ctx.value];
-      if (iso) {
-        state.focusCountry = iso;
-        $('#tabCountry').textContent = ctx.value;
-        navigate('country');
-      }
+      const iso = getHexNameToIso()[ctx.value] || NAME_TO_ISO[ctx.value] || ctx.value;
+      state.focusCountry = iso; $('#tabCountry').textContent = ctx.value; navigate('country');
     } else if (ctx.kind === 'group') {
-      state.focusGroup = ctx.value;
-      $('#tabGroup').textContent = ctx.value;
-      navigate('group');
+      state.focusGroup = ctx.value; $('#tabGroup').textContent = ctx.value; navigate('group');
+    } else if (ctx.kind === 'body') {
+      state.focusMechanism = ctx.value; $('#tabMechanism').textContent = ctx.value; navigate('mechanism');
+    } else if (ctx.kind === 'sdg') {
+      state.focusSdg = ctx.value; const t = $('#tabSdg'); if (t) t.textContent = ctx.value; navigate('sdg');
     }
     closeListDrawer();
   });
@@ -5654,6 +5809,25 @@ function cyclePalette() { const i = PALETTES.indexOf(TW.palette); setPalette(PAL
 function setDensity(d) { if (['tight','cozy','roomy'].includes(d)) { TW.density = d; applyTweaks(); toast('Density → ' + d, false, 1800); } }
 function toggleRail() { TW.rail = !TW.rail; applyTweaks(); toast('Rail ' + (TW.rail?'shown':'hidden'), false, 1500); }
 function toggleDrawer() { TW.drawer = !TW.drawer; applyTweaks(); toast('Drawer ' + (TW.drawer?'shown':'hidden'), false, 1500); }
+/* Reading mode — wide drawer + larger serif text for comfortable reading
+   of long recommendations. Toggled via the 📖 button in drawer-head or
+   the `r` keyboard shortcut. Cooperates with the existing rail/drawer
+   toggles: turning reading mode on force-hides the rail, turning it off
+   restores the rail to whatever state the user had. */
+function toggleReadingMode() {
+  const app = $('#app') || document.body;
+  const on = !app.classList.contains('reading-mode');
+  if (on) {
+    TW._preReadingRail = TW.rail;
+    TW.rail = false;
+    if (!TW.drawer) TW.drawer = true;
+  } else {
+    if (TW._preReadingRail !== undefined) { TW.rail = TW._preReadingRail; delete TW._preReadingRail; }
+  }
+  app.classList.toggle('reading-mode', on);
+  applyTweaks();
+  toast(on ? '📖 Reading mode · press R to exit' : 'Reading mode off', false, 1600);
+}
 
 function openTweaks() {
   $('#tweaks').classList.add('open');
@@ -6646,6 +6820,7 @@ async function boot() {
   $('#cmdPalette').addEventListener('click', e => { if (e.target.id === 'cmdPalette') closePalette(); });
   $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') $('#reader').classList.add('hidden'); });
   $('#drawerClear').addEventListener('click', () => { state.selectedRec = null; renderDrawer(); });
+  $('#drawerReadingMode')?.addEventListener('click', toggleReadingMode);
 
   // Mobile menu: rail slides in from left as overlay with backdrop
   function closeMobileRail() {
@@ -6742,6 +6917,7 @@ async function boot() {
     else if (e.key === '[' && !inInput) { e.preventDefault(); toggleRail(); }
     else if (e.key === ']' && !inInput) { e.preventDefault(); toggleDrawer(); }
     else if (e.key === '?' && !inInput) { e.preventDefault(); startTour(); }
+    else if (e.key === 'r' && !inInput) { e.preventDefault(); toggleReadingMode(); }
     // Labels workspace shortcuts — 1-9 (toggle category), n/p (navigate), x (exclude)
     else if (state.view === 'labels' && !inInput) {
       const lab = state.labels;
