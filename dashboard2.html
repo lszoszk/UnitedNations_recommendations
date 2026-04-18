@@ -160,6 +160,16 @@ a{color:inherit;text-decoration:none}
 .active-filters .af-clear{font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border:1px dashed var(--line);cursor:pointer;margin-left:auto;background:transparent}
 .active-filters .af-clear:hover{border-color:var(--ink);color:var(--ink)}
 
+/* Citation picker (inside drawer) */
+.cite-picker{position:relative;display:inline-block}
+.cite-dropdown{position:absolute;top:100%;left:0;margin-top:2px;background:var(--paper);border:1px solid var(--ink);box-shadow:0 4px 20px rgba(0,0,0,.15);min-width:200px;z-index:15;display:none}
+.cite-dropdown.open{display:block}
+.cite-item{padding:7px 12px;font:11px var(--mono);letter-spacing:.04em;cursor:pointer;border-bottom:1px dotted var(--line);color:var(--ink);display:flex;align-items:center;justify-content:space-between}
+.cite-item:last-child{border-bottom:none}
+.cite-item:hover{background:var(--paper-2)}
+.cite-item .name{color:var(--ink)}
+.cite-item .fmt{color:var(--dim);font-size:9px;letter-spacing:.12em;text-transform:uppercase}
+
 /* Empty state CTA */
 .empty-state{padding:60px 24px;text-align:center;color:var(--dim);font-family:var(--mono)}
 .empty-state .es-title{font-family:var(--serif);font-size:26px;color:var(--ink);margin:0 0 8px;line-height:1.2}
@@ -174,8 +184,8 @@ a{color:inherit;text-decoration:none}
 .tl-wrap svg{cursor:crosshair}
 .tl-hint{position:absolute;top:4px;right:8px;font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;pointer-events:none;background:color-mix(in oklab, var(--paper) 80%, transparent);padding:2px 4px}
 
-/* Drawer record-navigation hint */
-.dr-nav{display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px dotted var(--line);font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;background:var(--paper-2)}
+/* Drawer record-navigation hint — sticks to top of drawer body while scrolling */
+.dr-nav{display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px dotted var(--line);font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;background:var(--paper-2);position:sticky;top:0;z-index:3;margin:-14px -14px 10px}
 .dr-nav .dr-nav-pos{font-variant-numeric:tabular-nums}
 .dr-nav button{border:1px solid var(--line);background:var(--paper);padding:2px 7px;font:10px var(--mono);color:var(--ink);cursor:pointer}
 .dr-nav button:hover:not(:disabled){border-color:var(--ink);background:var(--paper-2)}
@@ -2335,15 +2345,16 @@ async function renderCompare() {
   if (!state.cmpB) state.cmpB = countries[1] || null;
   const opts = name => countries.map(c => `<option value="${sanitize(c)}" ${c===name?'selected':''}>${sanitize(c)}</option>`).join('');
 
+  // IDs use letter-as-suffix consistently: cmpSelA/cmpNameA/cmpSubA/cmpTimeA/cmpThemesA
   root.innerHTML = `
     <div class="cmp-head">
-      <div class="cmp-side"><label>A</label><select id="cmpAsel">${opts(state.cmpA)}</select>
-        <div class="big" id="cmpAname">${sanitize(state.cmpA||'—')}</div>
-        <div class="sub" id="cmpAsub">loading…</div></div>
+      <div class="cmp-side"><label>A</label><select id="cmpSelA">${opts(state.cmpA)}</select>
+        <div class="big" id="cmpNameA">${sanitize(state.cmpA||'—')}</div>
+        <div class="sub" id="cmpSubA">loading…</div></div>
       <div class="cmp-vs">vs</div>
-      <div class="cmp-side b"><label>B</label><select id="cmpBsel">${opts(state.cmpB)}</select>
-        <div class="big" id="cmpBname">${sanitize(state.cmpB||'—')}</div>
-        <div class="sub" id="cmpBsub">loading…</div></div>
+      <div class="cmp-side b"><label>B</label><select id="cmpSelB">${opts(state.cmpB)}</select>
+        <div class="big" id="cmpNameB">${sanitize(state.cmpB||'—')}</div>
+        <div class="sub" id="cmpSubB">loading…</div></div>
     </div>
     <div class="cmp-body">
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">Over time</span></div></div><div class="tl-wrap" id="cmpTimeA"></div></div>
@@ -2352,33 +2363,36 @@ async function renderCompare() {
       <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">Themes</span></div></div><div class="row-list" id="cmpThemesB"></div></div>
     </div>`;
 
-  $('#cmpAsel').addEventListener('change', e => { state.cmpA = e.target.value; renderCompare(); });
-  $('#cmpBsel').addEventListener('change', e => { state.cmpB = e.target.value; renderCompare(); });
+  $('#cmpSelA').addEventListener('change', e => { state.cmpA = e.target.value; renderCompare(); });
+  $('#cmpSelB').addEventListener('change', e => { state.cmpB = e.target.value; renderCompare(); });
 
-  async function loadSide(name, pfx) {
-    // Scoped filter — Compare ignores the rail like the profile views do
+  async function loadSide(name, letter) {  // letter is 'A' or 'B'
     const f = { ...emptyFilters(), country: new Set([name]) };
-    // CRITICAL: unique abort-scope per side so A and B don't cancel each
-    // other. Without this, loading side A then side B fires two analytics
-    // requests with the same default scope and the second aborts the first.
-    const scope = 'compare-' + pfx;
+    // Unique abort-scope per side so A and B don't cancel each other
+    const scope = 'compare-' + letter;
     try {
       const [an, recs] = await Promise.all([
         api.analytics(f, { scope: 'analytics:' + scope }),
         api.records(f, 1, 1, { scope: 'records:' + scope }),
       ]);
-      $(`#${pfx}sub`).textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes`;
-      renderTimeline($(`#${pfx}Time`), an?.trends?.yearly_body_counts || {}, { interactive: false });
-      const t = (an?.themes?.theme_counts||[]).slice(0,8).map(x => ({ key:x.theme, label:x.theme, v:x.count }));
-      renderRowList($(`#${pfx}Themes`), t, {});
+      const subEl = $(`#cmpSub${letter}`);
+      if (subEl) subEl.textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes`;
+      const timeEl = $(`#cmpTime${letter}`);
+      if (timeEl) renderTimeline(timeEl, an?.trends?.yearly_body_counts || {}, { interactive: false });
+      const themeEl = $(`#cmpThemes${letter}`);
+      if (themeEl) {
+        const t = (an?.themes?.theme_counts||[]).slice(0,8).map(x => ({ key:x.theme, label:x.theme, v:x.count }));
+        renderRowList(themeEl, t, {});
+      }
     } catch (err) {
-      if (err.name === 'AbortError') return;  // the user switched country — don't complain
-      $(`#${pfx}sub`).textContent = 'load failed';
-      console.error('compare side ' + pfx + ' failed:', err);
+      if (err.name === 'AbortError') return;
+      const subEl = $(`#cmpSub${letter}`);
+      if (subEl) subEl.textContent = 'load failed: ' + (err.message || err);
+      console.error('compare side ' + letter + ' failed:', err);
     }
   }
-  if (state.cmpA) loadSide(state.cmpA, 'cmpA');
-  if (state.cmpB) loadSide(state.cmpB, 'cmpB');
+  if (state.cmpA) loadSide(state.cmpA, 'A');
+  if (state.cmpB) loadSide(state.cmpB, 'B');
 }
 
 /* =========================================================================
@@ -2499,6 +2513,80 @@ function renderMethodology() {
 }
 
 /* =========================================================================
+   CITATIONS (#7) — APA / Chicago / BibTeX / RIS / Plain URL
+   =========================================================================
+   Build canonical citation strings from the record. All five formats reference
+   the same UN document symbol + OHCHR UHRI as the host database; differences
+   are in field ordering, punctuation, and year placement. */
+function _citeBaseFields(r) {
+  const yr = (r.PublicationDate || '').slice(0, 4) || 'n.d.';
+  const country = cleanCountryName((r.Countries || [])[0] || '');
+  const body = cleanLabel(r.Body || '');
+  const theme = (r.Themes || [])[0] || '';
+  const symbol = r.Symbol || r.AnnotationId || '';
+  const txt = (r.TextPlainCleaned || r.Text || '').trim();
+  // Short title: first section heading if available, else first 90 chars
+  const sections = r.SectionHeadings || [];
+  const title = sections[0] || (txt.length > 90 ? txt.slice(0, 88).trim() + '…' : txt);
+  const shareUrl = location.origin + location.pathname + '#sel=' + encodeURIComponent(r.AnnotationId || '');
+  return { yr, country, body, theme, symbol, title, shareUrl, id: r.AnnotationId || '' };
+}
+
+function citeAPA(r) {
+  const f = _citeBaseFields(r);
+  const author = f.body || 'United Nations';
+  return `${author}. (${f.yr}). ${f.title}${f.country ? ' — ' + f.country : ''} [UN Doc. ${f.symbol}]. Universal Human Rights Index. ${f.shareUrl}`;
+}
+
+function citeChicago(r) {
+  const f = _citeBaseFields(r);
+  const author = f.body || 'United Nations';
+  return `${author}, "${f.title}${f.country ? ', ' + f.country : ''}," UN Doc. ${f.symbol} (${f.yr}), Universal Human Rights Index, ${f.shareUrl}.`;
+}
+
+function citeBibTeX(r) {
+  const f = _citeBaseFields(r);
+  const key = 'UHRI_' + (f.id.replace(/-/g,'').slice(0, 10) || f.yr);
+  const esc = s => String(s||'').replace(/[{}%&#_$]/g, '\\$&');
+  return `@misc{${key},
+  author       = {${esc(f.body || 'United Nations')}},
+  title        = {${esc(f.title)}},
+  year         = {${esc(f.yr)}},
+  howpublished = {UN Doc. ${esc(f.symbol)}},
+  ${f.country ? `addendum     = {${esc(f.country)}},\n  ` : ''}url          = {${f.shareUrl}},
+  note         = {Universal Human Rights Index annotation ${esc(f.id)}},
+}`;
+}
+
+function citeRIS(r) {
+  const f = _citeBaseFields(r);
+  return [
+    'TY  - GEN',
+    'AU  - ' + (f.body || 'United Nations'),
+    'PY  - ' + f.yr,
+    'TI  - ' + f.title,
+    'PB  - Universal Human Rights Index (OHCHR)',
+    'ID  - ' + f.symbol,
+    f.country ? 'CY  - ' + f.country : '',
+    'UR  - ' + f.shareUrl,
+    'N1  - UHRI annotation ' + f.id,
+    'ER  - ',
+  ].filter(Boolean).join('\n');
+}
+
+function citePlainURL(r) {
+  return _citeBaseFields(r).shareUrl;
+}
+
+const CITE_FORMATS = [
+  { key: 'apa',     name: 'APA (7th ed.)',  fmt: 'APA',     build: citeAPA },
+  { key: 'chicago', name: 'Chicago notes',  fmt: 'CHICAGO', build: citeChicago },
+  { key: 'bibtex',  name: 'BibTeX',         fmt: '.BIB',    build: citeBibTeX },
+  { key: 'ris',     name: 'RIS',            fmt: '.RIS',    build: citeRIS },
+  { key: 'url',     name: 'Plain URL',      fmt: 'LINK',    build: citePlainURL },
+];
+
+/* =========================================================================
    DRAWER
    ========================================================================= */
 function navigateRec(step) {
@@ -2559,7 +2647,16 @@ function renderDrawer() {
       <button class="dr-btn primary" id="drOpen">Open full reader →</button>
       <button class="dr-btn" id="drCountry">Country profile</button>
       ${themes[0]?`<button class="dr-btn" id="drTheme">Theme profile</button>`:''}
-      <button class="dr-btn" id="drCopy">Copy citation</button>
+      <div class="cite-picker">
+        <button class="dr-btn" id="drCite">Cite ▾</button>
+        <div class="cite-dropdown" id="citeDropdown">
+          ${CITE_FORMATS.map(c => `
+            <div class="cite-item" data-cite="${c.key}">
+              <span class="name">${c.name}</span>
+              <span class="fmt">${c.fmt}</span>
+            </div>`).join('')}
+        </div>
+      </div>
       <button class="dr-btn report" id="drReport" title="Report a data-quality issue with this record">🚩 Report</button>
     </div>`;
 
@@ -2577,9 +2674,22 @@ function renderDrawer() {
     $('#tabTheme').textContent = themes[0];
     navigate('theme');
   });
-  $('#drCopy').addEventListener('click', () => {
-    const cite = `OHCHR UHRI (${yr}). ${country}, ${body}. ${r.Symbol||r.AnnotationId}. https://uhri.ohchr.org/`;
-    navigator.clipboard.writeText(cite).then(()=>toast('Citation copied'));
+  // Citation picker — opens dropdown with 5 formats
+  $('#drCite').addEventListener('click', e => {
+    e.stopPropagation();
+    $('#citeDropdown').classList.toggle('open');
+  });
+  el.querySelectorAll('#citeDropdown .cite-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const key = item.dataset.cite;
+      const fmt = CITE_FORMATS.find(f => f.key === key);
+      if (!fmt) return;
+      const text = fmt.build(r);
+      navigator.clipboard.writeText(text).then(() => {
+        toast(`${fmt.name} citation copied`, false, 2800);
+      });
+      $('#citeDropdown').classList.remove('open');
+    });
   });
   el.querySelectorAll('.dr-tag.theme').forEach(t => t.addEventListener('click', () => {
     state.focusTheme = t.dataset.theme;
@@ -3148,6 +3258,7 @@ async function boot() {
   });
   document.addEventListener('click', e => {
     if (!e.target.closest('.export-menu')) $('#exportDropdown').classList.remove('open');
+    if (!e.target.closest('.cite-picker')) $('#citeDropdown')?.classList.remove('open');
   });
   $$('.export-item').forEach(el => el.addEventListener('click', () => {
     const fmt = el.dataset.format;
