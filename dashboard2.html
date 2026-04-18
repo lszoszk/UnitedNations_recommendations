@@ -571,7 +571,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <div class="match-mode" id="themeMatch"><span style="margin-right:auto">match:</span><button data-m="any" class="on">ANY</button><button data-m="all">ALL</button></div>
       <div class="facet-body" id="f-theme"></div>
     </div>
-    <div class="facet" data-facet="group"><div class="facet-head"><span class="fh-idx">05</span><span>AFFECTED GROUP</span><span class="fh-n" id="n-group">—</span><span class="fh-toggle">▾</span></div>
+    <div class="facet" data-facet="group"><div class="facet-head"><span class="fh-idx">05</span><span>CONCERNED GROUPS</span><span class="fh-n" id="n-group">—</span><span class="fh-toggle">▾</span></div>
       <div class="match-mode" id="groupMatch"><span style="margin-right:auto">match:</span><button data-m="any" class="on">ANY</button><button data-m="all">ALL</button></div>
       <div class="facet-body" id="f-group"></div>
     </div>
@@ -2073,7 +2073,7 @@ function buildOverviewShell() {
         <div class="tl-wrap" id="tlWrap"><div class="panel-loading">aggregating timeline…</div></div>
       </div>
       <div class="panel p-sankey">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Affected groups</span></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div></div>
         <div class="row-list" id="topGroups"><div class="panel-loading">aggregating groups…</div></div>
       </div>
     </div>`;
@@ -2275,7 +2275,7 @@ async function renderTheme() {
     <div class="cp-body">
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="thLegend"></div></div><div class="tl-wrap" id="thTime"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="thCountries"><div class="panel-loading">loading</div></div></div>
-      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Related affected groups</span></div></div><div class="row-list" id="thGroups"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="thGroups"><div class="panel-loading">loading</div></div></div>
       <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="thSeeAll">see all →</button></div></div><div id="thSamples"><div class="panel-loading">loading</div></div></div>
     </div>`;
 
@@ -2303,7 +2303,7 @@ async function renderTheme() {
       <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
       <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
-      <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Affected groups</div></div>`;
+      <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Concerned groups</div></div>`;
     root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
 
     renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false });
@@ -2361,6 +2361,10 @@ async function renderCompare() {
       <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">Over time</span></div></div><div class="tl-wrap" id="cmpTimeB"></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">Themes</span></div></div><div class="row-list" id="cmpThemesA"></div></div>
       <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">Themes</span></div></div><div class="row-list" id="cmpThemesB"></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="cmpGroupsA"></div></div>
+      <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="cmpGroupsB"></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">SDGs</span></div></div><div class="row-list" id="cmpSdgsA"></div></div>
+      <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">SDGs</span></div></div><div class="row-list" id="cmpSdgsB"></div></div>
     </div>`;
 
   $('#cmpSelA').addEventListener('change', e => { state.cmpA = e.target.value; renderCompare(); });
@@ -2376,13 +2380,30 @@ async function renderCompare() {
         api.records(f, 1, 1, { scope: 'records:' + scope }),
       ]);
       const subEl = $(`#cmpSub${letter}`);
-      if (subEl) subEl.textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes`;
+      if (subEl) subEl.textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes · ${(an?.text?.affected_person_counts||[]).length} groups`;
       const timeEl = $(`#cmpTime${letter}`);
       if (timeEl) renderTimeline(timeEl, an?.trends?.yearly_body_counts || {}, { interactive: false });
       const themeEl = $(`#cmpThemes${letter}`);
       if (themeEl) {
         const t = (an?.themes?.theme_counts||[]).slice(0,8).map(x => ({ key:x.theme, label:x.theme, v:x.count }));
         renderRowList(themeEl, t, {});
+      }
+      // Concerned Groups (top 8)
+      const groupEl = $(`#cmpGroups${letter}`);
+      if (groupEl) {
+        const g = (an?.text?.affected_person_counts||[]).slice(0,8).map(x => ({ key:x.affected_person, label:x.affected_person, v:x.count }));
+        renderRowList(groupEl, g, {});
+      }
+      // SDGs (top 10), label as "SDG N — Name"
+      const sdgEl = $(`#cmpSdgs${letter}`);
+      if (sdgEl) {
+        const s = (an?.text?.sdg_counts||[]).slice(0,10).map(x => {
+          const m = String(x.sdg||'').match(/(\d+)/);
+          const n = m ? +m[1] : null;
+          const label = n ? `SDG ${n} — ${SDG_NAMES[n] || ''}`.replace(/ — $/,'') : x.sdg;
+          return { key: x.sdg, label, v: x.count };
+        });
+        renderRowList(sdgEl, s, {});
       }
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -2496,7 +2517,7 @@ function renderMethodology() {
       <dl class="grid-def">
         <dt>Recommending body</dt><dd>The UN mechanism that issued the recommendation (UPR, Treaty Body, or Special Procedure).</dd>
         <dt>Theme</dt><dd>Primary thematic tag assigned by OHCHR — records typically carry more than one.</dd>
-        <dt>Affected group</dt><dd>Population specifically addressed by the recommendation.</dd>
+        <dt>Concerned groups</dt><dd>Populations specifically addressed by the recommendation (children, women, persons with disabilities, migrants, etc.).</dd>
         <dt>SDG</dt><dd>Mapping to the corresponding Sustainable Development Goal (OHCHR crosswalk).</dd>
         <dt>Type</dt><dd>Recommendation, Observation, or Other (procedural, factual).</dd>
       </dl>
@@ -2723,7 +2744,7 @@ function openReader(r) {
       <div><dt class="k">Symbol</dt><dd class="v">${sanitize(r.Symbol||'—')}</dd></div>
       <div><dt class="k">Country</dt><dd class="v">${sanitize(country)} · ${sanitize((r.Regions||[])[0]||'')}</dd></div>
       <div><dt class="k">Themes</dt><dd class="v">${sanitize(themes.join(', ')||'—')}</dd></div>
-      <div><dt class="k">Affected groups</dt><dd class="v">${sanitize((r.AffectedPersons||[]).join(', ')||'—')}</dd></div>
+      <div><dt class="k">Concerned groups</dt><dd class="v">${sanitize((r.AffectedPersons||[]).join(', ')||'—')}</dd></div>
       <div><dt class="k">Type</dt><dd class="v">${sanitize(type)}</dd></div>
       <div><dt class="k">Annotation ID</dt><dd class="v" style="word-break:break-all;font-size:10px">${sanitize(r.AnnotationId||'')}</dd></div>
     </dl>
