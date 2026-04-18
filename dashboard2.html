@@ -637,6 +637,46 @@ const api = {
   },
 };
 
+/* ---------- TOP PROGRESS BAR ---------- */
+function progressBar(pct, label) {
+  let el = document.getElementById('topProgress');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'topProgress';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;height:2px;background:transparent;z-index:400;pointer-events:none';
+    el.innerHTML = '<div id="topProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width .3s ease"></div><div id="topProgressLbl" style="position:absolute;top:4px;right:12px;font:10px var(--mono);color:var(--dim);letter-spacing:.1em"></div>';
+    document.body.appendChild(el);
+  }
+  const fill = document.getElementById('topProgressFill');
+  const lbl = document.getElementById('topProgressLbl');
+  fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  if (label) lbl.textContent = label;
+  if (pct >= 100) setTimeout(() => { fill.style.opacity = '0'; lbl.textContent = ''; }, 500);
+  else fill.style.opacity = '1';
+}
+
+/* ---------- CACHE (localStorage, 1h TTL) ---------- */
+const CACHE_KEY = 'uhri_v2_cache';
+const CACHE_TTL = 60 * 60 * 1000;  // 1h
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const m = JSON.parse(raw);
+    const e = m[key];
+    if (!e || (Date.now() - e.t) > CACHE_TTL) return null;
+    return e.v;
+  } catch { return null; }
+}
+function cacheSet(key, v) {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    const m = raw ? JSON.parse(raw) : {};
+    m[key] = { t: Date.now(), v };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(m));
+  } catch {}
+}
+
 /* ---------- TOAST ---------- */
 let toastT;
 function toast(msg, isErr=false, ms=3200) {
@@ -990,76 +1030,78 @@ function renderTimeline(container, yearlyBodyCounts, opts={}) {
 /* =========================================================================
    VIEW: OVERVIEW
    ========================================================================= */
-async function renderOverview() {
+function buildOverviewShell() {
   const root = $('#view-overview');
-  if (!root.dataset.built) {
-    root.innerHTML = `
-      <div class="ov-grid">
-        <div class="panel p-map">
-          <div class="panel-head">
-            <div class="panel-title"><span class="idx">FIG.01</span><span class="t">Where the recommendations land</span></div>
-            <div class="panel-actions"><span style="color:var(--dim);font-size:10px">22 × 12 grid · click = filter · double-click = country profile</span></div>
-          </div>
-          <div class="map-wrap" id="mapWrap"><div class="panel-loading">loading map</div></div>
+  if (root.dataset.built) return;
+  root.innerHTML = `
+    <div class="ov-grid">
+      <div class="panel p-map">
+        <div class="panel-head">
+          <div class="panel-title"><span class="idx">FIG.01</span><span class="t">Where the recommendations land</span></div>
+          <div class="panel-actions"><span style="color:var(--dim);font-size:10px">22 × 12 grid · click = filter · double-click = country profile</span></div>
         </div>
-        <div class="panel p-top-countries">
-          <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
-          <div class="row-list" id="topCountries"><div class="panel-loading">loading</div></div>
-        </div>
-        <div class="panel p-top-themes">
-          <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
-          <div class="row-list" id="topThemes"><div class="panel-loading">loading</div></div>
-        </div>
-        <div class="panel p-time">
-          <div class="panel-head"><div class="panel-title"><span class="idx">FIG.04</span><span class="t">Volume over time, by recommending body</span></div>
-            <div class="panel-actions" id="tlLegend"></div></div>
-          <div class="tl-wrap" id="tlWrap"><div class="panel-loading">loading</div></div>
-        </div>
-        <div class="panel p-sankey">
-          <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Affected groups</span></div></div>
-          <div class="row-list" id="topGroups"><div class="panel-loading">loading</div></div>
-        </div>
-      </div>`;
-    root.dataset.built = '1';
-  }
+        <div class="map-wrap" id="mapWrap"><div class="panel-loading">loading map</div></div>
+      </div>
+      <div class="panel p-top-countries">
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
+        <div class="row-list" id="topCountries"><div class="panel-loading">loading</div></div>
+      </div>
+      <div class="panel p-top-themes">
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
+        <div class="row-list" id="topThemes"><div class="panel-loading">aggregating 267k records…<br><span style="font-size:9px;opacity:.6">this takes ~10s on first visit, then cached for 1h</span></div></div>
+      </div>
+      <div class="panel p-time">
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.04</span><span class="t">Volume over time, by recommending body</span></div>
+          <div class="panel-actions" id="tlLegend"></div></div>
+        <div class="tl-wrap" id="tlWrap"><div class="panel-loading">aggregating timeline…</div></div>
+      </div>
+      <div class="panel p-sankey">
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Affected groups</span></div></div>
+        <div class="row-list" id="topGroups"><div class="panel-loading">aggregating groups…</div></div>
+      </div>
+    </div>`;
+  root.dataset.built = '1';
+}
 
-  root.classList.add('loading');
-  try {
-    const [analytics, mapD] = await Promise.all([
-      api.analytics(state.filters),
-      api.map(state.filters),
-    ]);
-    state.analytics = analytics;
+function renderOverviewMapOnly(mapD) {
+  renderMap($('#mapWrap'), mapD.country_counts || []);
+  const topC = (mapD.country_counts || []).slice(0, 12).map(c => ({
+    key: c.country, label: c.country, v: c.count
+  }));
+  renderRowList($('#topCountries'), topC, { facet:'country' });
+}
 
-    renderMap($('#mapWrap'), mapD.country_counts || []);
+function renderOverviewAnalytics(analytics) {
+  const topT = (analytics?.themes?.theme_counts || []).slice(0, 10).map(t => ({
+    key: t.theme, label: t.theme, v: t.count
+  }));
+  renderRowList($('#topThemes'), topT, { facet:'theme' });
 
-    // Top countries (from map data)
-    const topC = (mapD.country_counts || []).slice(0, 12).map(c => ({
-      key: c.country, label: c.country, v: c.count
-    }));
-    renderRowList($('#topCountries'), topC, { facet:'country' });
+  const topG = (analytics?.text?.affected_person_counts || []).slice(0, 10).map(g => ({
+    key: g.affected_person, label: g.affected_person, v: g.count
+  }));
+  renderRowList($('#topGroups'), topG, { facet:'group' });
 
-    // Top themes (from analytics)
-    const topT = (analytics?.themes?.theme_counts || []).slice(0, 10).map(t => ({
-      key: t.theme, label: t.theme, v: t.count
-    }));
-    renderRowList($('#topThemes'), topT, { facet:'theme' });
+  renderTimeline($('#tlWrap'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#tlLegend') });
+}
 
-    // Top groups
-    const topG = (analytics?.text?.affected_person_counts || []).slice(0, 10).map(g => ({
-      key: g.affected_person, label: g.affected_person, v: g.count
-    }));
-    renderRowList($('#topGroups'), topG, { facet:'group' });
+async function renderOverview() {
+  buildOverviewShell();
+  const root = $('#view-overview');
 
-    // Timeline
-    renderTimeline($('#tlWrap'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#tlLegend') });
+  // Parallel: map is fast (~1s), analytics is slow (~10s)
+  const mapP = api.map(state.filters).then(d => {
+    renderOverviewMapOnly(d);
+    return d;
+  }).catch(err => { console.warn('map failed', err); return null; });
 
-  } catch (err) {
-    console.error(err);
-    toast('Failed to load overview: ' + err.message, true);
-  } finally {
-    root.classList.remove('loading');
-  }
+  const anP = api.analytics(state.filters).then(d => {
+    state.analytics = d;
+    renderOverviewAnalytics(d);
+    return d;
+  }).catch(err => { console.warn('analytics failed', err); return null; });
+
+  await Promise.all([mapP, anP]);
 }
 
 /* =========================================================================
@@ -1671,38 +1713,56 @@ async function boot() {
     }
   });
 
-  // Boot: fetch facets + baseline analytics in parallel
+  // ---- Progressive boot ----
+  // Phase 1 (fast, ~1s): facets + map + health → render rail skeleton + map
+  // Phase 2 (slow, ~10s): analytics → fill theme/group/timeline panels
+  // Cache: analytics response cached in localStorage for 1h
+
+  progressBar(8, 'FETCHING FACETS');
+
+  // Render shell immediately so user sees layout
+  buildOverviewShell();
+
+  // Try warm cache first for instant analytics paint
+  const cachedAnalytics = cacheGet('analytics:baseline');
+  if (cachedAnalytics) {
+    state.analytics = cachedAnalytics;
+  }
+
+  // Phase 1: facets + map + health in parallel
+  let facets, mapD, health;
   try {
-    const [facets, analytics, health] = await Promise.all([
+    [facets, mapD, health] = await Promise.all([
       api.facets(),
-      api.analytics({}),
+      api.map({}),
       api.health().catch(()=>null),
     ]);
     state.facets = facets;
-    state.analytics = analytics;
     if (health?.size_bytes) $('#datasetSize').textContent = (health.size_bytes / 1024 / 1024).toFixed(0) + ' MB';
-    setStatus('live');
+    progressBar(40, 'RENDERING MAP');
 
-    buildRail(facets, analytics);
+    // Render map + top countries immediately — user sees content at ~1s
+    renderOverviewMapOnly(mapD);
 
-    // Defaults after facets known
+    // Build rail with partial data (no theme/group counts yet — will refresh on analytics)
+    buildRail(facets, cachedAnalytics || { themes:{theme_counts:[]}, text:{affected_person_counts:[], sdg_counts:[]}, trends:{} });
+
+    // Defaults
     const countries = cleanCountryList(facets.countries || []);
     if (!state.focusCountry) state.focusCountry = 'COL';
-    if (!state.focusTheme) state.focusTheme = (analytics?.themes?.theme_counts||[])[0]?.theme || null;
     $('#tabCountry').textContent = ISO_TO_NAME[state.focusCountry] || state.focusCountry;
-    if (state.focusTheme) $('#tabTheme').textContent = state.focusTheme;
     if (!state.cmpA) state.cmpA = countries[0];
     if (!state.cmpB) state.cmpB = countries[1];
 
     _restoreUrlState();
-    await refreshHitCount();
-    await navigate(state.view || 'overview');
-    state.bootstrapDone = true;
+    setStatus('live');
+    progressBar(60, cachedAnalytics ? 'USING CACHED ANALYTICS' : 'AGGREGATING ANALYTICS (267K RECORDS)');
   } catch (err) {
-    console.error('Boot failed', err);
+    console.error('Phase 1 boot failed', err);
     setStatus('error', 'OFFLINE');
+    progressBar(100, 'ERROR');
     toast('Could not reach VM API: ' + err.message + '. Is the VM up?', true, 8000);
-    document.getElementById('view-overview').innerHTML = `
+    $('#view-overview').innerHTML = `
       <div class="me"><h1>Can't reach the VM</h1>
       <p>The dashboard failed to load data from <code>${API_BASE}</code>. Error: <code>${sanitize(err.message)}</code></p>
       <p>This might be a temporary outage, a certificate warning on first visit, or a CORS issue. Try:</p>
@@ -1711,7 +1771,52 @@ async function boot() {
         <li>Using the <a href="https://lszoszk.github.io/UnitedNations_recommendations/">classic dashboard</a> which shares the same API</li>
         <li>Refreshing this page</li>
       </ul></div>`;
+    return;
   }
+
+  // If we have cached analytics, render them right away
+  if (cachedAnalytics) {
+    renderOverviewAnalytics(cachedAnalytics);
+    state.focusTheme = (cachedAnalytics.themes?.theme_counts||[])[0]?.theme || null;
+    if (state.focusTheme) $('#tabTheme').textContent = state.focusTheme;
+  }
+
+  // Initial hit count (fast — page_size=1)
+  refreshHitCount();
+
+  // Navigate to the current view (restored from URL or 'overview')
+  if (state.view && state.view !== 'overview') {
+    await navigate(state.view);
+  }
+
+  // Phase 2: slow analytics in background — user can already interact
+  try {
+    const analytics = await api.analytics({});
+    state.analytics = analytics;
+    cacheSet('analytics:baseline', analytics);
+
+    // Re-render analytics panels in overview
+    if (state.view === 'overview') renderOverviewAnalytics(analytics);
+
+    // Update rail theme + group facets now that we have counts
+    buildRail(state.facets, analytics);
+    // Re-apply any selected filters on the rail UI
+    ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
+
+    // Set default focus theme if not set
+    if (!state.focusTheme) {
+      state.focusTheme = (analytics.themes?.theme_counts||[])[0]?.theme || null;
+      if (state.focusTheme) $('#tabTheme').textContent = state.focusTheme;
+    }
+
+    progressBar(100, 'READY');
+  } catch (err) {
+    console.warn('Analytics failed', err);
+    progressBar(100, 'ANALYTICS OFFLINE');
+    toast('Analytics didn\'t load (' + err.message + '). Map + rail still work.', true, 6000);
+  }
+
+  state.bootstrapDone = true;
 }
 
 boot();
