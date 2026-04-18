@@ -107,13 +107,17 @@ a{color:inherit;text-decoration:none}
 .sdg-cell:hover{border-color:var(--ink)}
 .sdg-cell.on{background:var(--accent);color:var(--paper);border-color:var(--accent)}
 
-.year-slider{position:relative;height:30px;margin:8px 6px 0}
-.ys-track{position:absolute;top:14px;left:0;right:0;height:2px;background:var(--paper-3)}
-.ys-fill{position:absolute;top:14px;height:2px;background:var(--ink)}
-.ys-handle{position:absolute;top:8px;width:14px;height:14px;background:var(--paper);border:1px solid var(--ink);cursor:ew-resize;transform:translateX(-50%)}
-.ys-ticks{position:absolute;top:22px;left:0;right:0;height:6px;display:flex;justify-content:space-between}
+/* Year slider with histogram background */
+.year-slider{position:relative;height:60px;margin:8px 6px 0}
+.ys-hist{position:absolute;left:0;right:0;top:0;height:40px;display:flex;align-items:flex-end;gap:0;pointer-events:none}
+.ys-hist-bar{flex:1;background:var(--dimmer);opacity:.35;min-width:1px;transition:opacity .15s}
+.ys-hist-bar.in-range{opacity:1;background:var(--accent)}
+.ys-track{position:absolute;top:44px;left:0;right:0;height:2px;background:var(--paper-3)}
+.ys-fill{position:absolute;top:44px;height:2px;background:var(--ink)}
+.ys-handle{position:absolute;top:38px;width:14px;height:14px;background:var(--paper);border:1px solid var(--ink);cursor:ew-resize;transform:translateX(-50%);z-index:2}
+.ys-ticks{position:absolute;top:52px;left:0;right:0;height:6px;display:flex;justify-content:space-between}
 .ys-ticks span{width:1px;height:4px;background:var(--line)}
-.year-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:10px;padding:0 6px}
+.year-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:4px;padding:0 6px}
 .year-labels span{border:1px solid var(--line);padding:1px 6px;background:var(--paper-2)}
 
 .rail-foot{padding:10px 14px;display:flex;gap:8px;border-top:1px solid var(--line);flex-wrap:wrap}
@@ -428,6 +432,34 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 body.uploaded-mode .offline-btn{background:#854d0e;color:#fff;border-color:#854d0e}
 body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color:#a16207}
 
+/* Saved views modal + share modal */
+.sv-modal,.sh-modal{position:fixed;inset:0;background:rgba(15,15,16,.7);z-index:220;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.sv-card,.sh-card{background:var(--paper);max-width:520px;width:100%;padding:24px 28px;font-family:var(--mono);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.sv-card h3,.sh-card h3{font-family:var(--serif);font-size:24px;margin:0 0 14px;line-height:1.1;color:var(--ink)}
+.sv-save-row{display:flex;gap:8px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.sv-save-row input{flex:1;padding:8px 10px;border:1px solid var(--line);background:var(--paper);font:12px var(--mono);color:var(--ink)}
+.sv-save-row input:focus{outline:none;border-color:var(--ink)}
+.sv-save-row button{padding:8px 14px;background:var(--ink);color:var(--paper);border:0;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.sv-save-row button:hover{background:var(--accent)}
+.sv-list{max-height:50vh;overflow-y:auto;margin-bottom:12px}
+.sv-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);margin-bottom:6px;cursor:pointer;background:var(--paper)}
+.sv-item:hover{background:var(--paper-2);border-color:var(--ink)}
+.sv-item .name{flex:1;font-size:12px;color:var(--ink)}
+.sv-item .meta{font-size:10px;color:var(--dim);font-family:var(--mono)}
+.sv-item .del{border:0;background:transparent;color:var(--dim);font-size:16px;line-height:1;padding:0 4px;cursor:pointer}
+.sv-item .del:hover{color:#b91c1c}
+.sv-empty{padding:30px 20px;text-align:center;color:var(--dim);font-size:11px;border:1px dashed var(--line);margin-bottom:12px}
+
+.sh-url-row{display:flex;gap:0;margin-bottom:14px}
+.sh-url-row input{flex:1;padding:8px 10px;border:1px solid var(--line);border-right:0;background:var(--paper-2);font:11px var(--mono);color:var(--ink)}
+.sh-url-row button{padding:8px 14px;background:var(--ink);color:var(--paper);border:1px solid var(--ink);font:11px var(--mono);cursor:pointer;letter-spacing:.08em;text-transform:uppercase}
+.sh-url-row button:hover{background:var(--accent);border-color:var(--accent)}
+.sh-options{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+.sh-opt{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--line);font:11px var(--mono);color:var(--ink);cursor:pointer;text-decoration:none;background:var(--paper)}
+.sh-opt:hover{border-color:var(--ink);background:var(--paper-2)}
+.sh-opt .ic{font-size:16px}
+.sh-filters-summary{font-size:11px;color:var(--dim);font-family:var(--mono);background:var(--paper-2);padding:10px 12px;border-left:2px solid var(--accent);margin-bottom:14px;max-height:100px;overflow-y:auto;line-height:1.5}
+
 /* Report modal */
 .rpt-modal{position:fixed;inset:0;background:rgba(15,15,16,.7);z-index:220;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
 .rpt-card{background:var(--paper);max-width:480px;width:100%;padding:24px 28px;font-family:var(--mono)}
@@ -539,6 +571,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <div class="facet" data-facet="year"><div class="facet-head"><span class="fh-idx">09</span><span>YEAR</span><span class="fh-n"><span id="yrAL">—</span>–<span id="yrBL">—</span></span><span class="fh-toggle">▾</span></div>
       <div class="facet-body">
         <div class="year-slider" id="yearSlider">
+          <div class="ys-hist" id="ysHist"></div>
           <div class="ys-track"></div>
           <div class="ys-fill" id="ysFill"></div>
           <div class="ys-handle" id="ysA" data-which="a"></div>
@@ -559,6 +592,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
           <div class="export-item" data-format="json"><span class="fmt">JSON</span><span class="hint">Full record objects</span></div>
         </div>
       </div>
+      <button class="linkbtn" id="btnSaveView">☆ save view</button>
       <button class="linkbtn" id="btnShare">↗ share</button>
       <button class="linkbtn" id="btnReset">↺ reset</button>
     </div>
@@ -1459,7 +1493,28 @@ function buildFacetList(facetKey, items, stateKey) {
   }
 }
 
-/* ---------- YEAR SLIDER ---------- */
+/* ---------- YEAR SLIDER (with histogram, #4) ----------
+   Background bars show record volume per year so users see where the
+   dataset is dense. Bars recolour to accent when inside the selected
+   range, fade to dim outside. Data comes from analytics.trends.yearly_counts
+   (updated via _syncYearHistogram when fresh analytics arrive). */
+function _renderYearHistogram(minY, maxY) {
+  const host = $('#ysHist');
+  if (!host) return;
+  const yc = state.analytics?.trends?.yearly_counts || [];
+  const byYear = {};
+  yc.forEach(o => { byYear[o.year] = o.count; });
+  const years = [];
+  for (let y = minY; y <= maxY; y++) years.push(y);
+  const max = Math.max(1, ...years.map(y => byYear[y] || 0));
+  host.innerHTML = years.map(y => {
+    const v = byYear[y] || 0;
+    const h = Math.max(3, Math.round((v / max) * 36));
+    const inRange = y >= state.filters.yearA && y <= state.filters.yearB;
+    return `<span class="ys-hist-bar ${inRange?'in-range':''}" style="height:${h}px" title="${y}: ${fmt(v)} recs" data-y="${y}"></span>`;
+  }).join('');
+}
+
 function bindYearSlider(minY, maxY) {
   const slider = $('#yearSlider'), fill = $('#ysFill');
   const A = $('#ysA'), B = $('#ysB');
@@ -1471,9 +1526,17 @@ function bindYearSlider(minY, maxY) {
     fill.style.left = pA + '%'; fill.style.width = (pB - pA) + '%';
     $('#yrAL').textContent = state.filters.yearA;
     $('#yrBL').textContent = state.filters.yearB;
+    // Re-colour histogram bars (in-range vs outside)
+    $$('#ysHist .ys-hist-bar').forEach(b => {
+      const y = Number(b.dataset.y);
+      b.classList.toggle('in-range', y >= state.filters.yearA && y <= state.filters.yearB);
+    });
   }
   // Expose so _restoreUrlState and "clear all" can re-sync the handles
   window._syncYearSlider = update;
+  // Expose histogram refresh so boot can call it when analytics lands
+  window._syncYearHistogram = () => _renderYearHistogram(minY, maxY);
+  _renderYearHistogram(minY, maxY);
   update();
   function onDown(e){ dragging = e.target.dataset.which; e.preventDefault(); }
   function onMove(e){
@@ -2749,6 +2812,145 @@ function bindTweaks() {
 }
 
 /* =========================================================================
+   SAVED VIEWS (#6a) — persist filter + focus state with a user-chosen name
+   =========================================================================
+   Stored in localStorage under 'uhri_v2_saved_views'. Each entry:
+     { id, name, created_at, hash }  (hash is the #-string)
+   A saved view replays by setting location.hash then calling _restoreUrlState. */
+const SV_KEY = 'uhri_v2_saved_views';
+function svLoad() {
+  try { return JSON.parse(localStorage.getItem(SV_KEY) || '[]'); } catch { return []; }
+}
+function svSave(list) {
+  try { localStorage.setItem(SV_KEY, JSON.stringify(list)); } catch {}
+}
+
+function describeCurrentState() {
+  const f = state.filters;
+  const bits = [];
+  if (f.kw) bits.push(`"${f.kw}"`);
+  if (f.country.size) bits.push(`${f.country.size} countries`);
+  if (f.body.size) bits.push(`${f.body.size} bodies`);
+  if (f.theme.size) bits.push(`${f.theme.size} themes`);
+  if (f.group.size) bits.push(`${f.group.size} groups`);
+  if (f.region.size) bits.push(`${f.region.size} regions`);
+  if (f.sdg.size) bits.push(`${f.sdg.size} SDGs`);
+  if (state.facets && (f.yearA > state.facets.min_year || f.yearB < state.facets.max_year))
+    bits.push(`${f.yearA}–${f.yearB}`);
+  if (state.view && state.view !== 'overview') bits.push(state.view);
+  return bits.length ? bits.join(', ') : 'no filters';
+}
+
+function openSavedViewsModal() {
+  const m = document.createElement('div');
+  m.className = 'sv-modal';
+  function render() {
+    const list = svLoad();
+    m.innerHTML = `
+      <div class="sv-card">
+        <h3>Saved views</h3>
+        <div class="sv-save-row">
+          <input id="svName" placeholder="Name for current state — e.g. Colombia rule of law 2020–2024" maxlength="80" />
+          <button id="svSave">Save</button>
+        </div>
+        ${list.length ? `
+          <div class="sv-list">
+            ${list.map(v => `
+              <div class="sv-item" data-id="${sanitize(v.id)}">
+                <span class="name">${sanitize(v.name)}</span>
+                <span class="meta">${sanitize(new Date(v.created_at).toISOString().slice(0,10))}</span>
+                <button class="del" data-del="${sanitize(v.id)}" title="Delete">×</button>
+              </div>`).join('')}
+          </div>` : `<div class="sv-empty">No saved views yet. Apply some filters, then give this state a name.</div>`}
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="ofl-actions" style="padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--ink);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer" id="svClose">Close</button>
+        </div>
+      </div>`;
+    $('#svSave', m).addEventListener('click', () => {
+      const input = $('#svName', m);
+      const name = input.value.trim() || ('Saved view · ' + new Date().toISOString().slice(0,16).replace('T',' '));
+      const id = 'sv_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+      const newList = [{ id, name, created_at: Date.now(), hash: location.hash.slice(1) || '' }, ...svLoad()];
+      svSave(newList);
+      toast(`Saved view "${name}"`, false, 3000);
+      render();
+    });
+    $('#svClose', m).addEventListener('click', () => m.remove());
+    m.querySelectorAll('.sv-item').forEach(item => item.addEventListener('click', e => {
+      if (e.target.classList.contains('del')) return;
+      const id = item.dataset.id;
+      const v = svLoad().find(x => x.id === id);
+      if (v) {
+        location.hash = v.hash ? '#' + v.hash : '';
+        // Reset state + reload URL state
+        state.filters = { ...emptyFilters(), yearA: state.facets?.min_year, yearB: state.facets?.max_year };
+        state.focusCountry = null; state.focusTheme = null;
+        _restoreUrlState();
+        renderActiveFilters();
+        refreshHitCount();
+        refreshCurrentView();
+        m.remove();
+        toast(`Loaded view "${v.name}"`, false, 2500);
+      }
+    }));
+    m.querySelectorAll('.del').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.del;
+      svSave(svLoad().filter(x => x.id !== id));
+      render();
+    }));
+  }
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  render();
+  // Pre-fill with a suggested name based on current filters
+  const input = $('#svName', m);
+  if (input) input.value = describeCurrentState();
+}
+
+/* =========================================================================
+   SHARE (#6b) — modal with copy + mail + encoded-URL options
+   ========================================================================= */
+function openShareModal() {
+  const m = document.createElement('div');
+  m.className = 'sh-modal';
+  const u = location.href;
+  const encoded = encodeURIComponent(u);
+  const summary = describeCurrentState();
+  const subject = encodeURIComponent('UHRI analytics — ' + summary);
+  const body = encodeURIComponent('I filtered the UHRI analytics dashboard to: ' + summary + '\n\n' + u);
+  m.innerHTML = `
+    <div class="sh-card">
+      <h3>Share this view</h3>
+      <div class="sh-filters-summary">${sanitize(summary)}</div>
+      <label style="font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;display:block;margin-bottom:4px">Shareable URL</label>
+      <div class="sh-url-row">
+        <input readonly value="${sanitize(u)}" id="shUrl" />
+        <button id="shCopy">Copy</button>
+      </div>
+      <div class="sh-options">
+        <a class="sh-opt" href="mailto:?subject=${subject}&body=${body}"><span class="ic">✉</span>Email</a>
+        <a class="sh-opt" href="https://twitter.com/intent/tweet?text=${subject}&url=${encoded}" target="_blank" rel="noopener"><span class="ic">𝕏</span>Twitter / X</a>
+        <a class="sh-opt" href="https://www.linkedin.com/sharing/share-offsite/?url=${encoded}" target="_blank" rel="noopener"><span class="ic">in</span>LinkedIn</a>
+        <a class="sh-opt" href="https://bsky.app/intent/compose?text=${subject}+${encoded}" target="_blank" rel="noopener"><span class="ic">🦋</span>Bluesky</a>
+      </div>
+      <div style="margin-top:16px;text-align:right">
+        <button id="shClose" style="padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--ink);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  $('#shClose', m).addEventListener('click', () => m.remove());
+  $('#shCopy', m).addEventListener('click', () => {
+    $('#shUrl', m).select();
+    navigator.clipboard.writeText(u).then(() => {
+      $('#shCopy', m).textContent = 'Copied ✓';
+      setTimeout(() => { $('#shCopy', m).textContent = 'Copy'; }, 2000);
+    });
+  });
+}
+
+/* =========================================================================
    REPORT RECORD (feedback loop) — POST /api/feedback/report
    ========================================================================= */
 function openReportModal(rec) {
@@ -2936,10 +3138,8 @@ async function boot() {
     toast('Filters cleared');
   });
   $('#btnReset')?.addEventListener('click', () => $('#clearFilters').click());
-  $('#btnShare').addEventListener('click', () => {
-    const u = location.href;
-    navigator.clipboard.writeText(u).then(() => toast('Share link copied'));
-  });
+  $('#btnShare').addEventListener('click', openShareModal);
+  $('#btnSaveView').addEventListener('click', openSavedViewsModal);
 
   // Export dropdown (#26)
   $('#btnExport').addEventListener('click', e => {
@@ -3104,6 +3304,9 @@ async function boot() {
 
     // Re-render analytics panels in overview
     if (state.view === 'overview') renderOverviewAnalytics(analytics);
+
+    // Refresh year histogram with real data
+    if (typeof window._syncYearHistogram === 'function') window._syncYearHistogram();
 
     // Update rail theme + group facets now that we have counts
     buildRail(state.facets, analytics);
