@@ -85,6 +85,9 @@ a{color:inherit;text-decoration:none}
 
 .kwinput{width:100%;padding:6px 8px;border:1px solid var(--line);background:var(--paper);font-size:11px;font-family:var(--mono)}
 .kwinput:focus{outline:none;border-color:var(--ink)}
+.facet-filter{width:100%;padding:4px 6px;border:1px solid var(--line);background:var(--paper);font-size:10px;font-family:var(--mono);color:var(--ink);margin-bottom:4px;position:sticky;top:0;z-index:1}
+.facet-filter::placeholder{color:var(--dimmer);font-style:italic}
+.facet-filter:focus{outline:none;border-color:var(--ink)}
 
 .opt{display:grid;grid-template-columns:14px 1fr auto;gap:8px;padding:3px 4px;align-items:center;cursor:pointer;font-size:11px;border-left:2px solid transparent}
 .opt:hover{background:var(--paper-2)}
@@ -323,18 +326,31 @@ a{color:inherit;text-decoration:none}
 .toast.hidden{display:none}
 
 /* responsive */
+.mobile-menu-btn{display:none;border:1px solid var(--line);background:var(--paper);padding:3px 9px;color:var(--ink);font-size:14px;cursor:pointer;margin-right:4px}
+.mobile-menu-btn:hover{background:var(--paper-2)}
+.mobile-backdrop{position:fixed;inset:0;background:rgba(15,15,16,.5);z-index:25;animation:fadeIn .2s}
+
 @media(max-width:1200px){
   :root{--rail-w:240px;--drawer-w:280px}
 }
 @media(max-width:960px){
   .app{grid-template-columns:1fr!important}
-  .rail,.drawer{display:none}
+  .rail{display:none;position:fixed;top:var(--top-h);left:0;bottom:0;width:min(320px,85vw);z-index:28;background:var(--paper);border-right:1px solid var(--line);box-shadow:4px 0 20px rgba(0,0,0,.15)}
+  .rail.mobile-open{display:block}
+  .drawer{display:none}
+  .drawer.mobile-open{display:block;position:fixed;top:var(--top-h);right:0;bottom:0;width:min(340px,90vw);z-index:28;background:var(--paper);border-left:1px solid var(--line);box-shadow:-4px 0 20px rgba(0,0,0,.15)}
   .cmdk-hint{display:none}
+  .cmdk{max-width:none}
+  .mobile-menu-btn{display:inline-flex;align-items:center;justify-content:center}
+  .meta > span:not(.dot),.meta > a:nth-of-type(n+2){display:none}
   .ov-grid{grid-template-columns:1fr}
   .p-map,.p-top-countries,.p-top-themes,.p-time,.p-sankey{grid-column:1;grid-row:auto}
   .cp-head{grid-template-columns:1fr}
   .cp-kpis{grid-template-columns:repeat(2,1fr);gap:12px}
   .cp-body,.cmp-body{grid-template-columns:1fr}
+  .map-wrap{height:240px}
+  .tab{min-width:110px}
+  .tab .t-ctx{max-width:100px}
 }
 </style>
 </head>
@@ -343,6 +359,7 @@ a{color:inherit;text-decoration:none}
 <!-- top command bar -->
 <header class="topbar">
   <div class="brand">
+    <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle filters">☰</button>
     <span class="mono-sq"></span>
     <span class="b-name">UHRI</span>
     <span class="b-sub">/ analytics v2 (preview)</span>
@@ -460,6 +477,9 @@ a{color:inherit;text-decoration:none}
     <div class="cmd-results" id="cmdResults"></div>
   </div>
 </div>
+
+<!-- MOBILE BACKDROP (for rail overlay) -->
+<div class="mobile-backdrop hidden" id="mobileBackdrop"></div>
 
 <!-- TOAST -->
 <div class="toast hidden" id="toast"></div>
@@ -602,6 +622,27 @@ function cleanCountryName(s) {
   if (ISO2_TO_NAME[v]) return ISO2_TO_NAME[v];
   return v;
 }
+
+/* Empty filter spec — used by Profile views that want to ignore the rail
+   so they show the full theme/country universe instead of intersecting. */
+function emptyFilters() {
+  return {
+    kw: '', country: new Set(), body: new Set(), theme: new Set(), group: new Set(),
+    region: new Set(), sdg: new Set(), type: new Set(), yearA: null, yearB: null,
+    themesMatch: 'any', groupsMatch: 'any',
+  };
+}
+
+/* Human-readable SDG names for tooltips & palette hints */
+const SDG_NAMES = {
+  1:"No poverty", 2:"Zero hunger", 3:"Good health and well-being", 4:"Quality education",
+  5:"Gender equality", 6:"Clean water and sanitation", 7:"Affordable and clean energy",
+  8:"Decent work and economic growth", 9:"Industry, innovation and infrastructure",
+  10:"Reduced inequalities", 11:"Sustainable cities and communities",
+  12:"Responsible consumption and production", 13:"Climate action", 14:"Life below water",
+  15:"Life on land", 16:"Peace, justice and strong institutions",
+  17:"Partnerships for the goals",
+};
 
 /* ---------- STATE ---------- */
 const state = {
@@ -806,13 +847,9 @@ async function refreshHitCount() {
    RAIL
    ========================================================================= */
 function buildRail(facets, analytics) {
-  // --- COUNTRY ---
+  // --- COUNTRY --- all countries, searchable in-facet
   const countries = cleanCountryList(facets.countries || []).sort();
-  // Pair with map counts if analytics has them (fallback: just list)
-  const countryCountsByName = {};
-  (analytics?.themes?.theme_counts || []);  // noop
-  // Countries don't have counts from /api/data/facets; use map endpoint or analytics
-  buildFacetList('country', countries.slice(0, 50).map(c => ({ key:c, label:c })), 'country');
+  buildFacetList('country', countries.map(c => ({ key:c, label:c })), 'country');
   $('#n-country').textContent = countries.length;
 
   // --- BODY ---
@@ -848,7 +885,9 @@ function buildRail(facets, analytics) {
   const sdgEl = $('#f-sdg');
   sdgEl.innerHTML = Array.from({length:17},(_,i)=>i+1).map(n => {
     const c = sdgCountsByN[n];
-    return `<div class="sdg-cell" data-k="${n}" title="SDG ${n}${c?': '+fmt(c)+' recs':''}">${n}</div>`;
+    const name = SDG_NAMES[n] || '';
+    const tip = `SDG ${n}${name?' — '+name:''}${c?' ('+fmt(c)+' recs)':''}`;
+    return `<div class="sdg-cell" data-k="${n}" title="${sanitize(tip)}">${n}</div>`;
   }).join('');
   sdgEl.querySelectorAll('.sdg-cell').forEach(c => c.addEventListener('click', () => {
     const k = Number(c.dataset.k);
@@ -896,20 +935,39 @@ function buildRail(facets, analytics) {
 function buildFacetList(facetKey, items, stateKey) {
   const el = $('#f-' + facetKey);
   const set = state.filters[stateKey];
-  el.innerHTML = items.map(it => {
+  // Add an in-facet search box for lists with >15 options — huge help for
+  // power users looking for "Viet Nam" or "Uzbekistan" in long lists
+  const withSearch = items.length > 15;
+  const searchHtml = withSearch
+    ? `<input class="facet-filter" type="search" placeholder="filter ${items.length}…" data-for="${facetKey}" />`
+    : '';
+  const listHtml = items.map(it => {
     const on = set.has(it.key) ? 'on' : '';
-    return `<div class="opt ${on}" data-k="${sanitize(it.key)}">
+    return `<div class="opt ${on}" data-k="${sanitize(it.key)}" data-search="${sanitize(String(it.label||'').toLowerCase())}">
       <span class="box"></span>
       <span class="txt" title="${sanitize(it.label)}">${sanitize(it.label)}</span>
       ${it.count != null ? `<span class="n">${fmt(it.count)}</span>` : ''}
     </div>`;
   }).join('');
+  el.innerHTML = searchHtml + listHtml;
   el.querySelectorAll('.opt').forEach(o => o.addEventListener('click', () => {
     const k = o.dataset.k;
     if (set.has(k)) set.delete(k); else set.add(k);
     o.classList.toggle('on');
     onFiltersChanged();
   }));
+  const input = el.querySelector('.facet-filter');
+  if (input) {
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      el.querySelectorAll('.opt').forEach(o => {
+        const match = !q || o.dataset.search.includes(q);
+        o.style.display = match ? '' : 'none';
+      });
+    });
+    // Prevent facet-head collapse when clicking search
+    input.addEventListener('click', e => e.stopPropagation());
+  }
 }
 
 /* ---------- YEAR SLIDER ---------- */
@@ -1276,7 +1334,10 @@ async function renderCountry() {
     renderCountry();
   });
 
-  const countryFilter = { ...state.filters, country: new Set([name]) };
+  // Profile view is scoped — ignore the rail's other filters so the page
+  // reflects the full country universe. Users who want intersections use
+  // the Search tab (which does respect the rail).
+  const countryFilter = { ...emptyFilters(), country: new Set([name]) };
   try {
     const [analytics, records] = await Promise.all([
       api.analytics(countryFilter),
@@ -1380,7 +1441,9 @@ async function renderTheme() {
     renderTheme();
   });
 
-  const themeFilter = { ...state.filters, theme: new Set([name]) };
+  // Scoped view — ignores rail so the page shows all records matching
+  // this theme globally. Consistent with Country Profile.
+  const themeFilter = { ...emptyFilters(), theme: new Set([name]) };
   try {
     const [analytics, mapD, records] = await Promise.all([
       api.analytics(themeFilter),
@@ -1832,13 +1895,34 @@ async function boot() {
   $('#cmdPalette').addEventListener('click', e => { if (e.target.id === 'cmdPalette') closePalette(); });
   $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') $('#reader').classList.add('hidden'); });
   $('#drawerClear').addEventListener('click', () => { state.selectedRec = null; renderDrawer(); });
+
+  // Mobile menu: rail slides in from left as overlay with backdrop
+  function closeMobileRail() {
+    $('#rail').classList.remove('mobile-open');
+    $('#mobileBackdrop').classList.add('hidden');
+  }
+  function openMobileRail() {
+    $('#rail').classList.add('mobile-open');
+    $('#mobileBackdrop').classList.remove('hidden');
+  }
+  $('#mobileMenuBtn').addEventListener('click', () => {
+    if ($('#rail').classList.contains('mobile-open')) closeMobileRail();
+    else openMobileRail();
+  });
+  $('#mobileBackdrop').addEventListener('click', closeMobileRail);
+  // Also: on mobile, clicking a tab or closing a filter should auto-close the rail
+  $$('.tab').forEach(t => t.addEventListener('click', () => { if (window.innerWidth < 960) closeMobileRail(); }));
   $('#clearFilters').addEventListener('click', () => {
-    state.filters = { kw:'', country:new Set(), body:new Set(), theme:new Set(), group:new Set(), region:new Set(), sdg:new Set(), type:new Set(), yearA:state.facets?.min_year, yearB:state.facets?.max_year, themesMatch:'any', groupsMatch:'any' };
+    state.filters = { ...emptyFilters(),
+      yearA: state.facets?.min_year, yearB: state.facets?.max_year };
     $('#kwInput').value = '';
+    $('#tabSearch').textContent = '—';
     ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
     // Reset slider
-    if (state.facets) { $('#yrAL').textContent = state.facets.min_year; $('#yrBL').textContent = state.facets.max_year; }
+    if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
     $$('.match-mode button').forEach(b => b.classList.toggle('on', b.dataset.m === 'any'));
+    // Clear any visible in-facet search filters so all options reappear
+    $$('.facet-filter').forEach(inp => { inp.value = ''; inp.dispatchEvent(new Event('input')); });
     onFiltersChanged();
     toast('Filters cleared');
   });
@@ -1895,12 +1979,15 @@ async function boot() {
     // Build rail with partial data (no theme/group counts yet — will refresh on analytics)
     buildRail(facets, cachedAnalytics || { themes:{theme_counts:[]}, text:{affected_person_counts:[], sdg_counts:[]}, trends:{} });
 
-    // Defaults
-    const countries = cleanCountryList(facets.countries || []);
-    if (!state.focusCountry) state.focusCountry = 'COL';
+    // Defaults — compare & focus use the top-volume countries (from map data),
+    // not alphabetical, so the initial Compare view is actually interesting.
+    const topByVolume = (mapD.country_counts || [])
+      .map(c => cleanCountryName(c.country))
+      .filter(n => n && n.length > 2);
+    if (!state.focusCountry) state.focusCountry = NAME_TO_ISO[topByVolume[0]] || 'COL';
     $('#tabCountry').textContent = ISO_TO_NAME[state.focusCountry] || state.focusCountry;
-    if (!state.cmpA) state.cmpA = countries[0];
-    if (!state.cmpB) state.cmpB = countries[1];
+    if (!state.cmpA) state.cmpA = topByVolume[0] || 'Colombia';
+    if (!state.cmpB) state.cmpB = topByVolume[1] || 'Brazil';
 
     _restoreUrlState();
     setStatus('live');
