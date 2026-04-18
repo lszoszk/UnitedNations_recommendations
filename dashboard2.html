@@ -579,6 +579,25 @@ a{color:inherit;text-decoration:none}
 .se-explainer .pill .v{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
 .se-explainer .pill.rec{border-color:var(--accent);background:color-mix(in oklab, var(--accent) 12%, var(--paper))}
 .se-explainer kbd{border:1px solid var(--line);padding:0 4px;font-family:var(--mono);font-size:10px;color:var(--ink);background:var(--paper)}
+.se-kw-clear{border:1px solid var(--line);background:var(--paper);color:var(--dim);font-size:14px;line-height:1;padding:1px 6px;cursor:pointer;margin-left:-6px}
+.se-kw-clear:hover{border-color:#b91c1c;color:#b91c1c}
+.se-sort{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;display:inline-flex;gap:6px;align-items:center}
+.se-sort select{padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:11px var(--mono)}
+.se-sort select:hover{border-color:var(--ink);background:var(--paper-2)}
+.se-bulk{display:none;gap:10px;align-items:center;padding:8px 20px;background:color-mix(in oklab, var(--accent) 10%, var(--paper));border-bottom:1px solid var(--accent);font:11px var(--mono);position:sticky;top:0;z-index:4}
+.se-bulk.on{display:flex}
+.se-bulk .cnt{color:var(--ink);font-weight:700;font-size:12px}
+.se-bulk button{padding:4px 10px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.se-bulk button:hover{background:var(--ink);color:var(--paper)}
+.se-bulk .clear{margin-left:auto;color:var(--dim);background:transparent;border:0;cursor:pointer;padding:2px 4px;font-size:12px}
+.se-bulk .clear:hover{color:#b91c1c}
+/* Checkbox on each search result — small + flush to the left edge so it
+   doesn't change the card's rhythm when nothing is selected. */
+.se-item{padding-left:44px;position:relative}
+.se-item .se-check{position:absolute;left:16px;top:18px;padding:0;cursor:pointer}
+.se-item .se-check input{width:14px;height:14px;cursor:pointer;accent-color:var(--accent);margin:0}
+.se-item.selected{background:color-mix(in oklab, var(--accent) 9%, var(--paper))}
+.se-item.selected:hover{background:color-mix(in oklab, var(--accent) 14%, var(--paper))}
 .se-pager{display:flex;gap:4px;font-size:10px;color:var(--dim);margin-left:12px}
 .se-pager button{padding:2px 8px;border:1px solid var(--line);color:var(--ink)}
 .se-pager button:disabled{opacity:.4;cursor:not-allowed}
@@ -1530,6 +1549,8 @@ const state = {
   analytics: null,      // last global analytics
   searchPage: 1,
   searchPageSize: 30,
+  searchSort: { by: 'publication_date', dir: 'desc' },
+  searchSelection: new Set(),  // holds AnnotationIds across pagination
   totalHits: 0,
   bootstrapDone: false,
 };
@@ -1631,6 +1652,11 @@ const api = {
     const p = buildParams(f||state.filters);
     p.set('page', page || 1);
     p.set('page_size', pageSize || 30);
+    // Optional sort passthrough — backend accepts sort_by ∈
+    // {publication_date, year, body, country, type, text, themes, citation}
+    // and sort_dir ∈ {asc, desc}. Caller decides whether to send them.
+    if (opts.sort_by) p.set('sort_by', opts.sort_by);
+    if (opts.sort_dir) p.set('sort_dir', opts.sort_dir);
     return apiGet(E.records, p, { scope: 'records', ...opts });
   },
   recordsCount: (f) => {
@@ -4276,7 +4302,9 @@ function _renderSearchItem(rec, idx, kw) {
   const typeLabel = (typeRaw && typeRaw !== '—') ? typeRaw : '';
   const symbol = rec.Symbol || '';
   const isLong = fullTxt.length > 520;
-  return `<div class="se-item" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
+  const isSelected = state.searchSelection.has(rec.AnnotationId);
+  return `<div class="se-item${isSelected?' selected':''}" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
+    <label class="se-check" title="Select for bulk actions" onclick="event.stopPropagation()"><input type="checkbox" data-bulkcb="${idx}" ${isSelected?'checked':''}></label>
     <div class="se-hdr">
       <span class="yr">${sanitize(yr || '—')}</span>
       <span class="country" title="${sanitize(country)}">${sanitize(country)}</span>
@@ -4323,11 +4351,26 @@ async function renderSearch() {
   state.currentResultSource = 'search';
   if (_seObserver) { _seObserver.disconnect(); _seObserver = null; }
 
+  const sortBy = state.searchSort?.by || 'publication_date';
+  const sortDir = state.searchSort?.dir || 'desc';
+  const sortKey = sortBy + ':' + sortDir;
+
   root.innerHTML = `
     <div class="se-head">
       <span class="lbl">Search results</span>
       <span class="q">${kw ? `"${sanitize(kw)}"` : 'all recommendations'}</span>
+      ${kw ? `<button class="se-kw-clear" id="seKwClear" title="Clear keyword filter">×</button>` : ''}
       <span class="n" id="seN" aria-live="polite">loading…</span>
+      <span style="flex:1"></span>
+      <label class="se-sort">sort
+        <select id="seSort" title="Change result order">
+          <option value="publication_date:desc" ${sortKey==='publication_date:desc'?'selected':''}>date · newest first</option>
+          <option value="publication_date:asc"  ${sortKey==='publication_date:asc'?'selected':''}>date · oldest first</option>
+          <option value="country:asc"           ${sortKey==='country:asc'?'selected':''}>country · A–Z</option>
+          <option value="body:asc"              ${sortKey==='body:asc'?'selected':''}>body · A–Z</option>
+          <option value="type:asc"              ${sortKey==='type:asc'?'selected':''}>type · recommendation first</option>
+        </select>
+      </label>
     </div>
     <div class="se-explainer">
       <span>Each row is <strong>one paragraph</strong> extracted from a UN concluding observation, UPR report or Special Procedure communication.</span>
@@ -4335,12 +4378,101 @@ async function renderSearch() {
       <span class="pill" id="seBreakObs" title="Observations — findings, concerns, notes"><span class="v">…</span> Observations</span>
       <span class="pill" id="seBreakOther" title="Follow-up requests, procedural paragraphs, etc."><span class="v">…</span> Other</span>
       <span style="flex:1"></span>
-      <span style="color:var(--dim)">Click row → full reader · hover for actions · <kbd>/</kbd> focus keyword</span>
+      <span style="color:var(--dim)">Click row → reader · checkbox → bulk · <kbd>/</kbd> focus keyword</span>
+    </div>
+    <div class="se-bulk" id="seBulk" aria-live="polite">
+      <span class="cnt" id="seBulkCount">0 selected</span>
+      <button id="seBulkBookmark">★ Bookmark all</button>
+      <button id="seBulkExportMd">Export .md</button>
+      <button id="seBulkExportXlsx">Export .xlsx</button>
+      <button id="seBulkPin" title="Pin first two as A/B for compare">📌 Pin first 2</button>
+      <button class="clear" id="seBulkClear">× clear</button>
     </div>
     <div class="se-list" id="seList" role="list"></div>
     <div class="se-sentinel" id="seSentinel" aria-live="polite"><span class="dot"></span>Loading more…</div>`;
 
+  // H. Inline × on the keyword badge — fastest way to drop a too-narrow
+  // keyword without hunting back to the rail input.
+  $('#seKwClear')?.addEventListener('click', () => {
+    state.filters.kw = '';
+    if ($('#kwInput')) $('#kwInput').value = '';
+    $('#tabSearch').textContent = '—';
+    onFiltersChanged();
+  });
+  // F. Sort dropdown — round-trips through state.searchSort + re-renders.
+  $('#seSort')?.addEventListener('change', (e) => {
+    const [by, dir] = e.target.value.split(':');
+    state.searchSort = { by, dir };
+    renderSearch();
+  });
+  // G. Bulk-bar wiring — selection persists across pagination by AnnotationId.
+  _seUpdateBulkBar();
+  $('#seBulkBookmark')?.addEventListener('click', _seBulkBookmark);
+  $('#seBulkExportMd')?.addEventListener('click', () => _seExportSelected('md'));
+  $('#seBulkExportXlsx')?.addEventListener('click', () => _seExportSelected('xlsx'));
+  $('#seBulkPin')?.addEventListener('click', _seBulkPin);
+  $('#seBulkClear')?.addEventListener('click', () => {
+    state.searchSelection.clear();
+    _seUpdateBulkBar();
+    document.querySelectorAll('.se-item.selected').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.se-item input[type="checkbox"]').forEach(cb => cb.checked = false);
+  });
+
   await loadNextSearchPage();
+}
+
+/* ---------- Bulk-selection helpers for search results (F+G) ----------
+   Selection is keyed by AnnotationId so toggling off-screen items (after
+   scrolling + re-sorting) still works. UI is additive: the bulk bar only
+   appears when ≥1 item is selected. */
+function _seUpdateBulkBar() {
+  const n = state.searchSelection.size;
+  const bar = $('#seBulk'); const cnt = $('#seBulkCount');
+  if (bar) bar.classList.toggle('on', n > 0);
+  if (cnt) cnt.textContent = `${n} selected` + (n >= 2 ? ' · ready to pin 2 or bulk-export' : '');
+}
+function _seToggleSelect(rec, onClass) {
+  if (!rec || !rec.AnnotationId) return;
+  const id = rec.AnnotationId;
+  if (state.searchSelection.has(id)) state.searchSelection.delete(id);
+  else state.searchSelection.add(id);
+  _seUpdateBulkBar();
+  return state.searchSelection.has(id);
+}
+function _seBulkBookmark() {
+  let added = 0;
+  state.searchLoaded.forEach(r => {
+    if (r && state.searchSelection.has(r.AnnotationId) && !bmHas(r.AnnotationId)) {
+      bmToggle(r); added++;
+    }
+  });
+  toast(`Bookmarked ${added} record${added !== 1 ? 's' : ''}`, false, 2200);
+  // Refresh the star state on-screen so the user sees the effect
+  document.querySelectorAll('.se-item [data-act="bookmark"]').forEach(b => {
+    const idx = +b.dataset.idx;
+    const r = state.searchLoaded[idx]; if (!r) return;
+    const on = bmHas(r.AnnotationId);
+    b.classList.toggle('starred', on);
+    b.textContent = on ? '★ Bookmarked' : '☆ Bookmark';
+  });
+}
+function _seBulkPin() {
+  const picks = state.searchLoaded.filter(r => r && state.searchSelection.has(r.AnnotationId)).slice(0, 2);
+  if (picks.length < 2) { toast('Select at least 2 records to compare', true, 2000); return; }
+  state.diffPins = picks;
+  _renderDiffTray();
+  toast(`Pinned ${picks.length} record(s) · check the tray bottom-right`, false, 2400);
+}
+function _seExportSelected(kind) {
+  const picks = state.searchLoaded.filter(r => r && state.searchSelection.has(r.AnnotationId));
+  if (!picks.length) { toast('Nothing selected', true, 1800); return; }
+  const fakeCtx = {
+    kind: 'search',
+    value: (state.filters.kw || '').trim() || 'all',
+    records: picks,
+    total: picks.length,
+  };
+  _exportDrawerList(kind, fakeCtx);
 }
 
 /* Update the type-breakdown pills in the explainer based on whatever
@@ -4373,7 +4505,11 @@ async function loadNextSearchPage() {
   const kw = state.filters.kw.trim();
   const pageSize = state.searchPageSize;
   try {
-    const r = await api.records(state.filters, state.searchPage, pageSize);
+    const sortOpts = state.searchSort || {};
+    const r = await api.records(state.filters, state.searchPage, pageSize, {
+      sort_by: sortOpts.by || 'publication_date',
+      sort_dir: sortOpts.dir || 'desc',
+    });
     const total = r.total_records;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const n = $('#seN');
@@ -4426,6 +4562,15 @@ async function loadNextSearchPage() {
         ev.stopPropagation();
         const on = el.classList.toggle('expanded');
         ev.currentTarget.textContent = on ? '↑ Collapse' : '↓ Show full text';
+      });
+      // Bulk-select checkbox (G) — syncs to state.searchSelection and the
+      // sticky bulk bar. Checkbox click already has stopPropagation via
+      // label/onclick, so the card's reader-click doesn't fire too.
+      el.querySelector('input[type="checkbox"][data-bulkcb]')?.addEventListener('change', (ev) => {
+        const idx = +ev.target.dataset.bulkcb;
+        const rec = state.searchLoaded[idx]; if (!rec) return;
+        const on = _seToggleSelect(rec);
+        el.classList.toggle('selected', !!on);
       });
       // Per-row actions: read / bookmark / pin / copy / note
       el.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', (ev) => {
