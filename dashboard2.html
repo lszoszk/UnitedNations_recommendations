@@ -3301,10 +3301,12 @@ async function renderTheme() {
         <select id="thSelect">${opts}</select></div>
     </div>
     <div class="cp-body">
-      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="thLegend"></div></div><div class="tl-wrap" id="thTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="thLegend"></div></div><div class="tl-wrap" id="thTime"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="thCountries"><div class="panel-loading">loading</div></div></div>
-      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="thGroups"><div class="panel-loading">loading</div></div></div>
-      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="thSeeAll">see all →</button></div></div><div id="thSamples"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Co-occurring themes</span></div></div><div class="row-list" id="thThemes"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="thGroups"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Top SDGs</span></div></div><div class="row-list" id="thSdgs"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.F</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="thSeeAll">see all →</button></div></div><div id="thSamples"><div class="panel-loading">loading</div></div></div>
     </div>`;
 
   $('#thSelect').addEventListener('change', e => {
@@ -3336,7 +3338,12 @@ async function renderTheme() {
 
     renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false });
     renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
+    // Co-occurring themes: exclude self, show next 12 that appear in the same records
+    const themes = (analytics?.themes?.theme_counts || []).filter(t => t.theme !== name).slice(0,12);
+    renderRowList($('#thThemes'), themes.map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
     renderRowList($('#thGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
+    const sdgs = analytics?.text?.sdg_counts || [];
+    renderRowList($('#thSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
 
     const sampleEl = $('#thSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -3386,11 +3393,12 @@ async function renderGroup() {
       <div class="cp-picker"><label>Switch group</label><select id="gpSelect">${opts}</select></div>
     </div>
     <div class="cp-body">
-      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="gpLegend"></div></div><div class="tl-wrap" id="gpTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="gpLegend"></div></div><div class="tl-wrap" id="gpTime"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="gpCountries"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Top themes</span></div></div><div class="row-list" id="gpThemes"><div class="panel-loading">loading</div></div></div>
-      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Top SDGs</span></div></div><div class="row-list" id="gpSdgs"><div class="panel-loading">loading</div></div></div>
-      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="gpSeeAll">see all →</button></div></div><div id="gpSamples"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Co-occurring groups</span></div></div><div class="row-list" id="gpGroups"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Top SDGs</span></div></div><div class="row-list" id="gpSdgs"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.F</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="gpSeeAll">see all →</button></div></div><div id="gpSamples"><div class="panel-loading">loading</div></div></div>
     </div>`;
   $('#gpSelect').addEventListener('change', e => {
     state.focusGroup = e.target.value;
@@ -3419,6 +3427,9 @@ async function renderGroup() {
     renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false });
     renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
     renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
+    // Co-occurring groups — other concerned groups appearing in the same records
+    const coGroups = (analytics?.text?.affected_person_counts || []).filter(g => g.affected_person !== name).slice(0,12);
+    renderRowList($('#gpGroups'), coGroups.map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
     renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
 
     const sampleEl = $('#gpSamples'); sampleEl.innerHTML = '';
@@ -3468,11 +3479,12 @@ async function renderSDG() {
       <div class="cp-picker"><label>Switch SDG</label><select id="spSelect">${opts}</select></div>
     </div>
     <div class="cp-body">
-      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="spLegend"></div></div><div class="tl-wrap" id="spTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="spLegend"></div></div><div class="tl-wrap" id="spTime"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="spCountries"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Top themes</span></div></div><div class="row-list" id="spThemes"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="spGroups"><div class="panel-loading">loading</div></div></div>
-      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="spSeeAll">see all →</button></div></div><div id="spSamples"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Co-occurring SDGs</span></div></div><div class="row-list" id="spSdgs"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.F</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="spSeeAll">see all →</button></div></div><div id="spSamples"><div class="panel-loading">loading</div></div></div>
     </div>`;
   $('#spSelect').addEventListener('change', e => {
     state.focusSdg = e.target.value;
@@ -3506,6 +3518,9 @@ async function renderSDG() {
     renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
     renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
     renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
+    // Co-occurring SDGs — other SDG targets appearing alongside this one
+    const coSdgs = (analytics?.text?.sdg_counts || []).filter(s => s.sdg !== sdg).slice(0,12);
+    renderRowList($('#spSdgs'), coSdgs.map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
 
     const sampleEl = $('#spSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
