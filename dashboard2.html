@@ -255,8 +255,18 @@ a{color:inherit;text-decoration:none}
 .panel.pending .rl-row .v,.panel.pending .tl-svg,.panel.pending .sk-spark{opacity:.35;transition:opacity .2s}
 .panel.pending::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:refreshSlide 1.4s infinite;pointer-events:none;z-index:11}
 
-/* overview grid */
-.ov-grid{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:auto auto auto;gap:1px;background:var(--line)}
+/* overview grid — map dominates (3fr:1fr), right column stacks the ranking lists */
+.ov-grid{display:grid;grid-template-columns:3fr 1fr;grid-template-rows:auto auto auto;gap:1px;background:var(--line)}
+/* Focus mode: vertical stack, map full-width, lists below — drawer always open + wider */
+body.focus-mode .ov-grid{grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto}
+body.focus-mode .ov-grid .p-map{grid-column:1;grid-row:1}
+body.focus-mode .ov-grid .p-time{grid-column:1;grid-row:2}
+body.focus-mode .ov-grid .p-top-countries{grid-column:1;grid-row:3}
+body.focus-mode .ov-grid .p-top-themes{grid-column:1;grid-row:4}
+body.focus-mode .ov-grid .p-sankey{grid-column:1;grid-row:5}
+body.focus-mode{--drawer-w:460px}
+body.focus-mode .app.drawer-closed{grid-template-columns:var(--rail-w) 1fr var(--drawer-w)}  /* force drawer open */
+body.focus-mode .drawer{display:block!important}
 .panel{background:var(--paper);padding:14px 16px;min-height:0;overflow:hidden;position:relative}
 .panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
 .panel-title{display:flex;gap:10px;align-items:baseline}
@@ -294,7 +304,7 @@ a{color:inherit;text-decoration:none}
 .p-sankey{grid-column:2;grid-row:3}
 
 /* Real choropleth (TopoJSON) — all 199 countries */
-.map-wrap{position:relative;height:400px;overflow:hidden}
+.map-wrap{position:relative;height:auto;min-height:400px;overflow:visible}
 .map-wrap svg{width:100%;height:100%;display:block}
 .map-wrap .country{cursor:pointer;transition:stroke-width .1s,filter .1s;stroke:var(--line);stroke-width:0.4}
 .map-wrap .country:hover{stroke:var(--ink);stroke-width:1;filter:brightness(.92)}
@@ -734,6 +744,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">classic ↗</a>
     <span class="sep">·</span>
     <button class="changelog-btn seen" id="changelogBtn" title="Data pipeline changelog" aria-label="Pipeline changelog"><span class="pulse" aria-hidden="true"></span>NEW</button>
+    <button class="tw-btn" id="focusBtn" title="Toggle Focus mode — vertical stack + always-open drawer (f)" aria-label="Toggle focus mode"><span id="focusIcon">⤢</span><span id="focusLbl">FOCUS</span></button>
     <button class="tw-btn" id="twBtn" title="Appearance & layout" aria-label="Appearance settings"><span class="sw-preview" id="twPreview"></span>THEME</button>
   </div>
 </header>
@@ -902,7 +913,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <div class="row"><span>Left rail</span><button class="toggle on" id="railTog">ON</button></div>
   <div class="row"><span>Drawer</span><button class="toggle on" id="drawerTog">ON</button></div>
   <div class="tweaks-shortcuts">
-    Shortcuts: <kbd>t</kbd> cycle palette · <kbd>[</kbd> toggle rail · <kbd>]</kbd> toggle drawer · <kbd>?</kbd> help
+    Shortcuts: <kbd>t</kbd> palette · <kbd>[</kbd> rail · <kbd>]</kbd> drawer · <kbd>f</kbd> focus · <kbd>?</kbd> help
   </div>
 </div>
 
@@ -3890,6 +3901,7 @@ function renderPalette(q) {
     { kind:'ACTION', label:'Density: Roomy',    sub:'comfortable',          action:()=>{closePalette();setDensity('roomy');} },
     { kind:'ACTION', label:'Toggle left rail',  sub:'hide / show filters ([)', action:()=>{closePalette();toggleRail();} },
     { kind:'ACTION', label:'Toggle drawer',     sub:'hide / show record details (])', action:()=>{closePalette();toggleDrawer();} },
+    { kind:'ACTION', label:'Toggle Focus mode', sub:'vertical stack, drawer always open (f)', action:()=>{closePalette();toggleFocusMode();} },
     { kind:'ACTION', label:'Open tour',         sub:'4-step walkthrough',   action:()=>{closePalette();startTour();} },
     { kind:'ACTION', label:'Clear all filters', sub:'reset to baseline',    action:()=>{closePalette();$('#clearFilters').click();} },
     { kind:'ACTION', label:'Share this view',   sub:'copy URL / email / social', action:()=>{closePalette();openShareModal();} },
@@ -4066,6 +4078,33 @@ function closeTweaks() {
 function toggleTweaks() {
   if ($('#tweaks').classList.contains('open')) closeTweaks();
   else openTweaks();
+}
+
+/* Focus mode — opt-in vertical-stack layout with always-open wider drawer.
+   Default is cockpit (map + lists side-by-side + drawer on demand). */
+function getFocusMode() {
+  try { return localStorage.getItem('uhri_v2_focus_mode') === '1'; } catch { return false; }
+}
+function applyFocusMode(enabled) {
+  document.body.classList.toggle('focus-mode', enabled);
+  const icon = $('#focusIcon'), lbl = $('#focusLbl'), btn = $('#focusBtn');
+  if (icon && lbl) {
+    icon.textContent = enabled ? '⤡' : '⤢';
+    lbl.textContent = enabled ? 'COMPACT' : 'FOCUS';
+    btn?.classList.toggle('on', enabled);
+  }
+  if (enabled) { TW.drawer = true; applyTweaks(); }
+  try { localStorage.setItem('uhri_v2_focus_mode', enabled ? '1' : '0'); } catch {}
+  // Re-render current view so map/timeline re-measure the new column width
+  if (state.view === 'overview' && state._lastCountryCounts) {
+    renderMap($('#mapWrap'), state._lastCountryCounts);
+    if (state.analytics) renderOverviewAnalytics(state.analytics);
+  }
+}
+function toggleFocusMode() {
+  const next = !document.body.classList.contains('focus-mode');
+  applyFocusMode(next);
+  announce(next ? 'Focus mode on — vertical layout with drawer open' : 'Compact mode — side-by-side layout');
 }
 
 function bindTweaks() {
@@ -4942,6 +4981,8 @@ function maybeShowTour() {
 async function boot() {
   setStatus('loading');
   loadTweaks(); bindTweaks(); applyTweaks();
+  applyFocusMode(getFocusMode());
+  $('#focusBtn')?.addEventListener('click', toggleFocusMode);
   bindKwInput();
 
   // PWA: register service worker for offline shell + data SWR cache.
@@ -5073,6 +5114,7 @@ async function boot() {
     else if (e.key === '[' && !inInput) { e.preventDefault(); toggleRail(); }
     else if (e.key === ']' && !inInput) { e.preventDefault(); toggleDrawer(); }
     else if (e.key === '?' && !inInput) { e.preventDefault(); startTour(); }
+    else if (e.key === 'f' && !inInput) { e.preventDefault(); toggleFocusMode(); }
     // Bookmark toggle — b (only when a record is selected)
     else if (e.key === 'b' && !inInput) {
       if (state.selectedRec) {
