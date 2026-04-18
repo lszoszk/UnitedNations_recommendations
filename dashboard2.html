@@ -213,6 +213,23 @@ a{color:inherit;text-decoration:none}
 .panel-loading{color:var(--dim);font-size:11px;padding:40px 0;text-align:center}
 .panel-loading::after{content:"·";animation:dots 1.5s steps(4) infinite}
 
+/* Skeletons — pulsing blocks while data loads.
+   Two-layer gradient (paper/paper-3) with sweeping shimmer overlay. */
+.skel{background:var(--paper-2);position:relative;overflow:hidden;border-radius:1px}
+.skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,color-mix(in oklab, var(--paper) 40%, transparent),transparent);animation:skel-sweep 1.4s infinite;pointer-events:none}
+@keyframes skel-sweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.skel-list{padding:6px 0}
+.skel-list .skel-row{display:grid;grid-template-columns:22px 1fr 40px;gap:8px;padding:4px 2px;align-items:center;border-bottom:1px dotted var(--line)}
+.skel-list .skel-row:last-child{border-bottom:none}
+.skel-list .skel-rank{height:8px;opacity:.5}
+.skel-list .skel-bar{height:18px;width:var(--w,80%)}
+.skel-list .skel-num{height:10px;margin-left:auto;width:30px;opacity:.6}
+.skel-tl{height:220px;position:relative;padding:10px}
+.skel-tl-area{position:absolute;left:40px;right:20px;top:40px;bottom:30px}
+.skel-tl-axis{position:absolute;left:40px;right:20px;bottom:18px;height:2px;background:var(--paper-3)}
+.skel-map{height:100%;display:flex;align-items:center;justify-content:center;position:relative}
+.skel-map::before{content:"rendering 199 countries";color:var(--dim);font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;opacity:.6}
+
 .p-map{grid-column:1;grid-row:1 / span 2}
 .p-time{grid-column:1;grid-row:3}
 .p-top-countries{grid-column:2;grid-row:1}
@@ -372,19 +389,30 @@ a{color:inherit;text-decoration:none}
 .me .grid-def dd{margin:0;font-family:var(--serif);font-size:14px}
 
 /* ---------- TWEAKS ---------- */
-.tweaks{position:fixed;right:14px;bottom:14px;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:11px;padding:12px 14px;z-index:90;min-width:240px;display:none;box-shadow:0 20px 50px rgba(0,0,0,.2)}
+/* Tweaks dropdown — lives in the topbar, anchored to the settings button */
+.tw-btn{border:1px solid var(--line);background:var(--paper);color:var(--dim);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.tw-btn:hover{border-color:var(--ink);color:var(--ink)}
+.tw-btn .sw-preview{width:10px;height:10px;border:1px solid var(--line);background:var(--paper)}
+.tw-btn.open{border-color:var(--ink);background:var(--paper-2)}
+.tweaks{position:absolute;top:calc(var(--top-h) + 2px);right:10px;background:var(--paper);color:var(--ink);font-family:var(--mono);font-size:11px;padding:14px 16px;z-index:90;min-width:260px;display:none;box-shadow:0 10px 40px rgba(0,0,0,.18);border:1px solid var(--ink)}
 .tweaks.open{display:block}
-.tweaks h4{margin:0 0 10px;font-size:10px;letter-spacing:.2em;color:var(--dimmer);text-transform:uppercase;display:flex;justify-content:space-between}
-.tweaks .close{cursor:pointer}
-.tweaks .row{display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;margin-bottom:8px}
-.tweaks select{background:#1b1b1c;color:var(--paper);border:1px solid #2c2c2d;font-family:var(--mono);font-size:11px;padding:3px 5px;width:100%}
+.tweaks h4{margin:0 0 12px;font-size:10px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.tweaks .close{cursor:pointer;color:var(--dim);font-size:14px;line-height:1}
+.tweaks .close:hover{color:var(--ink)}
+.tweaks .row{display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;margin-bottom:10px}
+.tweaks .row > span:first-child{color:var(--dim);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.tweaks select{background:var(--paper);color:var(--ink);border:1px solid var(--line);font-family:var(--mono);font-size:11px;padding:4px 6px;width:100%}
+.tweaks select:focus{outline:none;border-color:var(--ink)}
 .tweaks .swatches{display:flex;gap:4px}
-.tweaks .sw{width:20px;height:20px;border:1px solid #2c2c2d;cursor:pointer}
-.tweaks .sw.active{outline:2px solid var(--paper);outline-offset:2px}
-.tweaks .toggle{background:#1b1b1c;border:1px solid #2c2c2d;padding:3px 7px;cursor:pointer;color:var(--paper)}
-.tweaks .toggle.on{background:var(--accent);border-color:var(--accent);color:#000}
-.gear{position:fixed;right:14px;bottom:14px;z-index:85;width:30px;height:30px;border:1px solid var(--line);background:var(--paper);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--dim);font-size:14px}
-.gear:hover{color:var(--ink);border-color:var(--ink)}
+.tweaks .sw{width:22px;height:22px;border:1px solid var(--line);cursor:pointer;position:relative}
+.tweaks .sw:hover{border-color:var(--ink)}
+.tweaks .sw.active{outline:2px solid var(--ink);outline-offset:2px;border-color:var(--ink)}
+.tweaks .sw-label{font-size:9px;color:var(--dim);margin-left:auto;align-self:center;letter-spacing:.08em;text-transform:uppercase}
+.tweaks .toggle{background:var(--paper);border:1px solid var(--line);padding:4px 8px;cursor:pointer;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;min-width:60px;justify-content:center}
+.tweaks .toggle.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.tweaks .toggle:hover:not(.on){border-color:var(--ink)}
+.tweaks .tweaks-shortcuts{border-top:1px dotted var(--line);margin-top:8px;padding-top:10px;font-size:10px;color:var(--dim);line-height:1.8}
+.tweaks .tweaks-shortcuts kbd{border:1px solid var(--line);padding:0 4px;background:var(--paper-2);font-family:var(--mono);font-size:10px;color:var(--ink);margin:0 2px}
 
 [data-density="cozy"]{--row-h:26px}
 [data-density="cozy"] body{font-size:13px}
@@ -441,6 +469,19 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 /* Small note in the card when data is user-uploaded */
 body.uploaded-mode .offline-btn{background:#854d0e;color:#fff;border-color:#854d0e}
 body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color:#a16207}
+
+/* Onboarding tour — first-visit spotlight */
+.tour-backdrop{position:fixed;inset:0;background:rgba(15,15,16,.72);z-index:240;animation:fadeIn .25s}
+.tour-pop{position:fixed;z-index:241;background:var(--paper);color:var(--ink);font-family:var(--mono);max-width:340px;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.4);border-left:3px solid var(--accent)}
+.tour-pop h4{margin:0 0 8px;font-family:var(--serif);font-size:22px;line-height:1.1;font-weight:400;letter-spacing:-.01em}
+.tour-pop p{margin:0 0 14px;font-size:12px;line-height:1.5;color:var(--ink-2)}
+.tour-pop kbd{border:1px solid var(--line);padding:1px 5px;background:var(--paper-2);font-family:var(--mono);font-size:11px;color:var(--ink)}
+.tour-pop .nav{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.tour-pop .nav button{padding:5px 10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:11px var(--mono);cursor:pointer;letter-spacing:.08em;text-transform:uppercase}
+.tour-pop .nav button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tour-pop .nav button:hover{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+.tour-pop .step{color:var(--dim)}
+.tour-spot{position:fixed;z-index:240;border:2px solid var(--accent);box-shadow:0 0 0 9999px rgba(15,15,16,.72);pointer-events:none;transition:all .3s;border-radius:2px}
 
 /* Saved views modal + share modal */
 .sv-modal,.sh-modal{position:fixed;inset:0;background:rgba(15,15,16,.7);z-index:220;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
@@ -542,6 +583,8 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <a href="#methodology" data-nav="methodology">methodology</a>
     <span class="sep">·</span>
     <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">classic ↗</a>
+    <span class="sep">·</span>
+    <button class="tw-btn" id="twBtn" title="Appearance & layout (shift+?)"><span class="sw-preview" id="twPreview"></span>THEME</button>
   </div>
 </header>
 
@@ -662,22 +705,30 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <!-- TOAST -->
 <div class="toast hidden" id="toast"></div>
 
-<!-- TWEAKS -->
-<button class="gear" id="gearBtn" title="Appearance & layout">⚙</button>
+<!-- TWEAKS panel — anchored to top-bar THEME button -->
 <div class="tweaks" id="tweaks">
-  <h4>APPEARANCE <span class="close" id="tweaksClose">×</span></h4>
-  <div class="row"><span>Palette</span>
+  <h4>APPEARANCE & LAYOUT <span class="close" id="tweaksClose" title="Close">×</span></h4>
+  <div class="row">
+    <span>Palette</span>
     <div class="swatches" id="swPalette">
-      <div class="sw" data-pal="archive" style="background:#F2EFE8" title="Archive"></div>
-      <div class="sw" data-pal="terminal" style="background:#0b0d0b" title="Terminal"></div>
-      <div class="sw" data-pal="ink" style="background:#ffffff" title="Ink+Cobalt"></div>
+      <div class="sw" data-pal="archive" style="background:#F2EFE8" title="Archive — warm paper (default)"></div>
+      <div class="sw" data-pal="terminal" style="background:#0b0d0b" title="Terminal — dark green-on-black"></div>
+      <div class="sw" data-pal="ink" style="background:#ffffff" title="Ink — pure white + cobalt accent"></div>
     </div>
   </div>
-  <div class="row"><span>Density</span>
-    <select id="densitySel"><option value="tight">Tight</option><option value="cozy">Cozy</option><option value="roomy">Roomy</option></select>
+  <div class="row">
+    <span>Density</span>
+    <select id="densitySel">
+      <option value="tight">Tight (Bloomberg)</option>
+      <option value="cozy">Cozy</option>
+      <option value="roomy">Roomy</option>
+    </select>
   </div>
-  <div class="row"><span>Rail</span><button class="toggle on" id="railTog">ON</button></div>
+  <div class="row"><span>Left rail</span><button class="toggle on" id="railTog">ON</button></div>
   <div class="row"><span>Drawer</span><button class="toggle on" id="drawerTog">ON</button></div>
+  <div class="tweaks-shortcuts">
+    Shortcuts: <kbd>t</kbd> cycle palette · <kbd>[</kbd> toggle rail · <kbd>]</kbd> toggle drawer · <kbd>?</kbd> help
+  </div>
 </div>
 
 <script>
@@ -2047,6 +2098,22 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
 /* =========================================================================
    VIEW: OVERVIEW
    ========================================================================= */
+function _skelRowList(count = 8) {
+  const widths = [95, 85, 78, 72, 65, 58, 50, 44, 38, 32];
+  const rows = [];
+  for (let i = 0; i < count; i++) {
+    const w = widths[i % widths.length];
+    rows.push(`<div class="skel-row"><div class="skel skel-rank"></div><div class="skel skel-bar" style="--w:${w}%"></div><div class="skel skel-num"></div></div>`);
+  }
+  return `<div class="skel-list">${rows.join('')}</div>`;
+}
+function _skelTimeline() {
+  return `<div class="skel-tl"><div class="skel skel-tl-area"></div><div class="skel-tl-axis"></div></div>`;
+}
+function _skelMap() {
+  return `<div class="skel-map"></div>`;
+}
+
 function buildOverviewShell() {
   const root = $('#view-overview');
   if (root.dataset.built) return;
@@ -2055,26 +2122,26 @@ function buildOverviewShell() {
       <div class="panel p-map">
         <div class="panel-head">
           <div class="panel-title"><span class="idx">FIG.01</span><span class="t">Where the recommendations land</span></div>
-          <div class="panel-actions"><span style="color:var(--dim);font-size:10px">22 × 12 grid · click = filter · double-click = country profile</span></div>
+          <div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter · double-click = country profile</span></div>
         </div>
-        <div class="map-wrap" id="mapWrap"><div class="panel-loading">loading map</div></div>
+        <div class="map-wrap" id="mapWrap">${_skelMap()}</div>
       </div>
       <div class="panel p-top-countries">
         <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
-        <div class="row-list" id="topCountries"><div class="panel-loading">loading</div></div>
+        <div class="row-list" id="topCountries">${_skelRowList(10)}</div>
       </div>
       <div class="panel p-top-themes">
         <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span></div></div>
-        <div class="row-list" id="topThemes"><div class="panel-loading">aggregating 267k records…<br><span style="font-size:9px;opacity:.6">this takes ~10s on first visit, then cached for 1h</span></div></div>
+        <div class="row-list" id="topThemes">${_skelRowList(8)}</div>
       </div>
       <div class="panel p-time">
         <div class="panel-head"><div class="panel-title"><span class="idx">FIG.04</span><span class="t">Volume over time, by recommending body</span></div>
           <div class="panel-actions" id="tlLegend"></div></div>
-        <div class="tl-wrap" id="tlWrap"><div class="panel-loading">aggregating timeline…</div></div>
+        <div class="tl-wrap" id="tlWrap">${_skelTimeline()}</div>
       </div>
       <div class="panel p-sankey">
         <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div></div>
-        <div class="row-list" id="topGroups"><div class="panel-loading">aggregating groups…</div></div>
+        <div class="row-list" id="topGroups">${_skelRowList(8)}</div>
       </div>
     </div>`;
   root.dataset.built = '1';
@@ -2797,8 +2864,25 @@ function renderPalette(q) {
     { kind:'VIEW', label:'Methodology', sub:'about the dataset', score: 95, action:()=>{closePalette();navigate('methodology');} },
   ];
 
+  // ACTIONS — appearance & layout commands surfaced in palette
+  const ACTIONS = [
+    { kind:'ACTION', label:'Palette: Archive', sub:'warm paper (default)',  action:()=>{closePalette();setPalette('archive');} },
+    { kind:'ACTION', label:'Palette: Terminal', sub:'dark green-on-black',  action:()=>{closePalette();setPalette('terminal');} },
+    { kind:'ACTION', label:'Palette: Ink',      sub:'white + cobalt',       action:()=>{closePalette();setPalette('ink');} },
+    { kind:'ACTION', label:'Density: Tight',    sub:'Bloomberg-dense',      action:()=>{closePalette();setDensity('tight');} },
+    { kind:'ACTION', label:'Density: Cozy',     sub:'balanced',             action:()=>{closePalette();setDensity('cozy');} },
+    { kind:'ACTION', label:'Density: Roomy',    sub:'comfortable',          action:()=>{closePalette();setDensity('roomy');} },
+    { kind:'ACTION', label:'Toggle left rail',  sub:'hide / show filters ([)', action:()=>{closePalette();toggleRail();} },
+    { kind:'ACTION', label:'Toggle drawer',     sub:'hide / show record details (])', action:()=>{closePalette();toggleDrawer();} },
+    { kind:'ACTION', label:'Open tour',         sub:'4-step walkthrough',   action:()=>{closePalette();startTour();} },
+    { kind:'ACTION', label:'Clear all filters', sub:'reset to baseline',    action:()=>{closePalette();$('#clearFilters').click();} },
+    { kind:'ACTION', label:'Share this view',   sub:'copy URL / email / social', action:()=>{closePalette();openShareModal();} },
+    { kind:'ACTION', label:'Saved views',       sub:'load / name current state', action:()=>{closePalette();openSavedViewsModal();} },
+  ];
+
   let results = [];
   VIEWS.forEach(v => { if (matches(v.label)) results.push({ ...v, _score: q ? scoreMatch(v.label) + 30 : 200 - VIEWS.indexOf(v) }); });
+  ACTIONS.forEach(a => { if (matches(a.label)) results.push({ ...a, _score: q ? scoreMatch(a.label) + 20 : 150 - ACTIONS.indexOf(a) }); });
 
   // Themes — boosted above countries when query matches a theme word
   themes.forEach(t => {
@@ -2913,33 +2997,65 @@ async function navigate(view) {
 }
 
 /* =========================================================================
-   TWEAKS
-   ========================================================================= */
-const TW = { palette:'archive', density:'tight', rail:true, drawer:true };
+   TWEAKS — palette / density / rail / drawer (integrated into topbar)
+   =========================================================================
+   Three ways to change any of these:
+   1. Click THEME button in topbar → dropdown
+   2. Keyboard: t (palette cycle), [ (rail), ] (drawer)
+   3. Command palette: type "palette archive" / "density cozy" / "toggle rail"
+   All changes persist to localStorage. */
+const TW = { palette: 'archive', density: 'tight', rail: true, drawer: true };
+const PALETTES = ['archive', 'terminal', 'ink'];
+const PALETTE_PREVIEW = { archive: '#F2EFE8', terminal: '#0b0d0b', ink: '#ffffff' };
+
 function applyTweaks() {
   document.body.dataset.palette = TW.palette;
   document.body.dataset.density = TW.density;
   $('#app').classList.toggle('rail-closed', !TW.rail);
   $('#app').classList.toggle('drawer-closed', !TW.drawer);
-  $('#railTog').classList.toggle('on', TW.rail);    $('#railTog').textContent = TW.rail?'ON':'OFF';
-  $('#drawerTog').classList.toggle('on', TW.drawer);$('#drawerTog').textContent = TW.drawer?'ON':'OFF';
-  $('#densitySel').value = TW.density;
+  const railTog = $('#railTog'); if (railTog) { railTog.classList.toggle('on', TW.rail); railTog.textContent = TW.rail?'ON':'OFF'; }
+  const drawTog = $('#drawerTog'); if (drawTog) { drawTog.classList.toggle('on', TW.drawer); drawTog.textContent = TW.drawer?'ON':'OFF'; }
+  const dSel = $('#densitySel'); if (dSel) dSel.value = TW.density;
   $$('#swPalette .sw').forEach(s => s.classList.toggle('active', s.dataset.pal === TW.palette));
+  // Topbar preview swatch — shows current palette at a glance
+  const preview = $('#twPreview'); if (preview) preview.style.background = PALETTE_PREVIEW[TW.palette] || '#ccc';
   try { localStorage.setItem('uhri_v2_tw', JSON.stringify(TW)); } catch {}
 }
+
 function loadTweaks() {
   try { const s = localStorage.getItem('uhri_v2_tw'); if (s) Object.assign(TW, JSON.parse(s)); } catch {}
 }
+
+function setPalette(p) { if (PALETTES.includes(p)) { TW.palette = p; applyTweaks(); toast('Palette → ' + p, false, 1800); } }
+function cyclePalette() { const i = PALETTES.indexOf(TW.palette); setPalette(PALETTES[(i + 1) % PALETTES.length]); }
+function setDensity(d) { if (['tight','cozy','roomy'].includes(d)) { TW.density = d; applyTweaks(); toast('Density → ' + d, false, 1800); } }
+function toggleRail() { TW.rail = !TW.rail; applyTweaks(); toast('Rail ' + (TW.rail?'shown':'hidden'), false, 1500); }
+function toggleDrawer() { TW.drawer = !TW.drawer; applyTweaks(); toast('Drawer ' + (TW.drawer?'shown':'hidden'), false, 1500); }
+
+function openTweaks() {
+  $('#tweaks').classList.add('open');
+  $('#twBtn').classList.add('open');
+}
+function closeTweaks() {
+  $('#tweaks').classList.remove('open');
+  $('#twBtn').classList.remove('open');
+}
+function toggleTweaks() {
+  if ($('#tweaks').classList.contains('open')) closeTweaks();
+  else openTweaks();
+}
+
 function bindTweaks() {
-  $$('#swPalette .sw').forEach(s => s.addEventListener('click', () => { TW.palette = s.dataset.pal; applyTweaks(); }));
-  $('#densitySel').addEventListener('change', e => { TW.density = e.target.value; applyTweaks(); });
-  $('#railTog').addEventListener('click', () => { TW.rail = !TW.rail; applyTweaks(); });
-  $('#drawerTog').addEventListener('click', () => { TW.drawer = !TW.drawer; applyTweaks(); });
-  $('#tweaksClose').addEventListener('click', () => $('#tweaks').classList.remove('open'));
-  $('#gearBtn').addEventListener('click', () => { $('#tweaks').classList.toggle('open'); $('#gearBtn').style.display = $('#tweaks').classList.contains('open')?'none':'flex'; });
-  // When closed, show gear again
-  const obs = new MutationObserver(() => { if (!$('#tweaks').classList.contains('open')) $('#gearBtn').style.display='flex'; });
-  obs.observe($('#tweaks'), { attributes:true, attributeFilter:['class'] });
+  $$('#swPalette .sw').forEach(s => s.addEventListener('click', () => setPalette(s.dataset.pal)));
+  $('#densitySel').addEventListener('change', e => setDensity(e.target.value));
+  $('#railTog').addEventListener('click', toggleRail);
+  $('#drawerTog').addEventListener('click', toggleDrawer);
+  $('#tweaksClose').addEventListener('click', closeTweaks);
+  $('#twBtn').addEventListener('click', e => { e.stopPropagation(); toggleTweaks(); });
+  // Close when clicking outside
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#tweaks') && !e.target.closest('#twBtn')) closeTweaks();
+  });
 }
 
 /* =========================================================================
@@ -3225,6 +3341,137 @@ async function exportXLSXFromRows(rows, filename) {
 }
 
 /* =========================================================================
+   RECORD DEEP-LINK (#18) — ?sel=<id> opens a record in the reader modal
+   =========================================================================
+   Supports three data-source paths:
+   1. Offline mode — find locally in offline.data (instant)
+   2. VM mode — fetch from /api/data/record/{id} (single-record endpoint)
+   3. Fallback — if the new endpoint is absent (older VM), try /records
+      with text_query scan; if that also fails, show a toast and ignore. */
+async function fetchRecordById(id) {
+  if (!id) return null;
+  if (offline.enabled && offline.data) {
+    return offline.data.find(r => r.AnnotationId === id) || null;
+  }
+  try {
+    const res = await fetch(API_BASE + '/api/data/record/' + encodeURIComponent(id));
+    if (res.ok) {
+      const d = await res.json();
+      return d.record || null;
+    }
+  } catch (e) { /* try fallback */ }
+  return null;
+}
+
+async function handleSelParam() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  const id = p.get('sel');
+  if (!id) return;
+  const rec = await fetchRecordById(id);
+  if (!rec) {
+    toast('Record not found: ' + id.slice(0, 12) + '…', true, 4500);
+    return;
+  }
+  state.selectedRec = rec;
+  state.currentResultList = [rec];
+  state.currentResultIndex = 0;
+  renderDrawer();
+  openReader(rec);
+}
+
+/* =========================================================================
+   ONBOARDING TOUR (#16) — 4-step spotlight for first-time visitors
+   =========================================================================
+   Shown once, dismissible, skip-all available. Uses localStorage flag
+   uhri_v2_tour_done so returning users don't see it again. */
+const TOUR_STEPS = [
+  { target: '#cmdkBtn',       title: 'Fast jump with ⌘K',     text: 'Press <kbd>⌘</kbd><kbd>K</kbd> (or Ctrl+K) to fuzzy-search any country, theme, body or view. Two keystrokes instead of three clicks.' },
+  { target: '#rail',          title: 'Filter from the rail',  text: 'Every filter is here — country, body, theme, year, SDG. Live hit count updates as you click; chips appear above the main content so you always know what\'s applied.' },
+  { target: '#tabs',          title: 'Six angles on the data',text: 'Overview · Country profile · Theme profile · Compare two countries · full-text Search · Methodology. Drag the timeline on Overview to scope by year.' },
+  { target: '#drawer',        title: 'Drawer follows you',    text: 'Click any record in a list, map cell or search result — it opens here. Press <kbd>j</kbd> / <kbd>k</kbd> to flip through results without losing your place.' },
+  { target: '#offlineBtn',    title: 'Offline & Private Mode',text: 'Download the full 267k-record dataset into your browser. Filtering becomes instant (~50ms) and nothing leaves your machine — useful for sensitive research.' },
+];
+
+function startTour() {
+  let step = 0;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'tour-backdrop';
+  const pop = document.createElement('div');
+  pop.className = 'tour-pop';
+  const spot = document.createElement('div');
+  spot.className = 'tour-spot';
+  document.body.appendChild(backdrop);
+  document.body.appendChild(spot);
+  document.body.appendChild(pop);
+
+  function render() {
+    const s = TOUR_STEPS[step];
+    const target = document.querySelector(s.target);
+    if (!target) { next(); return; }  // skip if target doesn't exist
+    const r = target.getBoundingClientRect();
+    const pad = 6;
+    spot.style.top = (r.top - pad) + 'px';
+    spot.style.left = (r.left - pad) + 'px';
+    spot.style.width = (r.width + pad*2) + 'px';
+    spot.style.height = (r.height + pad*2) + 'px';
+
+    pop.innerHTML = `
+      <h4>${s.title}</h4>
+      <p>${s.text}</p>
+      <div class="nav">
+        <span class="step">${step + 1} / ${TOUR_STEPS.length}</span>
+        <div style="display:flex;gap:6px">
+          <button id="tourSkip">Skip</button>
+          ${step > 0 ? '<button id="tourPrev">← Back</button>' : ''}
+          <button class="primary" id="tourNext">${step === TOUR_STEPS.length - 1 ? 'Done ✓' : 'Next →'}</button>
+        </div>
+      </div>`;
+    // Position popup relative to spotlight — below by default, above if near bottom
+    const vw = window.innerWidth, vh = window.innerHeight;
+    pop.style.visibility = 'hidden';
+    pop.style.top = '0'; pop.style.left = '0';
+    // measure after forcing layout
+    const pr = pop.getBoundingClientRect();
+    let top = r.bottom + 14;
+    let left = r.left;
+    if (top + pr.height > vh - 20) top = r.top - pr.height - 14;
+    if (left + pr.width > vw - 20) left = vw - pr.width - 20;
+    if (left < 20) left = 20;
+    pop.style.top = top + 'px';
+    pop.style.left = left + 'px';
+    pop.style.visibility = 'visible';
+
+    $('#tourSkip', pop).addEventListener('click', finish);
+    $('#tourNext', pop).addEventListener('click', next);
+    $('#tourPrev', pop)?.addEventListener('click', prev);
+  }
+  function next() { if (step >= TOUR_STEPS.length - 1) finish(); else { step++; render(); } }
+  function prev() { if (step > 0) step--; render(); }
+  function finish() {
+    try { localStorage.setItem('uhri_v2_tour_done', '1'); } catch {}
+    backdrop.remove(); spot.remove(); pop.remove();
+    document.removeEventListener('keydown', keyHandler);
+  }
+  function keyHandler(e) {
+    if (e.key === 'Escape') finish();
+    else if (e.key === 'ArrowRight' || e.key === 'Enter') next();
+    else if (e.key === 'ArrowLeft') prev();
+  }
+  document.addEventListener('keydown', keyHandler);
+  backdrop.addEventListener('click', finish);
+  window.addEventListener('resize', render);
+  render();
+}
+
+function maybeShowTour() {
+  try {
+    if (localStorage.getItem('uhri_v2_tour_done')) return;
+    // Delay a beat so the layout settles
+    setTimeout(startTour, 900);
+  } catch {}
+}
+
+/* =========================================================================
    BOOT
    ========================================================================= */
 async function boot() {
@@ -3329,6 +3576,11 @@ async function boot() {
         navigateRec(e.key === 'j' ? 1 : -1);
       }
     }
+    // Tweaks shortcuts: t (cycle palette), [ (rail), ] (drawer), ? (help/tour)
+    else if (e.key === 't' && !inInput) { e.preventDefault(); cyclePalette(); }
+    else if (e.key === '[' && !inInput) { e.preventDefault(); toggleRail(); }
+    else if (e.key === ']' && !inInput) { e.preventDefault(); toggleDrawer(); }
+    else if (e.key === '?' && !inInput) { e.preventDefault(); startTour(); }
   });
 
   // ---- Progressive boot with stale-while-revalidate ----
@@ -3459,6 +3711,12 @@ async function boot() {
   }
 
   state.bootstrapDone = true;
+
+  // Deep-link: if URL has ?sel=<id>, fetch that record + open reader
+  handleSelParam();
+
+  // First-visit onboarding tour (dismissible, shown once)
+  maybeShowTour();
 }
 
 boot();
