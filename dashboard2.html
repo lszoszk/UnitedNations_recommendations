@@ -906,10 +906,11 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="group" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">04</span><span class="t-lbl">Group profile</span><span class="t-ctx" id="tabGroup">—</span></a>
       <a class="tab" data-nav="theme" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">05</span><span class="t-lbl">Theme profile</span><span class="t-ctx" id="tabTheme">—</span></a>
       <a class="tab" data-nav="sdg" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">06</span><span class="t-lbl">SDG profile</span><span class="t-ctx" id="tabSdg">—</span></a>
-      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">07</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
-      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">08</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">09</span><span class="t-lbl">🧪 Labels</span><span class="t-ctx" id="tabLabels">—</span></a>
-      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">10</span><span class="t-lbl">Methodology</span></a>
+      <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">07</span><span class="t-lbl">Mechanism profile</span><span class="t-ctx" id="tabMechanism">—</span></a>
+      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">08</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
+      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">09</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
+      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">10</span><span class="t-lbl">🧪 Labels</span><span class="t-ctx" id="tabLabels">—</span></a>
+      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
     </nav>
 
     <div class="active-filters" id="activeFilters"></div>
@@ -920,6 +921,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <section class="view hidden" id="view-group"></section>
     <section class="view hidden" id="view-theme"></section>
     <section class="view hidden" id="view-sdg"></section>
+    <section class="view hidden" id="view-mechanism"></section>
     <section class="view hidden" id="view-search"></section>
     <section class="view hidden" id="view-bookmarks"></section>
     <section class="view hidden" id="view-labels"></section>
@@ -1316,6 +1318,7 @@ const state = {
   focusTheme: null,     // theme string
   focusGroup: null,     // concerned group string
   focusSdg: null,       // SDG label e.g. "SDG 16.3"
+  focusMechanism: null, // recommending body, e.g. "CCPR"
   cmpA: null, cmpB: null,
   facets: null,         // will be populated from /api/data/facets
   analytics: null,      // last global analytics
@@ -1996,8 +1999,17 @@ function buildFacetList(facetKey, items, stateKey) {
     </div>`;
   }).join('');
   el.innerHTML = searchHtml + listHtml;
-  el.querySelectorAll('.opt').forEach(o => o.addEventListener('click', () => {
+  el.querySelectorAll('.opt').forEach(o => o.addEventListener('click', (ev) => {
     const k = o.dataset.k;
+    // Shift-click on certain facets opens that entity's profile instead of
+    // toggling the filter. Keeps "click to narrow" as the default, offers
+    // "Shift-click to zoom in" for power users.
+    if (ev.shiftKey) {
+      if (facetKey === 'body')    { state.focusMechanism = k; $('#tabMechanism').textContent = k; navigate('mechanism'); return; }
+      if (facetKey === 'country') { state.focusCountry = NAME_TO_ISO[k] || k; $('#tabCountry').textContent = k; navigate('country'); return; }
+      if (facetKey === 'theme')   { state.focusTheme = k; $('#tabTheme').textContent = k; navigate('theme'); return; }
+      if (facetKey === 'group')   { state.focusGroup = k; $('#tabGroup').textContent = k; navigate('group'); return; }
+    }
     const set = currentSet();  // read live, survives reassignment
     if (set.has(k)) set.delete(k); else set.add(k);
     o.classList.toggle('on');
@@ -2178,6 +2190,7 @@ async function refreshCurrentView() {
   else if (state.view === 'theme')   await renderTheme();
   else if (state.view === 'group')   await renderGroup();
   else if (state.view === 'sdg')     await renderSDG();
+  else if (state.view === 'mechanism') await renderMechanism();
   else if (state.view === 'compare') await renderCompare();
 }
 
@@ -3745,6 +3758,104 @@ async function renderSDG() {
 }
 
 /* =========================================================================
+   VIEW: MECHANISM PROFILE — scoped to a single recommending body
+   =========================================================================
+   Mirrors Theme/Group/SDG profile shape but scopes by body (e.g. CCPR,
+   UPR, SR on Torture). Uses _scopedFilter so rail intersects normally. */
+async function renderMechanism() {
+  const root = $('#view-mechanism');
+  const name = state.focusMechanism;
+  if (!name) {
+    root.innerHTML = `<div class="me"><h1>Pick a recommending body</h1><p>Use the command palette (⌘K → "Mechanism profile"), shift-click a body in the rail, or click a body in Overview to open it here.</p></div>`;
+    return;
+  }
+
+  // Populate the switcher from the facets (raw, dash-stripped to match state)
+  const bodies = (state.facets?.bodies || [])
+    .filter(b => b && b !== '-')
+    .map(b => b.replace(/^-\s*/, ''));
+  const opts = bodies.map(b => `<option value="${sanitize(b)}" ${b===name?'selected':''}>${sanitize(b)}</option>`).join('');
+
+  root.innerHTML = `
+    <div class="cp-head">
+      <div>
+        <div class="cp-iso">RECOMMENDING BODY · MECHANISM PROFILE</div>
+        <h1 class="cp-name" style="font-size:48px">${sanitize(name)}</h1>
+        <div class="cp-sub">Loading…</div>
+        <div class="cp-kpis" id="mpKpis"></div>
+        <div id="mpRailNote"></div>
+      </div>
+      <div class="cp-picker"><label>Switch mechanism</label><select id="mpSelect">${opts}</select></div>
+    </div>
+    <div class="cp-body">
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="mpLegend"></div></div><div class="tl-wrap" id="mpTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="mpCountries"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Top themes</span></div></div><div class="row-list" id="mpThemes"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="mpGroups"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Top SDGs</span></div></div><div class="row-list" id="mpSdgs"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.F</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="mpSeeAll">see all →</button></div></div><div id="mpSamples"><div class="panel-loading">loading</div></div></div>
+    </div>`;
+
+  $('#mpSelect').addEventListener('change', e => {
+    state.focusMechanism = e.target.value;
+    $('#tabMechanism').textContent = e.target.value;
+    renderMechanism();
+  });
+
+  const filter = _scopedFilter({ body: new Set([name]) });
+  try {
+    const [analytics, mapD, records] = await Promise.all([
+      api.analytics(filter),
+      api.map(filter),
+      api.records(filter, 1, 5),
+    ]);
+    const total = records.total_records;
+    const countries = mapD.country_counts || [];
+    const themes = analytics?.themes?.theme_counts || [];
+    const groups = analytics?.text?.affected_person_counts || [];
+    const sdgs = analytics?.text?.sdg_counts || [];
+    const topC = countries[0]?.country || '—';
+
+    $('#mpKpis').innerHTML = `
+      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
+      <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
+      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>`;
+    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    _renderRailNoteInto($('#mpRailNote'), 'body');
+
+    renderTimeline($('#mpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#mpLegend'), interactive: false });
+    renderRowList($('#mpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
+    renderRowList($('#mpThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
+    renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
+    renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
+
+    const sampleEl = $('#mpSamples'); sampleEl.innerHTML = '';
+    state.currentResultList = records.records || [];
+    state.currentResultSource = 'mechanism';
+    (records.records || []).forEach((r, i) => {
+      const d = document.createElement('div');
+      d.className = 'cp-sample';
+      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
+      const rCountry = cleanCountryName((r.Countries || [])[0] || '');
+      d.innerHTML = `<div class="meta">${sanitize((r.PublicationDate || '').slice(0,10))} · ${sanitize(rCountry)} · ${sanitize(cleanLabel(r.Body))}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
+      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
+      sampleEl.appendChild(d);
+    });
+    if (!(records.records || []).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+    $('#mpSeeAll').addEventListener('click', () => {
+      state.filters.body = new Set([name]);
+      refreshFacetUI('body');
+      navigate('search');
+      onFiltersChanged();
+    });
+  } catch (err) {
+    if (err.name !== 'AbortError') console.error(err);
+    toast('Failed to load Mechanism profile: ' + err.message, true);
+  }
+}
+
+/* =========================================================================
    VIEW: COMPARE (A vs B)
    ========================================================================= */
 async function renderCompare() {
@@ -5188,6 +5299,7 @@ function renderPalette(q) {
     { kind:'VIEW', label:'Group profile', sub:`drill into ${state.focusGroup||'a concerned group'}`, score: 96.5, action:()=>{closePalette();navigate('group');} },
     { kind:'VIEW', label:'Theme profile', sub:`drill into ${state.focusTheme||'a theme'}`, score: 96, action:()=>{closePalette();navigate('theme');} },
     { kind:'VIEW', label:'SDG profile', sub:`drill into ${state.focusSdg||'an SDG target'}`, score: 95.5, action:()=>{closePalette();navigate('sdg');} },
+    { kind:'VIEW', label:'Mechanism profile', sub:`drill into ${state.focusMechanism||'a recommending body'}`, score: 95.3, action:()=>{closePalette();navigate('mechanism');} },
     { kind:'VIEW', label:'Methodology', sub:'about the dataset', score: 95, action:()=>{closePalette();navigate('methodology');} },
     { kind:'VIEW', label:'Bookmarks', sub:`${bmLoad().length} saved records`, score: 94, action:()=>{closePalette();navigate('bookmarks');} },
     { kind:'VIEW', label:'Labels workspace', sub:'train your own classifier', score: 93, action:()=>{closePalette();navigate('labels');} },
@@ -5236,8 +5348,8 @@ function renderPalette(q) {
     const s = scoreMatch(b);
     if (s < 0 && q) return;
     results.push({
-      kind: 'BODY', label: b, sub: 'filter by body', _score: q ? s - 10 : 30,
-      action: () => { state.filters.body = new Set([b]); refreshFacetUI('body'); closePalette(); onFiltersChanged(); navigate('overview'); }
+      kind: 'BODY', label: b, sub: 'open mechanism profile', _score: q ? s - 10 : 30,
+      action: () => { state.focusMechanism = b; $('#tabMechanism').textContent = b; closePalette(); navigate('mechanism'); }
     });
   });
 
@@ -5278,6 +5390,7 @@ function _pushUrlState() {
   if (state.focusTheme) p.set('ft', state.focusTheme);
   if (state.focusGroup) p.set('fg', state.focusGroup);
   if (state.focusSdg) p.set('fsdg', state.focusSdg);
+  if (state.focusMechanism) p.set('fm', state.focusMechanism);
   const h = p.toString();
   const newHash = h ? '#' + h : '';
   if (location.hash !== newHash) history.replaceState(null, '', newHash || location.pathname);
@@ -5305,6 +5418,7 @@ function _restoreUrlState() {
   if (p.get('ft')) { state.focusTheme = p.get('ft'); $('#tabTheme').textContent = state.focusTheme; }
   if (p.get('fg')) { state.focusGroup = p.get('fg'); $('#tabGroup').textContent = state.focusGroup; }
   if (p.get('fsdg')) { state.focusSdg = p.get('fsdg'); const t = $('#tabSdg'); if (t) t.textContent = state.focusSdg; }
+  if (p.get('fm')) { state.focusMechanism = p.get('fm'); const t = $('#tabMechanism'); if (t) t.textContent = state.focusMechanism; }
   if (p.get('view')) state.view = p.get('view');
 
   // Sync UI to restored state — handles, rail checkboxes, search tab badge
@@ -5332,6 +5446,7 @@ async function navigate(view) {
   else if (view === 'theme') await renderTheme();
   else if (view === 'group') await renderGroup();
   else if (view === 'sdg') await renderSDG();
+  else if (view === 'mechanism') await renderMechanism();
   else if (view === 'compare') await renderCompare();
   else if (view === 'search') { state.searchPage = 1; await renderSearch(); }
   else if (view === 'bookmarks') renderBookmarks();
@@ -6090,7 +6205,7 @@ async function handleSelParam() {
 const TOUR_STEPS = [
   { target: '#cmdkBtn',       title: 'Fast jump with ⌘K',     text: 'Fuzzy-search any country, theme, body or view. Two keystrokes — no menus.' },
   { target: '#rail',          title: 'Filter from the rail',  text: 'Country, body, theme, year, SDG — live hit count updates as you click. Clicking a country, theme or SDG on the map also filters here.' },
-  { target: '#tabs',          title: 'Nine workspaces',       text: 'Overview · Country / Group / Theme / SDG profiles · Compare two countries · Search · Bookmarks · 🧪 Labels · Methodology.' },
+  { target: '#tabs',          title: 'Eleven workspaces',     text: 'Overview · Country / Group / Theme / SDG / Mechanism profiles · Compare two countries · Search · Bookmarks · 🧪 Labels · Methodology. Shift-click a country / body / theme in the rail to jump straight to its profile.' },
   { target: '#drawer',        title: 'Drawer follows you',    text: 'Click any record in a list, map cell or search result — it opens here. Use <kbd>j</kbd> / <kbd>k</kbd> to flip between results, <kbd>b</kbd> to bookmark.' },
   { target: '#offlineBtn',    title: '⚡ Instant Mode',       text: 'Load the full dataset (~350 MB) into your browser once — filters drop from ~10 s to ~50 ms, works offline, fully private.' },
   { target: '[data-nav="labels"]', title: '🧪 Train your own classifier', text: 'Define categories, tag a dozen examples, hit Train — the dashboard predicts labels across the full dataset and exports them as CSV / XLSX. Shortcuts <kbd>1</kbd>-<kbd>9</kbd> to tag, <kbd>n</kbd>/<kbd>p</kbd> to navigate.' },
