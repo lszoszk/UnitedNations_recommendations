@@ -999,7 +999,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">07</span><span class="t-lbl">Mechanism profile</span><span class="t-ctx" id="tabMechanism">—</span></a>
       <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">08</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
       <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">09</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">10</span><span class="t-lbl">🧪 Labels</span><span class="t-ctx" id="tabLabels">—</span></a>
+      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">10</span><span class="t-lbl">Labels</span><span class="t-ctx" id="tabLabels">—</span></a>
       <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
     </nav>
 
@@ -3685,9 +3685,9 @@ async function renderCountry() {
     root.classList.toggle('stale', !!opts.stale);
 
     renderTimeline($('#cpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#cpLegend'), interactive: false });
-    renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
+    renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
     const bodyRows = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).map(([k,v]) => ({ key:k, label:k, v }));
-    renderRowList($('#cpBodies'), bodyRows, {});
+    renderRowList($('#cpBodies'), bodyRows, { facet:'body' });
 
     const sampleEl = $('#cpSamples');
     sampleEl.innerHTML = '';
@@ -3787,12 +3787,12 @@ async function renderTheme() {
     root.classList.toggle('stale', !!opts.stale);
 
     renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false });
-    renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
+    renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
     const themes = (analytics?.themes?.theme_counts || []).filter(t => t.theme !== name).slice(0,12);
-    renderRowList($('#thThemes'), themes.map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
-    renderRowList($('#thGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
+    renderRowList($('#thThemes'), themes.map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
+    renderRowList($('#thGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group' });
     const sdgs = analytics?.text?.sdg_counts || [];
-    renderRowList($('#thSdgs'),   sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
+    renderRowList($('#thSdgs'),   sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg' });
 
     const sampleEl = $('#thSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -3886,11 +3886,11 @@ async function renderGroup() {
     _renderRailNoteInto($('#gpRailNote'), 'group');
     root.classList.toggle('stale', !!opts.stale);
     renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false });
-    renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
-    renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
+    renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
+    renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
     const coGroups = (analytics?.text?.affected_person_counts || []).filter(g => g.affected_person !== name).slice(0,12);
-    renderRowList($('#gpGroups'), coGroups.map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
-    renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
+    renderRowList($('#gpGroups'), coGroups.map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group' });
+    renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg' });
 
     const sampleEl = $('#gpSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -3991,11 +3991,11 @@ async function renderSDG() {
     _renderRailNoteInto($('#spRailNote'), 'sdg');
     root.classList.toggle('stale', !!opts.stale);
     renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false });
-    renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
-    renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
-    renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
+    renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
+    renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
+    renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group' });
     const coSdgs = (analytics?.text?.sdg_counts || []).filter(s => s.sdg !== sdg).slice(0,12);
-    renderRowList($('#spSdgs'), coSdgs.map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
+    renderRowList($('#spSdgs'), coSdgs.map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg' });
 
     const sampleEl = $('#spSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -4097,10 +4097,10 @@ async function renderMechanism() {
     root.classList.toggle('stale', !!opts.stale);
 
     renderTimeline($('#mpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#mpLegend'), interactive: false });
-    renderRowList($('#mpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
-    renderRowList($('#mpThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
-    renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
-    renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
+    renderRowList($('#mpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
+    renderRowList($('#mpThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
+    renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group' });
+    renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg' });
 
     const sampleEl = $('#mpSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -4219,8 +4219,6 @@ async function renderCompare() {
 /* Renders a single search-result item HTML string */
 function _renderSearchItem(rec, idx, kw) {
   const fullTxt = (rec.TextPlainCleaned || rec.Text || '');
-  // When keyword present: snippet window around the first match, with all
-  // matches highlighted (not just first 320 chars which may miss the term)
   let snippet, moreBefore = false, moreAfter = false;
   if (kw && kw.trim()) {
     const lc = fullTxt.toLowerCase();
@@ -6909,10 +6907,10 @@ async function handleSelParam() {
 const TOUR_STEPS = [
   { target: '#cmdkBtn',       title: 'Fast jump with ⌘K',     text: 'Fuzzy-search any country, theme, body or view. Two keystrokes — no menus.' },
   { target: '#rail',          title: 'Filter from the rail',  text: 'Country, body, theme, year, SDG — live hit count updates as you click. Clicking a country, theme or SDG on the map also filters here.' },
-  { target: '#tabs',          title: 'Eleven workspaces',     text: 'Overview · Country / Group / Theme / SDG / Mechanism profiles · Compare two countries · Search · Bookmarks · 🧪 Labels · Methodology. Shift-click a country / body / theme in the rail to jump straight to its profile.' },
+  { target: '#tabs',          title: 'Eleven workspaces',     text: 'Overview · Country / Group / Theme / SDG / Mechanism profiles · Compare two countries · Search · Bookmarks · Labels · Methodology. Shift-click a country / body / theme in the rail to jump straight to its profile.' },
   { target: '#drawer',        title: 'Drawer follows you',    text: 'Click any record in a list, map cell or search result — it opens here. Use <kbd>j</kbd> / <kbd>k</kbd> to flip between results, <kbd>b</kbd> to bookmark.' },
   { target: '#offlineBtn',    title: '⚡ Instant Mode',       text: 'Load the full dataset (~350 MB) into your browser once — filters drop from ~10 s to ~50 ms, works offline, fully private.' },
-  { target: '[data-nav="labels"]', title: '🧪 Train your own classifier', text: 'Define categories, tag a dozen examples, hit Train — the dashboard predicts labels across the full dataset and exports them as CSV / XLSX. Shortcuts <kbd>1</kbd>-<kbd>9</kbd> to tag, <kbd>n</kbd>/<kbd>p</kbd> to navigate.' },
+  { target: '[data-nav="labels"]', title: 'Train your own classifier', text: 'Define categories, tag a dozen examples, hit Train — the dashboard predicts labels across the full dataset and exports them as CSV / XLSX. Shortcuts <kbd>1</kbd>-<kbd>9</kbd> to tag, <kbd>n</kbd>/<kbd>p</kbd> to navigate.' },
 ];
 
 function startTour() {
@@ -7434,6 +7432,17 @@ async function boot() {
       state.focusSdg = (analytics.text?.sdg_counts||[])[0]?.sdg || null;
       const el = $('#tabSdg');
       if (state.focusSdg && el) el.textContent = state.focusSdg;
+    }
+    // Default Mechanism profile to the top body (usually UPR); mirrors
+    // the other profile tabs so the view never lands on an empty "pick one".
+    if (!state.focusMechanism) {
+      // Prefer the body with the most records across all mechanisms.
+      const bodies = (state.facets?.bodies || [])
+        .filter(b => b && b !== '-')
+        .map(b => b.replace(/^-\s*/, ''));
+      state.focusMechanism = bodies.find(b => /^UPR$/i.test(b)) || bodies[0] || null;
+      const el = $('#tabMechanism');
+      if (state.focusMechanism && el) el.textContent = state.focusMechanism;
     }
 
     progressBar(100, 'READY');
