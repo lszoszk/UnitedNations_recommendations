@@ -306,8 +306,11 @@ a{color:inherit;text-decoration:none}
 .hex{cursor:pointer;transition:transform .12s,filter .12s}
 .hex:hover{transform:translateY(-2px);filter:drop-shadow(0 2px 0 rgba(0,0,0,.18))}
 .hex polygon{transition:fill .2s,stroke .12s,stroke-width .12s}
-.hex.on polygon{stroke:var(--ink);stroke-width:2.5}
+.hex.on polygon{stroke:var(--ink);stroke-width:3;filter:drop-shadow(0 0 4px var(--accent))}
+.hex.on{z-index:5}
 .hex.empty polygon{opacity:.35}
+/* When any country is filtered, dim the rest so the selection pops */
+.hex-svg.has-filter .hex:not(.on) polygon{opacity:.45}
 .hex text{font-family:var(--mono);font-size:9px;letter-spacing:.02em;fill:var(--ink);pointer-events:none;font-weight:500}
 .hex.light text{fill:var(--paper)}
 .hex-tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);padding:10px 12px;font-size:11px;min-width:200px;transform:translate(12px,12px);opacity:0;transition:opacity .12s;z-index:10;font-family:var(--mono);line-height:1.35}
@@ -1770,8 +1773,6 @@ function buildRail(facets, analytics) {
 function buildFacetList(facetKey, items, stateKey) {
   const el = $('#f-' + facetKey);
   const set = state.filters[stateKey];
-  // Add an in-facet search box for lists with >15 options — huge help for
-  // power users looking for "Viet Nam" or "Uzbekistan" in long lists
   const withSearch = items.length > 15;
   const searchHtml = withSearch
     ? `<input class="facet-filter" type="search" placeholder="filter ${items.length}…" data-for="${facetKey}" />`
@@ -1789,6 +1790,9 @@ function buildFacetList(facetKey, items, stateKey) {
     const k = o.dataset.k;
     if (set.has(k)) set.delete(k); else set.add(k);
     o.classList.toggle('on');
+    // When a country filter changes, snap hex map to World view so the
+    // highlighted country is always visible in its continental context.
+    if (facetKey === 'country') state.hexRegion = 'world';
     onFiltersChanged();
   }));
   const input = el.querySelector('.facet-filter');
@@ -1931,6 +1935,8 @@ function renderActiveFilters() {
                  : chips[i].kind === 'kw' || chips[i].kind === 'year' ? null
                  : chips[i].kind);
     if (chips[i].kind === 'kw') $('#tabSearch').textContent = '—';
+    // A country chip removed → snap hex map back to World
+    if (chips[i].kind === 'country') state.hexRegion = 'world';
     onFiltersChanged();
   }));
   $('#afClearAll').addEventListener('click', () => $('#clearFilters').click());
@@ -2325,17 +2331,38 @@ function renderHexMap(container, countryCounts) {
   // Filter hexes by region (world = all)
   const shownHexes = region === 'world' ? HEX_LAYOUT : HEX_LAYOUT.filter(h => h[4] === region);
 
-  // Compute viewBox tight around the shown hexes — tighter padding
-  // eliminates the large empty space users noticed in the previous build.
+  // Compute natural content extent
   let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
   shownHexes.forEach(([c, r]) => {
     const [x, y] = hexCenter(c, r);
-    minX = Math.min(minX, x); minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+    minX = Math.min(minX, x - SIZE); minY = Math.min(minY, y - SIZE);
+    maxX = Math.max(maxX, x + SIZE); maxY = Math.max(maxY, y + SIZE);
   });
-  const pad = region === 'world' ? SIZE * 0.6 : SIZE * 0.4;
-  const vbY = region === 'world' ? minY - pad - SIZE * 0.6 : minY - pad;  // a bit more head-room for region labels in world view
-  const vb = `${minX-pad} ${vbY} ${maxX-minX+pad*2} ${maxY-minY+pad + (region === 'world' ? SIZE * 0.6 : pad)}`;
+  const pad = region === 'world' ? SIZE * 0.4 : SIZE * 0.3;
+  // Extra head-room above world view for region labels
+  const topPad = region === 'world' ? pad + SIZE * 0.5 : pad;
+  let natX = minX - pad, natY = minY - topPad;
+  let natW = maxX - minX + pad * 2;
+  let natH = maxY - minY + pad + topPad;
+
+  // Match container aspect so content stays CENTERED regardless of region size.
+  // Without this, Oceania (5 hexes, narrow+tall viewBox) or Europe (wider)
+  // scales inconsistently inside the fixed-aspect container.
+  const rect = container.getBoundingClientRect();
+  const containerAspect = (rect.width && rect.height) ? (rect.width / rect.height) : 2.2;
+  const naturalAspect = natW / natH;
+  if (naturalAspect > containerAspect) {
+    // Content is wider than container → expand natH so aspect matches
+    const targetH = natW / containerAspect;
+    natY -= (targetH - natH) / 2;
+    natH = targetH;
+  } else {
+    // Content is narrower → expand natW so aspect matches (centers horizontally)
+    const targetW = natH * containerAspect;
+    natX -= (targetW - natW) / 2;
+    natW = targetW;
+  }
+  const vb = `${natX} ${natY} ${natW} ${natH}`;
 
   const labels = region === 'world' ? [
     ['AMERICAS', 1, 6], ['EUROPE', 9, 0], ['MENA', 15, 5],
@@ -2360,9 +2387,10 @@ function renderHexMap(container, countryCounts) {
     `<button data-region="${r}" class="${r === region ? 'on' : ''}" title="Zoom to ${r === 'world' ? 'all 199 states' : r}">${r === 'world' ? 'World' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
   ).join('');
 
+  const hasCountryFilter = state.filters.country.size > 0;
   container.innerHTML = `
     <div class="map-regions" id="hexRegions" role="group" aria-label="Zoom to region">${regionBtns}</div>
-    <svg class="hex-svg" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Hex-tile map — ${region} — one hex per state party">${labels}${hexes}</svg>
+    <svg class="hex-svg${hasCountryFilter?' has-filter':''}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Hex-tile map — ${region} — one hex per state party">${labels}${hexes}</svg>
     <div class="hex-tip" id="hexTip" role="tooltip"></div>
     <div class="map-scale" style="margin-top:6px">
       <span>0</span>
