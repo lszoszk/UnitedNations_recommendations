@@ -255,18 +255,16 @@ a{color:inherit;text-decoration:none}
 .panel.pending .rl-row .v,.panel.pending .tl-svg,.panel.pending .sk-spark{opacity:.35;transition:opacity .2s}
 .panel.pending::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:refreshSlide 1.4s infinite;pointer-events:none;z-index:11}
 
-/* overview grid — map dominates (3fr:1fr), right column stacks the ranking lists */
-.ov-grid{display:grid;grid-template-columns:3fr 1fr;grid-template-rows:auto auto auto;gap:1px;background:var(--line)}
-/* Focus mode: vertical stack, map full-width, lists below — drawer always open + wider */
-body.focus-mode .ov-grid{grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto}
-body.focus-mode .ov-grid .p-map{grid-column:1;grid-row:1}
-body.focus-mode .ov-grid .p-time{grid-column:1;grid-row:2}
-body.focus-mode .ov-grid .p-top-countries{grid-column:1;grid-row:3}
-body.focus-mode .ov-grid .p-top-themes{grid-column:1;grid-row:4}
-body.focus-mode .ov-grid .p-sankey{grid-column:1;grid-row:5}
-body.focus-mode{--drawer-w:460px}
-body.focus-mode .app.drawer-closed{grid-template-columns:var(--rail-w) 1fr var(--drawer-w)}  /* force drawer open */
-body.focus-mode .drawer{display:block!important}
+/* Overview — vertical stack: map full-width, then timeline, then lists.
+   Drawer always open and wider (460px) so previewed records are always
+   within reach. Everything below the map scrolls naturally. */
+:root{--drawer-w:460px}
+.ov-grid{display:grid;grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto;gap:1px;background:var(--line)}
+.ov-grid .p-map{grid-column:1;grid-row:1}
+.ov-grid .p-time{grid-column:1;grid-row:2}
+.ov-grid .p-top-countries{grid-column:1;grid-row:3}
+.ov-grid .p-top-themes{grid-column:1;grid-row:4}
+.ov-grid .p-sankey{grid-column:1;grid-row:5}
 .panel{background:var(--paper);padding:14px 16px;min-height:0;overflow:hidden;position:relative}
 .panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
 .panel-title{display:flex;gap:10px;align-items:baseline}
@@ -744,7 +742,6 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">classic ↗</a>
     <span class="sep">·</span>
     <button class="changelog-btn seen" id="changelogBtn" title="Data pipeline changelog" aria-label="Pipeline changelog"><span class="pulse" aria-hidden="true"></span>NEW</button>
-    <button class="tw-btn" id="focusBtn" title="Toggle Focus mode — vertical stack + always-open drawer (f)" aria-label="Toggle focus mode"><span id="focusIcon">⤢</span><span id="focusLbl">FOCUS</span></button>
     <button class="tw-btn" id="twBtn" title="Appearance & layout" aria-label="Appearance settings"><span class="sw-preview" id="twPreview"></span>THEME</button>
   </div>
 </header>
@@ -917,7 +914,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <div class="row"><span>Left rail</span><button class="toggle on" id="railTog">ON</button></div>
   <div class="row"><span>Drawer</span><button class="toggle on" id="drawerTog">ON</button></div>
   <div class="tweaks-shortcuts">
-    Shortcuts: <kbd>t</kbd> palette · <kbd>[</kbd> rail · <kbd>]</kbd> drawer · <kbd>f</kbd> focus · <kbd>?</kbd> help
+    Shortcuts: <kbd>t</kbd> palette · <kbd>[</kbd> rail · <kbd>]</kbd> drawer · <kbd>?</kbd> help
   </div>
 </div>
 
@@ -2041,30 +2038,20 @@ function renderRowList(el, rows, opts = {}) {
       row.addEventListener('click', (e) => {
         const k = row.dataset.key; if (!k) return;
         const val = opts.facet === 'sdg' ? Number(k) : k;
-        const focus = document.body.classList.contains('focus-mode');
-        // Theme / group rows always open a preview drawer; country rows
-        // do so only in Focus mode. Shift-click toggles the rail filter.
-        if (!e.shiftKey) {
-          if (opts.facet === 'theme' || opts.facet === 'group') {
-            openListDrawer(opts.facet === 'theme' ? 'theme' : 'group', val);
-            return;
-          }
-          if (opts.facet === 'country' && focus) {
-            openListDrawer('country', val);
-            return;
-          }
+        // Shift-click: open preview drawer (list of matching records)
+        if (e.shiftKey && (opts.facet === 'theme' || opts.facet === 'group' || opts.facet === 'country')) {
+          openListDrawer(opts.facet === 'theme' ? 'theme'
+                       : opts.facet === 'group' ? 'group' : 'country', val);
+          return;
         }
+        // Default click: toggle filter — map + lists + timeline all reflect it
         const s = state.filters[opts.facet];
         if (s.has(val)) s.delete(val); else s.add(val);
         refreshFacetUI(opts.facet);
         onFiltersChanged();
       });
-      // Preload country analytics on hover
       if (opts.facet === 'country') attachPreloadHover(row);
     });
-    if (opts.facet === 'theme' || opts.facet === 'group') {
-      el.setAttribute('data-hint', 'click: preview records · shift-click: add to filter');
-    }
   }
   if (opts.onClick) {
     el.querySelectorAll('.rl-row').forEach(row => row.addEventListener('click', e => opts.onClick(row.dataset.key, e)));
@@ -2258,12 +2245,10 @@ async function renderChoroplethMap(container, countryCounts) {
     p.addEventListener('mouseleave', () => tip.classList.remove('show'));
     p.addEventListener('click', (e) => {
       const apiName = p.dataset.api;
-      if (!apiName) return;  // no records for this country
-      // Focus mode: click → list drawer with all records (matches hex behavior)
-      if (document.body.classList.contains('focus-mode') && !e.shiftKey) {
-        openListDrawer('country', apiName);
-        return;
-      }
+      if (!apiName) return;
+      // Shift-click: open drawer list preview
+      if (e.shiftKey) { openListDrawer('country', apiName); return; }
+      // Default click: toggle the rail filter
       const s = state.filters.country;
       if (s.has(apiName)) s.delete(apiName); else s.add(apiName);
       p.classList.toggle('on', s.has(apiName));
@@ -2624,12 +2609,9 @@ function renderHexMap(container, countryCounts) {
     g.addEventListener('mouseleave', () => tip.classList.remove('show'));
     g.addEventListener('click', (e) => {
       const name = g.dataset.name;
-      // Focus mode: click = open list drawer with all records for this country.
-      // Shift-click always toggles the filter (escape hatch).
-      if (document.body.classList.contains('focus-mode') && !e.shiftKey) {
-        openListDrawer('country', name);
-        return;
-      }
+      // Shift-click: open drawer list preview (infinite-scroll records)
+      if (e.shiftKey) { openListDrawer('country', name); return; }
+      // Default click: toggle the rail filter — map + lists + analytics refresh
       const s = state.filters.country;
       if (s.has(name)) s.delete(name); else s.add(name);
       g.classList.toggle('on', s.has(name));
@@ -2940,11 +2922,11 @@ function buildOverviewShell() {
         <div class="map-wrap" id="mapWrap">${_skelMap()}</div>
       </div>
       <div class="panel p-top-countries">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span><button class="chart-export small" data-export="topCountries" title="Copy as CSV">📋 CSV</button></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.02</span><span class="t">Top countries</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter · shift = preview list</span><button class="chart-export small" data-export="topCountries" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topCountries">${_skelRowList(10)}</div>
       </div>
       <div class="panel p-top-themes">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = preview · shift-click = filter</span><button class="chart-export small" data-export="topThemes" title="Copy as CSV">📋 CSV</button></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter · shift = preview list</span><button class="chart-export small" data-export="topThemes" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topThemes">${_skelRowList(8)}</div>
       </div>
       <div class="panel p-time">
@@ -2961,7 +2943,7 @@ function buildOverviewShell() {
         <div class="tl-wrap" id="tlWrap">${_skelTimeline()}</div>
       </div>
       <div class="panel p-sankey">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = preview · shift-click = filter</span><button class="chart-export small" data-export="topGroups" title="Copy as CSV">📋 CSV</button></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter · shift = preview list</span><button class="chart-export small" data-export="topGroups" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topGroups">${_skelRowList(8)}</div>
       </div>
     </div>`;
@@ -4243,7 +4225,6 @@ function renderPalette(q) {
     { kind:'ACTION', label:'Density: Roomy',    sub:'comfortable',          action:()=>{closePalette();setDensity('roomy');} },
     { kind:'ACTION', label:'Toggle left rail',  sub:'hide / show filters ([)', action:()=>{closePalette();toggleRail();} },
     { kind:'ACTION', label:'Toggle drawer',     sub:'hide / show record details (])', action:()=>{closePalette();toggleDrawer();} },
-    { kind:'ACTION', label:'Toggle Focus mode', sub:'vertical stack, drawer always open (f)', action:()=>{closePalette();toggleFocusMode();} },
     { kind:'ACTION', label:'Open tour',         sub:'4-step walkthrough',   action:()=>{closePalette();startTour();} },
     { kind:'ACTION', label:'Clear all filters', sub:'reset to baseline',    action:()=>{closePalette();$('#clearFilters').click();} },
     { kind:'ACTION', label:'Share this view',   sub:'copy URL / email / social', action:()=>{closePalette();openShareModal();} },
@@ -4387,7 +4368,7 @@ async function navigate(view) {
    2. Keyboard: t (palette cycle), [ (rail), ] (drawer)
    3. Command palette: type "palette archive" / "density cozy" / "toggle rail"
    All changes persist to localStorage. */
-const TW = { palette: 'archive', density: 'tight', rail: true, drawer: false };  // drawer hidden by default — opens on first record click
+const TW = { palette: 'archive', density: 'tight', rail: true, drawer: true };  // drawer always on — the overview is now a vertical stack + side drawer
 const PALETTES = ['archive', 'terminal', 'ink'];
 const PALETTE_PREVIEW = { archive: '#F2EFE8', terminal: '#0b0d0b', ink: '#ffffff' };
 
@@ -4428,32 +4409,7 @@ function toggleTweaks() {
   else openTweaks();
 }
 
-/* Focus mode — opt-in vertical-stack layout with always-open wider drawer.
-   Default is cockpit (map + lists side-by-side + drawer on demand). */
-function getFocusMode() {
-  try { return localStorage.getItem('uhri_v2_focus_mode') === '1'; } catch { return false; }
-}
-function applyFocusMode(enabled) {
-  document.body.classList.toggle('focus-mode', enabled);
-  const icon = $('#focusIcon'), lbl = $('#focusLbl'), btn = $('#focusBtn');
-  if (icon && lbl) {
-    icon.textContent = enabled ? '⤡' : '⤢';
-    lbl.textContent = enabled ? 'COMPACT' : 'FOCUS';
-    btn?.classList.toggle('on', enabled);
-  }
-  if (enabled) { TW.drawer = true; applyTweaks(); }
-  try { localStorage.setItem('uhri_v2_focus_mode', enabled ? '1' : '0'); } catch {}
-  // Re-render current view so map/timeline re-measure the new column width
-  if (state.view === 'overview' && state._lastCountryCounts) {
-    renderMap($('#mapWrap'), state._lastCountryCounts);
-    if (state.analytics) renderOverviewAnalytics(state.analytics);
-  }
-}
-function toggleFocusMode() {
-  const next = !document.body.classList.contains('focus-mode');
-  applyFocusMode(next);
-  announce(next ? 'Focus mode on — vertical layout with drawer open' : 'Compact mode — side-by-side layout');
-}
+/* (Focus mode is now the only layout — compact/toggle removed) */
 
 function bindTweaks() {
   $$('#swPalette .sw').forEach(s => s.addEventListener('click', () => setPalette(s.dataset.pal)));
@@ -5328,9 +5284,11 @@ function maybeShowTour() {
    ========================================================================= */
 async function boot() {
   setStatus('loading');
-  loadTweaks(); bindTweaks(); applyTweaks();
-  applyFocusMode(getFocusMode());
-  $('#focusBtn')?.addEventListener('click', toggleFocusMode);
+  // Clean up any lingering focus-mode preference from the previous build
+  try { localStorage.removeItem('uhri_v2_focus_mode'); } catch {}
+  loadTweaks();
+  TW.drawer = true;  // always-open drawer in the new stacked layout
+  bindTweaks(); applyTweaks();
   bindKwInput();
 
   // PWA: register service worker for offline shell + data SWR cache.
@@ -5462,7 +5420,6 @@ async function boot() {
     else if (e.key === '[' && !inInput) { e.preventDefault(); toggleRail(); }
     else if (e.key === ']' && !inInput) { e.preventDefault(); toggleDrawer(); }
     else if (e.key === '?' && !inInput) { e.preventDefault(); startTour(); }
-    else if (e.key === 'f' && !inInput) { e.preventDefault(); toggleFocusMode(); }
     // Bookmark toggle — b (only when a record is selected)
     else if (e.key === 'b' && !inInput) {
       if (state.selectedRec) {
