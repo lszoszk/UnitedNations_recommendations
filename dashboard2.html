@@ -610,6 +610,90 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 .bm-empty{padding:80px 24px;text-align:center;color:var(--dim);font-family:var(--mono)}
 .bm-empty .big{font-family:var(--serif);font-size:28px;color:var(--ink);margin-bottom:8px;line-height:1.1}
 
+/* ---------- 🧪 LABELS workspace ---------- */
+.lab-wrap{padding:20px 24px 40px;max-width:1280px;margin:0 auto}
+.lab-section{border:1px solid var(--line);margin-bottom:16px;background:var(--paper)}
+.lab-section-head{display:flex;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+.lab-step-n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--ink);color:var(--paper);font:10px var(--mono);border-radius:50%;font-weight:700}
+.lab-section.complete .lab-step-n{background:#16a34a}
+.lab-section.idle .lab-step-n{background:var(--dimmer)}
+.lab-section-head h3{margin:0;font-family:var(--serif);font-size:20px;line-height:1;font-weight:400;color:var(--ink)}
+.lab-section-head .sub{margin-left:auto;font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.lab-section-body{padding:14px 16px 16px}
+.lab-banner{background:color-mix(in oklab, var(--accent) 14%, var(--paper));border:1px solid var(--accent);border-left-width:3px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.5;color:var(--ink)}
+.lab-banner button{margin-top:8px;padding:6px 12px;background:var(--ink);color:var(--paper);border:0;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.lab-banner button:hover{background:var(--accent)}
+
+.lab-cat-row{display:flex;gap:6px;margin-bottom:10px}
+.lab-cat-row input{flex:1;padding:8px 10px;border:1px solid var(--line);background:var(--paper);font:12px var(--mono);color:var(--ink)}
+.lab-cat-row input:focus{outline:none;border-color:var(--ink)}
+.lab-cat-row button{padding:8px 14px;background:var(--ink);color:var(--paper);border:0;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.lab-cat-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.lab-cat-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--paper-2);border:1px solid var(--line);border-left:2px solid var(--accent);font-family:var(--mono);font-size:11px;color:var(--ink)}
+.lab-cat-chip .k{font-size:9px;color:var(--dim);font-weight:700;background:var(--paper);border:1px solid var(--line);padding:0 4px;margin-right:2px}
+.lab-cat-chip .x{background:transparent;border:0;color:var(--dim);cursor:pointer;padding:0 2px;font-size:13px;line-height:1}
+.lab-cat-chip .x:hover{color:#b91c1c}
+.lab-cat-empty{color:var(--dim);font-size:11px;font-style:italic}
+
+.lab-tax-row{margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px dotted var(--line)}
+.lab-tax-row select{padding:4px 8px;border:1px solid var(--line);background:var(--paper);font:11px var(--mono);color:var(--ink)}
+.lab-tax-row button{padding:4px 10px;border:1px solid var(--line);background:var(--paper);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink)}
+.lab-tax-row button:hover{border-color:var(--ink);background:var(--paper-2)}
+
+.lab-stepper{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.lab-stepper .pos{padding:4px 10px;border:1px solid var(--line);background:var(--paper-2);font:11px var(--mono);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.lab-stepper button{padding:5px 10px;border:1px solid var(--line);background:var(--paper);font:11px var(--mono);letter-spacing:.08em;cursor:pointer;color:var(--ink);text-transform:uppercase}
+.lab-stepper button:hover:not(:disabled){border-color:var(--ink);background:var(--paper-2)}
+.lab-stepper button:disabled{opacity:.3;cursor:not-allowed}
+.lab-stepper button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.lab-stepper button.primary:hover{background:var(--accent);border-color:var(--accent)}
+
+.lab-card{border:1px solid var(--line);padding:16px 20px;background:var(--paper);margin-bottom:12px}
+.lab-card .meta{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap}
+.lab-card .meta .yr{color:var(--ink);font-weight:700}
+.lab-card .tx{font-family:var(--serif);font-size:15px;line-height:1.5;color:var(--ink-2);white-space:pre-wrap;max-height:260px;overflow-y:auto;padding:8px 0;border-top:1px dotted var(--line);border-bottom:1px dotted var(--line);margin:8px 0}
+.lab-card .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.lab-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:11px var(--mono);letter-spacing:.04em;cursor:pointer;transition:background .12s,border-color .12s}
+.lab-tag:hover{border-color:var(--ink);background:var(--paper-2)}
+.lab-tag.on{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+.lab-tag.excluded{background:#b91c1c;color:#fff;border-color:#b91c1c}
+.lab-tag .k{font-size:9px;opacity:.7;background:var(--paper-2);color:var(--dim);padding:0 4px;margin-right:4px;border:1px solid var(--line)}
+.lab-tag.on .k{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.lab-tag .conf{font-size:9px;opacity:.7;margin-left:4px;font-variant-numeric:tabular-nums}
+.lab-confidence-hint{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;margin-top:6px}
+
+.lab-train-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--line);margin-bottom:12px}
+.lab-train-stat{background:var(--paper);padding:10px 12px}
+.lab-train-stat .n{font-family:var(--serif);font-size:22px;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+.lab-train-stat .l{font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-top:4px}
+
+.lab-action-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.lab-action-row button{padding:8px 14px;background:var(--paper);border:1px solid var(--line);color:var(--ink);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.lab-action-row button:hover:not(:disabled){border-color:var(--ink);background:var(--paper-2)}
+.lab-action-row button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.lab-action-row button.primary:hover{background:var(--accent);border-color:var(--accent)}
+.lab-action-row button:disabled{opacity:.4;cursor:not-allowed}
+
+.lab-progress{margin:10px 0;height:4px;background:var(--paper-2);position:relative;overflow:hidden}
+.lab-progress span{display:block;height:100%;background:var(--accent);transition:width .2s}
+.lab-progress-label{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);margin-top:4px;text-align:right;text-transform:uppercase}
+
+.lab-top-terms{margin-top:14px;border-top:1px dotted var(--line);padding-top:12px}
+.lab-top-terms h4{margin:0 0 8px;font:10px var(--mono);letter-spacing:.18em;color:var(--dim);text-transform:uppercase}
+.lab-top-terms .row{display:grid;grid-template-columns:140px 1fr;gap:10px;padding:3px 0;font-size:11px;border-bottom:1px dotted var(--line-2)}
+.lab-top-terms .cat-name{color:var(--ink);font-weight:500}
+.lab-top-terms .terms{color:var(--dim);font-family:var(--mono);font-size:11px;line-height:1.5}
+
+.lab-sets{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.lab-sets h4{margin:0 0 10px;font:10px var(--mono);letter-spacing:.18em;color:var(--dim);text-transform:uppercase}
+.lab-set-row{display:grid;grid-template-columns:1fr auto auto auto;gap:10px;padding:8px 10px;border:1px solid var(--line);margin-bottom:6px;background:var(--paper);font-size:12px;align-items:center}
+.lab-set-row .name{color:var(--ink);font-weight:500}
+.lab-set-row .meta{color:var(--dim);font:10px var(--mono);letter-spacing:.06em}
+.lab-set-row button{padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:10px var(--mono);cursor:pointer;letter-spacing:.08em;text-transform:uppercase}
+.lab-set-row button:hover{border-color:var(--ink)}
+.lab-set-row button.danger{color:#b91c1c;border-color:#b91c1c}
+.lab-set-row button.danger:hover{background:#b91c1c;color:#fff}
+
 /* Small note in the card when data is user-uploaded */
 body.uploaded-mode .offline-btn{background:#854d0e;color:#fff;border-color:#854d0e}
 body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color:#a16207}
@@ -820,7 +904,8 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="sdg" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">06</span><span class="t-lbl">SDG profile</span><span class="t-ctx" id="tabSdg">—</span></a>
       <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">07</span><span class="t-lbl">Search results</span><span class="t-ctx" id="tabSearch">—</span></a>
       <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">08</span><span class="t-lbl">★ Bookmarks</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">09</span><span class="t-lbl">Methodology</span></a>
+      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">09</span><span class="t-lbl">🧪 Labels</span><span class="t-ctx" id="tabLabels">—</span></a>
+      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1"><span class="t-idx">10</span><span class="t-lbl">Methodology</span></a>
     </nav>
 
     <div class="active-filters" id="activeFilters"></div>
@@ -833,6 +918,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <section class="view hidden" id="view-sdg"></section>
     <section class="view hidden" id="view-search"></section>
     <section class="view hidden" id="view-bookmarks"></section>
+    <section class="view hidden" id="view-labels"></section>
     <section class="view hidden" id="view-methodology"></section>
   </main>
 
@@ -3796,6 +3882,736 @@ async function loadNextSearchPage() {
 }
 
 /* =========================================================================
+   VIEW: 🧪 LABELS — train your own classifier
+   =========================================================================
+   Three-step workflow mirroring the classic dashboard's Labeling Tool, but
+   living inside the v2 rail/drawer layout and reusing offline.data (Instant
+   Mode) for zero-latency training + classification across the full dataset.
+
+   Data model (persisted in localStorage under LABELS_KEY):
+     {
+       id: 'ls_xxx',
+       name: 'Rule of law priorities',
+       categories: ['Independence', 'Access to justice', ...],
+       examples: { [annotationId]: { labels: string[], excluded: bool } },
+       trained_at: iso-string | null,
+       topTerms: { [category]: string[] } | null
+     }
+   In-memory, state.labels holds the *active* working set + model. */
+const LABELS_KEY = 'uhri_v2_label_sets_v1';
+const LABELS_ACTIVE_KEY = 'uhri_v2_label_active_v1';
+const LABELS_STOPWORDS = new Set(('a about above after again against all am an and any are aren as at be because been before being below between both but by can cannot could couldn did didn do does doesn doing don down during each few for from further had hadn has hasn have haven having he her here hers herself him himself his how i if in into is isn it its itself just ll me more most mustn my myself no nor not now of off on once only or other our ours ourselves out over own re s same shan she should shouldn so some such t than that the their theirs them themselves then there these they this those through to too under until up ve very was wasn we were weren what when where which while who whom why will with won would wouldn y you your yours yourself yourselves recommendation recommend observations observation state states party parties country countries committee council working group special rapporteur human rights take steps measures ensure provide promote respect guarantee').split(/\s+/));
+
+if (!state.labels) {
+  state.labels = {
+    active: null,        // set id (or null for in-memory scratch)
+    categories: [],      // ['Independence','Access to justice']
+    examples: {},        // id → {labels:[], excluded:false}
+    currentIdx: 0,       // pointer into the sample rows shown
+    sampleRows: [],      // rows being shown for tagging
+    sampleSource: 'filtered', // 'filtered' | 'uncertain'
+    model: null,         // { centroids, idf, categories, topTerms }
+    predictions: null,   // { [id]: [{cat, conf}] }  after classify
+  };
+}
+
+const LABELS_COMMUNITY = [
+  {
+    id: 'rule_of_law',
+    name: 'Rule of law',
+    categories: ['Judicial independence', 'Access to justice', 'Due process', 'Anti-corruption', 'Transitional justice'],
+  },
+  {
+    id: 'gender_equality',
+    name: 'Gender equality & SGBV',
+    categories: ['Gender-based violence', 'Equal participation', 'Reproductive rights', 'Discriminatory laws'],
+  },
+  {
+    id: 'civic_space',
+    name: 'Civic space',
+    categories: ['Freedom of expression', 'Freedom of assembly', 'Freedom of association', 'Human rights defenders'],
+  },
+  {
+    id: 'detention',
+    name: 'Detention & torture',
+    categories: ['Torture & ill-treatment', 'Arbitrary detention', 'Prison conditions', 'Death penalty'],
+  },
+];
+
+/* ---------- TF-IDF classifier (ported from classic app.js) ---------- */
+function labNormalize(text) { return String(text || '').toLowerCase(); }
+function labTokenize(text) {
+  const out = [];
+  const re = /[a-z0-9]+/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const w = m[0];
+    if (w.length < 3 || w.length > 30) continue;
+    if (LABELS_STOPWORDS.has(w)) continue;
+    out.push(w);
+  }
+  return out;
+}
+function labGetClassificationText(r) {
+  const parts = [];
+  if (Array.isArray(r.Themes) && r.Themes.length) parts.push(r.Themes.join(' '));
+  if (Array.isArray(r.AffectedPersons) && r.AffectedPersons.length) parts.push(r.AffectedPersons.join(' '));
+  const txt = r.TextPlainCleaned || r.Text || '';
+  parts.push(txt);
+  return labNormalize(parts.join(' '));
+}
+function labComputeTfIdf(documents) {
+  // documents: Array<string[] tokens>
+  const n = documents.length || 1;
+  const df = new Map();
+  for (const doc of documents) {
+    const seen = new Set(doc);
+    for (const tok of seen) df.set(tok, (df.get(tok) || 0) + 1);
+  }
+  const idf = new Map();
+  for (const [tok, d] of df) idf.set(tok, Math.log((n + 1) / (d + 1)) + 1);
+  const vectors = documents.map(doc => {
+    const tf = new Map();
+    for (const tok of doc) tf.set(tok, (tf.get(tok) || 0) + 1);
+    const vec = Object.create(null);
+    const len = Math.max(1, doc.length);
+    for (const [tok, c] of tf) vec[tok] = (c / len) * (idf.get(tok) || 0);
+    return vec;
+  });
+  return { vectors, idf };
+}
+function labVectorizeWith(idf, tokens) {
+  const vec = Object.create(null);
+  if (!tokens.length) return vec;
+  const tf = new Map();
+  for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
+  const len = tokens.length;
+  for (const [t, c] of tf) {
+    const i = idf.get(t);
+    if (i) vec[t] = (c / len) * i;
+  }
+  return vec;
+}
+function labCentroid(vectors) {
+  const out = Object.create(null);
+  if (!vectors.length) return out;
+  for (const v of vectors) for (const k in v) out[k] = (out[k] || 0) + v[k];
+  const n = vectors.length;
+  for (const k in out) out[k] /= n;
+  return out;
+}
+function labCosine(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (const k in a) { const av = a[k]; na += av * av; const bv = b[k]; if (bv) dot += av * bv; }
+  for (const k in b) { const bv = b[k]; nb += bv * bv; }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  return denom ? dot / denom : 0;
+}
+function labTopTermsForCentroid(centroid, k = 10) {
+  const arr = Object.entries(centroid);
+  arr.sort((a, b) => b[1] - a[1]);
+  return arr.slice(0, k).map(e => e[0]);
+}
+
+/* Train from state.labels.examples over the currently known rows.
+   Returns the model object ( { centroids, idf, categories, topTerms } ) or
+   throws with a user-friendly error if the data is too thin. */
+function labTrainModel(lab) {
+  const cats = lab.categories;
+  if (!cats.length) throw new Error('Add at least one category first.');
+
+  // Group example tokens by category
+  const tokensByDoc = [];
+  const labelsByDoc = [];
+  for (const [id, ex] of Object.entries(lab.examples || {})) {
+    if (ex.excluded) continue;
+    if (!ex.labels || !ex.labels.length) continue;
+    const rec = (offline.data || []).find(r => r.AnnotationId === id) || lab._recMap?.[id];
+    if (!rec) continue;
+    const tokens = labTokenize(labGetClassificationText(rec));
+    if (!tokens.length) continue;
+    tokensByDoc.push(tokens);
+    labelsByDoc.push(ex.labels);
+  }
+  if (tokensByDoc.length < 2) throw new Error('Tag at least 2 examples across your categories before training.');
+
+  const { vectors, idf } = labComputeTfIdf(tokensByDoc);
+  const centroids = Object.create(null);
+  const perCatCounts = Object.create(null);
+  for (const c of cats) { centroids[c] = null; perCatCounts[c] = 0; }
+
+  // Collect vector per category
+  const byCat = Object.create(null);
+  for (const c of cats) byCat[c] = [];
+  vectors.forEach((v, i) => {
+    for (const lab of labelsByDoc[i]) {
+      if (byCat[lab]) byCat[lab].push(v);
+    }
+  });
+  for (const c of cats) {
+    if (byCat[c].length) {
+      centroids[c] = labCentroid(byCat[c]);
+      perCatCounts[c] = byCat[c].length;
+    }
+  }
+  const trainedCats = cats.filter(c => centroids[c]);
+  if (trainedCats.length < 1) throw new Error('No category received any examples yet.');
+
+  const topTerms = Object.create(null);
+  for (const c of trainedCats) topTerms[c] = labTopTermsForCentroid(centroids[c], 8);
+
+  return { centroids, idf, categories: trainedCats, topTerms, perCatCounts, trained_at: new Date().toISOString() };
+}
+
+/* Predict labels for an array of rows using a trained model. */
+function labPredictRows(rows, model) {
+  const out = Object.create(null);
+  const cats = model.categories;
+  for (const r of rows) {
+    const toks = labTokenize(labGetClassificationText(r));
+    const v = labVectorizeWith(model.idf, toks);
+    const scores = [];
+    for (const c of cats) {
+      const centroid = model.centroids[c];
+      if (!centroid) continue;
+      const s = labCosine(v, centroid);
+      scores.push({ cat: c, conf: s });
+    }
+    scores.sort((a, b) => b.conf - a.conf);
+    out[r.AnnotationId] = scores;
+  }
+  return out;
+}
+
+/* ---------- localStorage ---------- */
+function labLoadSets() {
+  try { return JSON.parse(localStorage.getItem(LABELS_KEY) || '[]'); } catch { return []; }
+}
+function labSaveSets(list) {
+  try { localStorage.setItem(LABELS_KEY, JSON.stringify(list)); } catch (e) { toast('localStorage full — cannot save label set', true, 4000); }
+}
+function labGenId() { return 'ls_' + Math.random().toString(36).slice(2, 10); }
+function labSnapshotCurrent(name) {
+  const id = state.labels.active || labGenId();
+  const sets = labLoadSets().filter(s => s.id !== id);
+  sets.unshift({
+    id,
+    name: name || ('Labels ' + new Date().toLocaleDateString()),
+    categories: [...state.labels.categories],
+    examples: JSON.parse(JSON.stringify(state.labels.examples)),
+    trained_at: state.labels.model?.trained_at || null,
+    topTerms: state.labels.model?.topTerms || null,
+    saved_at: new Date().toISOString(),
+  });
+  labSaveSets(sets);
+  state.labels.active = id;
+  try { localStorage.setItem(LABELS_ACTIVE_KEY, id); } catch {}
+  return id;
+}
+function labLoadSet(id) {
+  const s = labLoadSets().find(x => x.id === id);
+  if (!s) return false;
+  state.labels.active = s.id;
+  state.labels.categories = [...(s.categories || [])];
+  state.labels.examples = JSON.parse(JSON.stringify(s.examples || {}));
+  state.labels.model = null;
+  state.labels.predictions = null;
+  try { localStorage.setItem(LABELS_ACTIVE_KEY, id); } catch {}
+  return true;
+}
+
+/* ---------- sample rows (respect rail filters where possible) ---------- */
+function labBuildSampleRows(max = 120) {
+  // Prefer offline.data (Instant Mode) + current rail filters.
+  if (offline.enabled && Array.isArray(offline.data) && offline.data.length) {
+    const f = state.filters;
+    const kw = (f.kw || '').trim().toLowerCase();
+    const filtered = offline.data.filter(r => {
+      if (f.country.size) {
+        const iso = (r.CountryISO3 || []).some(c => f.country.has(c));
+        const nm = (r.Countries || []).some(c => f.country.has(c));
+        if (!iso && !nm) return false;
+      }
+      if (f.body.size && !f.body.has(r.Body)) return false;
+      if (f.theme.size) {
+        const th = r.Themes || [];
+        if (f.themesMatch === 'all') { for (const t of f.theme) if (!th.includes(t)) return false; }
+        else if (!th.some(t => f.theme.has(t))) return false;
+      }
+      if (f.group.size) {
+        const gr = r.AffectedPersons || [];
+        if (f.groupsMatch === 'all') { for (const g of f.group) if (!gr.includes(g)) return false; }
+        else if (!gr.some(g => f.group.has(g))) return false;
+      }
+      if (f.region.size) {
+        const rg = r.Regions || [];
+        if (!rg.some(rr => f.region.has(rr))) return false;
+      }
+      if (f.sdg.size) {
+        const sd = r.Sdgs || [];
+        if (!sd.some(s => { const m = /SDG\s*(\d+)/i.exec(String(s)); return m && f.sdg.has(Number(m[1])); })) return false;
+      }
+      if (f.type.size && !f.type.has(r.AnnotationType)) return false;
+      if (f.yearA || f.yearB) {
+        const yr = Number((r.PublicationDate || '').slice(0, 4));
+        if (f.yearA && yr < f.yearA) return false;
+        if (f.yearB && yr > f.yearB) return false;
+      }
+      if (kw) {
+        const hay = (r.TextPlainCleaned || r.Text || '').toLowerCase();
+        if (!hay.includes(kw)) return false;
+      }
+      return true;
+    });
+    // Shuffle deterministically so re-enters feel stable but still varied
+    const shuffled = filtered.slice(0, Math.min(filtered.length, max * 10));
+    // Fisher-Yates with seed-free randomness; good enough for sampling
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, max);
+  }
+  return []; // Without Instant Mode, user needs to enable it
+}
+
+function labBuildUncertainRows(max = 120) {
+  if (!state.labels.model || !Array.isArray(offline.data)) return [];
+  // Score first 8000 rows; return the ones whose top prediction is closest
+  // to the runner-up (lowest margin = most uncertain).
+  const pool = offline.data.slice(0, 8000);
+  const preds = labPredictRows(pool, state.labels.model);
+  const scored = pool.map(r => {
+    const s = preds[r.AnnotationId] || [];
+    const margin = (s[0]?.conf || 0) - (s[1]?.conf || 0);
+    return { r, margin, top: s[0] };
+  }).filter(x => x.top && x.top.conf > 0.02);
+  scored.sort((a, b) => a.margin - b.margin);
+  return scored.slice(0, max).map(x => x.r);
+}
+
+/* ---------- renderLabels() ---------- */
+function renderLabels() {
+  const root = $('#view-labels');
+  const lab = state.labels;
+
+  // Resume active set if one is saved
+  if (!lab.active) {
+    const id = localStorage.getItem(LABELS_ACTIVE_KEY);
+    if (id && labLoadSets().find(s => s.id === id)) labLoadSet(id);
+  }
+
+  const hasCats = lab.categories.length > 0;
+  const taggedCount = Object.values(lab.examples).filter(e => !e.excluded && e.labels && e.labels.length).length;
+  const excludedCount = Object.values(lab.examples).filter(e => e.excluded).length;
+  const canTrain = hasCats && taggedCount >= 2;
+
+  if (!lab.sampleRows.length) lab.sampleRows = labBuildSampleRows();
+
+  const sampleTotal = lab.sampleRows.length;
+  const cur = Math.min(lab.currentIdx, Math.max(0, sampleTotal - 1));
+  const record = lab.sampleRows[cur];
+
+  const instantOn = !!offline.enabled;
+
+  const sets = labLoadSets();
+
+  root.innerHTML = `
+    <div class="lab-wrap">
+      ${!instantOn ? `
+        <div class="lab-banner">
+          <strong>⚡ Instant Mode makes this workspace fly.</strong><br>
+          Training on the full dataset happens in your browser — no requests leave your machine.
+          Without Instant Mode, we can only sample already-loaded records.
+          <button id="labEnableInstant">Enable Instant Mode</button>
+        </div>` : ''}
+
+      <!-- STEP 1 — categories -->
+      <div class="lab-section ${hasCats ? 'complete' : 'idle'}">
+        <div class="lab-section-head">
+          <span class="lab-step-n">1</span>
+          <h3>Define your categories</h3>
+          <span class="sub">${hasCats ? lab.categories.length + ' defined' : 'Start here'}</span>
+        </div>
+        <div class="lab-section-body">
+          <div class="lab-cat-row">
+            <input id="labCatInput" type="text" placeholder="e.g. Judicial independence, Access to justice, Due process…" />
+            <button id="labCatAdd">+ Add</button>
+          </div>
+          <div class="lab-cat-list" id="labCatList">
+            ${hasCats ? lab.categories.map((c, i) => `
+              <span class="lab-cat-chip">
+                <span class="k">${i < 9 ? i + 1 : ''}</span>
+                ${sanitize(c)}
+                <button class="x" data-rm="${sanitize(c)}" title="Remove">×</button>
+              </span>`).join('') : '<span class="lab-cat-empty">No categories yet — add your first one above. Keyboard shortcuts 1-9 will be wired up as you add them.</span>'}
+          </div>
+          <div class="lab-tax-row">
+            <span style="font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase">Quick start:</span>
+            <select id="labTaxSelect">
+              <option value="">— community taxonomies —</option>
+              ${LABELS_COMMUNITY.map(t => `<option value="${t.id}">${sanitize(t.name)} (${t.categories.length} cats)</option>`).join('')}
+            </select>
+            <button id="labTaxLoad">Load</button>
+            <button id="labClearCats" style="margin-left:auto">Clear all</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 — read & tag -->
+      <div class="lab-section ${taggedCount >= 2 ? 'complete' : (hasCats ? '' : 'idle')}">
+        <div class="lab-section-head">
+          <span class="lab-step-n">2</span>
+          <h3>Read & tag recommendations</h3>
+          <span class="sub">${taggedCount} tagged · ${excludedCount} excluded</span>
+        </div>
+        <div class="lab-section-body">
+          ${!hasCats ? '<p style="color:var(--dim);font-size:12px;font-style:italic">Add at least one category in Step 1 first.</p>' :
+            !sampleTotal ? `<p style="color:var(--dim);font-size:12px">No records match your rail filters. ${instantOn ? 'Widen them or clear them.' : 'Enable Instant Mode to sample the full dataset.'}</p>` : `
+            <div class="lab-stepper">
+              <button id="labPrev" ${cur <= 0 ? 'disabled' : ''}>← Prev (p)</button>
+              <span class="pos">${cur + 1} / ${sampleTotal}</span>
+              <button id="labNext" ${cur >= sampleTotal - 1 ? 'disabled' : ''}>Next (n) →</button>
+              <button id="labExclude">${lab.examples[record?.AnnotationId]?.excluded ? '↩ Un-exclude' : '✕ Exclude (x)'}</button>
+              <button id="labReshuffle" style="margin-left:auto">↻ New sample</button>
+              <button id="labSrcToggle">${lab.sampleSource === 'uncertain' ? 'Show: uncertain' : 'Show: filtered'}</button>
+            </div>
+            ${record ? labRenderCard(record, lab) : '<p style="color:var(--dim)">—</p>'}
+            <div class="lab-confidence-hint">Click a tag to assign · 1-9 shortcuts · Shift+click on a tag to flip-exclude</div>
+          `}
+        </div>
+      </div>
+
+      <!-- STEP 3 — train & export -->
+      <div class="lab-section ${lab.model ? 'complete' : (canTrain ? '' : 'idle')}">
+        <div class="lab-section-head">
+          <span class="lab-step-n">3</span>
+          <h3>Train & export</h3>
+          <span class="sub">${lab.model ? 'Model ready' : (canTrain ? 'Ready to train' : 'Need ≥2 examples')}</span>
+        </div>
+        <div class="lab-section-body">
+          <div class="lab-train-stats">
+            <div class="lab-train-stat"><div class="n">${lab.categories.length}</div><div class="l">Categories</div></div>
+            <div class="lab-train-stat"><div class="n">${taggedCount}</div><div class="l">Tagged</div></div>
+            <div class="lab-train-stat"><div class="n">${excludedCount}</div><div class="l">Excluded</div></div>
+            <div class="lab-train-stat"><div class="n">${lab.model ? '✓' : '—'}</div><div class="l">Trained</div></div>
+            <div class="lab-train-stat"><div class="n">${lab.predictions ? fmt(Object.keys(lab.predictions).length) : '—'}</div><div class="l">Predictions</div></div>
+          </div>
+
+          ${lab._trainProgress ? `
+            <div class="lab-progress"><span style="width:${Math.round(lab._trainProgress * 100)}%"></span></div>
+            <div class="lab-progress-label">${Math.round(lab._trainProgress * 100)}%</div>` : ''}
+
+          <div class="lab-action-row">
+            <button class="primary" id="labTrain" ${!canTrain ? 'disabled' : ''}>⚙ Train classifier</button>
+            <button id="labClassifyAll" ${!lab.model || !instantOn ? 'disabled' : ''}>✦ Classify full dataset${!instantOn ? ' (needs Instant Mode)' : ''}</button>
+            <button id="labShowUncertain" ${!lab.model ? 'disabled' : ''}>↩ Tag uncertain samples</button>
+            <button id="labExportCsv" ${!lab.predictions ? 'disabled' : ''}>⬇ CSV</button>
+            <button id="labExportXlsx" ${!lab.predictions ? 'disabled' : ''}>⬇ XLSX</button>
+            <button id="labExportJson" ${(!taggedCount && !lab.predictions) ? 'disabled' : ''}>⬇ JSON (labels)</button>
+            <button id="labSaveSet" style="margin-left:auto">💾 Save as set</button>
+          </div>
+
+          ${lab.model ? `
+            <div class="lab-top-terms">
+              <h4>Distinguishing terms per category</h4>
+              ${lab.model.categories.map(c => `
+                <div class="row">
+                  <span class="cat-name">${sanitize(c)}</span>
+                  <span class="terms">${(lab.model.topTerms[c] || []).map(sanitize).join(' · ')}</span>
+                </div>`).join('')}
+            </div>` : ''}
+
+          <div class="lab-sets">
+            <h4>Saved label sets (${sets.length})</h4>
+            ${sets.length ? sets.map(s => `
+              <div class="lab-set-row" data-id="${sanitize(s.id)}">
+                <div>
+                  <div class="name">${sanitize(s.name)} ${s.id === lab.active ? '· <em style="color:var(--accent);font-style:normal">active</em>' : ''}</div>
+                  <div class="meta">${(s.categories || []).length} categories · ${Object.keys(s.examples || {}).length} examples · ${new Date(s.saved_at || 0).toLocaleDateString()}</div>
+                </div>
+                <button data-load="${sanitize(s.id)}">Load</button>
+                <button data-rename="${sanitize(s.id)}">Rename</button>
+                <button class="danger" data-del="${sanitize(s.id)}">Delete</button>
+              </div>`).join('') : '<p style="color:var(--dim);font-size:11px;font-style:italic">No saved sets yet. Tap "Save as set" once you have a working taxonomy — they sync across the same browser.</p>'}
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  labBindEvents();
+}
+
+function labRenderCard(r, lab) {
+  const id = r.AnnotationId;
+  const ex = lab.examples[id] || { labels: [], excluded: false };
+  const preds = lab.predictions && lab.predictions[id];
+  const yr = (r.PublicationDate || '').slice(0, 4) || '—';
+  const country = cleanCountryName((r.Countries || [])[0] || '—');
+  const body = cleanLabel(r.Body || '') || '—';
+  const txt = r.TextPlainCleaned || r.Text || '';
+  const themes = (r.Themes || []).slice(0, 3).map(sanitize).join(' · ');
+  return `
+    <div class="lab-card" data-id="${sanitize(id)}">
+      <div class="meta">
+        <span class="yr">${sanitize(yr)}</span>
+        <span>${sanitize(country)}</span>
+        <span>${sanitize(body)}</span>
+        ${themes ? `<span style="color:var(--dim)">Themes: ${themes}</span>` : ''}
+        ${ex.excluded ? '<span style="color:#b91c1c;font-weight:700">EXCLUDED</span>' : ''}
+      </div>
+      <div class="tx">${sanitize(txt)}</div>
+      <div class="tags">
+        ${lab.categories.map((c, i) => {
+          const on = (ex.labels || []).includes(c);
+          const predEntry = preds ? preds.find(p => p.cat === c) : null;
+          const confStr = predEntry ? ` <span class="conf">${(predEntry.conf * 100).toFixed(0)}%</span>` : '';
+          const k = i < 9 ? `<span class="k">${i + 1}</span>` : '';
+          return `<button class="lab-tag ${on ? 'on' : ''} ${ex.excluded ? 'excluded' : ''}" data-cat="${sanitize(c)}">${k}${sanitize(c)}${confStr}</button>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+function labBindEvents() {
+  const lab = state.labels;
+
+  const onEnableInstant = $('#labEnableInstant');
+  if (onEnableInstant) onEnableInstant.addEventListener('click', () => showOfflineModal());
+
+  const addCat = () => {
+    const input = $('#labCatInput');
+    const v = (input.value || '').trim();
+    if (!v) return;
+    if (lab.categories.includes(v)) { toast('Already in list', true, 1500); return; }
+    if (lab.categories.length >= 24) { toast('Max 24 categories', true, 2000); return; }
+    lab.categories.push(v);
+    input.value = '';
+    lab.model = null; lab.predictions = null;
+    renderLabels();
+  };
+  $('#labCatAdd')?.addEventListener('click', addCat);
+  $('#labCatInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addCat(); } });
+  $$('#labCatList .lab-cat-chip .x').forEach(btn => btn.addEventListener('click', () => {
+    const c = btn.dataset.rm;
+    lab.categories = lab.categories.filter(x => x !== c);
+    // Remove from examples too
+    for (const id in lab.examples) {
+      lab.examples[id].labels = (lab.examples[id].labels || []).filter(x => x !== c);
+    }
+    lab.model = null; lab.predictions = null;
+    renderLabels();
+  }));
+  $('#labTaxLoad')?.addEventListener('click', () => {
+    const v = $('#labTaxSelect').value;
+    if (!v) return;
+    const tax = LABELS_COMMUNITY.find(t => t.id === v);
+    if (!tax) return;
+    const merged = Array.from(new Set([...lab.categories, ...tax.categories]));
+    lab.categories = merged.slice(0, 24);
+    lab.model = null; lab.predictions = null;
+    toast(`Loaded "${tax.name}" — ${tax.categories.length} categories`, false, 2200);
+    renderLabels();
+  });
+  $('#labClearCats')?.addEventListener('click', () => {
+    if (!lab.categories.length) return;
+    if (!confirm('Clear all categories? Your tagged examples will lose their labels (but stay in the set).')) return;
+    lab.categories = [];
+    for (const id in lab.examples) lab.examples[id].labels = [];
+    lab.model = null; lab.predictions = null;
+    renderLabels();
+  });
+
+  $('#labPrev')?.addEventListener('click', () => { if (lab.currentIdx > 0) { lab.currentIdx--; renderLabels(); } });
+  $('#labNext')?.addEventListener('click', () => { if (lab.currentIdx < lab.sampleRows.length - 1) { lab.currentIdx++; renderLabels(); } });
+  $('#labReshuffle')?.addEventListener('click', () => {
+    lab.sampleRows = (lab.sampleSource === 'uncertain') ? labBuildUncertainRows() : labBuildSampleRows();
+    lab.currentIdx = 0;
+    renderLabels();
+  });
+  $('#labSrcToggle')?.addEventListener('click', () => {
+    lab.sampleSource = lab.sampleSource === 'uncertain' ? 'filtered' : 'uncertain';
+    lab.sampleRows = (lab.sampleSource === 'uncertain') ? labBuildUncertainRows() : labBuildSampleRows();
+    lab.currentIdx = 0;
+    if (lab.sampleSource === 'uncertain' && !lab.sampleRows.length) {
+      toast('Train the classifier first — or no uncertain samples were found.', false, 2800);
+      lab.sampleSource = 'filtered';
+      lab.sampleRows = labBuildSampleRows();
+    }
+    renderLabels();
+  });
+  $('#labExclude')?.addEventListener('click', () => {
+    const r = lab.sampleRows[lab.currentIdx]; if (!r) return;
+    const id = r.AnnotationId;
+    const ex = lab.examples[id] || (lab.examples[id] = { labels: [], excluded: false });
+    ex.excluded = !ex.excluded;
+    lab.model = null; lab.predictions = null;
+    renderLabels();
+  });
+  $$('#view-labels .lab-tag').forEach(btn => btn.addEventListener('click', (e) => {
+    const r = lab.sampleRows[lab.currentIdx]; if (!r) return;
+    const id = r.AnnotationId;
+    const c = btn.dataset.cat;
+    const ex = lab.examples[id] || (lab.examples[id] = { labels: [], excluded: false });
+    if (e.shiftKey) { ex.excluded = !ex.excluded; }
+    else {
+      const i = (ex.labels || []).indexOf(c);
+      if (i >= 0) ex.labels.splice(i, 1); else (ex.labels = ex.labels || []).push(c);
+    }
+    lab.model = null; lab.predictions = null;
+    renderLabels();
+  }));
+
+  $('#labTrain')?.addEventListener('click', async () => {
+    try {
+      toast('Training classifier…', false, 1200);
+      // Let UI breathe
+      await new Promise(r => setTimeout(r, 30));
+      const model = labTrainModel(lab);
+      lab.model = model;
+      lab.predictions = null;
+      toast(`Trained on ${model.categories.length} categories · ${model.perCatCounts ? Object.values(model.perCatCounts).reduce((a,b)=>a+b,0) : '—'} examples`, false, 2800);
+      renderLabels();
+    } catch (err) {
+      toast(err.message || String(err), true, 4200);
+    }
+  });
+
+  $('#labClassifyAll')?.addEventListener('click', async () => {
+    if (!lab.model || !Array.isArray(offline.data) || !offline.data.length) return;
+    toast(`Classifying ${fmt(offline.data.length)} records…`, false, 2000);
+    lab._trainProgress = 0.05; renderLabels();
+    // Chunk classification so the UI doesn't freeze
+    const chunk = 5000;
+    const total = offline.data.length;
+    const preds = Object.create(null);
+    for (let i = 0; i < total; i += chunk) {
+      const slice = offline.data.slice(i, i + chunk);
+      const pp = labPredictRows(slice, lab.model);
+      for (const k in pp) preds[k] = pp[k];
+      lab._trainProgress = Math.min(0.99, (i + chunk) / total);
+      // Just update the progress bar, not full re-render
+      const bar = $('.lab-progress span'); const label = $('.lab-progress-label');
+      if (bar) bar.style.width = Math.round(lab._trainProgress * 100) + '%';
+      if (label) label.textContent = Math.round(lab._trainProgress * 100) + '%';
+      await new Promise(r => setTimeout(r, 0));
+    }
+    lab.predictions = preds;
+    lab._trainProgress = 0;
+    toast(`Classified ${fmt(total)} records`, false, 2400);
+    renderLabels();
+  });
+
+  $('#labShowUncertain')?.addEventListener('click', () => {
+    lab.sampleSource = 'uncertain';
+    lab.sampleRows = labBuildUncertainRows();
+    lab.currentIdx = 0;
+    if (!lab.sampleRows.length) { toast('Nothing uncertain — classifier was confident on every sample.', false, 3000); return; }
+    toast(`${lab.sampleRows.length} uncertain samples — tag them to sharpen the model.`, false, 3000);
+    renderLabels();
+  });
+
+  $('#labExportCsv')?.addEventListener('click', () => labExport('csv'));
+  $('#labExportXlsx')?.addEventListener('click', () => labExport('xlsx'));
+  $('#labExportJson')?.addEventListener('click', () => labExport('json'));
+  $('#labSaveSet')?.addEventListener('click', () => {
+    const name = prompt('Name this label set:', 'Labels ' + new Date().toLocaleDateString());
+    if (!name) return;
+    labSnapshotCurrent(name);
+    toast(`Saved "${name}"`, false, 2000);
+    renderLabels();
+  });
+
+  // Saved-set row buttons
+  $$('#view-labels .lab-set-row').forEach(row => {
+    row.querySelector('[data-load]')?.addEventListener('click', () => {
+      if (labLoadSet(row.querySelector('[data-load]').dataset.load)) {
+        lab.sampleRows = labBuildSampleRows(); lab.currentIdx = 0;
+        toast('Loaded set', false, 1800);
+        renderLabels();
+      }
+    });
+    row.querySelector('[data-rename]')?.addEventListener('click', () => {
+      const id = row.querySelector('[data-rename]').dataset.rename;
+      const sets = labLoadSets();
+      const s = sets.find(x => x.id === id); if (!s) return;
+      const name = prompt('New name:', s.name); if (!name) return;
+      s.name = name; labSaveSets(sets); renderLabels();
+    });
+    row.querySelector('[data-del]')?.addEventListener('click', () => {
+      const id = row.querySelector('[data-del]').dataset.del;
+      if (!confirm('Delete this label set? This cannot be undone.')) return;
+      labSaveSets(labLoadSets().filter(x => x.id !== id));
+      if (lab.active === id) lab.active = null;
+      renderLabels();
+    });
+  });
+}
+
+function labExport(kind) {
+  const lab = state.labels;
+  const predIds = lab.predictions ? Object.keys(lab.predictions) : [];
+  const exampleIds = Object.keys(lab.examples || {});
+  const ids = Array.from(new Set([...exampleIds, ...predIds]));
+  if (!ids.length) { toast('Nothing to export yet', true, 2000); return; }
+
+  // Build rows: for each id, attach assigned labels + predictions
+  const rows = [];
+  const byId = offline.enabled && Array.isArray(offline.data) ? new Map(offline.data.map(r => [r.AnnotationId, r])) : null;
+  for (const id of ids) {
+    const r = byId ? byId.get(id) : null;
+    const ex = lab.examples[id] || {};
+    const preds = lab.predictions ? (lab.predictions[id] || []) : [];
+    const top = preds[0];
+    rows.push({
+      AnnotationId: id,
+      Symbol: r?.Symbol || '',
+      PublicationDate: r?.PublicationDate || '',
+      Body: cleanLabel(r?.Body || ''),
+      Countries: (r?.Countries || []).map(cleanCountryName).join('; '),
+      Themes: (r?.Themes || []).join('; '),
+      AffectedPersons: (r?.AffectedPersons || []).join('; '),
+      Sdgs: (r?.Sdgs || []).join('; '),
+      AssignedLabels: (ex.labels || []).join('; '),
+      Excluded: ex.excluded ? 'yes' : '',
+      PredictedLabel: top ? top.cat : '',
+      PredictedConfidence: top ? top.conf.toFixed(4) : '',
+      Top3Predictions: preds.slice(0, 3).map(p => `${p.cat} (${(p.conf * 100).toFixed(0)}%)`).join(' | '),
+      Text: r?.TextPlainCleaned || r?.Text || '',
+    });
+  }
+
+  const ts = new Date().toISOString().slice(0, 10);
+  if (kind === 'xlsx') {
+    (async () => {
+      const XLSX = await ensureXLSX();
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Labels');
+      XLSX.writeFile(wb, `uhri-labels-${ts}.xlsx`);
+      toast(`Exported ${rows.length} rows as XLSX`, false, 2400);
+    })();
+  } else if (kind === 'csv') {
+    const cols = Object.keys(rows[0]);
+    const esc = s => { s = String(s ?? ''); if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"'; return s; };
+    const csv = cols.join(',') + '\n' + rows.map(r => cols.map(c => esc(r[c])).join(',')).join('\n');
+    downloadBlob(csv, 'text/csv', `uhri-labels-${ts}.csv`);
+    toast(`Exported ${rows.length} rows as CSV`, false, 2400);
+  } else {
+    const blob = {
+      exported_at: new Date().toISOString(),
+      categories: lab.categories,
+      examples: lab.examples,
+      trained_at: lab.model?.trained_at || null,
+      topTerms: lab.model?.topTerms || null,
+      predictions: lab.predictions || null,
+    };
+    downloadBlob(JSON.stringify(blob, null, 2), 'application/json', `uhri-labels-${ts}.json`);
+    toast('Exported labels as JSON', false, 2400);
+  }
+}
+
+/* =========================================================================
    VIEW: METHODOLOGY
    ========================================================================= */
 function renderMethodology() {
@@ -4268,6 +5084,7 @@ function renderPalette(q) {
     { kind:'VIEW', label:'SDG profile', sub:`drill into ${state.focusSdg||'an SDG target'}`, score: 95.5, action:()=>{closePalette();navigate('sdg');} },
     { kind:'VIEW', label:'Methodology', sub:'about the dataset', score: 95, action:()=>{closePalette();navigate('methodology');} },
     { kind:'VIEW', label:'Bookmarks', sub:`${bmLoad().length} saved records`, score: 94, action:()=>{closePalette();navigate('bookmarks');} },
+    { kind:'VIEW', label:'Labels workspace', sub:'train your own classifier', score: 93, action:()=>{closePalette();navigate('labels');} },
   ];
 
   // ACTIONS — appearance & layout commands surfaced in palette
@@ -4412,6 +5229,7 @@ async function navigate(view) {
   else if (view === 'compare') await renderCompare();
   else if (view === 'search') { state.searchPage = 1; await renderSearch(); }
   else if (view === 'bookmarks') renderBookmarks();
+  else if (view === 'labels') renderLabels();
   else if (view === 'methodology') renderMethodology();
 }
 
@@ -5164,11 +5982,12 @@ async function handleSelParam() {
    Shown once, dismissible, skip-all available. Uses localStorage flag
    uhri_v2_tour_done so returning users don't see it again. */
 const TOUR_STEPS = [
-  { target: '#cmdkBtn',       title: 'Fast jump with ⌘K',     text: 'Press <kbd>⌘</kbd><kbd>K</kbd> (or Ctrl+K) to fuzzy-search any country, theme, body or view. Two keystrokes instead of three clicks.' },
-  { target: '#rail',          title: 'Filter from the rail',  text: 'Every filter is here — country, body, theme, year, SDG. Live hit count updates as you click; chips appear above the main content so you always know what\'s applied.' },
-  { target: '#tabs',          title: 'Six angles on the data',text: 'Overview · Country profile · Theme profile · Compare two countries · full-text Search · Methodology. Drag the timeline on Overview to scope by year.' },
-  { target: '#drawer',        title: 'Drawer follows you',    text: 'Click any record in a list, map cell or search result — it opens here. Press <kbd>j</kbd> / <kbd>k</kbd> to flip through results without losing your place.' },
-  { target: '#offlineBtn',    title: '⚡ Instant Mode',       text: 'Download the full 267k-record dataset into your browser. Filters run at ~50ms instead of ~10s, works offline, and nothing leaves your machine after the initial download.' },
+  { target: '#cmdkBtn',       title: 'Fast jump with ⌘K',     text: 'Fuzzy-search any country, theme, body or view. Two keystrokes — no menus.' },
+  { target: '#rail',          title: 'Filter from the rail',  text: 'Country, body, theme, year, SDG — live hit count updates as you click. Clicking a country, theme or SDG on the map also filters here.' },
+  { target: '#tabs',          title: 'Nine workspaces',       text: 'Overview · Country / Group / Theme / SDG profiles · Compare two countries · Search · Bookmarks · 🧪 Labels · Methodology.' },
+  { target: '#drawer',        title: 'Drawer follows you',    text: 'Click any record in a list, map cell or search result — it opens here. Use <kbd>j</kbd> / <kbd>k</kbd> to flip between results, <kbd>b</kbd> to bookmark.' },
+  { target: '#offlineBtn',    title: '⚡ Instant Mode',       text: 'Load the full dataset (~350 MB) into your browser once — filters drop from ~10 s to ~50 ms, works offline, fully private.' },
+  { target: '[data-nav="labels"]', title: '🧪 Train your own classifier', text: 'Define categories, tag a dozen examples, hit Train — the dashboard predicts labels across the full dataset and exports them as CSV / XLSX. Shortcuts <kbd>1</kbd>-<kbd>9</kbd> to tag, <kbd>n</kbd>/<kbd>p</kbd> to navigate.' },
 ];
 
 function startTour() {
@@ -5205,17 +6024,48 @@ function startTour() {
           <button class="primary" id="tourNext">${step === TOUR_STEPS.length - 1 ? 'Done ✓' : 'Next →'}</button>
         </div>
       </div>`;
-    // Position popup relative to spotlight — below by default, above if near bottom
+    // Position popup relative to spotlight — try below, above, right, left,
+    // then hard-clamp into the viewport. This protects against tall targets
+    // (like the left rail) whose top is near 0 and bottom is past vh, which
+    // used to flip the popup to a negative top offscreen.
     const vw = window.innerWidth, vh = window.innerHeight;
+    const MARGIN = 20;
     pop.style.visibility = 'hidden';
     pop.style.top = '0'; pop.style.left = '0';
+    pop.style.maxHeight = (vh - 40) + 'px';
+    pop.style.overflowY = 'auto';
     // measure after forcing layout
     const pr = pop.getBoundingClientRect();
-    let top = r.bottom + 14;
-    let left = r.left;
-    if (top + pr.height > vh - 20) top = r.top - pr.height - 14;
-    if (left + pr.width > vw - 20) left = vw - pr.width - 20;
-    if (left < 20) left = 20;
+    const spaceBelow = vh - r.bottom - MARGIN;
+    const spaceAbove = r.top - MARGIN;
+    const spaceRight = vw - r.right - MARGIN;
+    const spaceLeft  = r.left - MARGIN;
+
+    let top, left;
+    if (spaceBelow >= pr.height + 14) {
+      // Below target
+      top = r.bottom + 14;
+      left = r.left;
+    } else if (spaceAbove >= pr.height + 14) {
+      // Above target
+      top = r.top - pr.height - 14;
+      left = r.left;
+    } else if (spaceRight >= pr.width + 14) {
+      // To the right
+      top = Math.max(MARGIN, r.top);
+      left = r.right + 14;
+    } else if (spaceLeft >= pr.width + 14) {
+      // To the left
+      top = Math.max(MARGIN, r.top);
+      left = r.left - pr.width - 14;
+    } else {
+      // Nothing fits adjacent — centre it in the viewport
+      top = Math.max(MARGIN, (vh - pr.height) / 2);
+      left = Math.max(MARGIN, (vw - pr.width) / 2);
+    }
+    // Final hard clamp so it is *always* fully visible
+    top  = Math.max(MARGIN, Math.min(top,  vh - pr.height - MARGIN));
+    left = Math.max(MARGIN, Math.min(left, vw - pr.width  - MARGIN));
     pop.style.top = top + 'px';
     pop.style.left = left + 'px';
     pop.style.visibility = 'visible';
@@ -5474,6 +6324,38 @@ async function boot() {
     else if (e.key === '[' && !inInput) { e.preventDefault(); toggleRail(); }
     else if (e.key === ']' && !inInput) { e.preventDefault(); toggleDrawer(); }
     else if (e.key === '?' && !inInput) { e.preventDefault(); startTour(); }
+    // Labels workspace shortcuts — 1-9 (toggle category), n/p (navigate), x (exclude)
+    else if (state.view === 'labels' && !inInput) {
+      const lab = state.labels;
+      if (!lab) { /* noop */ }
+      else if (/^[1-9]$/.test(e.key)) {
+        const idx = Number(e.key) - 1;
+        const cat = lab.categories[idx];
+        const rec = lab.sampleRows?.[lab.currentIdx];
+        if (cat && rec) {
+          e.preventDefault();
+          const id = rec.AnnotationId;
+          const ex = lab.examples[id] || (lab.examples[id] = { labels: [], excluded: false });
+          const i = (ex.labels || []).indexOf(cat);
+          if (i >= 0) ex.labels.splice(i, 1); else (ex.labels = ex.labels || []).push(cat);
+          lab.model = null; lab.predictions = null;
+          renderLabels();
+        }
+      }
+      else if (e.key === 'n') { e.preventDefault(); if (lab.currentIdx < (lab.sampleRows?.length || 0) - 1) { lab.currentIdx++; renderLabels(); } }
+      else if (e.key === 'p') { e.preventDefault(); if (lab.currentIdx > 0) { lab.currentIdx--; renderLabels(); } }
+      else if (e.key === 'x') {
+        const rec = lab.sampleRows?.[lab.currentIdx];
+        if (rec) {
+          e.preventDefault();
+          const id = rec.AnnotationId;
+          const ex = lab.examples[id] || (lab.examples[id] = { labels: [], excluded: false });
+          ex.excluded = !ex.excluded;
+          lab.model = null; lab.predictions = null;
+          renderLabels();
+        }
+      }
+    }
     // Bookmark toggle — b (only when a record is selected)
     else if (e.key === 'b' && !inInput) {
       if (state.selectedRec) {
