@@ -449,6 +449,10 @@ a{color:inherit;text-decoration:none}
 .cp-kpis{display:grid;grid-template-columns:repeat(4,auto);gap:24px;align-items:end;border-top:1px solid var(--line);padding-top:16px;margin-top:18px}
 .cp-kpi .n{font-family:var(--serif);font-size:26px;line-height:1}
 .cp-kpi .l{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-top:4px}
+.cp-stale-badge{display:inline-block;margin-left:10px;padding:1px 8px;background:var(--paper-2);border:1px solid var(--line);font:9px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;vertical-align:middle}
+.cp-stale-badge::before{content:"↻ ";display:inline-block;animation:spinSlow 1.6s linear infinite}
+@keyframes spinSlow{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.view.stale .cp-body .panel{opacity:.88;transition:opacity .25s}
 .cp-rail-note{margin-top:10px;padding:8px 12px;background:color-mix(in oklab, var(--accent) 10%, var(--paper));border-left:2px solid var(--accent);font:11px var(--mono);color:var(--ink-2);display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cp-rail-note .lbl{color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
 .cp-rail-note button{margin-left:auto;padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
@@ -1199,6 +1203,85 @@ function _renderRailNoteInto(hostEl, excludeKey) {
     $('#tabSearch').textContent = '—';
     onFiltersChanged();
   });
+}
+
+/* =========================================================================
+   STALE-WHILE-REVALIDATE (SWR) cache for profile views
+   =========================================================================
+   Key insight: profiles now intersect the rail, so unique filter combos are
+   frequent cache misses on the VM. But the SAME combo visited later is
+   likely. localStorage holds the last N responses so returning users see
+   instant paint (<50ms) while we quietly refetch in the background and
+   swap when the fresh data arrives.
+
+   Cache key = scope string + canonical filter hash. Scope labels the query
+   ("analytics:theme:Reservations"), filter hash keys the rail intersection
+   so we don't serve CCPR-filtered data to an unfiltered request.
+   ========================================================================= */
+const SWR_KEY = 'uhri_v2_swr_cache_v1';
+const SWR_MAX_ENTRIES = 120;
+const SWR_TTL_MS = 24 * 3600 * 1000;  // 24h — older than a day, refetch even stale
+
+function _swrCanonicalFilter(f) {
+  f = f || {};
+  return {
+    kw: f.kw || '',
+    country: [...(f.country||[])].sort(),
+    body:    [...(f.body||[])].sort(),
+    theme:   [...(f.theme||[])].sort(),
+    group:   [...(f.group||[])].sort(),
+    region:  [...(f.region||[])].sort(),
+    sdg:     [...(f.sdg||[])].map(String).sort(),
+    type:    [...(f.type||[])].sort(),
+    yA: f.yearA ?? null, yB: f.yearB ?? null,
+    tm: f.themesMatch || 'any', gm: f.groupsMatch || 'any',
+  };
+}
+function _swrKey(scope, filter) {
+  return scope + '|' + JSON.stringify(_swrCanonicalFilter(filter));
+}
+function _swrLoad() {
+  try { return JSON.parse(localStorage.getItem(SWR_KEY) || '{}'); } catch { return {}; }
+}
+function _swrSave(obj) {
+  try { localStorage.setItem(SWR_KEY, JSON.stringify(obj)); }
+  catch (e) {
+    // Quota exceeded — drop oldest half and retry once
+    const keys = Object.keys(obj).sort((a, b) => obj[a].t - obj[b].t);
+    for (let i = 0; i < Math.floor(keys.length / 2); i++) delete obj[keys[i]];
+    try { localStorage.setItem(SWR_KEY, JSON.stringify(obj)); } catch {}
+  }
+}
+function swrGetStale(scope, filter) {
+  const cache = _swrLoad();
+  const entry = cache[_swrKey(scope, filter)];
+  if (!entry) return null;
+  if (Date.now() - entry.t > SWR_TTL_MS) return null;
+  return entry.d;
+}
+function swrPut(scope, filter, data) {
+  if (!data) return;
+  const cache = _swrLoad();
+  cache[_swrKey(scope, filter)] = { t: Date.now(), d: data };
+  // LRU-ish eviction — drop oldest when over capacity
+  const keys = Object.keys(cache);
+  if (keys.length > SWR_MAX_ENTRIES) {
+    keys.sort((a, b) => cache[a].t - cache[b].t);
+    for (let i = 0; i < keys.length - SWR_MAX_ENTRIES; i++) delete cache[keys[i]];
+  }
+  _swrSave(cache);
+}
+/* swr(scope, filter, fetcher) — main entry.
+   Returns { stale, fresh }:
+   - stale: cached data (possibly undefined) ready to paint NOW
+   - fresh: Promise resolving to the fresh data (and autostashing on success)
+   Callers paint stale synchronously if present, then await fresh + re-paint.
+*/
+function swr(scope, filter, fetcher) {
+  const stale = swrGetStale(scope, filter);
+  const fresh = fetcher().then(d => { if (d) swrPut(scope, filter, d); return d; })
+                         .catch(err => { if (err?.name !== 'AbortError') throw err; return null; });
+  return { stale, fresh };
 }
 
 /* Describe which rail filters (other than the profile's own scope) are
@@ -3413,16 +3496,15 @@ async function renderCountry() {
   // Profile view intersects the rail with the focused country (Option B).
   // Cloning rail filter sets so override of `country` doesn't mutate state.
   const countryFilter = _scopedFilter({ country: new Set([name]) });
-  try {
-    const [analytics, records] = await Promise.all([
-      api.analytics(countryFilter),
-      api.records(countryFilter, 1, 5),
-    ]);
+
+  const anSwr = swr('analytics:country:'+iso, countryFilter, () => api.analytics(countryFilter));
+  const rcSwr = swr('records:country:'+iso,   countryFilter, () => api.records(countryFilter, 1, 5));
+
+  const paint = (analytics, records, opts = {}) => {
+    if (!analytics || !records) return;
     const total = records.total_records;
     const themes = analytics?.themes?.theme_counts || [];
-    const groups = analytics?.text?.affected_person_counts || [];
     const topTheme = themes[0]?.theme || '—';
-    // Build "bodies" breakdown from yearly_body_counts (list of {year, body, count})
     const bodyTotals = {};
     const ybc = analytics?.trends?.yearly_body_counts || [];
     if (Array.isArray(ybc)) {
@@ -3434,27 +3516,22 @@ async function renderCountry() {
       Object.values(ybc).forEach(m => Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c));
     }
     const nBodies = Object.keys(bodyTotals).length;
+    const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
-    // KPIs
     $('#cpKpis').innerHTML = `
       <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
       <div class="cp-kpi"><div class="n">${nBodies}</div><div class="l">Bodies</div></div>
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:220px;line-height:1.2">${sanitize(topTheme)}</div><div class="l">Leading theme</div></div>`;
-    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date || '—'} → ${analytics?.trends?.dataset_last_publication_date || '—'} · all mechanisms`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date || '—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date || '—')} · all mechanisms${staleBadge}`;
     _renderRailNoteInto($('#cpRailNote'), 'country');
+    root.classList.toggle('stale', !!opts.stale);
 
-    // Timeline (non-interactive — profile is scoped already)
     renderTimeline($('#cpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#cpLegend'), interactive: false });
-
-    // Themes (top 12)
     renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
-
-    // Bodies
     const bodyRows = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).map(([k,v]) => ({ key:k, label:k, v }));
     renderRowList($('#cpBodies'), bodyRows, {});
 
-    // Samples
     const sampleEl = $('#cpSamples');
     sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -3468,16 +3545,20 @@ async function renderCountry() {
       sampleEl.appendChild(d);
     });
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+  };
 
-    $('#cpSeeAll').addEventListener('click', () => {
+  if (anSwr.stale && rcSwr.stale) paint(anSwr.stale, rcSwr.stale, { stale: true });
+  try {
+    const [analytics, records] = await Promise.all([anSwr.fresh, rcSwr.fresh]);
+    paint(analytics, records, { stale: false });
+    $('#cpSeeAll')?.addEventListener('click', () => {
       state.filters.country = new Set([name]);
       refreshFacetUI('country');
       navigate('search');
       onFiltersChanged();
     });
   } catch (err) {
-    console.error(err);
-    toast('Failed to load country profile: ' + err.message, true);
+    if (err.name !== 'AbortError') { console.error(err); toast('Failed to load country profile: ' + err.message, true); }
   }
 }
 
@@ -3524,33 +3605,37 @@ async function renderTheme() {
 
   // Intersect rail filters with the focused theme (Option B).
   const themeFilter = _scopedFilter({ theme: new Set([name]) });
-  try {
-    const [analytics, mapD, records] = await Promise.all([
-      api.analytics(themeFilter),
-      api.map(themeFilter),
-      api.records(themeFilter, 1, 5),
-    ]);
+
+  // --- SWR: try cache first for instant paint, then refresh in background
+  const anSwr = swr('analytics:theme:'+name, themeFilter, () => api.analytics(themeFilter));
+  const mpSwr = swr('map:theme:'+name,       themeFilter, () => api.map(themeFilter));
+  const rcSwr = swr('records:theme:'+name,   themeFilter, () => api.records(themeFilter, 1, 5));
+
+  // Reusable painter — called once with stale (if any) then again with fresh
+  const paint = (analytics, mapD, records, opts = {}) => {
+    if (!analytics || !mapD || !records) return;
     const total = records.total_records;
     const countries = mapD.country_counts || [];
     const topC = countries[0]?.country || '—';
     const groups = analytics?.text?.affected_person_counts || [];
+    const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
     $('#thKpis').innerHTML = `
       <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
       <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
       <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Concerned groups</div></div>`;
-    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
     _renderRailNoteInto($('#thRailNote'), 'theme');
+    root.classList.toggle('stale', !!opts.stale);
 
     renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false });
     renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
-    // Co-occurring themes: exclude self, show next 12 that appear in the same records
     const themes = (analytics?.themes?.theme_counts || []).filter(t => t.theme !== name).slice(0,12);
     renderRowList($('#thThemes'), themes.map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
-    renderRowList($('#thGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
+    renderRowList($('#thGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
     const sdgs = analytics?.text?.sdg_counts || [];
-    renderRowList($('#thSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
+    renderRowList($('#thSdgs'),   sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
 
     const sampleEl = $('#thSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -3565,15 +3650,22 @@ async function renderTheme() {
       sampleEl.appendChild(d);
     });
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
-    $('#thSeeAll').addEventListener('click', () => {
+  };
+
+  if (anSwr.stale && mpSwr.stale && rcSwr.stale) {
+    paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
+  }
+  try {
+    const [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
+    paint(analytics, mapD, records, { stale: false });
+    $('#thSeeAll')?.addEventListener('click', () => {
       state.filters.theme = new Set([name]);
       refreshFacetUI('theme');
       navigate('search');
       onFiltersChanged();
     });
   } catch (err) {
-    console.error(err);
-    toast('Failed to load theme profile: ' + err.message, true);
+    if (err.name !== 'AbortError') { console.error(err); toast('Failed to load theme profile: ' + err.message, true); }
   }
 }
 
@@ -3614,29 +3706,31 @@ async function renderGroup() {
     renderGroup();
   });
   const filter = _scopedFilter({ group: new Set([name]) });
-  try {
-    const [analytics, mapD, records] = await Promise.all([
-      api.analytics(filter, { scope: 'analytics:group-' + name }),
-      api.map(filter, { scope: 'map:group-' + name }),
-      api.records(filter, 1, 5, { scope: 'records:group-' + name }),
-    ]);
+
+  const anSwr = swr('analytics:group:'+name, filter, () => api.analytics(filter, { scope: 'analytics:group-' + name }));
+  const mpSwr = swr('map:group:'+name,       filter, () => api.map(filter, { scope: 'map:group-' + name }));
+  const rcSwr = swr('records:group:'+name,   filter, () => api.records(filter, 1, 5, { scope: 'records:group-' + name }));
+
+  const paint = (analytics, mapD, records, opts = {}) => {
+    if (!analytics || !mapD || !records) return;
     const total = records.total_records;
     const countries = mapD.country_counts || [];
     const themes = analytics?.themes?.theme_counts || [];
     const sdgs = analytics?.text?.sdg_counts || [];
     const topC = countries[0]?.country || '—';
+    const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
     $('#gpKpis').innerHTML = `
       <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
       <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>`;
-    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
     _renderRailNoteInto($('#gpRailNote'), 'group');
+    root.classList.toggle('stale', !!opts.stale);
     renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false });
     renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
     renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
-    // Co-occurring groups — other concerned groups appearing in the same records
     const coGroups = (analytics?.text?.affected_person_counts || []).filter(g => g.affected_person !== name).slice(0,12);
     renderRowList($('#gpGroups'), coGroups.map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
     renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
@@ -3653,15 +3747,20 @@ async function renderGroup() {
       sampleEl.appendChild(d);
     });
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
-    $('#gpSeeAll').addEventListener('click', () => {
+  };
+
+  if (anSwr.stale && mpSwr.stale && rcSwr.stale) paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
+  try {
+    const [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
+    paint(analytics, mapD, records, { stale: false });
+    $('#gpSeeAll')?.addEventListener('click', () => {
       state.filters.group = new Set([name]);
       refreshFacetUI('group');
       navigate('search');
       onFiltersChanged();
     });
   } catch (err) {
-    if (err.name !== 'AbortError') console.error(err);
-    toast('Failed to load group profile: ' + err.message, true);
+    if (err.name !== 'AbortError') { console.error(err); toast('Failed to load group profile: ' + err.message, true); }
   }
 }
 
@@ -3707,28 +3806,37 @@ async function renderSDG() {
   const filter = _scopedFilter({ sdg: new Set() });
   const rawParams = buildParams(filter);
   rawParams.set('sdgs', sdg);
+  // Synthetic filter used only for SWR key — includes the raw SDG so the
+  // cache key distinguishes sub-targets from goal-level.
+  const filterKey = { ...filter, sdg: new Set([String(sdg)]) };
   const rawAnalytics = () => apiGet(E.analytics, rawParams, { scope: 'analytics:sdg-' + sdg });
   const rawMap       = () => apiGet(E.map,       rawParams, { scope: 'map:sdg-' + sdg });
   const rawRecords   = () => { const p = new URLSearchParams(rawParams); p.set('page','1'); p.set('page_size','5'); return apiGet(E.records, p, { scope: 'records:sdg-' + sdg }); };
-  try {
-    const [analytics, mapD, records] = await Promise.all([rawAnalytics(), rawMap(), rawRecords()]);
+
+  const anSwr = swr('analytics:sdg:'+sdg, filterKey, rawAnalytics);
+  const mpSwr = swr('map:sdg:'+sdg,       filterKey, rawMap);
+  const rcSwr = swr('records:sdg:'+sdg,   filterKey, rawRecords);
+
+  const paint = (analytics, mapD, records, opts = {}) => {
+    if (!analytics || !mapD || !records) return;
     const total = records.total_records;
     const countries = mapD.country_counts || [];
     const themes = analytics?.themes?.theme_counts || [];
     const groups = analytics?.text?.affected_person_counts || [];
+    const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
     $('#spKpis').innerHTML = `
       <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
       <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
       <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Groups</div></div>`;
-    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
     _renderRailNoteInto($('#spRailNote'), 'sdg');
+    root.classList.toggle('stale', !!opts.stale);
     renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false });
     renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
     renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
     renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), {});
-    // Co-occurring SDGs — other SDG targets appearing alongside this one
     const coSdgs = (analytics?.text?.sdg_counts || []).filter(s => s.sdg !== sdg).slice(0,12);
     renderRowList($('#spSdgs'), coSdgs.map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), {});
 
@@ -3744,16 +3852,20 @@ async function renderSDG() {
       sampleEl.appendChild(d);
     });
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
-    $('#spSeeAll').addEventListener('click', () => {
-      // SDG filter in the rail expects a number; parse & set both rail + navigate
+  };
+
+  if (anSwr.stale && mpSwr.stale && rcSwr.stale) paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
+  try {
+    const [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
+    paint(analytics, mapD, records, { stale: false });
+    $('#spSeeAll')?.addEventListener('click', () => {
       const m = String(sdg).match(/(\d+)/);
       if (m) { state.filters.sdg.add(Number(m[1])); refreshFacetUI('sdg'); }
       navigate('search');
       onFiltersChanged();
     });
   } catch (err) {
-    if (err.name !== 'AbortError') console.error(err);
-    toast('Failed to load SDG profile: ' + err.message, true);
+    if (err.name !== 'AbortError') { console.error(err); toast('Failed to load SDG profile: ' + err.message, true); }
   }
 }
 
@@ -3803,26 +3915,29 @@ async function renderMechanism() {
   });
 
   const filter = _scopedFilter({ body: new Set([name]) });
-  try {
-    const [analytics, mapD, records] = await Promise.all([
-      api.analytics(filter),
-      api.map(filter),
-      api.records(filter, 1, 5),
-    ]);
+
+  const anSwr = swr('analytics:mech:'+name, filter, () => api.analytics(filter));
+  const mpSwr = swr('map:mech:'+name,       filter, () => api.map(filter));
+  const rcSwr = swr('records:mech:'+name,   filter, () => api.records(filter, 1, 5));
+
+  const paint = (analytics, mapD, records, opts = {}) => {
+    if (!analytics || !mapD || !records) return;
     const total = records.total_records;
     const countries = mapD.country_counts || [];
     const themes = analytics?.themes?.theme_counts || [];
     const groups = analytics?.text?.affected_person_counts || [];
     const sdgs = analytics?.text?.sdg_counts || [];
     const topC = countries[0]?.country || '—';
+    const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
     $('#mpKpis').innerHTML = `
       <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
       <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>`;
-    root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
     _renderRailNoteInto($('#mpRailNote'), 'body');
+    root.classList.toggle('stale', !!opts.stale);
 
     renderTimeline($('#mpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#mpLegend'), interactive: false });
     renderRowList($('#mpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
@@ -3843,15 +3958,20 @@ async function renderMechanism() {
       sampleEl.appendChild(d);
     });
     if (!(records.records || []).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
-    $('#mpSeeAll').addEventListener('click', () => {
+  };
+
+  if (anSwr.stale && mpSwr.stale && rcSwr.stale) paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
+  try {
+    const [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
+    paint(analytics, mapD, records, { stale: false });
+    $('#mpSeeAll')?.addEventListener('click', () => {
       state.filters.body = new Set([name]);
       refreshFacetUI('body');
       navigate('search');
       onFiltersChanged();
     });
   } catch (err) {
-    if (err.name !== 'AbortError') console.error(err);
-    toast('Failed to load Mechanism profile: ' + err.message, true);
+    if (err.name !== 'AbortError') { console.error(err); toast('Failed to load Mechanism profile: ' + err.message, true); }
   }
 }
 
