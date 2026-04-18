@@ -265,6 +265,37 @@ a{color:inherit;text-decoration:none}
 .map-scale{display:flex;gap:2px;align-items:center;margin-top:6px;font-size:10px;color:var(--dim)}
 .map-scale .s{width:18px;height:8px}
 
+/* Hex tile map — one hex per state party, visual-fairness layout */
+.map-modes{display:flex;gap:0;border:1px solid var(--line);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.map-modes button{background:var(--paper);border:0;border-right:1px solid var(--line);padding:3px 9px;color:var(--dim);cursor:pointer;font:inherit}
+.map-modes button:last-child{border-right:0}
+.map-modes button.on{background:var(--ink);color:var(--paper)}
+.map-modes button:hover:not(.on){color:var(--ink);background:var(--paper-2)}
+
+.map-regions{display:flex;gap:0;border:1px solid var(--line);margin-bottom:10px;flex-wrap:wrap}
+.map-regions button{font:inherit;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px;background:var(--paper);border:0;border-right:1px solid var(--line);color:var(--dim);cursor:pointer;transition:background .12s,color .12s}
+.map-regions button:last-child{border-right:0}
+.map-regions button:hover{color:var(--ink);background:var(--paper-2)}
+.map-regions button.on{background:var(--ink);color:var(--paper)}
+
+.hex-svg{display:block;width:100%;height:400px}
+.hex{cursor:pointer;transition:transform .12s,filter .12s}
+.hex:hover{transform:translateY(-2px);filter:drop-shadow(0 2px 0 rgba(0,0,0,.18))}
+.hex polygon{transition:fill .2s,stroke .12s,stroke-width .12s}
+.hex.on polygon{stroke:var(--ink);stroke-width:2.5}
+.hex.empty polygon{opacity:.35}
+.hex text{font-family:var(--mono);font-size:9px;letter-spacing:.02em;fill:var(--ink);pointer-events:none;font-weight:500}
+.hex.light text{fill:var(--paper)}
+.hex-tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);padding:10px 12px;font-size:11px;min-width:200px;transform:translate(12px,12px);opacity:0;transition:opacity .12s;z-index:10;font-family:var(--mono);line-height:1.35}
+.hex-tip.show{opacity:1}
+.hex-tip .nm{font-family:var(--serif);font-size:17px;line-height:1.1;margin-bottom:4px}
+.hex-tip .nb{color:var(--accent);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.hex-tip .ln{height:1px;background:rgba(255,255,255,.16);margin:8px 0}
+.hex-tip .row{display:flex;justify-content:space-between;gap:20px;color:rgba(255,255,255,.7)}
+.hex-tip .row b{color:var(--paper);font-weight:500}
+.map-export{padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--dim);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-left:8px}
+.map-export:hover{border-color:var(--ink);color:var(--ink)}
+
 /* Legacy grid map — kept for fallback */
 .map-grid{display:grid;grid-template-columns:repeat(22,1fr);grid-auto-rows:1fr;gap:2px;height:100%}
 .map-cell{background:var(--paper-2);position:relative;font-size:8px;color:var(--dim);display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:0;transition:transform .1s}
@@ -396,7 +427,8 @@ a{color:inherit;text-decoration:none}
 .se-item .tg span{font-size:9px;padding:1px 5px;border:1px solid var(--line);color:var(--dim);letter-spacing:.04em}
 .se-item .cc{font-family:var(--mono);font-size:11px;color:var(--ink);text-align:right}
 .se-item .rg{font-size:10px;color:var(--dim);text-align:right}
-.se-item em{background:var(--accent);color:var(--paper);font-style:normal;padding:0 2px}
+.se-item em,.se-item mark.kw-match{background:var(--accent);color:var(--paper);font-style:normal;padding:0 2px;border-radius:1px}
+.se-item .kw-count{display:inline-block;background:var(--accent);color:var(--paper);font-size:9px;letter-spacing:.04em;padding:1px 5px;margin-right:6px;font-family:var(--mono);border-radius:1px;vertical-align:1px}
 /* Virtualized/content-visibility: modern browsers render only rows in/near viewport */
 .se-list .se-item{content-visibility:auto;contain-intrinsic-size:auto 120px}
 .se-sentinel{height:40px;display:flex;align-items:center;justify-content:center;color:var(--dim);font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;padding:12px}
@@ -941,6 +973,72 @@ const SDG_NAMES = {
   15:"Life on land", 16:"Peace, justice and strong institutions",
   17:"Partnerships for the goals",
 };
+
+/* SDG target names — granular sub-goals (UN 2030 Agenda). Subset focused on
+   human-rights-relevant targets; falls back to goal name when target unknown. */
+const SDG_TARGET_NAMES = {
+  "1.1":"Eradicate extreme poverty","1.2":"Reduce poverty in all dimensions","1.3":"Implement social protection systems",
+  "1.4":"Equal rights to economic resources","1.5":"Build resilience of the poor","1.a":"Resources for poverty eradication","1.b":"Pro-poor policy frameworks",
+  "2.1":"End hunger, access to safe food","2.2":"End all forms of malnutrition","2.3":"Double agricultural productivity of smallholders",
+  "3.1":"Reduce maternal mortality","3.2":"End preventable deaths of newborns & children","3.3":"End AIDS, TB, malaria, tropical diseases",
+  "3.4":"Reduce premature mortality from non-communicable diseases","3.5":"Substance abuse prevention","3.6":"Halve road traffic deaths",
+  "3.7":"Universal access to sexual & reproductive healthcare","3.8":"Universal health coverage","3.9":"Reduce deaths from pollution & contamination",
+  "3.a":"Strengthen FCTC implementation","3.b":"Affordable medicines & vaccines","3.c":"Health workforce","3.d":"Health-risk early warning",
+  "4.1":"Free, equitable, quality primary & secondary education","4.2":"Quality early-childhood development","4.3":"Affordable technical, vocational & tertiary education",
+  "4.4":"Increase youth & adult skills for employment","4.5":"Eliminate gender disparities in education","4.6":"Universal literacy & numeracy",
+  "4.7":"Education for sustainable development & global citizenship","4.a":"Safe, inclusive education facilities","4.b":"Scholarships for developing countries","4.c":"Qualified teachers",
+  "5.1":"End discrimination against women & girls","5.2":"Eliminate violence against women","5.3":"Eliminate harmful practices (FGM, child marriage)",
+  "5.4":"Recognise unpaid care & domestic work","5.5":"Women's full participation in leadership","5.6":"Universal access to reproductive health & rights",
+  "5.a":"Equal rights to economic resources","5.b":"Enhance women's use of ICT","5.c":"Gender-equality policies & legislation",
+  "6.1":"Safe & affordable drinking water","6.2":"Adequate sanitation & hygiene","6.3":"Water quality & pollution reduction",
+  "6.4":"Water-use efficiency","6.5":"Integrated water-resources management","6.6":"Water-related ecosystems","6.a":"Water-related capacity-building","6.b":"Community water management",
+  "7.1":"Universal access to modern energy","7.2":"Renewable energy share","7.3":"Energy efficiency","7.a":"Clean-energy research","7.b":"Clean-energy infrastructure",
+  "8.1":"Sustain per-capita economic growth","8.2":"Productivity through diversification","8.3":"Formalisation & growth of MSMEs",
+  "8.4":"Resource efficiency in consumption & production","8.5":"Full & productive employment, equal pay","8.6":"Reduce youth NEET rate",
+  "8.7":"End forced labour, modern slavery, child labour","8.8":"Labour rights & safe workplaces (migrants, women)",
+  "8.9":"Sustainable tourism","8.10":"Access to financial services","8.a":"Aid for Trade","8.b":"Youth-employment strategy",
+  "9.1":"Resilient infrastructure","9.2":"Inclusive industrialisation","9.3":"Small-enterprise access to finance",
+  "9.4":"Upgrade infrastructure with clean tech","9.5":"R&D capacity","9.a":"Sustainable infrastructure in LDCs","9.b":"Domestic technology development","9.c":"ICT access",
+  "10.1":"Grow income of bottom 40%","10.2":"Social, economic & political inclusion","10.3":"Equal opportunity & end discriminatory laws",
+  "10.4":"Fiscal, wage & social policies for equality","10.5":"Regulation of global financial markets","10.6":"Developing countries' voice in global institutions",
+  "10.7":"Orderly, safe, regular migration","10.a":"Special treatment for developing countries","10.b":"ODA to states in greatest need","10.c":"Reduce remittance costs",
+  "11.1":"Safe & affordable housing","11.2":"Safe, affordable transport","11.3":"Inclusive & sustainable urbanization",
+  "11.4":"Protect cultural & natural heritage","11.5":"Reduce disaster deaths & economic losses","11.6":"Environmental impact of cities","11.7":"Safe, inclusive public spaces",
+  "12.1":"10-year framework for sustainable consumption","12.2":"Sustainable management of natural resources","12.3":"Halve per-capita food waste",
+  "12.4":"Environmentally sound chemicals management","12.5":"Reduce waste via recycle & reuse","12.6":"Sustainability reporting in companies",
+  "13.1":"Climate resilience & adaptive capacity","13.2":"Integrate climate measures into policy","13.3":"Climate education & awareness",
+  "14.1":"Reduce marine pollution","14.2":"Protect marine & coastal ecosystems","14.3":"Minimize ocean acidification",
+  "14.4":"Regulate harvesting, end overfishing","14.5":"Conserve coastal & marine areas","14.6":"Prohibit harmful fisheries subsidies","14.7":"Benefits to SIDS & LDCs",
+  "15.1":"Conserve terrestrial & freshwater ecosystems","15.2":"End deforestation","15.3":"Combat desertification",
+  "15.4":"Conserve mountain ecosystems","15.5":"Halt biodiversity loss","15.6":"Genetic-resource access & benefit-sharing","15.7":"End poaching & trafficking of protected species",
+  "15.8":"Prevent invasive alien species","15.9":"Biodiversity in planning & accounts",
+  "16.1":"Reduce all forms of violence","16.2":"End abuse, exploitation, trafficking of children","16.3":"Promote the rule of law, equal access to justice",
+  "16.4":"Reduce illicit financial & arms flows","16.5":"Reduce corruption & bribery","16.6":"Effective, accountable & transparent institutions",
+  "16.7":"Responsive, inclusive, participatory decision-making","16.8":"Developing countries' participation in global governance",
+  "16.9":"Legal identity for all (incl. birth registration)","16.10":"Public access to information & fundamental freedoms",
+  "16.a":"Strengthen national institutions to prevent violence","16.b":"Promote non-discriminatory laws & policies",
+  "17.1":"Domestic-resource mobilization","17.2":"Fulfil ODA commitments","17.3":"Additional financial resources for developing countries",
+  "17.9":"Capacity-building for SDG implementation","17.14":"Policy coherence for sustainable development","17.16":"Global Partnership for Sustainable Development",
+  "17.17":"Public, public-private & civil-society partnerships","17.18":"Capacity for high-quality data","17.19":"Measurements of progress beyond GDP",
+};
+
+function formatSdgLabel(sdgStr) {
+  if (!sdgStr) return '';
+  const s = String(sdgStr).trim();
+  // Support "SDG 16.3", "16.3", "16.b", "SDG 16", "16"
+  const m = s.match(/(\d+)(?:\.(\w+))?/);
+  if (!m) return s;
+  const goal = +m[1];
+  const target = m[2];
+  const goalName = SDG_NAMES[goal];
+  if (target) {
+    const tkey = goal + '.' + target;
+    const tName = SDG_TARGET_NAMES[tkey];
+    if (tName) return `SDG ${tkey} — ${tName}`;
+    return `SDG ${tkey}${goalName ? ' · ' + goalName : ''}`;
+  }
+  return `SDG ${goal}${goalName ? ' — ' + goalName : ''}`;
+}
 
 /* ---------- STATE ---------- */
 const state = {
@@ -1563,17 +1661,17 @@ function buildRail(facets, analytics) {
   buildFacetList('region', regions, 'region');
   $('#n-region').textContent = regions.length;
 
-  // --- SDG --- (1–17 grid)
+  // --- SDG --- (1–17 grid; sum target counts per goal for the tooltip totals)
   const sdgCountsByN = {};
   (analytics?.text?.sdg_counts || []).forEach(s => {
     const m = String(s.sdg||'').match(/(\d+)/);
-    if (m) sdgCountsByN[+m[1]] = s.count;
+    if (m) sdgCountsByN[+m[1]] = (sdgCountsByN[+m[1]] || 0) + (s.count || 0);
   });
   const sdgEl = $('#f-sdg');
   sdgEl.innerHTML = Array.from({length:17},(_,i)=>i+1).map(n => {
     const c = sdgCountsByN[n];
     const name = SDG_NAMES[n] || '';
-    const tip = `SDG ${n}${name?' — '+name:''}${c?' ('+fmt(c)+' recs)':''}`;
+    const tip = `SDG ${n}${name?' — '+name:''}${c?' ('+fmt(c)+' recs across targets)':''}`;
     return `<div class="sdg-cell" data-k="${n}" title="${sanitize(tip)}">${n}</div>`;
   }).join('');
   sdgEl.querySelectorAll('.sdg-cell').forEach(c => c.addEventListener('click', () => {
@@ -2048,14 +2146,234 @@ async function renderChoroplethMap(container, countryCounts) {
   });
 }
 
-/* Alias: renderMap defers to the proper choropleth; the grid version
-   is preserved as renderGridMap for graceful fallback or legacy use. */
-function renderMap(container, countryCounts) {
-  // Fire-and-forget; choropleth fetches its own libs
-  renderChoroplethMap(container, countryCounts).catch(err => {
-    console.warn('Choropleth failed, using grid', err);
-    renderGridMap(container, countryCounts);
+/* =========================================================================
+   HEX TILE MAP — one equal-sized hex per state party (visual-fairness layout)
+   =========================================================================
+   Hand-placed pointy-top hexes in continental clusters. Luxembourg gets
+   the same cell as China — geographic literacy trades for visual fairness.
+   Data layer: countryCounts from /api/data/map, keyed by ISO3 via
+   NAME_TO_ISO. Click = spotlight (drawer shows country summary), shift-
+   click = toggle filter, dblclick = open Country profile. */
+const HEX_LAYOUT = [
+  [ 1, 0,'CAN','Canada','americas'],[ 2, 1,'USA','United States of America','americas'],
+  [ 2, 2,'MEX','Mexico','americas'],[ 3, 2,'CUB','Cuba','americas'],
+  [ 3, 3,'JAM','Jamaica','americas'],[ 4, 3,'HTI','Haiti','americas'],
+  [ 4, 2,'DOM','Dominican Republic','americas'],[ 2, 3,'GTM','Guatemala','americas'],
+  [ 2, 4,'SLV','El Salvador','americas'],[ 3, 4,'HND','Honduras','americas'],
+  [ 3, 5,'NIC','Nicaragua','americas'],[ 2, 5,'CRI','Costa Rica','americas'],
+  [ 3, 6,'PAN','Panama','americas'],[ 4, 5,'COL','Colombia','americas'],
+  [ 5, 5,'VEN','Venezuela (Bolivarian Republic of)','americas'],[ 5, 6,'GUY','Guyana','americas'],
+  [ 4, 6,'ECU','Ecuador','americas'],[ 4, 7,'PER','Peru','americas'],
+  [ 5, 7,'BRA','Brazil','americas'],[ 5, 8,'BOL','Bolivia (Plurinational State of)','americas'],
+  [ 4, 8,'CHL','Chile','americas'],[ 5, 9,'ARG','Argentina','americas'],
+  [ 6, 9,'URY','Uruguay','americas'],[ 6, 8,'PRY','Paraguay','americas'],
+  [ 8, 1,'ISL','Iceland','europe'],[ 9, 1,'NOR','Norway','europe'],
+  [10, 1,'SWE','Sweden','europe'],[11, 1,'FIN','Finland','europe'],
+  [ 9, 2,'GBR','United Kingdom of Great Britain and Northern Ireland','europe'],[ 8, 2,'IRL','Ireland','europe'],
+  [10, 2,'DNK','Denmark','europe'],[11, 2,'EST','Estonia','europe'],
+  [12, 2,'LVA','Latvia','europe'],[12, 3,'LTU','Lithuania','europe'],
+  [ 9, 3,'NLD','Netherlands','europe'],[ 9, 4,'BEL','Belgium','europe'],
+  [10, 3,'DEU','Germany','europe'],[11, 3,'POL','Poland','europe'],
+  [13, 3,'BLR','Belarus','europe'],[13, 4,'UKR','Ukraine','europe'],
+  [ 9, 5,'FRA','France','europe'],[ 8, 5,'PRT','Portugal','europe'],
+  [ 8, 6,'ESP','Spain','europe'],[10, 4,'CHE','Switzerland','europe'],
+  [10, 5,'ITA','Italy','europe'],[11, 4,'AUT','Austria','europe'],
+  [11, 5,'SVN','Slovenia','europe'],[12, 4,'CZE','Czechia','europe'],
+  [12, 5,'SVK','Slovakia','europe'],[12, 6,'HUN','Hungary','europe'],
+  [11, 6,'HRV','Croatia','europe'],[12, 7,'SRB','Serbia','europe'],
+  [11, 7,'BIH','Bosnia and Herzegovina','europe'],[11, 8,'ALB','Albania','europe'],
+  [13, 6,'ROU','Romania','europe'],[13, 7,'BGR','Bulgaria','europe'],
+  [12, 8,'MKD','North Macedonia','europe'],[13, 8,'GRC','Greece','europe'],
+  [15, 2,'RUS','Russian Federation','europe'],
+  [14, 5,'TUR','Türkiye','mena'],[14, 7,'LBN','Lebanon','mena'],
+  [14, 8,'SYR','Syrian Arab Republic','mena'],[15, 7,'ISR','Israel','mena'],
+  [15, 8,'JOR','Jordan','mena'],[15, 6,'GEO','Georgia','mena'],
+  [16, 6,'ARM','Armenia','mena'],[16, 7,'AZE','Azerbaijan','mena'],
+  [16, 8,'IRQ','Iraq','mena'],[17, 8,'IRN','Iran (Islamic Republic of)','mena'],
+  [15, 9,'EGY','Egypt','mena'],[16, 9,'SAU','Saudi Arabia','mena'],
+  [17, 9,'KWT','Kuwait','mena'],[18,10,'QAT','Qatar','mena'],
+  [18,11,'ARE','United Arab Emirates','mena'],[17,11,'OMN','Oman','mena'],
+  [16,10,'YEM','Yemen','mena'],[17,10,'BHR','Bahrain','mena'],
+  [10, 7,'MAR','Morocco','africa'],[10, 8,'DZA','Algeria','africa'],
+  [11, 9,'TUN','Tunisia','africa'],[12, 9,'LBY','Libya','africa'],
+  [13,10,'SDN','Sudan','africa'],[14, 9,'SSD','South Sudan','africa'],
+  [ 9, 8,'MRT','Mauritania','africa'],[ 9, 9,'SEN','Senegal','africa'],
+  [ 9,10,'GIN','Guinea','africa'],[10, 9,'MLI','Mali','africa'],
+  [11,10,'NER','Niger','africa'],[12,10,'TCD','Chad','africa'],
+  [10,10,'BFA','Burkina Faso','africa'],[10,11,'CIV',"Côte d'Ivoire",'africa'],
+  [ 9,11,'LBR','Liberia','africa'],[ 8,10,'SLE','Sierra Leone','africa'],
+  [11,11,'GHA','Ghana','africa'],[11,12,'TGO','Togo','africa'],
+  [12,11,'BEN','Benin','africa'],[12,12,'NGA','Nigeria','africa'],
+  [13,11,'CMR','Cameroon','africa'],[13,12,'CAF','Central African Republic','africa'],
+  [14,10,'ETH','Ethiopia','africa'],[14,11,'ERI','Eritrea','africa'],
+  [15,10,'SOM','Somalia','africa'],[14,12,'KEN','Kenya','africa'],
+  [13,13,'UGA','Uganda','africa'],[12,13,'COD','Democratic Republic of the Congo','africa'],
+  [11,13,'COG','Congo','africa'],[10,13,'GAB','Gabon','africa'],
+  [14,13,'TZA','United Republic of Tanzania','africa'],[13,14,'RWA','Rwanda','africa'],
+  [14,14,'BDI','Burundi','africa'],[12,14,'AGO','Angola','africa'],
+  [13,15,'ZMB','Zambia','africa'],[14,15,'MWI','Malawi','africa'],
+  [13,16,'ZWE','Zimbabwe','africa'],[14,16,'MOZ','Mozambique','africa'],
+  [12,16,'NAM','Namibia','africa'],[13,17,'BWA','Botswana','africa'],
+  [13,18,'ZAF','South Africa','africa'],[14,18,'LSO','Lesotho','africa'],
+  [14,17,'SWZ','Eswatini','africa'],[15,16,'MDG','Madagascar','africa'],
+  [16, 3,'KAZ','Kazakhstan','asia'],[17, 4,'MNG','Mongolia','asia'],
+  [17, 6,'UZB','Uzbekistan','asia'],[17, 7,'TKM','Turkmenistan','asia'],
+  [18, 5,'KGZ','Kyrgyzstan','asia'],[18, 6,'TJK','Tajikistan','asia'],
+  [18, 7,'AFG','Afghanistan','asia'],[19, 7,'PAK','Pakistan','asia'],
+  [19, 8,'IND','India','asia'],[20, 7,'NPL','Nepal','asia'],
+  [20, 8,'BTN','Bhutan','asia'],[20, 9,'BGD','Bangladesh','asia'],
+  [19, 9,'LKA','Sri Lanka','asia'],[19,10,'MDV','Maldives','asia'],
+  [19, 5,'CHN','China','asia'],[20, 4,'PRK',"Democratic People's Republic of Korea",'asia'],
+  [20, 5,'KOR','Republic of Korea','asia'],[21, 4,'JPN','Japan','asia'],
+  [21, 7,'MMR','Myanmar','asia'],[21, 8,'THA','Thailand','asia'],
+  [22, 8,'LAO',"Lao People's Democratic Republic",'asia'],
+  [22, 9,'KHM','Cambodia','asia'],[22, 7,'VNM','Viet Nam','asia'],
+  [22,10,'MYS','Malaysia','asia'],[22,11,'SGP','Singapore','asia'],
+  [23, 9,'PHL','Philippines','asia'],[23,11,'IDN','Indonesia','asia'],
+  [23,12,'TLS','Timor-Leste','asia'],[21, 9,'BRN','Brunei Darussalam','asia'],
+  [24,13,'AUS','Australia','oceania'],[25,12,'PNG','Papua New Guinea','oceania'],
+  [25,14,'NZL','New Zealand','oceania'],[26,12,'FJI','Fiji','oceania'],
+];
+
+function renderHexMap(container, countryCounts) {
+  // Count lookup by ISO3, via cleaned country names
+  const byIso = {};
+  (countryCounts || []).forEach(c => {
+    const name = cleanCountryName(c.country);
+    const iso = NAME_TO_ISO[name];
+    if (iso) byIso[iso] = (byIso[iso] || 0) + c.count;
   });
+  const MAX = Math.max(1, ...Object.values(byIso));
+  const SIZE = 22;
+  const hexCenter = (col, row) => {
+    const w = Math.sqrt(3) * SIZE;
+    const h = 2 * SIZE;
+    return [(col + (row & 1 ? 0.5 : 0)) * w, row * h * 0.75];
+  };
+  const hexPoints = (cx, cy, r = SIZE) => {
+    let p = '';
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 180) * (60 * i - 90);
+      p += (cx + r * Math.cos(a)).toFixed(2) + ',' + (cy + r * Math.sin(a)).toFixed(2) + ' ';
+    }
+    return p.trim();
+  };
+  const colorFor = n => {
+    if (!n) return 'var(--paper-2)';
+    const t = Math.min(1, n / MAX);
+    // 5-step quantization — visual boldness
+    const step = t < 0.06 ? 0.08 : t < 0.18 ? 0.24 : t < 0.36 ? 0.44 : t < 0.6 ? 0.65 : 0.92;
+    return `color-mix(in oklab, var(--accent) ${Math.round(step * 100)}%, var(--paper-2))`;
+  };
+  const isLight = n => n && (n / MAX) >= 0.36;
+
+  // viewBox around world extent
+  let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  HEX_LAYOUT.forEach(([c, r]) => {
+    const [x, y] = hexCenter(c, r);
+    minX = Math.min(minX, x); minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+  });
+  const pad = SIZE * 1.6;
+  const vb = `${minX-pad} ${minY-pad} ${maxX-minX+pad*2} ${maxY-minY+pad*2}`;
+
+  const labels = [
+    ['AMERICAS', 1, 6], ['EUROPE', 9, 0], ['MENA', 15, 5],
+    ['AFRICA', 10, 17], ['ASIA', 18, 3], ['OCEANIA', 24, 10],
+  ].map(([t, c, r]) => {
+    const [x, y] = hexCenter(c, r);
+    return `<text class="region-lbl" x="${x}" y="${y - SIZE - 6}">${t}</text>`;
+  }).join('');
+
+  const hexes = HEX_LAYOUT.map(([c, r, iso, name]) => {
+    const [cx, cy] = hexCenter(c, r);
+    const n = byIso[iso] || 0;
+    const on = state.filters.country.has(name);
+    const cls = 'hex' + (isLight(n) ? ' light' : '') + (n === 0 ? ' empty' : '') + (on ? ' on' : '');
+    return `<g class="${cls}" data-iso="${iso}" data-name="${sanitize(name)}" data-count="${n}" role="button" tabindex="0" aria-label="${sanitize(name)}: ${fmt(n)} records">
+      <polygon points="${hexPoints(cx, cy)}" fill="${colorFor(n)}" stroke="var(--paper)" stroke-width="1.5"/>
+      <text x="${cx}" y="${cy + 3}" text-anchor="middle">${iso}</text>
+    </g>`;
+  }).join('');
+
+  container.innerHTML = `
+    <svg class="hex-svg" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="World hex-tile map, one hex per state party">${labels}${hexes}</svg>
+    <div class="hex-tip" id="hexTip" role="tooltip"></div>
+    <div class="map-scale" style="margin-top:6px">
+      <span>0</span>
+      ${[0.08,0.24,0.44,0.65,0.92].map(v => `<span class="s" style="background:color-mix(in oklab, var(--accent) ${Math.round(v*100)}%, var(--paper-2))"></span>`).join('')}
+      <span>${fmt(MAX)}</span>
+      <span style="margin-left:auto;color:var(--dim);font-size:10px">hex = state · color = volume · click = filter · dblclick = profile</span>
+    </div>`;
+
+  const tip = container.querySelector('#hexTip');
+  container.querySelectorAll('g.hex').forEach(g => {
+    g.addEventListener('mousemove', e => {
+      const n = +g.dataset.count;
+      const name = g.dataset.name;
+      const iso = g.dataset.iso;
+      const sorted = (countryCounts || []).slice().sort((a, b) => b.count - a.count);
+      const rank = sorted.findIndex(c => cleanCountryName(c.country) === name) + 1;
+      tip.innerHTML = `
+        <div class="nb">${sanitize(iso)} · ${n ? Math.round(n/MAX*100) : 0}% of max</div>
+        <div class="nm">${sanitize(name)}</div>
+        <div class="ln"></div>
+        <div class="row"><span>Recommendations</span><b>${fmt(n)}</b></div>
+        <div class="row"><span>Rank</span><b>${rank ? '#' + rank : '—'}</b></div>`;
+      const r = container.getBoundingClientRect();
+      tip.style.left = (e.clientX - r.left) + 'px';
+      tip.style.top = (e.clientY - r.top) + 'px';
+      tip.classList.add('show');
+    });
+    g.addEventListener('mouseleave', () => tip.classList.remove('show'));
+    g.addEventListener('click', () => {
+      const name = g.dataset.name;
+      const s = state.filters.country;
+      if (s.has(name)) s.delete(name); else s.add(name);
+      g.classList.toggle('on', s.has(name));
+      refreshFacetUI('country');
+      onFiltersChanged();
+    });
+    g.addEventListener('dblclick', () => {
+      state.focusCountry = g.dataset.iso;
+      const t = $('#tabCountry');
+      if (t) t.textContent = g.dataset.name;
+      navigate('country');
+    });
+    g.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); g.click(); }
+    });
+    // Preload country analytics on hover (same scheme as top-countries rows)
+    let tH;
+    g.addEventListener('mouseenter', () => {
+      tH = setTimeout(() => preloadCountryOnHover(g.dataset.name), 250);
+    });
+    g.addEventListener('mouseleave', () => clearTimeout(tH));
+  });
+}
+
+/* Map-mode dispatcher — the user's choice (hex | choropleth | grid) is
+   persisted in localStorage. Hex is the default. */
+function getMapMode() {
+  try { return localStorage.getItem('uhri_v2_map_mode') || 'hex'; } catch { return 'hex'; }
+}
+function setMapMode(m) {
+  try { localStorage.setItem('uhri_v2_map_mode', m); } catch {}
+}
+
+function renderMap(container, countryCounts) {
+  state._lastCountryCounts = countryCounts;
+  const mode = getMapMode();
+  if (mode === 'hex') {
+    renderHexMap(container, countryCounts);
+  } else if (mode === 'grid') {
+    renderGridMap(container, countryCounts);
+  } else {
+    renderChoroplethMap(container, countryCounts).catch(err => {
+      console.warn('Choropleth failed, falling back to hex', err);
+      renderHexMap(container, countryCounts);
+    });
+  }
 }
 
 /* ---------- LEGACY GRID MAP (fallback) ---------- */
@@ -2256,7 +2574,14 @@ function buildOverviewShell() {
       <div class="panel p-map">
         <div class="panel-head">
           <div class="panel-title"><span class="idx">FIG.01</span><span class="t">Where the recommendations land</span></div>
-          <div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter · double-click = country profile</span></div>
+          <div class="panel-actions">
+            <div class="map-modes" id="mapModes" role="group" aria-label="Map style">
+              <button data-mode="hex"        title="Hex tiles — visual fairness, one cell per country">HEX</button>
+              <button data-mode="choropleth" title="Geographic choropleth — real country shapes">GEO</button>
+              <button data-mode="grid"       title="Abstract ISO3 grid">GRID</button>
+            </div>
+            <button class="map-export" id="mapExport" title="Export current map as SVG">⬇ SVG</button>
+          </div>
         </div>
         <div class="map-wrap" id="mapWrap">${_skelMap()}</div>
       </div>
@@ -2282,11 +2607,59 @@ function buildOverviewShell() {
 }
 
 function renderOverviewMapOnly(mapD) {
+  state._lastCountryCounts = mapD.country_counts || [];
   renderMap($('#mapWrap'), mapD.country_counts || []);
+  _wireMapModeToggle();
   const topC = (mapD.country_counts || []).slice(0, 12).map(c => ({
     key: c.country, label: c.country, v: c.count
   }));
   renderRowList($('#topCountries'), topC, { facet:'country' });
+}
+
+function _wireMapModeToggle() {
+  const modes = $('#mapModes'); if (!modes) return;
+  const current = getMapMode();
+  modes.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === current));
+  modes.querySelectorAll('button').forEach(btn => {
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      setMapMode(mode);
+      modes.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+      const counts = state._lastCountryCounts || [];
+      renderMap($('#mapWrap'), counts);
+      announce('Map style switched to ' + mode);
+    });
+  });
+  const expBtn = $('#mapExport');
+  if (expBtn && !expBtn.dataset.wired) {
+    expBtn.dataset.wired = '1';
+    expBtn.addEventListener('click', exportMapAsSVG);
+  }
+}
+
+function exportMapAsSVG() {
+  const svg = $('#mapWrap svg');
+  if (!svg) { toast('No map to export yet', true); return; }
+  const clone = svg.cloneNode(true);
+  // Inline the computed styles so the exported SVG renders without the host page
+  const css = `
+    text{font-family:monospace;font-size:9px}
+    .region-lbl{font-size:10px;fill:#6B6863;letter-spacing:2px}
+    .country{stroke:#0F0F10;stroke-width:.4}
+    .country.empty{fill:#E1DCD0;opacity:.5}
+    .sphere{fill:#EAE6DD;stroke:#0F0F10;stroke-width:.4}
+    .graticule{fill:none;stroke:rgba(0,0,0,.1);stroke-width:.3}
+    .hex polygon{stroke:#F2EFE8;stroke-width:1.5}
+    .hex.on polygon{stroke:#0F0F10;stroke-width:2.5}`;
+  const style = document.createElementNS('http://www.w3.org/2000/svg','style');
+  style.textContent = css;
+  clone.insertBefore(style, clone.firstChild);
+  clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  const str = '<?xml version="1.0" encoding="UTF-8"?>\n' + clone.outerHTML;
+  downloadBlob(str, 'image/svg+xml', `uhri-map-${getMapMode()}-${new Date().toISOString().slice(0,10)}.svg`);
+  toast('Map exported as SVG', false, 2500);
 }
 
 function renderOverviewAnalytics(analytics) {
@@ -2596,15 +2969,12 @@ async function renderCompare() {
         const g = (an?.text?.affected_person_counts||[]).slice(0,8).map(x => ({ key:x.affected_person, label:x.affected_person, v:x.count }));
         renderRowList(groupEl, g, {});
       }
-      // SDGs (top 10), label as "SDG N — Name"
+      // SDGs with granular target names (SDG 16.3 — Promote the rule of law…)
       const sdgEl = $(`#cmpSdgs${letter}`);
       if (sdgEl) {
-        const s = (an?.text?.sdg_counts||[]).slice(0,10).map(x => {
-          const m = String(x.sdg||'').match(/(\d+)/);
-          const n = m ? +m[1] : null;
-          const label = n ? `SDG ${n} — ${SDG_NAMES[n] || ''}`.replace(/ — $/,'') : x.sdg;
-          return { key: x.sdg, label, v: x.count };
-        });
+        const s = (an?.text?.sdg_counts||[]).slice(0,12).map(x => ({
+          key: x.sdg, label: formatSdgLabel(x.sdg), v: x.count
+        }));
         renderRowList(sdgEl, s, {});
       }
     } catch (err) {
@@ -2623,20 +2993,43 @@ async function renderCompare() {
    ========================================================================= */
 /* Renders a single search-result item HTML string */
 function _renderSearchItem(rec, idx, kw) {
-  const txt = (rec.TextPlainCleaned || rec.Text || '').slice(0, 320);
+  const fullTxt = (rec.TextPlainCleaned || rec.Text || '');
+  // When keyword present: snippet window around the first match, with all
+  // matches highlighted (not just first 320 chars which may miss the term)
+  let snippet, moreBefore = false, moreAfter = false;
+  if (kw && kw.trim()) {
+    const lc = fullTxt.toLowerCase();
+    const firstMatch = lc.indexOf(kw.trim().toLowerCase());
+    if (firstMatch >= 0) {
+      const start = Math.max(0, firstMatch - 80);
+      const end = Math.min(fullTxt.length, firstMatch + 240);
+      snippet = fullTxt.slice(start, end);
+      moreBefore = start > 0;
+      moreAfter = end < fullTxt.length;
+    } else {
+      snippet = fullTxt.slice(0, 320);
+      moreAfter = fullTxt.length >= 320;
+    }
+  } else {
+    snippet = fullTxt.slice(0, 320);
+    moreAfter = fullTxt.length >= 320;
+  }
+  const kwCount = kw ? countMatches(fullTxt, kw) : 0;
+  const starred = bmHas(rec.AnnotationId);
   const yr = (rec.PublicationDate||'').slice(0,4);
   const themes = (rec.Themes||[]).slice(0,3);
   const body = cleanLabel(rec.Body);
   const country = cleanCountryName((rec.Countries||[])[0]||'');
-  const highlight = kw ? sanitize(txt).replace(new RegExp('(' + escapeRegex(kw) + ')', 'gi'), '<em>$1</em>') : sanitize(txt);
-  return `<div class="se-item" data-idx="${idx}" role="article">
+  const prefix = moreBefore ? '…' : '';
+  const suffix = moreAfter ? '…' : '';
+  return `<div class="se-item" data-idx="${idx}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
     <div><div class="y">${sanitize(yr)}</div><div class="mech">${sanitize(body)}</div></div>
     <div>
-      <div class="tx">${highlight}${txt.length>=320?'…':''}</div>
+      <div class="tx">${kwCount ? `<span class="kw-count" title="${kwCount} match${kwCount!==1?'es':''}">${kwCount}×</span>` : ''}${prefix}${highlightKeyword(snippet, kw)}${suffix}</div>
       <div class="tg">${themes.map(t=>`<span>${sanitize(t)}</span>`).join('')}${(rec.AffectedPersons||[]).slice(0,2).map(g=>`<span>${sanitize(g)}</span>`).join('')}</div>
     </div>
     <div>
-      <div class="cc">${sanitize(country)}</div>
+      <div class="cc">${starred ? '<span style="color:#d97706" title="Bookmarked">★</span> ' : ''}${sanitize(country)}</div>
       <div class="rg">${sanitize((rec.Regions||[])[0]||'')}</div>
     </div>
   </div>`;
