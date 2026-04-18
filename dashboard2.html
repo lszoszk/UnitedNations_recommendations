@@ -214,6 +214,27 @@ a{color:inherit;text-decoration:none}
 .tl-wrap svg{cursor:crosshair}
 .tl-hint{position:absolute;top:4px;right:8px;font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;pointer-events:none;background:color-mix(in oklab, var(--paper) 80%, transparent);padding:2px 4px}
 
+/* Drawer in list mode — shows matching records for a theme or group */
+.dr-list-head{position:sticky;top:0;background:var(--paper-2);border-bottom:1px solid var(--line);padding:10px 14px;z-index:4;margin:-14px -14px 0}
+.dr-list-head .k{font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:4px}
+.dr-list-head .v{font-family:var(--serif);font-size:20px;line-height:1.1;color:var(--ink)}
+.dr-list-head .n{font:11px var(--mono);color:var(--dim);margin-top:4px}
+.dr-list-head .actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.dr-list-head .actions button{padding:4px 8px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.dr-list-head .actions button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.dr-list-head .actions button:hover:not(.primary){border-color:var(--ink)}
+.dr-list-head .actions button.primary:hover{background:var(--accent);border-color:var(--accent)}
+.dr-list-items{padding:4px 0}
+.dr-list-card{padding:10px 14px 12px;border-bottom:1px dotted var(--line);cursor:pointer;transition:background .12s}
+.dr-list-card:hover{background:var(--paper-2)}
+.dr-list-card .meta{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;margin-bottom:4px;display:flex;gap:8px;flex-wrap:wrap}
+.dr-list-card .meta .yr{color:var(--ink);font-weight:700}
+.dr-list-card .tx{font-family:var(--serif);font-size:13px;line-height:1.45;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.dr-list-card .tg{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+.dr-list-card .tg span{font:9px var(--mono);padding:1px 5px;border:1px solid var(--line);color:var(--dim);letter-spacing:.04em}
+.dr-list-sentinel{padding:14px;text-align:center;font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.dr-list-sentinel .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:8px;vertical-align:middle;animation:pulse 1.4s infinite}
+
 /* Drawer record-navigation hint — sticks to top of drawer body while scrolling */
 .dr-nav{display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px dotted var(--line);font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;background:var(--paper-2);position:sticky;top:0;z-index:3;margin:-14px -14px 10px}
 .dr-nav .dr-nav-pos{font-variant-numeric:tabular-nums}
@@ -2000,10 +2021,17 @@ function renderRowList(el, rows, opts = {}) {
   }).join('');
   if (opts.facet) {
     el.querySelectorAll('.rl-row').forEach(row => {
-      row.addEventListener('click', () => {
-        const s = state.filters[opts.facet];
+      row.addEventListener('click', (e) => {
         const k = row.dataset.key; if (!k) return;
         const val = opts.facet === 'sdg' ? Number(k) : k;
+        // Theme / group rows open a preview drawer with infinite-scroll
+        // list of matching records. Shift-click toggles the rail filter
+        // (escape hatch for power users who want the old behavior).
+        if ((opts.facet === 'theme' || opts.facet === 'group') && !e.shiftKey) {
+          openListDrawer(opts.facet === 'theme' ? 'theme' : 'group', val);
+          return;
+        }
+        const s = state.filters[opts.facet];
         if (s.has(val)) s.delete(val); else s.add(val);
         refreshFacetUI(opts.facet);
         onFiltersChanged();
@@ -2011,6 +2039,10 @@ function renderRowList(el, rows, opts = {}) {
       // Preload country analytics on hover
       if (opts.facet === 'country') attachPreloadHover(row);
     });
+    // Hint text only for theme/group so users know clicks do something special
+    if (opts.facet === 'theme' || opts.facet === 'group') {
+      el.setAttribute('data-hint', 'click: preview records · shift-click: add to filter');
+    }
   }
   if (opts.onClick) {
     el.querySelectorAll('.rl-row').forEach(row => row.addEventListener('click', e => opts.onClick(row.dataset.key, e)));
@@ -2743,7 +2775,7 @@ function buildOverviewShell() {
         <div class="row-list" id="topCountries">${_skelRowList(10)}</div>
       </div>
       <div class="panel p-top-themes">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span><button class="chart-export small" data-export="topThemes" title="Copy as CSV">📋 CSV</button></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.03</span><span class="t">Top themes</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = preview · shift-click = filter</span><button class="chart-export small" data-export="topThemes" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topThemes">${_skelRowList(8)}</div>
       </div>
       <div class="panel p-time">
@@ -2760,7 +2792,7 @@ function buildOverviewShell() {
         <div class="tl-wrap" id="tlWrap">${_skelTimeline()}</div>
       </div>
       <div class="panel p-sankey">
-        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter</span><button class="chart-export small" data-export="topGroups" title="Copy as CSV">📋 CSV</button></div></div>
+        <div class="panel-head"><div class="panel-title"><span class="idx">FIG.05</span><span class="t">Concerned groups</span></div><div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = preview · shift-click = filter</span><button class="chart-export small" data-export="topGroups" title="Copy as CSV">📋 CSV</button></div></div>
         <div class="row-list" id="topGroups">${_skelRowList(8)}</div>
       </div>
     </div>`;
@@ -3511,12 +3543,142 @@ function navigateRec(step) {
   if (!$('#reader').classList.contains('hidden')) openReader(state.selectedRec);
 }
 
+/* ---------- LIST DRAWER (theme / group click → infinite-scroll list) ---------- */
+let _drListObserver = null;
+
+async function openListDrawer(kind, value) {
+  // kind: 'theme' | 'group'
+  state.drawerMode = 'list';
+  state.drawerList = { kind, value, records: [], page: 1, exhausted: false, total: 0 };
+  if (!TW.drawer) { TW.drawer = true; applyTweaks(); }
+  renderDrawer();
+  await loadMoreListDrawer();
+}
+
+function listDrawerFilter() {
+  const { kind, value } = state.drawerList || {};
+  const f = { ...emptyFilters() };
+  if (kind === 'theme') f.theme = new Set([value]);
+  else if (kind === 'group') f.group = new Set([value]);
+  return f;
+}
+
+async function loadMoreListDrawer() {
+  const ctx = state.drawerList;
+  if (!ctx || ctx.exhausted) return;
+  const pageSize = 30;
+  try {
+    const r = await api.records(listDrawerFilter(), ctx.page, pageSize, { scope: 'drawerList' });
+    ctx.total = r.total_records;
+    const newRecs = r.records || [];
+    ctx.records.push(...newRecs);
+    const totalPages = Math.max(1, Math.ceil(ctx.total / pageSize));
+    if (ctx.page >= totalPages || !newRecs.length) ctx.exhausted = true;
+    ctx.page++;
+    // Currently-visible list → used by j/k navigation
+    state.currentResultList = ctx.records;
+    state.currentResultSource = 'drawer-list';
+    renderDrawer();
+  } catch (err) {
+    if (err.name !== 'AbortError') console.warn('drawer-list load failed', err);
+  }
+}
+
+function closeListDrawer() {
+  state.drawerMode = 'record';
+  state.drawerList = null;
+  if (_drListObserver) { _drListObserver.disconnect(); _drListObserver = null; }
+  renderDrawer();
+}
+
+function renderDrawerListMode() {
+  const el = $('#drawerBody');
+  const ctx = state.drawerList;
+  if (!ctx) { state.drawerMode = 'record'; return renderDrawer(); }
+  const kindLabel = ctx.kind === 'theme' ? 'THEME' : 'CONCERNED GROUP';
+  const cards = ctx.records.map((r, i) => {
+    const yr = (r.PublicationDate||'').slice(0,4);
+    const country = cleanCountryName((r.Countries||[])[0]||'');
+    const body = cleanLabel(r.Body || '');
+    const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 220);
+    const themes = (r.Themes||[]).slice(0,2);
+    const starred = bmHas(r.AnnotationId);
+    return `<div class="dr-list-card" data-idx="${i}" role="button" tabindex="0" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
+      <div class="meta"><span class="yr">${sanitize(yr)}</span><span>·</span><span>${sanitize(country)}</span><span>·</span><span>${sanitize(body)}</span>${starred?'<span style="color:#d97706;margin-left:auto">★</span>':''}</div>
+      <div class="tx">${sanitize(txt)}${txt.length >= 220 ? '…' : ''}</div>
+      ${themes.length?`<div class="tg">${themes.map(t=>`<span>${sanitize(t)}</span>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+  const sentinelHtml = ctx.exhausted
+    ? `<div class="dr-list-sentinel" style="color:var(--dimmer)">— end · ${fmt(ctx.total)} total —</div>`
+    : `<div class="dr-list-sentinel" id="drListSentinel"><span class="dot"></span>Loading more…</div>`;
+  el.innerHTML = `
+    <div class="dr-list-head">
+      <div class="k">${kindLabel}</div>
+      <div class="v">${sanitize(ctx.value)}</div>
+      <div class="n">${fmt(ctx.total)} matching records · showing ${fmt(ctx.records.length)}</div>
+      <div class="actions">
+        <button class="primary" id="drListFilter">+ Filter by this ${ctx.kind}</button>
+        <button id="drListProfile">Open ${ctx.kind} profile →</button>
+        <button id="drListClose">× Close</button>
+      </div>
+    </div>
+    <div class="dr-list-items">${cards}${sentinelHtml}</div>`;
+
+  el.querySelectorAll('.dr-list-card').forEach(card => {
+    const openCard = () => {
+      const idx = +card.dataset.idx;
+      const rec = ctx.records[idx];
+      state.selectedRec = rec;
+      state.currentResultIndex = idx;
+      openReader(rec);
+    };
+    card.addEventListener('click', openCard);
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCard(); } });
+  });
+
+  $('#drListFilter')?.addEventListener('click', () => {
+    const { kind, value } = ctx;
+    if (kind === 'theme') { state.filters.theme.add(value); refreshFacetUI('theme'); }
+    else if (kind === 'group') { state.filters.group.add(value); refreshFacetUI('group'); }
+    onFiltersChanged();
+    toast(`Added "${value}" to filter`, false, 2500);
+  });
+  $('#drListProfile')?.addEventListener('click', () => {
+    if (ctx.kind === 'theme') {
+      state.focusTheme = ctx.value;
+      $('#tabTheme').textContent = ctx.value;
+      navigate('theme');
+      closeListDrawer();
+    }
+  });
+  $('#drListClose')?.addEventListener('click', closeListDrawer);
+
+  // IntersectionObserver on the sentinel for infinite scroll
+  const sentinel = $('#drListSentinel');
+  if (sentinel) {
+    if (_drListObserver) _drListObserver.disconnect();
+    _drListObserver = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting && !ctx.exhausted) loadMoreListDrawer();
+      });
+    }, { root: el.parentElement, rootMargin: '120px' });
+    _drListObserver.observe(sentinel);
+  }
+}
+
 function renderDrawer() {
-  // Auto-open the drawer as soon as the user actually selects a record.
-  // (Default is closed to give the map + analytics more breathing room.)
-  if (state.selectedRec && TW.drawer === false) {
+  // Auto-open the drawer as soon as the user actually selects a record
+  // (default is closed to give the map + analytics more breathing room)
+  if ((state.selectedRec || state.drawerMode === 'list') && TW.drawer === false) {
     TW.drawer = true; applyTweaks();
   }
+
+  // Branch: list mode (theme/group preview) vs record mode (default)
+  if (state.drawerMode === 'list' && state.drawerList) {
+    return renderDrawerListMode();
+  }
+
   const el = $('#drawerBody');
   const r = state.selectedRec;
   if (!r) {
