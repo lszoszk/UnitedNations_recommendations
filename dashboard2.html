@@ -5592,10 +5592,21 @@ async function boot() {
     // Re-apply any selected filters on the rail UI
     ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
 
-    // Set default focus theme if not set
+    // Pre-populate default focus for profile tabs so their dropdown is never
+    // "pick one" — users land on the top-ranked entity and switch via select
     if (!state.focusTheme) {
       state.focusTheme = (analytics.themes?.theme_counts||[])[0]?.theme || null;
       if (state.focusTheme) $('#tabTheme').textContent = state.focusTheme;
+    }
+    if (!state.focusGroup) {
+      state.focusGroup = (analytics.text?.affected_person_counts||[])[0]?.affected_person || null;
+      const el = $('#tabGroup');
+      if (state.focusGroup && el) el.textContent = state.focusGroup;
+    }
+    if (!state.focusSdg) {
+      state.focusSdg = (analytics.text?.sdg_counts||[])[0]?.sdg || null;
+      const el = $('#tabSdg');
+      if (state.focusSdg && el) el.textContent = state.focusSdg;
     }
 
     progressBar(100, 'READY');

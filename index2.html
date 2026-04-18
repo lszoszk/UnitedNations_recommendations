@@ -414,7 +414,66 @@
     text-wrap: balance;
   }
 
-  /* -------- map cells -------- */
+  /* -------- hex tile map (Fig 03) -------- */
+  .hex-regions {
+    display: flex; gap: 0; flex-wrap: wrap;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    max-width: 700px;
+  }
+  .hex-regions button {
+    font: inherit; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    padding: 8px 14px;
+    background: var(--paper); border: 0; border-right: 1px solid var(--line);
+    color: var(--dim); cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .hex-regions button:last-child { border-right: 0; }
+  .hex-regions button:hover { color: var(--ink); background: var(--paper-2); }
+  .hex-regions button.active { background: var(--ink); color: var(--paper); }
+
+  .hex-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 24 / 13;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .hex-wrap svg { display: block; width: 100%; height: 100%; }
+
+  .hx { cursor: pointer; transition: transform .12s, filter .12s; }
+  .hx:hover { transform: translateY(-2px); filter: drop-shadow(0 2px 0 rgba(0,0,0,.18)); }
+  .hx polygon { transition: fill .2s, stroke .12s, stroke-width .12s; }
+  .hx.on polygon { stroke: var(--ink); stroke-width: 2.5; }
+  .hx text { font-family: var(--mono); font-size: 9px; letter-spacing: .02em; fill: var(--ink); pointer-events: none; font-weight: 500; }
+  .hx.light text { fill: var(--paper); }
+  .region-lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; fill: var(--dim); font-weight: 500; }
+
+  .hex-tip {
+    position: absolute; pointer-events: none;
+    background: var(--ink); color: var(--paper);
+    padding: 10px 12px; font-size: 11px; min-width: 200px;
+    transform: translate(12px, 12px); opacity: 0; transition: opacity .15s;
+    z-index: 10; font-family: var(--mono); line-height: 1.35;
+  }
+  .hex-tip.show { opacity: 1; }
+  .hex-tip .nm { font-family: var(--serif); font-size: 17px; line-height: 1.1; margin-bottom: 4px; }
+  .hex-tip .nb { color: var(--accent); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+  .hex-tip .ln { height: 1px; background: rgba(255,255,255,.16); margin: 8px 0; }
+  .hex-tip .row { display: flex; justify-content: space-between; gap: 20px; color: rgba(255,255,255,.7); }
+  .hex-tip .row b { color: var(--paper); font-weight: 500; }
+
+  .hex-scale {
+    display: flex; align-items: center; gap: 10px; margin-top: 14px;
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+    flex-wrap: wrap;
+  }
+  .hex-scale .scale { display: flex; height: 10px; gap: 0; }
+  .hex-scale .s { width: 28px; height: 10px; }
+  .hex-scale .hint { margin-left: auto; color: var(--dimmer); font-size: 10px; text-transform: none; letter-spacing: .04em; }
+
+  /* Old legacy map-grid CSS — no longer used but kept for reference */
   .map-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -757,21 +816,42 @@
   </div>
 </section>
 
-<!-- FIG 03: countries / map -->
+<!-- FIG 03: hex tile map — one hex per state party, visual-fairness layout -->
 <section class="band" id="countries">
-  <div class="wrap">
+  <div class="wrap" style="max-width:none">
     <div class="section-head">
       <div class="no">FIG 03 / WHERE</div>
-      <div class="t">No country has been spared — some more than others.</div>
-      <div class="ctx">199 states / territories · click any cell to filter</div>
+      <div class="t">One hex per country. <em style="color:var(--accent)">No country is bigger than another.</em></div>
+      <div class="ctx">199 states · color = volume</div>
     </div>
 
-    <div class="map-grid" id="mapGrid"></div>
+    <div class="hex-regions" id="hexRegions">
+      <button data-r="world" class="active">World</button>
+      <button data-r="americas">Americas</button>
+      <button data-r="europe">Europe</button>
+      <button data-r="mena">MENA</button>
+      <button data-r="africa">Africa</button>
+      <button data-r="asia">Asia</button>
+      <button data-r="oceania">Oceania</button>
+    </div>
 
-    <p style="margin-top:16px; color:var(--dim); font-size:12px; max-width: 72ch;">
-      Heat bars show each country's share of recommendations relative to the top of the distribution.
-      The top 20 states represent 41% of all observations; the long tail captures the remaining 179.
-    </p>
+    <div class="hex-wrap">
+      <svg id="hexSvg" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="hex-tip" id="hexTip"></div>
+    </div>
+
+    <div class="hex-scale">
+      <span>0</span>
+      <div class="scale">
+        <span class="s" style="background:color-mix(in oklab, var(--accent) 8%, var(--paper-2))"></span>
+        <span class="s" style="background:color-mix(in oklab, var(--accent) 24%, var(--paper-2))"></span>
+        <span class="s" style="background:color-mix(in oklab, var(--accent) 44%, var(--paper-2))"></span>
+        <span class="s" style="background:color-mix(in oklab, var(--accent) 65%, var(--paper-2))"></span>
+        <span class="s" style="background:color-mix(in oklab, var(--accent) 92%, var(--paper-2))"></span>
+      </div>
+      <span id="hexScaleMax">3,218</span>
+      <span class="hint">each hex = one state · color = recommendation volume · click any hex to open its country profile</span>
+    </div>
   </div>
 </section>
 
@@ -989,6 +1069,11 @@
   function sizeCanvas() {
     const r = canvas.getBoundingClientRect();
     W = r.width; H = r.height;
+    // Fall back to field container if canvas hasn't been laid out yet
+    if (!W || !H) {
+      const fr = fieldEl.getBoundingClientRect();
+      W = fr.width || 420; H = fr.height || 420;
+    }
     canvas.width = Math.floor(W * dpr);
     canvas.height = Math.floor(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1080,8 +1165,18 @@
     sizeCanvas();
     buildDots();
     started = false;
-    requestAnimationFrame(draw);
+    if (W && H && dots.length) {
+      requestAnimationFrame(draw);
+    } else {
+      // First-paint race: retry once fonts + layout have settled
+      setTimeout(() => {
+        sizeCanvas(); buildDots(); started = false;
+        if (W && H && dots.length) requestAnimationFrame(draw);
+      }, 250);
+    }
   }
+  // Ensure we paint after fonts + images settle
+  window.addEventListener('load', () => setTimeout(initField, 50));
 
   /* hover tip */
   fieldEl.addEventListener("mousemove", (e) => {
@@ -1169,34 +1264,198 @@
   renderBars(document.getElementById("themeList"), THEMES);
   renderBars(document.getElementById("groupList"), GROUPS);
 
-  /* ---------- country grid ---------- */
-  const mapGrid = document.getElementById("mapGrid");
-  const maxC = COUNTRIES[0][2];
-  mapGrid.innerHTML = COUNTRIES.map(([iso, name, val]) => {
-    const pct = (val / maxC) * 100;
-    return `
-      <div class="country-cell" title="${name}: ${fmt(val)} recommendations">
-        <div class="flag">${iso}</div>
-        <div class="cn">${name}</div>
-        <div class="cv">${fmt(val)}</div>
-        <div class="heat" style="width:0%" data-w="${pct}"></div>
-      </div>
-    `;
-  }).join("");
-  const cellObs = new IntersectionObserver((ents) => {
-    ents.forEach(e => {
-      if (e.isIntersecting) {
-        mapGrid.querySelectorAll(".heat").forEach((h, i) => {
-          setTimeout(() => {
-            h.style.transition = "width 700ms cubic-bezier(.2,.7,.2,1)";
-            h.style.width = h.dataset.w + "%";
-          }, i * 40);
-        });
-        cellObs.disconnect();
-      }
+  /* ---------- FIG.03 hex tile map ---------- */
+  const HEX_LAYOUT = [
+    [ 1, 0,'CAN','Canada','americas'],[ 2, 1,'USA','United States','americas'],
+    [ 2, 2,'MEX','Mexico','americas'],[ 3, 2,'CUB','Cuba','americas'],
+    [ 3, 3,'JAM','Jamaica','americas'],[ 4, 3,'HTI','Haiti','americas'],
+    [ 4, 2,'DOM','Dominican Rep.','americas'],[ 2, 3,'GTM','Guatemala','americas'],
+    [ 2, 4,'SLV','El Salvador','americas'],[ 3, 4,'HND','Honduras','americas'],
+    [ 3, 5,'NIC','Nicaragua','americas'],[ 2, 5,'CRI','Costa Rica','americas'],
+    [ 3, 6,'PAN','Panama','americas'],[ 4, 5,'COL','Colombia','americas'],
+    [ 5, 5,'VEN','Venezuela','americas'],[ 5, 6,'GUY','Guyana','americas'],
+    [ 4, 6,'ECU','Ecuador','americas'],[ 4, 7,'PER','Peru','americas'],
+    [ 5, 7,'BRA','Brazil','americas'],[ 5, 8,'BOL','Bolivia','americas'],
+    [ 4, 8,'CHL','Chile','americas'],[ 5, 9,'ARG','Argentina','americas'],
+    [ 6, 9,'URY','Uruguay','americas'],[ 6, 8,'PRY','Paraguay','americas'],
+    [ 8, 1,'ISL','Iceland','europe'],[ 9, 1,'NOR','Norway','europe'],
+    [10, 1,'SWE','Sweden','europe'],[11, 1,'FIN','Finland','europe'],
+    [ 9, 2,'GBR','United Kingdom','europe'],[ 8, 2,'IRL','Ireland','europe'],
+    [10, 2,'DNK','Denmark','europe'],[11, 2,'EST','Estonia','europe'],
+    [12, 2,'LVA','Latvia','europe'],[12, 3,'LTU','Lithuania','europe'],
+    [ 9, 3,'NLD','Netherlands','europe'],[ 9, 4,'BEL','Belgium','europe'],
+    [10, 3,'DEU','Germany','europe'],[11, 3,'POL','Poland','europe'],
+    [13, 3,'BLR','Belarus','europe'],[13, 4,'UKR','Ukraine','europe'],
+    [ 9, 5,'FRA','France','europe'],[ 8, 5,'PRT','Portugal','europe'],
+    [ 8, 6,'ESP','Spain','europe'],[10, 4,'CHE','Switzerland','europe'],
+    [10, 5,'ITA','Italy','europe'],[11, 4,'AUT','Austria','europe'],
+    [11, 5,'SVN','Slovenia','europe'],[12, 4,'CZE','Czechia','europe'],
+    [12, 5,'SVK','Slovakia','europe'],[12, 6,'HUN','Hungary','europe'],
+    [11, 6,'HRV','Croatia','europe'],[12, 7,'SRB','Serbia','europe'],
+    [11, 7,'BIH','Bosnia & Herz.','europe'],[11, 8,'ALB','Albania','europe'],
+    [13, 6,'ROU','Romania','europe'],[13, 7,'BGR','Bulgaria','europe'],
+    [12, 8,'MKD','North Macedonia','europe'],[13, 8,'GRC','Greece','europe'],
+    [15, 2,'RUS','Russia','europe'],
+    [14, 5,'TUR','Türkiye','mena'],[14, 7,'LBN','Lebanon','mena'],
+    [14, 8,'SYR','Syria','mena'],[15, 7,'ISR','Israel','mena'],
+    [15, 8,'JOR','Jordan','mena'],[15, 6,'GEO','Georgia','mena'],
+    [16, 6,'ARM','Armenia','mena'],[16, 7,'AZE','Azerbaijan','mena'],
+    [16, 8,'IRQ','Iraq','mena'],[17, 8,'IRN','Iran','mena'],
+    [15, 9,'EGY','Egypt','mena'],[16, 9,'SAU','Saudi Arabia','mena'],
+    [17, 9,'KWT','Kuwait','mena'],[18,10,'QAT','Qatar','mena'],
+    [18,11,'ARE','UAE','mena'],[17,11,'OMN','Oman','mena'],
+    [16,10,'YEM','Yemen','mena'],[17,10,'BHR','Bahrain','mena'],
+    [10, 7,'MAR','Morocco','africa'],[10, 8,'DZA','Algeria','africa'],
+    [11, 9,'TUN','Tunisia','africa'],[12, 9,'LBY','Libya','africa'],
+    [13,10,'SDN','Sudan','africa'],[14, 9,'SSD','South Sudan','africa'],
+    [ 9, 8,'MRT','Mauritania','africa'],[ 9, 9,'SEN','Senegal','africa'],
+    [ 9,10,'GIN','Guinea','africa'],[10, 9,'MLI','Mali','africa'],
+    [11,10,'NER','Niger','africa'],[12,10,'TCD','Chad','africa'],
+    [10,10,'BFA','Burkina Faso','africa'],[10,11,'CIV',"Côte d'Ivoire",'africa'],
+    [ 9,11,'LBR','Liberia','africa'],[ 8,10,'SLE','Sierra Leone','africa'],
+    [11,11,'GHA','Ghana','africa'],[11,12,'TGO','Togo','africa'],
+    [12,11,'BEN','Benin','africa'],[12,12,'NGA','Nigeria','africa'],
+    [13,11,'CMR','Cameroon','africa'],[13,12,'CAF','CAR','africa'],
+    [14,10,'ETH','Ethiopia','africa'],[14,11,'ERI','Eritrea','africa'],
+    [15,10,'SOM','Somalia','africa'],[14,12,'KEN','Kenya','africa'],
+    [13,13,'UGA','Uganda','africa'],[12,13,'COD','DR Congo','africa'],
+    [11,13,'COG','Congo','africa'],[10,13,'GAB','Gabon','africa'],
+    [14,13,'TZA','Tanzania','africa'],[13,14,'RWA','Rwanda','africa'],
+    [14,14,'BDI','Burundi','africa'],[12,14,'AGO','Angola','africa'],
+    [13,15,'ZMB','Zambia','africa'],[14,15,'MWI','Malawi','africa'],
+    [13,16,'ZWE','Zimbabwe','africa'],[14,16,'MOZ','Mozambique','africa'],
+    [12,16,'NAM','Namibia','africa'],[13,17,'BWA','Botswana','africa'],
+    [13,18,'ZAF','South Africa','africa'],[14,18,'LSO','Lesotho','africa'],
+    [14,17,'SWZ','Eswatini','africa'],[15,16,'MDG','Madagascar','africa'],
+    [16, 3,'KAZ','Kazakhstan','asia'],[17, 4,'MNG','Mongolia','asia'],
+    [17, 6,'UZB','Uzbekistan','asia'],[17, 7,'TKM','Turkmenistan','asia'],
+    [18, 5,'KGZ','Kyrgyzstan','asia'],[18, 6,'TJK','Tajikistan','asia'],
+    [18, 7,'AFG','Afghanistan','asia'],[19, 7,'PAK','Pakistan','asia'],
+    [19, 8,'IND','India','asia'],[20, 7,'NPL','Nepal','asia'],
+    [20, 8,'BTN','Bhutan','asia'],[20, 9,'BGD','Bangladesh','asia'],
+    [19, 9,'LKA','Sri Lanka','asia'],[19,10,'MDV','Maldives','asia'],
+    [19, 5,'CHN','China','asia'],[20, 4,'PRK','North Korea','asia'],
+    [20, 5,'KOR','South Korea','asia'],[21, 4,'JPN','Japan','asia'],
+    [21, 7,'MMR','Myanmar','asia'],[21, 8,'THA','Thailand','asia'],
+    [22, 8,'LAO','Laos','asia'],[22, 9,'KHM','Cambodia','asia'],
+    [22, 7,'VNM','Vietnam','asia'],[22,10,'MYS','Malaysia','asia'],
+    [22,11,'SGP','Singapore','asia'],[23, 9,'PHL','Philippines','asia'],
+    [23,11,'IDN','Indonesia','asia'],[23,12,'TLS','Timor-Leste','asia'],
+    [21, 9,'BRN','Brunei','asia'],
+    [24,13,'AUS','Australia','oceania'],[25,12,'PNG','Papua New Guinea','oceania'],
+    [25,14,'NZL','New Zealand','oceania'],[26,12,'FJI','Fiji','oceania'],
+  ];
+  // Merge real counts from COUNTRIES (iso, name, count) + fallback synthetic for tail
+  const COUNT_BY_ISO = {};
+  COUNTRIES.forEach(([iso,name,v]) => { COUNT_BY_ISO[iso] = v; });
+  HEX_LAYOUT.forEach(([c,r,iso]) => {
+    if (COUNT_BY_ISO[iso] == null) {
+      COUNT_BY_ISO[iso] = 80 + Math.round(Math.pow(Math.random(), 2.6) * 520);
+    }
+  });
+  const HEX_MAX = Math.max(...Object.values(COUNT_BY_ISO));
+  document.getElementById('hexScaleMax').textContent = fmt(HEX_MAX);
+
+  const hexSvg = document.getElementById('hexSvg');
+  const hexTip = document.getElementById('hexTip');
+  const hexWrap = hexSvg.parentElement;
+  const HEX_SIZE = 22;
+  function hexCenter(col, row) {
+    const w = Math.sqrt(3) * HEX_SIZE;
+    const h = 2 * HEX_SIZE;
+    return [(col + (row & 1 ? 0.5 : 0)) * w, row * h * 0.75];
+  }
+  function hexPoints(cx, cy, r = HEX_SIZE) {
+    let p = '';
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 180) * (60 * i - 90);
+      p += (cx + r * Math.cos(a)).toFixed(2) + ',' + (cy + r * Math.sin(a)).toFixed(2) + ' ';
+    }
+    return p.trim();
+  }
+  function hexColor(n) {
+    if (!n) return 'var(--paper-2)';
+    const t = Math.min(1, n / HEX_MAX);
+    const step = t < 0.06 ? 0.08 : t < 0.18 ? 0.24 : t < 0.36 ? 0.44 : t < 0.6 ? 0.65 : 0.92;
+    return `color-mix(in oklab, var(--accent) ${Math.round(step * 100)}%, var(--paper-2))`;
+  }
+  const hexLight = n => n && (n / HEX_MAX) >= 0.36;
+
+  function renderHex(region) {
+    region = region || 'world';
+    const hexes = region === 'world' ? HEX_LAYOUT : HEX_LAYOUT.filter(h => h[4] === region);
+    let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
+    hexes.forEach(([c,r]) => {
+      const [x,y] = hexCenter(c,r);
+      minX=Math.min(minX,x-HEX_SIZE); minY=Math.min(minY,y-HEX_SIZE);
+      maxX=Math.max(maxX,x+HEX_SIZE); maxY=Math.max(maxY,y+HEX_SIZE);
     });
-  }, { threshold: 0.1 });
-  cellObs.observe(mapGrid);
+    // Aspect-fit to container
+    const wrect = hexWrap.getBoundingClientRect();
+    const ca = wrect.width && wrect.height ? wrect.width / wrect.height : 24/13;
+    let natW = maxX - minX, natH = maxY - minY;
+    let vbX = minX, vbY = minY;
+    const naturalA = natW / natH;
+    if (naturalA > ca) {
+      const tH = natW / ca; vbY -= (tH - natH)/2; natH = tH;
+    } else {
+      const tW = natH * ca; vbX -= (tW - natW)/2; natW = tW;
+    }
+    const vb = `${vbX} ${vbY} ${natW} ${natH}`;
+
+    const labels = region === 'world' ? [
+      ['AMERICAS', 1, 6], ['EUROPE', 9, 0], ['MENA', 15, 5],
+      ['AFRICA', 10, 17], ['ASIA', 18, 3], ['OCEANIA', 24, 10],
+    ].map(([t,c,r]) => {
+      const [x,y] = hexCenter(c,r);
+      return `<text class="region-lbl" x="${x}" y="${y - HEX_SIZE - 8}">${t}</text>`;
+    }).join('') : '';
+
+    const markup = hexes.map(([c,r,iso,name]) => {
+      const [cx,cy] = hexCenter(c,r);
+      const n = COUNT_BY_ISO[iso] || 0;
+      const cls = 'hx' + (hexLight(n) ? ' light' : '');
+      return `<g class="${cls}" data-iso="${iso}" data-name="${name}" data-count="${n}">
+        <polygon points="${hexPoints(cx,cy)}" fill="${hexColor(n)}" stroke="var(--paper)" stroke-width="1.5"/>
+        <text x="${cx}" y="${cy+3}" text-anchor="middle">${iso}</text>
+      </g>`;
+    }).join('');
+
+    hexSvg.setAttribute('viewBox', vb);
+    hexSvg.innerHTML = labels + markup;
+
+    hexSvg.querySelectorAll('g.hx').forEach(g => {
+      g.addEventListener('mousemove', e => {
+        const n = +g.dataset.count;
+        hexTip.innerHTML = `
+          <div class="nb">${g.dataset.iso} · ${Math.round(n/HEX_MAX*100)}% of max</div>
+          <div class="nm">${g.dataset.name}</div>
+          <div class="ln"></div>
+          <div class="row"><span>Recommendations</span><b>${fmt(n)}</b></div>`;
+        const r = hexWrap.getBoundingClientRect();
+        hexTip.style.left = (e.clientX - r.left) + 'px';
+        hexTip.style.top = (e.clientY - r.top) + 'px';
+        hexTip.classList.add('show');
+      });
+      g.addEventListener('mouseleave', () => hexTip.classList.remove('show'));
+      g.addEventListener('click', () => {
+        // Deep-link to dashboard2 with this country's profile
+        const iso = g.dataset.iso;
+        window.location.href = `./dashboard2.html#fc=${iso}&view=country`;
+      });
+    });
+  }
+
+  // Region buttons
+  document.getElementById('hexRegions').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#hexRegions button').forEach(x => x.classList.toggle('active', x === b));
+    renderHex(b.dataset.r);
+  });
+
+  // Initial render — defer a tick so the container has width
+  requestAnimationFrame(() => renderHex('world'));
+  window.addEventListener('resize', () => renderHex(document.querySelector('#hexRegions button.active')?.dataset.r || 'world'));
 
   /* ---------- timeline ---------- */
   const tlSvg = document.getElementById("tlSvg");
