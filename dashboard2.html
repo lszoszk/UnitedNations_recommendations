@@ -325,6 +325,44 @@ a{color:inherit;text-decoration:none}
 .toast.error{background:#b91c1c;color:#fff}
 .toast.hidden{display:none}
 
+/* ---------- EXPORT + OFFLINE BUTTONS ---------- */
+.offline-btn{border:1px solid var(--line);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;color:var(--dim);display:inline-flex;gap:5px;align-items:center;cursor:pointer;background:var(--paper)}
+.offline-btn:hover{border-color:var(--ink);color:var(--ink)}
+.offline-btn.is-active{background:#1a7a3e;color:#fff;border-color:#1a7a3e}
+.offline-btn.is-active:hover{background:#156331;color:#fff}
+
+.export-menu{position:relative;display:inline-block}
+.export-btn{border:1px solid var(--line);padding:3px 8px;font:10px var(--mono);letter-spacing:.08em;color:var(--ink);cursor:pointer;background:var(--paper);text-transform:uppercase}
+.export-btn:hover{border-color:var(--ink);background:var(--paper-2)}
+.export-dropdown{position:absolute;bottom:100%;left:0;margin-bottom:4px;background:var(--paper);border:1px solid var(--ink);box-shadow:0 -4px 20px rgba(0,0,0,.15);min-width:180px;z-index:50;display:none}
+.export-dropdown.open{display:block}
+.export-dropdown .hd{padding:6px 10px;font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;border-bottom:1px solid var(--line);background:var(--paper-2)}
+.export-item{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font:11px var(--mono);cursor:pointer;border-bottom:1px dotted var(--line);color:var(--ink)}
+.export-item:last-child{border-bottom:none}
+.export-item:hover{background:var(--paper-2)}
+.export-item .fmt{font-weight:700}
+.export-item .hint{font-size:9px;color:var(--dim);letter-spacing:.06em}
+
+/* Offline download modal */
+.ofl-modal{position:fixed;inset:0;background:rgba(15,15,16,.7);z-index:210;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.ofl-card{background:var(--paper);max-width:520px;width:100%;padding:28px 32px;font-family:var(--mono);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.ofl-card h2{font-family:var(--serif);font-size:32px;line-height:1.1;margin:0 0 12px;color:var(--ink);letter-spacing:-.01em}
+.ofl-card p{font-family:var(--serif);font-size:15px;line-height:1.5;color:var(--ink-2);margin:0 0 14px}
+.ofl-card ul{font-family:var(--mono);font-size:11px;line-height:1.6;color:var(--dim);padding-left:18px;margin:0 0 18px}
+.ofl-card .bold{color:var(--ink);font-weight:700}
+.ofl-progress{margin:20px 0;padding:14px 16px;background:var(--paper-2);border-left:3px solid var(--accent)}
+.ofl-progress .lbl{font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:6px}
+.ofl-progress .num{font-family:var(--serif);font-size:24px;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+.ofl-progress .bar{height:3px;background:var(--paper-3);margin-top:10px;position:relative;overflow:hidden}
+.ofl-progress .bar span{display:block;height:100%;background:var(--accent);transition:width .2s}
+.ofl-actions{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+.ofl-actions .btn-primary{padding:9px 16px;background:var(--ink);color:var(--paper);border:1px solid var(--ink);font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.ofl-actions .btn-primary:hover{background:var(--accent);border-color:var(--accent)}
+.ofl-actions .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.ofl-actions .btn-ghost{padding:9px 16px;background:transparent;color:var(--ink);border:1px solid var(--line);font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.ofl-actions .btn-ghost:hover{border-color:var(--ink);background:var(--paper-2)}
+body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3e}
+
 /* responsive */
 .mobile-menu-btn{display:none;border:1px solid var(--line);background:var(--paper);padding:3px 9px;color:var(--ink);font-size:14px;cursor:pointer;margin-right:4px}
 .mobile-menu-btn:hover{background:var(--paper-2)}
@@ -369,6 +407,11 @@ a{color:inherit;text-decoration:none}
     <span class="cmdk-hint">Search 267,548 recommendations · jump to country, theme, year…</span>
   </button>
   <div class="meta">
+    <button class="offline-btn" id="offlineBtn" title="Enable Offline & Private Mode — download full dataset, work entirely in-browser">
+      <span id="offlineIcon">🔒</span>
+      <span id="offlineLbl">PRIVATE</span>
+    </button>
+    <span class="sep">·</span>
     <span class="dot" id="statusDot" title="Live VM connection"></span>
     <span id="statusLbl">LIVE</span>
     <span class="sep">·</span>
@@ -376,7 +419,7 @@ a{color:inherit;text-decoration:none}
     <span class="sep">·</span>
     <a href="#methodology" data-nav="methodology">methodology</a>
     <span class="sep">·</span>
-    <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">classic dashboard ↗</a>
+    <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">classic ↗</a>
   </div>
 </header>
 
@@ -427,7 +470,16 @@ a{color:inherit;text-decoration:none}
     </div>
 
     <div class="rail-foot">
-      <button class="linkbtn" id="btnShare">↗ share link</button>
+      <div class="export-menu">
+        <button class="export-btn" id="btnExport">⬇ export</button>
+        <div class="export-dropdown" id="exportDropdown">
+          <div class="hd">Download filtered records</div>
+          <div class="export-item" data-format="xlsx"><span class="fmt">XLSX</span><span class="hint">Excel, up to 50k rows</span></div>
+          <div class="export-item" data-format="csv"><span class="fmt">CSV</span><span class="hint">Plain-text, any tool</span></div>
+          <div class="export-item" data-format="json"><span class="fmt">JSON</span><span class="hint">Full record objects</span></div>
+        </div>
+      </div>
+      <button class="linkbtn" id="btnShare">↗ share</button>
       <button class="linkbtn" id="btnReset">↺ reset</button>
     </div>
   </aside>
@@ -762,6 +814,358 @@ const api = {
     return apiGet(E.records, p, { scope: 'recordsCount' });
   },
 };
+
+/* =========================================================================
+   OFFLINE DATA LAYER (#27) — in-memory aggregations over the full dataset
+   =========================================================================
+   When the user enables Offline & Private Mode, the full cleaned dataset
+   (~350MB JSON, 267k records) is downloaded into memory. All subsequent
+   filter + aggregate operations run client-side with zero VM round-trips.
+   Filtering is a linear scan; for 267k records modern V8 does this in
+   ~40-80ms which feels instant.
+
+   Public surface mirrors the `api` object so the view renderers don't
+   care whether they're talking to the VM or to in-memory data. The boot
+   flow is VM-mode by default; `offline.enable()` monkey-patches the
+   `api.*` methods to point at offline equivalents. */
+const offline = {
+  enabled: false,
+  data: null,       // raw records array, as returned by /api/data/full?dataset=cleaned
+  aborter: null,    // AbortController for cancellable download
+
+  /* Apply the same filter spec the backend understands. Keep field
+     names aligned with the API response: Countries[], Themes[], etc. */
+  _matches(r, f) {
+    if (f.kw && f.kw.trim()) {
+      const q = f.kw.trim().toLowerCase();
+      const t = (r.TextPlainCleaned || r.Text || '').toLowerCase();
+      if (!t.includes(q)) return false;
+    }
+    if (f.country?.size) {
+      const recCountries = (r.Countries || []).map(c => cleanCountryName(c));
+      if (!recCountries.some(c => f.country.has(c))) return false;
+    }
+    if (f.body?.size) {
+      const recBody = cleanLabel(r.Body || '');
+      const matches = Array.from(f.body).some(b => recBody === b || recBody === cleanLabel(b));
+      if (!matches) return false;
+    }
+    if (f.region?.size) {
+      if (!(r.Regions || []).some(rg => f.region.has(rg))) return false;
+    }
+    if (f.type?.size) {
+      const t = cleanLabel(r.AnnotationType || '');
+      if (!f.type.has(t)) return false;
+    }
+    if (f.theme?.size) {
+      const rt = r.Themes || [];
+      if (f.themesMatch === 'all') {
+        for (const sel of f.theme) if (!rt.includes(sel)) return false;
+      } else {
+        if (!rt.some(t => f.theme.has(t))) return false;
+      }
+    }
+    if (f.group?.size) {
+      const ap = r.AffectedPersons || [];
+      if (f.groupsMatch === 'all') {
+        for (const sel of f.group) if (!ap.includes(sel)) return false;
+      } else {
+        if (!ap.some(g => f.group.has(g))) return false;
+      }
+    }
+    if (f.sdg?.size) {
+      const sdgs = (r.Sdgs || []).map(s => { const m = String(s).match(/(\d+)/); return m ? +m[1] : null; }).filter(Boolean);
+      if (!sdgs.some(n => f.sdg.has(n))) return false;
+    }
+    if (f.yearA || f.yearB) {
+      const y = Number((r.PublicationDate || '').slice(0,4));
+      if (f.yearA && y < f.yearA) return false;
+      if (f.yearB && y > f.yearB) return false;
+    }
+    return true;
+  },
+
+  filter(f) {
+    if (!this.data) return [];
+    f = f || state.filters;
+    return this.data.filter(r => this._matches(r, f));
+  },
+
+  /* Mirror the backend's analytics response shape */
+  analytics(f) {
+    const rows = this.filter(f);
+    // Theme counts
+    const themeMap = new Map();
+    const apMap = new Map();
+    const sdgMap = new Map();
+    const yearlyBody = [];  // list of {year, body, count}
+    const yearly = new Map();
+    const ybKey = new Map();  // (year|body) -> count
+
+    for (const r of rows) {
+      (r.Themes || []).forEach(t => themeMap.set(t, (themeMap.get(t)||0)+1));
+      (r.AffectedPersons || []).forEach(g => apMap.set(g, (apMap.get(g)||0)+1));
+      (r.Sdgs || []).forEach(s => sdgMap.set(String(s), (sdgMap.get(String(s))||0)+1));
+      const y = Number((r.PublicationDate||'').slice(0,4));
+      const b = r.Body || '';
+      if (Number.isFinite(y)) {
+        yearly.set(y, (yearly.get(y)||0)+1);
+        const k = y + '|' + b;
+        ybKey.set(k, (ybKey.get(k)||0)+1);
+      }
+    }
+    for (const [k, count] of ybKey) {
+      const [y, ...bParts] = k.split('|');
+      yearlyBody.push({ year: +y, body: bParts.join('|'), count });
+    }
+
+    return {
+      ok: true,
+      requested_sections: ['trends', 'themes', 'text'],
+      trends: {
+        yearly_counts: Array.from(yearly, ([year,count]) => ({year,count})).sort((a,b)=>a.year-b.year),
+        yearly_body_counts: yearlyBody,
+        yearly_region_counts: [], yearly_type_counts: [],
+        dataset_first_publication_date: null,
+        dataset_last_publication_date: null,
+      },
+      themes: {
+        theme_counts: Array.from(themeMap, ([theme,count]) => ({theme,count})).sort((a,b)=>b.count-a.count),
+        yearly_theme_counts: [],
+      },
+      text: {
+        affected_person_counts: Array.from(apMap, ([affected_person,count]) => ({affected_person,count})).sort((a,b)=>b.count-a.count),
+        sdg_counts: Array.from(sdgMap, ([sdg,count]) => ({sdg,count})).sort((a,b)=>b.count-a.count),
+        bigram_counts: [], body_avg_text_length: {},
+        sampled: false, sample_size: rows.length, total_records: rows.length,
+      },
+    };
+  },
+
+  map(f) {
+    const rows = this.filter(f);
+    const m = new Map();
+    for (const r of rows) {
+      for (const c of (r.Countries || [])) {
+        const nc = cleanCountryName(c);
+        m.set(nc, (m.get(nc)||0)+1);
+      }
+    }
+    return {
+      ok: true,
+      total_records: rows.length,
+      country_counts: Array.from(m, ([country,count]) => ({country,count})).sort((a,b)=>b.count-a.count),
+    };
+  },
+
+  records(f, page=1, pageSize=30) {
+    const rows = this.filter(f);
+    const start = (page-1)*pageSize;
+    return {
+      ok: true,
+      page, page_size: pageSize,
+      total_records: rows.length,
+      total_pages: Math.max(1, Math.ceil(rows.length/pageSize)),
+      records: rows.slice(start, start+pageSize),
+    };
+  },
+
+  recordsCount(f) {
+    return { total_records: this.filter(f).length };
+  },
+
+  facets() {
+    const data = this.data || [];
+    const countries = new Set(), bodies = new Set(), regions = new Set(), types = new Set();
+    let minY = 9999, maxY = 0;
+    for (const r of data) {
+      (r.Countries || []).forEach(c => countries.add(c));
+      if (r.Body) bodies.add(r.Body);
+      (r.Regions || []).forEach(rg => regions.add(rg));
+      if (r.AnnotationType) types.add(r.AnnotationType);
+      const y = Number((r.PublicationDate||'').slice(0,4));
+      if (Number.isFinite(y)) { if (y<minY) minY=y; if (y>maxY) maxY=y; }
+    }
+    return {
+      ok: true,
+      countries: Array.from(countries).sort(),
+      bodies: Array.from(bodies).sort(),
+      regions: Array.from(regions).sort(),
+      types: Array.from(types).sort(),
+      min_year: minY === 9999 ? 2006 : minY,
+      max_year: maxY || 2026,
+      total_records: data.length,
+    };
+  },
+
+  /* Swap the `api.*` methods over to offline implementations and persist
+     the user's choice in localStorage. */
+  enable() {
+    if (!this.data) return;
+    this.enabled = true;
+    api.facets = () => Promise.resolve(this.facets());
+    api.analytics = (f) => Promise.resolve(this.analytics(f || state.filters));
+    api.map = (f) => Promise.resolve(this.map(f || state.filters));
+    api.summary = (f) => Promise.resolve({ ok:true, total_records: this.filter(f||state.filters).length });
+    api.records = (f, page, pageSize) => Promise.resolve(this.records(f || state.filters, page, pageSize));
+    api.recordsCount = (f) => Promise.resolve(this.recordsCount(f || state.filters));
+    api.health = () => Promise.resolve({ dataset_ready: true, offline: true });
+
+    document.body.classList.add('offline-mode');
+    $('#offlineIcon').textContent = '🔓';
+    $('#offlineLbl').textContent = 'PRIVATE · ' + fmt(this.data.length);
+    $('#offlineBtn').classList.add('is-active');
+    $('#offlineBtn').title = 'Offline & Private Mode active — all queries run in your browser, no VM round-trips';
+    setStatus('live', 'OFFLINE');
+    try { localStorage.setItem('uhri_v2_offline_pref', '1'); } catch {}
+
+    toast('Offline & Private Mode active — ' + fmt(this.data.length) + ' records loaded. Filtering is now instant.', false, 5000);
+  },
+};
+window.__offline = offline;
+
+/* ---------- OFFLINE DOWNLOAD UI ----------
+   Streams the cleaned dataset from the VM with progress feedback. The
+   endpoint returns a single JSON array (~350MB), which we read chunk-by-
+   chunk via fetch's ReadableStream and parse at the end. */
+async function runOfflineDownload(onProgress) {
+  const url = API_BASE + '/api/data/full?dataset=cleaned';
+  const ctrl = new AbortController();
+  offline.aborter = ctrl;
+  const t0 = performance.now();
+
+  const res = await fetch(url, { signal: ctrl.signal });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const total = Number(res.headers.get('content-length') || 0);
+  const reader = res.body.getReader();
+  const chunks = [];
+  let received = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    onProgress && onProgress({ received, total, phase: 'download' });
+  }
+
+  onProgress && onProgress({ received, total, phase: 'parsing' });
+  // Concatenate chunks & decode
+  const blob = new Blob(chunks);
+  const text = await blob.text();
+  const parsed = JSON.parse(text);
+  offline.data = parsed;
+  const elapsed = Math.round(performance.now() - t0);
+  onProgress && onProgress({ received, total, phase: 'done', elapsed, count: parsed.length });
+  return parsed;
+}
+
+function showOfflineModal() {
+  const m = document.createElement('div');
+  m.className = 'ofl-modal';
+  m.innerHTML = `
+    <div class="ofl-card">
+      <h2>Offline & Private Mode</h2>
+      <p>Download the full cleaned UHRI dataset (<span class="bold">~350 MB</span>) into your browser. Afterwards:</p>
+      <ul>
+        <li>All filter + search operations run <span class="bold">locally</span> — zero VM round-trips</li>
+        <li>Analytics that currently take 10s become <span class="bold">instant</span> (~50ms)</li>
+        <li>Nothing leaves your machine — useful for sensitive research</li>
+        <li>Data stays for the browser session; close the tab and it's gone</li>
+      </ul>
+      <div class="ofl-progress" id="oflProg" style="display:none">
+        <div class="lbl" id="oflPhase">downloading…</div>
+        <div class="num"><span id="oflPct">0</span>% <span style="font-size:11px;color:var(--dim);margin-left:8px"><span id="oflMb">0</span> MB</span></div>
+        <div class="bar"><span id="oflBar" style="width:0%"></span></div>
+      </div>
+      <div class="ofl-actions">
+        <button class="btn-primary" id="oflStart">Download & activate</button>
+        <button class="btn-ghost" id="oflCancel">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+
+  const close = () => { m.remove(); };
+  m.addEventListener('click', e => { if (e.target === m) close(); });
+  $('#oflCancel', m).addEventListener('click', () => {
+    if (offline.aborter) try { offline.aborter.abort(); } catch {}
+    close();
+  });
+  $('#oflStart', m).addEventListener('click', async () => {
+    $('#oflStart', m).disabled = true;
+    $('#oflStart', m).textContent = 'Downloading…';
+    $('#oflProg', m).style.display = 'block';
+    try {
+      await runOfflineDownload(({ received, total, phase, count, elapsed }) => {
+        const mb = (received / (1024*1024)).toFixed(0);
+        const pct = total ? Math.min(100, Math.round((received/total)*100)) : Math.min(95, Math.round(received/(3.5*1024*1024)));
+        $('#oflPhase', m).textContent = phase === 'download' ? 'downloading…' : phase === 'parsing' ? 'parsing JSON…' : `done — ${fmt(count)} records in ${elapsed}ms`;
+        $('#oflPct', m).textContent = pct;
+        $('#oflMb', m).textContent = mb;
+        $('#oflBar', m).style.width = pct + '%';
+      });
+      offline.enable();
+      // Re-render the current view with offline data
+      setTimeout(() => { close(); refreshCurrentView(); refreshHitCount(); }, 600);
+    } catch (err) {
+      console.error('Offline download failed', err);
+      $('#oflPhase', m).textContent = 'failed: ' + err.message;
+      $('#oflStart', m).disabled = false;
+      $('#oflStart', m).textContent = 'Retry';
+    }
+  });
+}
+
+/* ---------- EXPORT (#26) — wire to /api/data/export ---------- */
+function doExport(format) {
+  if (offline.enabled) {
+    // Offline mode: build file client-side from the filtered data
+    const rows = offline.filter(state.filters);
+    if (format === 'json') {
+      downloadBlob(JSON.stringify(rows, null, 2), 'application/json', `uhri-export-${Date.now()}.json`);
+    } else if (format === 'csv') {
+      downloadBlob(toCSV(rows), 'text/csv', `uhri-export-${Date.now()}.csv`);
+    } else if (format === 'xlsx') {
+      // XLSX in offline mode needs a library we don't bundle — fall back to CSV
+      toast('Offline XLSX not supported — downloading CSV instead', false, 4000);
+      downloadBlob(toCSV(rows), 'text/csv', `uhri-export-${Date.now()}.csv`);
+    }
+    toast(`Exported ${fmt(rows.length)} records (${format.toUpperCase()})`, false, 3000);
+    return;
+  }
+  // VM-mode: hand off to the backend export endpoint, which already knows
+  // how to stream xlsx/csv/json for the current filter spec
+  const p = buildParams(state.filters);
+  p.set('format', format);
+  const url = API_BASE + '/api/data/export?' + p.toString();
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `uhri-export.${format}`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => a.remove(), 100);
+  toast(`Exporting ${format.toUpperCase()}… download will start shortly.`, false, 3000);
+}
+
+function downloadBlob(content, mime, filename) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 100);
+}
+
+function toCSV(rows) {
+  const cols = ['AnnotationId','Symbol','PublicationDate','Body','AnnotationType','Countries','Regions','Themes','AffectedPersons','Sdgs','TextPlainCleaned'];
+  const esc = v => {
+    if (v == null) return '';
+    if (Array.isArray(v)) v = v.join('; ');
+    const s = String(v);
+    return /[,"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return [cols.join(',')].concat(rows.map(r => cols.map(c => esc(r[c])).join(','))).join('\n');
+}
 
 /* ---------- TOP PROGRESS BAR ---------- */
 function progressBar(pct, label) {
@@ -1931,6 +2335,38 @@ async function boot() {
     const u = location.href;
     navigator.clipboard.writeText(u).then(() => toast('Share link copied'));
   });
+
+  // Export dropdown (#26)
+  $('#btnExport').addEventListener('click', e => {
+    e.stopPropagation();
+    $('#exportDropdown').classList.toggle('open');
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.export-menu')) $('#exportDropdown').classList.remove('open');
+  });
+  $$('.export-item').forEach(el => el.addEventListener('click', () => {
+    const fmt = el.dataset.format;
+    $('#exportDropdown').classList.remove('open');
+    doExport(fmt);
+  }));
+
+  // Offline & Private Mode button (#27)
+  $('#offlineBtn').addEventListener('click', () => {
+    if (offline.enabled) {
+      // Already enabled — just hint at current state
+      toast(`Offline mode active · ${fmt(offline.data?.length||0)} records in browser`, false, 3000);
+      return;
+    }
+    showOfflineModal();
+  });
+
+  // If user previously enabled offline mode, auto-offer to re-enable
+  try {
+    if (localStorage.getItem('uhri_v2_offline_pref') === '1') {
+      $('#offlineLbl').textContent = 'RE-ENABLE?';
+      $('#offlineBtn').title = 'Previously used Offline & Private Mode — click to re-download & re-enable';
+    }
+  } catch {}
 
   $$('[data-nav]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.nav); }));
 
