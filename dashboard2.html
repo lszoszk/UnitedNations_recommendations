@@ -162,15 +162,29 @@ a{color:inherit;text-decoration:none}
 .p-top-themes{grid-column:2;grid-row:2}
 .p-sankey{grid-column:2;grid-row:3}
 
-/* choropleth grid map */
-.map-wrap{position:relative;height:360px;overflow:hidden}
+/* Real choropleth (TopoJSON) — all 199 countries */
+.map-wrap{position:relative;height:400px;overflow:hidden}
+.map-wrap svg{width:100%;height:100%;display:block}
+.map-wrap .country{cursor:pointer;transition:stroke-width .1s,filter .1s;stroke:var(--line);stroke-width:0.4}
+.map-wrap .country:hover{stroke:var(--ink);stroke-width:1;filter:brightness(.92)}
+.map-wrap .country.on{stroke:var(--ink);stroke-width:1.4}
+.map-wrap .country.empty{fill:var(--paper-3);pointer-events:none;opacity:.5}
+.map-wrap .graticule{fill:none;stroke:var(--line-2);stroke-width:.3;pointer-events:none}
+.map-wrap .sphere{fill:var(--paper-2);stroke:var(--line);stroke-width:.4}
+.map-loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);font-size:11px}
+.map-loading::after{content:"·";animation:dots 1.5s steps(4) infinite}
+.map-tooltip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:11px;padding:5px 8px;transform:translate(-50%,-130%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:5}
+.map-tooltip.show{opacity:1}
+.map-tooltip .n{color:var(--accent);font-weight:700;margin-left:6px}
+.map-scale{display:flex;gap:2px;align-items:center;margin-top:6px;font-size:10px;color:var(--dim)}
+.map-scale .s{width:18px;height:8px}
+
+/* Legacy grid map — kept for fallback */
 .map-grid{display:grid;grid-template-columns:repeat(22,1fr);grid-auto-rows:1fr;gap:2px;height:100%}
 .map-cell{background:var(--paper-2);position:relative;font-size:8px;color:var(--dim);display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:0;transition:transform .1s}
 .map-cell:hover{outline:1px solid var(--ink);z-index:2;transform:scale(1.5)}
 .map-cell.empty{background:transparent;border:none;pointer-events:none}
 .map-cell.on{outline:2px solid var(--ink);z-index:3;color:var(--ink);font-weight:700;box-shadow:inset 0 0 0 1px var(--paper)}
-.map-scale{display:flex;gap:2px;align-items:center;margin-top:8px;font-size:10px;color:var(--dim)}
-.map-scale .s{width:16px;height:8px}
 
 /* bars / rows */
 .row-list{display:flex;flex-direction:column}
@@ -1507,8 +1521,189 @@ function refreshFacetUI(facetKey) {
   }
 }
 
-/* ---------- MAP (grid) ---------- */
+/* =========================================================================
+   WORLD CHOROPLETH (TopoJSON via d3-geo)
+   =========================================================================
+   Replaces the 22×12 grid with a real world map. All ~195 countries appear
+   in proper geography, coloured by record intensity. Libraries lazy-loaded
+   from CDN (~50KB d3-geo + ~10KB topojson + ~100KB world-atlas). */
+
+/* Reconciler: API country names (long-form, UN style) → world-atlas names
+   (short). Most of the 199 are identical; list only divergent cases. */
+const NAME_RECONCILER = {
+  "United Kingdom of Great Britain and Northern Ireland": "United Kingdom",
+  "United States of America": "United States of America",
+  "Iran (Islamic Republic of)": "Iran",
+  "Türkiye": "Turkey",
+  "Viet Nam": "Vietnam",
+  "Russian Federation": "Russia",
+  "Syrian Arab Republic": "Syria",
+  "Lao People's Democratic Republic": "Laos",
+  "Bolivia (Plurinational State of)": "Bolivia",
+  "Venezuela (Bolivarian Republic of)": "Venezuela",
+  "Democratic Republic of the Congo": "Dem. Rep. Congo",
+  "United Republic of Tanzania": "Tanzania",
+  "Republic of Korea": "South Korea",
+  "Democratic People's Republic of Korea": "North Korea",
+  "Micronesia (Federated States of)": "Micronesia",
+  "Republic of Moldova": "Moldova",
+  "Brunei Darussalam": "Brunei",
+  "Cabo Verde": "Cape Verde",
+  "Czechia": "Czech Republic",
+  "Eswatini": "Swaziland",
+  "Côte d'Ivoire": "Ivory Coast",
+  "Timor-Leste": "East Timor",
+  "North Macedonia": "Macedonia",
+  "State of Palestine*": "Palestine",
+  "Kosovo*": "Kosovo",
+  "Holy See": "Vatican",
+  "Central African Republic": "Central African Rep.",
+  "Equatorial Guinea": "Eq. Guinea",
+  "Dominican Republic": "Dominican Rep.",
+  "South Sudan": "S. Sudan",
+  "Bosnia and Herzegovina": "Bosnia and Herz.",
+  "Solomon Islands": "Solomon Is.",
+  "Marshall Islands": "Marshall Is.",
+  "Antigua and Barbuda": "Antigua and Barb.",
+  "Saint Vincent and the Grenadines": "St. Vin. and Gren.",
+  "Saint Kitts and Nevis": "St. Kitts and Nevis",
+  "Saint Lucia": "Saint Lucia",
+  "Sao Tome and Principe": "São Tomé and Principe",
+};
+
+function apiToTopoName(apiName) {
+  return NAME_RECONCILER[apiName] || apiName;
+}
+
+let _mapLibsPromise = null;
+function loadMapLibs() {
+  if (_mapLibsPromise) return _mapLibsPromise;
+  _mapLibsPromise = Promise.all([
+    import('https://cdn.skypack.dev/d3-geo@3').catch(() => null),
+    import('https://cdn.skypack.dev/topojson-client@3').catch(() => null),
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+      .then(r => r.json())
+      .catch(() => null),
+  ]).then(([d3geo, topojson, world]) => {
+    if (!d3geo || !topojson || !world) throw new Error('map libs failed to load');
+    return { d3geo, topojson, world };
+  });
+  return _mapLibsPromise;
+}
+
+async function renderChoroplethMap(container, countryCounts) {
+  container.innerHTML = '<div class="map-loading">loading world map</div>';
+  let libs;
+  try {
+    libs = await loadMapLibs();
+  } catch (err) {
+    console.warn('Choropleth libs failed, falling back to grid', err);
+    return renderGridMap(container, countryCounts);  // graceful fallback
+  }
+  const { d3geo, topojson, world } = libs;
+
+  const featureCollection = topojson.feature(world, world.objects.countries);
+  const features = featureCollection.features;
+  const w = container.offsetWidth || 600;
+  const h = 400;
+
+  // Equal Earth projection — area-accurate, good for choropleths
+  const projection = d3geo.geoEqualEarth().fitSize([w, h-8], featureCollection);
+  const pathGen = d3geo.geoPath(projection);
+
+  // Aggregate counts by topo-name so we can colour each feature
+  const countByTopoName = Object.create(null);
+  const topoToApi = Object.create(null);  // reverse lookup for click handler
+  countryCounts.forEach(c => {
+    const apiName = cleanCountryName(c.country);
+    const topoName = apiToTopoName(apiName);
+    countByTopoName[topoName] = (countByTopoName[topoName] || 0) + c.count;
+    topoToApi[topoName] = apiName;
+  });
+  const maxCount = Math.max(0, ...Object.values(countByTopoName));
+
+  const paths = features.map(f => {
+    const name = f.properties.name;
+    const count = countByTopoName[name] || 0;
+    const intensity = maxCount ? count / maxCount : 0;
+    const apiName = topoToApi[name];
+    const filteredOn = apiName && state.filters.country.has(apiName);
+    const fill = count > 0
+      ? `color-mix(in oklab, var(--accent) ${Math.round(8 + intensity*82)}%, var(--paper-2))`
+      : 'var(--paper-3)';
+    const cls = 'country' + (count === 0 ? ' empty' : '') + (filteredOn ? ' on' : '');
+    const d = pathGen(f);
+    if (!d) return '';
+    return `<path class="${cls}" d="${d}" fill="${fill}" data-name="${sanitize(name)}" data-api="${sanitize(apiName||'')}" data-count="${count}" />`;
+  }).filter(Boolean).join('');
+
+  // Graticule for geographic context
+  const graticule = d3geo.geoGraticule ? d3geo.geoGraticule().step([20,20])() : null;
+  const gratPath = graticule ? pathGen(graticule) : '';
+  const spherePath = pathGen({type:'Sphere'});
+
+  container.innerHTML = `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+      <path class="sphere" d="${spherePath}" />
+      <path class="graticule" d="${gratPath}" />
+      ${paths}
+    </svg>
+    <div class="map-tooltip" id="mapTip"></div>
+    <div class="map-scale">
+      <span>0</span>
+      ${[0.1,0.25,0.5,0.75,1.0].map(v =>
+        `<span class="s" style="background:color-mix(in oklab, var(--accent) ${Math.round(v*90)}%, var(--paper-2))"></span>`
+      ).join('')}
+      <span>${fmt(maxCount)}</span>
+      <span style="margin-left:auto;color:var(--dim)">click = filter · double-click = country profile</span>
+    </div>`;
+
+  const tip = $('#mapTip', container);
+  container.querySelectorAll('path.country').forEach(p => {
+    p.addEventListener('mousemove', (e) => {
+      const rect = container.getBoundingClientRect();
+      const count = Number(p.dataset.count || 0);
+      const name = p.dataset.api || p.dataset.name;
+      tip.innerHTML = `${sanitize(name)}<span class="n">${fmt(count)}</span>`;
+      tip.style.left = (e.clientX - rect.left) + 'px';
+      tip.style.top = (e.clientY - rect.top) + 'px';
+      tip.classList.add('show');
+    });
+    p.addEventListener('mouseleave', () => tip.classList.remove('show'));
+    p.addEventListener('click', () => {
+      const apiName = p.dataset.api;
+      if (!apiName) return;  // no records for this country
+      const s = state.filters.country;
+      if (s.has(apiName)) s.delete(apiName); else s.add(apiName);
+      p.classList.toggle('on', s.has(apiName));
+      refreshFacetUI('country');
+      onFiltersChanged();
+    });
+    p.addEventListener('dblclick', () => {
+      const apiName = p.dataset.api;
+      if (!apiName) return;
+      const iso = NAME_TO_ISO[apiName];
+      if (iso) {
+        state.focusCountry = iso;
+        $('#tabCountry').textContent = apiName;
+        navigate('country');
+      }
+    });
+  });
+}
+
+/* Alias: renderMap defers to the proper choropleth; the grid version
+   is preserved as renderGridMap for graceful fallback or legacy use. */
 function renderMap(container, countryCounts) {
+  // Fire-and-forget; choropleth fetches its own libs
+  renderChoroplethMap(container, countryCounts).catch(err => {
+    console.warn('Choropleth failed, using grid', err);
+    renderGridMap(container, countryCounts);
+  });
+}
+
+/* ---------- LEGACY GRID MAP (fallback) ---------- */
+function renderGridMap(container, countryCounts) {
   const ROWS=12, COLS=22;
   const byCell = {};
   // Aggregate by cell — normalize 2-letter ISO codes that leak as if they
