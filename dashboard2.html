@@ -449,6 +449,10 @@ a{color:inherit;text-decoration:none}
 .cp-kpis{display:grid;grid-template-columns:repeat(4,auto);gap:24px;align-items:end;border-top:1px solid var(--line);padding-top:16px;margin-top:18px}
 .cp-kpi .n{font-family:var(--serif);font-size:26px;line-height:1}
 .cp-kpi .l{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-top:4px}
+.cp-rail-note{margin-top:10px;padding:8px 12px;background:color-mix(in oklab, var(--accent) 10%, var(--paper));border-left:2px solid var(--accent);font:11px var(--mono);color:var(--ink-2);display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cp-rail-note .lbl{color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
+.cp-rail-note button{margin-left:auto;padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.cp-rail-note button:hover{border-color:var(--ink);background:var(--paper-2)}
 .cp-picker{display:flex;flex-direction:column;gap:4px;font-size:11px;min-width:180px}
 .cp-picker label{color:var(--dim);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
 .cp-picker select{padding:6px 8px;border:1px solid var(--ink);background:var(--paper);font-family:var(--mono);font-size:11px;color:var(--ink)}
@@ -1125,14 +1129,93 @@ function cleanCountryName(s) {
   return v;
 }
 
-/* Empty filter spec — used by Profile views that want to ignore the rail
-   so they show the full theme/country universe instead of intersecting. */
+/* Empty filter spec — used rarely, only when a call genuinely wants the
+   whole dataset (sparklines, preload). Profile views now use _scopedFilter
+   so rail filters intersect with the focused entity (Option B). */
 function emptyFilters() {
   return {
     kw: '', country: new Set(), body: new Set(), theme: new Set(), group: new Set(),
     region: new Set(), sdg: new Set(), type: new Set(), yearA: null, yearB: null,
     themesMatch: 'any', groupsMatch: 'any',
   };
+}
+
+/* Build a filter object that intersects the current rail with a profile
+   scope. The override wins for its dimension (e.g. a Country profile for
+   USA forces `country = {USA}` regardless of what the rail had), while
+   every OTHER rail filter (body, theme, year, keyword, …) flows through.
+   Returns a fresh object with cloned Sets so callers may mutate safely. */
+function _scopedFilter(override = {}) {
+  const f = state.filters;
+  const out = {
+    kw: f.kw || '',
+    country: new Set(f.country),
+    body:    new Set(f.body),
+    theme:   new Set(f.theme),
+    group:   new Set(f.group),
+    region:  new Set(f.region),
+    sdg:     new Set(f.sdg),
+    type:    new Set(f.type),
+    yearA: f.yearA, yearB: f.yearB,
+    themesMatch: f.themesMatch || 'any',
+    groupsMatch: f.groupsMatch || 'any',
+  };
+  for (const k of Object.keys(override)) out[k] = override[k];
+  return out;
+}
+
+/* Render (or clear) the "filtered by …" note under the profile KPIs.
+   Called by every profile view after its data loads — keeps the UX
+   contract consistent: if a rail filter is applied, the profile shows
+   it and offers a one-click clear. */
+function _renderRailNoteInto(hostEl, excludeKey) {
+  if (!hostEl) return;
+  const desc = _activeRailDescription(excludeKey);
+  if (!desc) { hostEl.innerHTML = ''; return; }
+  hostEl.innerHTML = `
+    <div class="cp-rail-note" role="status">
+      <span class="lbl">filtered by rail</span>
+      <span>${sanitize(desc)}</span>
+      <button type="button" data-clear-rail>clear these filters ×</button>
+    </div>`;
+  hostEl.querySelector('[data-clear-rail]').addEventListener('click', () => {
+    // Preserve the profile's own scope (e.g. focusCountry) — only wipe the
+    // *other* rail filters the user layered on top.
+    const f = state.filters;
+    f.kw = ''; if ($('#kwInput')) $('#kwInput').value = '';
+    if (excludeKey !== 'country') f.country = new Set();
+    f.body = new Set();
+    if (excludeKey !== 'theme') f.theme = new Set();
+    if (excludeKey !== 'group') f.group = new Set();
+    f.region = new Set();
+    if (excludeKey !== 'sdg') f.sdg = new Set();
+    f.type = new Set();
+    const minY = state.facets?.min_year, maxY = state.facets?.max_year;
+    if (minY) f.yearA = minY; if (maxY) f.yearB = maxY;
+    if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
+    ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
+    $('#tabSearch').textContent = '—';
+    onFiltersChanged();
+  });
+}
+
+/* Describe which rail filters (other than the profile's own scope) are
+   currently applied. Used by profile headers to show a one-line summary
+   like "filtered by: CCPR · 2020–2024" with a [clear] shortcut. */
+function _activeRailDescription(excludeKey) {
+  const f = state.filters;
+  const parts = [];
+  if (f.kw && f.kw.trim()) parts.push(`“${f.kw.trim()}”`);
+  if (excludeKey !== 'country' && f.country.size) parts.push(Array.from(f.country).slice(0,3).join(', ') + (f.country.size>3?` +${f.country.size-3}`:''));
+  if (f.body.size) parts.push(Array.from(f.body).slice(0,3).join(', ') + (f.body.size>3?` +${f.body.size-3}`:''));
+  if (excludeKey !== 'theme' && f.theme.size) parts.push(Array.from(f.theme).slice(0,2).join(', ') + (f.theme.size>2?` +${f.theme.size-2}`:''));
+  if (excludeKey !== 'group' && f.group.size) parts.push(Array.from(f.group).slice(0,2).join(', ') + (f.group.size>2?` +${f.group.size-2}`:''));
+  if (f.region.size) parts.push(Array.from(f.region).join(', '));
+  if (excludeKey !== 'sdg' && f.sdg.size) parts.push('SDG ' + Array.from(f.sdg).join(', SDG '));
+  if (f.type.size) parts.push(Array.from(f.type).join(', '));
+  const minY = state.facets?.min_year, maxY = state.facets?.max_year;
+  if ((minY && f.yearA > minY) || (maxY && f.yearB < maxY)) parts.push(`${f.yearA}–${f.yearB}`);
+  return parts.join(' · ');
 }
 
 /* Human-readable SDG names for tooltips & palette hints */
@@ -2087,9 +2170,15 @@ function onFiltersChanged() {
 }
 
 async function refreshCurrentView() {
+  // Profile views now intersect the rail (Option B) so a rail-filter change
+  // must re-fetch them just like Overview/Search.
   if (state.view === 'overview') await renderOverview({ keepPrevious: true });
   else if (state.view === 'search') await renderSearch();
-  // country/theme/compare: their renderers use their own fetches
+  else if (state.view === 'country') await renderCountry();
+  else if (state.view === 'theme')   await renderTheme();
+  else if (state.view === 'group')   await renderGroup();
+  else if (state.view === 'sdg')     await renderSDG();
+  else if (state.view === 'compare') await renderCompare();
 }
 
 // Announce hit-count updates to screen readers
@@ -3287,6 +3376,7 @@ async function renderCountry() {
         <h1 class="cp-name">${sanitize(name)}</h1>
         <div class="cp-sub">Loading profile…</div>
         <div class="cp-kpis" id="cpKpis"></div>
+        <div id="cpRailNote"></div>
       </div>
       <div class="cp-picker">
         <label>Switch country</label>
@@ -3307,10 +3397,9 @@ async function renderCountry() {
     renderCountry();
   });
 
-  // Profile view is scoped — ignore the rail's other filters so the page
-  // reflects the full country universe. Users who want intersections use
-  // the Search tab (which does respect the rail).
-  const countryFilter = { ...emptyFilters(), country: new Set([name]) };
+  // Profile view intersects the rail with the focused country (Option B).
+  // Cloning rail filter sets so override of `country` doesn't mutate state.
+  const countryFilter = _scopedFilter({ country: new Set([name]) });
   try {
     const [analytics, records] = await Promise.all([
       api.analytics(countryFilter),
@@ -3340,6 +3429,7 @@ async function renderCountry() {
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:220px;line-height:1.2">${sanitize(topTheme)}</div><div class="l">Leading theme</div></div>`;
     root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date || '—'} → ${analytics?.trends?.dataset_last_publication_date || '—'} · all mechanisms`;
+    _renderRailNoteInto($('#cpRailNote'), 'country');
 
     // Timeline (non-interactive — profile is scoped already)
     renderTimeline($('#cpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#cpLegend'), interactive: false });
@@ -3399,6 +3489,7 @@ async function renderTheme() {
         <h1 class="cp-name" style="font-size:42px">${sanitize(name)}</h1>
         <div class="cp-sub">Loading…</div>
         <div class="cp-kpis" id="thKpis"></div>
+        <div id="thRailNote"></div>
       </div>
       <div class="cp-picker"><label>Switch theme</label>
         <select id="thSelect">${opts}</select></div>
@@ -3418,9 +3509,8 @@ async function renderTheme() {
     renderTheme();
   });
 
-  // Scoped view — ignores rail so the page shows all records matching
-  // this theme globally. Consistent with Country Profile.
-  const themeFilter = { ...emptyFilters(), theme: new Set([name]) };
+  // Intersect rail filters with the focused theme (Option B).
+  const themeFilter = _scopedFilter({ theme: new Set([name]) });
   try {
     const [analytics, mapD, records] = await Promise.all([
       api.analytics(themeFilter),
@@ -3438,6 +3528,7 @@ async function renderTheme() {
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
       <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Concerned groups</div></div>`;
     root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    _renderRailNoteInto($('#thRailNote'), 'theme');
 
     renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false });
     renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
@@ -3492,6 +3583,7 @@ async function renderGroup() {
         <h1 class="cp-name" style="font-size:42px">${sanitize(name)}</h1>
         <div class="cp-sub">Loading…</div>
         <div class="cp-kpis" id="gpKpis"></div>
+        <div id="gpRailNote"></div>
       </div>
       <div class="cp-picker"><label>Switch group</label><select id="gpSelect">${opts}</select></div>
     </div>
@@ -3508,7 +3600,7 @@ async function renderGroup() {
     $('#tabGroup').textContent = e.target.value;
     renderGroup();
   });
-  const filter = { ...emptyFilters(), group: new Set([name]) };
+  const filter = _scopedFilter({ group: new Set([name]) });
   try {
     const [analytics, mapD, records] = await Promise.all([
       api.analytics(filter, { scope: 'analytics:group-' + name }),
@@ -3527,6 +3619,7 @@ async function renderGroup() {
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>`;
     root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    _renderRailNoteInto($('#gpRailNote'), 'group');
     renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false });
     renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
     renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
@@ -3578,6 +3671,7 @@ async function renderSDG() {
         <h1 class="cp-name" style="font-size:38px">${sanitize(formatSdgLabel(sdg))}</h1>
         <div class="cp-sub">Loading…</div>
         <div class="cp-kpis" id="spKpis"></div>
+        <div id="spRailNote"></div>
       </div>
       <div class="cp-picker"><label>Switch SDG</label><select id="spSelect">${opts}</select></div>
     </div>
@@ -3594,12 +3688,11 @@ async function renderSDG() {
     $('#tabSdg').textContent = e.target.value.replace(/^SDG /, 'SDG ');
     renderSDG();
   });
-  const filter = { ...emptyFilters(), sdg: new Set([sdg]) };
-  // Our sdg filter stores numbers in the state, but API expects "SDG 16.3"
-  // so we override sdg handling here — pass raw string directly.
-  const filterForApi = { ...filter, sdg: new Set() };
-  // Build params manually to bypass the number conversion
-  const rawParams = buildParams(filterForApi);
+  // Intersect rail filters with the focused SDG (Option B). The rail's sdg
+  // set is emptied because we pass the raw SDG label through `rawParams`
+  // below — buildParams would otherwise emit the numeric shorthand too.
+  const filter = _scopedFilter({ sdg: new Set() });
+  const rawParams = buildParams(filter);
   rawParams.set('sdgs', sdg);
   const rawAnalytics = () => apiGet(E.analytics, rawParams, { scope: 'analytics:sdg-' + sdg });
   const rawMap       = () => apiGet(E.map,       rawParams, { scope: 'map:sdg-' + sdg });
@@ -3617,6 +3710,7 @@ async function renderSDG() {
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
       <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Groups</div></div>`;
     root.querySelector('.cp-sub').textContent = `${analytics?.trends?.dataset_first_publication_date||'—'} → ${analytics?.trends?.dataset_last_publication_date||'—'}`;
+    _renderRailNoteInto($('#spRailNote'), 'sdg');
     renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false });
     renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), {});
     renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), {});
@@ -3686,7 +3780,10 @@ async function renderCompare() {
   $('#cmpSelB').addEventListener('change', e => { state.cmpB = e.target.value; renderCompare(); });
 
   async function loadSide(name, letter) {  // letter is 'A' or 'B'
-    const f = { ...emptyFilters(), country: new Set([name]) };
+    // Both sides intersect the current rail (body, theme, year etc.)
+    // with their own country scope — so you can e.g. compare Poland vs
+    // Germany under a CCPR-only filter.
+    const f = _scopedFilter({ country: new Set([name]) });
     // Unique abort-scope per side so A and B don't cancel each other
     const scope = 'compare-' + letter;
     try {
@@ -4753,12 +4850,15 @@ async function openListDrawer(kind, value) {
 }
 
 function listDrawerFilter() {
+  // Drawer list ("All records with this theme") respects the rail so it
+  // matches what Overview shows. The drawer's own facet (theme/group/
+  // country) is layered on top.
   const { kind, value } = state.drawerList || {};
-  const f = { ...emptyFilters() };
-  if (kind === 'theme') f.theme = new Set([value]);
-  else if (kind === 'group') f.group = new Set([value]);
-  else if (kind === 'country') f.country = new Set([value]);
-  return f;
+  const override = {};
+  if (kind === 'theme') override.theme = new Set([value]);
+  else if (kind === 'group') override.group = new Set([value]);
+  else if (kind === 'country') override.country = new Set([value]);
+  return _scopedFilter(override);
 }
 
 async function loadMoreListDrawer() {
