@@ -85,10 +85,12 @@ a{color:inherit;text-decoration:none}
 .app.rail-closed.drawer-closed{grid-template-columns:0 1fr 0}
 /* Reading mode — expand drawer width, collapse rail, bump text size so the
    user can actually read long recommendations without squinting. Toggled
-   via the drawer-head 📖 button or keyboard shortcut R. */
-.app.reading-mode{grid-template-columns:0 minmax(0, 1fr) minmax(560px, 720px)}
-.app.reading-mode .drawer .dr-list-card .tx{font-size:17px;line-height:1.65}
-.app.reading-mode .drawer .dr-text{font-size:17px;line-height:1.65;max-height:none}
+   via the drawer-head 📖 button or keyboard shortcut R. +/- keys in
+   reading mode adjust the font size (persisted to localStorage). */
+.app.reading-mode{grid-template-columns:0 minmax(0, 1fr) minmax(560px, 720px);--reading-fs:17px;--reading-lh:1.65}
+.app.reading-mode .drawer .dr-list-card .tx{font-size:var(--reading-fs);line-height:var(--reading-lh)}
+.app.reading-mode .drawer .dr-text{font-size:var(--reading-fs);line-height:var(--reading-lh);max-height:none}
+.app.reading-mode .drawer #drNote{font-size:calc(var(--reading-fs) - 2px);line-height:1.55}
 .app.reading-mode .drawer{border-left-color:var(--accent)}
 .reading-toggle{border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink);margin-right:6px}
 .reading-toggle:hover{border-color:var(--ink);background:var(--paper-2)}
@@ -239,12 +241,67 @@ a{color:inherit;text-decoration:none}
 .dr-breadcrumb .val{color:var(--ink);flex:1}
 .dr-breadcrumb button{padding:2px 8px;font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
 .dr-breadcrumb button:hover{border-color:var(--ink);background:var(--paper-2)}
+.exp-picker{position:relative;display:inline-block}
+.exp-dropdown{display:none;position:absolute;right:0;top:calc(100% + 4px);min-width:280px;background:var(--paper);border:1px solid var(--line);box-shadow:0 6px 24px rgba(0,0,0,.12);z-index:10}
+.exp-dropdown.on{display:block}
+.exp-dropdown .exp-item{padding:10px 14px;font:11px var(--mono);color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line-2)}
+.exp-dropdown .exp-item:hover{background:var(--paper-2)}
+.exp-dropdown .exp-item:last-child{border-bottom:0}
+/* Diff tray + modal */
+.diff-tray{position:fixed;bottom:20px;right:20px;z-index:150;background:var(--paper);border:1px solid var(--ink);box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px 14px;font:11px var(--mono);max-width:460px}
+.diff-tray .dt-label{font-size:9px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:6px}
+.diff-tray .dt-pins{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.diff-tray .dt-pin{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--line);background:var(--paper-2);font-size:10px}
+.diff-tray .dt-pin .n{font-weight:700;color:var(--accent)}
+.diff-tray .dt-pin .t{color:var(--ink)}
+.diff-tray .dt-pin .x{border:0;background:transparent;color:var(--dim);cursor:pointer;padding:0;font-size:13px;margin-left:2px}
+.diff-tray .dt-pin .x:hover{color:#b91c1c}
+.diff-tray .dt-actions{display:flex;gap:6px;align-items:center}
+.diff-tray .dt-actions .muted{color:var(--dim);font-size:10px;font-style:italic}
+.diff-tray .dt-actions button{padding:3px 10px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.diff-tray .dt-actions button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.diff-tray .dt-actions button.primary:hover{background:var(--accent);border-color:var(--accent)}
+.diff-tray .dt-actions button:hover:not(.primary){border-color:var(--ink);background:var(--paper-2)}
+.diff-modal{position:fixed;inset:0;background:rgba(15,15,16,.75);z-index:260;display:flex;align-items:stretch;justify-content:center;padding:4vh 3vw;backdrop-filter:blur(3px)}
+.diff-card{background:var(--paper);width:100%;max-width:1600px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.45);overflow:hidden}
+.diff-head{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+.diff-head h2{margin:0;font-family:var(--serif);font-size:22px;font-weight:400;line-height:1;color:var(--ink)}
+.diff-head button{padding:5px 12px;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.diff-head button:hover{border-color:var(--ink);background:var(--paper-2)}
+.diff-cols{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);flex:1;overflow:hidden;position:relative}
+.diff-label{position:absolute;top:10px;font:9px var(--mono);letter-spacing:.18em;color:var(--dim);text-transform:uppercase;padding:3px 8px;background:var(--paper-2);border:1px solid var(--line);z-index:2}
+.diff-label{left:16px}
+.diff-label.b{left:auto;right:calc(50% + 16px);transform:translateX(50%)}
+.diff-cols .diff-col{background:var(--paper);overflow-y:auto;padding:36px 28px 40px}
+.diff-cols .diff-col:nth-child(3){background:var(--paper)}
+.diff-cols .diff-col:nth-child(4){background:color-mix(in oklab, var(--accent) 3%, var(--paper))}
+.diff-col .dc-head .dc-yr{font:11px var(--mono);letter-spacing:.18em;color:var(--dim);margin-bottom:4px}
+.diff-col .dc-head .dc-title{font-family:var(--serif);font-size:28px;line-height:1.05;color:var(--ink);margin-bottom:4px}
+.diff-col .dc-head .dc-sub{font:11px var(--mono);color:var(--dim);margin-bottom:14px}
+.diff-col .dc-meta{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:18px;font:11px var(--mono);padding-bottom:14px;border-bottom:1px dotted var(--line)}
+.diff-col .dc-meta dt{color:var(--dim);font-size:9px;letter-spacing:.12em;text-transform:uppercase;align-self:center}
+.diff-col .dc-meta dd{margin:0;color:var(--ink-2)}
+.diff-col .dc-text{font-family:var(--serif);font-size:16px;line-height:1.65;color:var(--ink);white-space:pre-wrap}
+.diff-col .dc-text mark{background:color-mix(in oklab, var(--accent) 35%, transparent);color:var(--ink);padding:0 2px}
+/* Pin button variant on per-card actions */
+.dr-list-card button[data-act="pin"]{border-color:var(--line)}
+.dr-list-card button[data-act="pin"].pinned{background:var(--accent);color:var(--paper);border-color:var(--accent)}
 .dr-list-items{padding:4px 0}
 .dr-list-card{padding:14px 16px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
 .dr-list-card:hover{background:var(--paper-2)}
 .dr-list-card .meta{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .dr-list-card .meta .yr{color:var(--ink);font-weight:700}
-.dr-list-card .meta .star{color:#d97706;margin-left:auto}
+.dr-list-card .meta .star{color:#d97706}
+.dr-list-card .meta .note-mark{color:var(--accent);font-size:11px}
+.dr-list-card .meta .star,.dr-list-card .meta .note-mark{margin-left:auto}
+.dr-list-card .meta .note-mark + .star{margin-left:4px}
+.dr-note-block{margin-top:14px;padding-top:12px;border-top:1px dotted var(--line)}
+.dr-note-label{display:block;font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:6px}
+.dr-note-label .hint{float:right;text-transform:none;letter-spacing:.05em;font-weight:400;color:var(--dimmer)}
+#drNote{width:100%;box-sizing:border-box;min-height:72px;padding:10px 12px;font-family:var(--serif);font-size:13px;line-height:1.5;color:var(--ink);border:1px solid var(--line);background:var(--paper-2);resize:vertical}
+#drNote:focus{outline:none;border-color:var(--accent);background:var(--paper)}
+.dr-note-status{font:9px var(--mono);color:var(--dimmer);letter-spacing:.08em;margin-top:4px;text-align:right;height:12px}
+.dr-note-status.saved{color:var(--accent)}
 .dr-list-card .tx{font-family:var(--serif);font-size:15px;line-height:1.55;color:var(--ink);max-height:7.8em;overflow:hidden;position:relative;transition:max-height .25s}
 .dr-list-card.expanded .tx{max-height:999em}
 .dr-list-card .tx::after{content:"";position:absolute;bottom:0;left:0;right:0;height:1.9em;background:linear-gradient(to bottom, transparent, var(--paper) 85%);pointer-events:none}
@@ -2354,7 +2411,7 @@ function renderRowList(el, rows, opts = {}) {
     return `
     <div class="rl-row ${showSpark?'has-spark':''}" data-key="${sanitize(r.key||'')}" data-facet="${opts.facet||''}">
       <div class="rnk">${String(i+1).padStart(2,'0')}</div>
-      <div class="nm"><span class="bar" style="width:${(r.v/top)*100}%"></span><span class="txt" title="${sanitize(r.label)}">${sanitize(r.label)}</span></div>
+      <div class="nm"><span class="bar" style="width:${(r.v/top)*100}%"></span><span class="txt" title="${sanitize(r.label)}">${highlightKeyword(r.label, (state.filters.kw||'').trim())}</span></div>
       ${showSpark ? `<div class="spark" title="2006–2026 evolution">${sparkHtml}</div>` : ''}
       <div class="v">${fmt(r.v)}</div>
     </div>`;
@@ -5260,6 +5317,7 @@ function renderDrawerListMode() {
         <span>·</span><span>${sanitize(country)}</span>
         <span>·</span><span>${sanitize(body)}</span>
         ${kwCount ? `<span style="color:var(--accent);font-weight:700" title="${kwCount} keyword match${kwCount!==1?'es':''}">${kwCount}× "${sanitize(kw)}"</span>` : ''}
+        ${noteHas(r.AnnotationId) ? '<span class="note-mark" title="You have a note on this record">📝</span>' : ''}
         ${starred ? '<span class="star" title="Bookmarked">★</span>' : ''}
       </div>
       <div class="tx">${highlightKeyword(fullTxt, kw)}</div>
@@ -5269,6 +5327,7 @@ function renderDrawerListMode() {
         <button data-act="read" data-idx="${i}" title="Open full reader">📖 Read</button>
         <button data-act="bookmark" data-idx="${i}" title="Toggle bookmark (b)">${starred?'★ Bookmarked':'☆ Bookmark'}</button>
         <button data-act="copy" data-idx="${i}" title="Copy quote with citation">Copy</button>
+        <button data-act="pin" data-idx="${i}" class="${diffIsPinned(r.AnnotationId)?'pinned':''}" title="Pin for side-by-side compare">${diffIsPinned(r.AnnotationId)?'📌 Pinned':'📌 Pin'}</button>
         <span class="spacer"></span>
         <span style="font:9px var(--mono);color:var(--dimmer);letter-spacing:.1em">${i+1}/${fmt(ctx.total)}</span>
       </div>
@@ -5297,6 +5356,13 @@ function renderDrawerListMode() {
       <div class="actions">
         <button class="primary" id="drListFilter">+ Narrow view by this ${ctx.kind}</button>
         <button id="drListProfile">Open ${ctx.kind} profile →</button>
+        <div class="exp-picker">
+          <button id="drListExport" title="Export the recommendations in this list">📥 Export ▾</button>
+          <div class="exp-dropdown" id="drListExportMenu">
+            <div class="exp-item" data-exp="md">Markdown (.md) — each record + citation</div>
+            <div class="exp-item" data-exp="xlsx">Excel (.xlsx) — flat table with all fields</div>
+          </div>
+        </div>
         <button id="drListClose">× Close</button>
       </div>
     </div>
@@ -5361,6 +5427,11 @@ function renderDrawerListMode() {
         const citation = citeAPA(rec);
         const quote = `"${(rec.TextPlainCleaned || rec.Text || '').trim()}"\n\n${citation}`;
         navigator.clipboard.writeText(quote).then(() => toast('Copied with citation', false, 1600));
+      } else if (act === 'pin') {
+        const outcome = diffPinToggle(rec);
+        btn.classList.toggle('pinned', outcome === 'added');
+        btn.textContent = outcome === 'added' ? '📌 Pinned' : '📌 Pin';
+        toast(outcome === 'added' ? `Pinned ${state.diffPins.length}/2 for compare` : 'Unpinned', false, 1400);
       }
     });
   });
@@ -5395,6 +5466,27 @@ function renderDrawerListMode() {
   });
   $('#drListClose')?.addEventListener('click', closeListDrawer);
 
+  // Export menu — Markdown + XLSX of everything loaded so far. If not
+  // all pages are loaded yet, warn so researchers know they might want
+  // to scroll to the end first (infinite-scroll triggers loadMore).
+  const expBtn = $('#drListExport');
+  const expMenu = $('#drListExportMenu');
+  if (expBtn && expMenu) {
+    expBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      expMenu.classList.toggle('on');
+    });
+    document.addEventListener('click', () => expMenu.classList.remove('on'));
+    expMenu.querySelectorAll('.exp-item').forEach(it => it.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const kind = it.dataset.exp;
+      expMenu.classList.remove('on');
+      const missing = Math.max(0, (ctx.total || 0) - ctx.records.length);
+      if (missing > 0 && !confirm(`${missing} more records haven't been loaded yet. Export the ${ctx.records.length} currently visible?`)) return;
+      _exportDrawerList(kind, ctx);
+    }));
+  }
+
   // IntersectionObserver on the sentinel for infinite scroll
   const sentinel = $('#drListSentinel');
   if (sentinel) {
@@ -5405,6 +5497,77 @@ function renderDrawerListMode() {
       });
     }, { root: el.parentElement, rootMargin: '120px' });
     _drListObserver.observe(sentinel);
+  }
+}
+
+/* Export the currently-visible drawer list as Markdown or XLSX.
+   Each record includes its APA citation and user note (if any) so the
+   export is self-contained — you can drop it into a Word doc or spreadsheet
+   and every row carries the info needed to trace back to UHRI. */
+async function _exportDrawerList(kind, ctx) {
+  const ts = new Date().toISOString().slice(0, 10);
+  const safeValue = String(ctx.value || 'all').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+  const filename = `uhri-${ctx.kind}-${safeValue}-${ts}`;
+
+  if (kind === 'md') {
+    const lines = [];
+    lines.push(`# ${_LIST_KIND_LABEL[ctx.kind] || ctx.kind} · ${ctx.value}`);
+    lines.push('');
+    lines.push(`**${ctx.records.length}** of ${ctx.total} matching recommendations · exported ${new Date().toLocaleString()}`);
+    const railDesc = _activeRailDescription(ctx.kind);
+    if (railDesc) lines.push('', `_Also filtered by: ${railDesc}_`);
+    lines.push('\n---\n');
+    ctx.records.forEach((r, i) => {
+      const yr = (r.PublicationDate || '').slice(0, 10) || 'n.d.';
+      const country = cleanCountryName((r.Countries || [])[0] || '');
+      const body = cleanLabel(r.Body || '');
+      const themes = (r.Themes || []).join(', ');
+      const groups = (r.AffectedPersons || []).join(', ');
+      const sdgs = (r.Sdgs || []).join(', ');
+      const txt = (r.TextPlainCleaned || r.Text || '').trim();
+      const note = noteGet(r.AnnotationId || '');
+      lines.push(`## ${i + 1}. ${body} — ${country} (${yr.slice(0, 4)})`);
+      lines.push('');
+      lines.push(`- **Symbol:** ${r.Symbol || '—'}`);
+      lines.push(`- **Annotation ID:** ${r.AnnotationId || '—'}`);
+      if (themes) lines.push(`- **Themes:** ${themes}`);
+      if (groups) lines.push(`- **Concerned groups:** ${groups}`);
+      if (sdgs) lines.push(`- **SDGs:** ${sdgs}`);
+      lines.push('');
+      lines.push('> ' + txt.split('\n').join('\n> '));
+      lines.push('');
+      if (note) { lines.push('**Your note:**', '', note, ''); }
+      lines.push(`*${citeAPA(r)}*`);
+      lines.push('\n---\n');
+    });
+    downloadBlob(lines.join('\n'), 'text/markdown', filename + '.md');
+    toast(`Exported ${ctx.records.length} records as Markdown`, false, 2400);
+    return;
+  }
+
+  if (kind === 'xlsx') {
+    const XLSX = await ensureXLSX();
+    const flat = ctx.records.map(r => ({
+      AnnotationId: r.AnnotationId || '',
+      Symbol: r.Symbol || '',
+      PublicationDate: r.PublicationDate || '',
+      Body: cleanLabel(r.Body || ''),
+      AnnotationType: cleanAnnotationType(r.AnnotationType),
+      Countries: (r.Countries || []).map(cleanCountryName).join('; '),
+      Regions: (r.Regions || []).join('; '),
+      Themes: (r.Themes || []).join('; '),
+      AffectedPersons: (r.AffectedPersons || []).join('; '),
+      Sdgs: (r.Sdgs || []).join('; '),
+      Text: r.TextPlainCleaned || r.Text || '',
+      APACitation: citeAPA(r),
+      YourNote: noteGet(r.AnnotationId || ''),
+    }));
+    const ws = XLSX.utils.json_to_sheet(flat);
+    const wb = XLSX.utils.book_new();
+    const sheetName = (_LIST_KIND_LABEL[ctx.kind] || ctx.kind).slice(0, 28);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, filename + '.xlsx');
+    toast(`Exported ${ctx.records.length} records as XLSX`, false, 2400);
   }
 }
 
@@ -5483,11 +5646,35 @@ function renderDrawer() {
             </div>`).join('')}
         </div>
       </div>
+      <button class="dr-btn" id="drPin" title="Pin for side-by-side compare">${diffIsPinned(r.AnnotationId)?'📌 Pinned':'📌 Pin'}</button>
       <button class="dr-btn report" id="drReport" title="Report a data-quality issue with this record">🚩 Report</button>
+    </div>
+    <div class="dr-note-block">
+      <label class="dr-note-label" for="drNote">📝 Your note <span class="hint">private · saved in this browser</span></label>
+      <textarea id="drNote" placeholder="Drop a thought, a quote, a todo — stays on this device, never sent anywhere." rows="3">${sanitize(noteGet(r.AnnotationId||''))}</textarea>
+      <div class="dr-note-status" id="drNoteStatus"></div>
     </div>`;
 
   $('#drOpen').addEventListener('click', () => openReader(r));
   $('#drReport').addEventListener('click', () => openReportModal(r));
+  $('#drPin')?.addEventListener('click', (e) => {
+    const outcome = diffPinToggle(r);
+    const btn = e.currentTarget;
+    btn.textContent = outcome === 'added' ? '📌 Pinned' : '📌 Pin';
+    toast(outcome === 'added' ? `Pinned ${state.diffPins.length}/2 for compare` : 'Unpinned', false, 1400);
+  });
+  // Note autosave — debounced 400ms so fast typing doesn't hammer localStorage
+  const noteEl = $('#drNote'); const noteStatus = $('#drNoteStatus');
+  if (noteEl) {
+    let noteT; const markSaved = () => {
+      if (noteStatus) { noteStatus.textContent = '✓ saved ' + new Date().toLocaleTimeString(); noteStatus.classList.add('saved'); }
+    };
+    noteEl.addEventListener('input', () => {
+      if (noteStatus) { noteStatus.textContent = '…'; noteStatus.classList.remove('saved'); }
+      clearTimeout(noteT);
+      noteT = setTimeout(() => { noteSet(r.AnnotationId, noteEl.value); markSaved(); }, 400);
+    });
+  }
   $('#drPrev')?.addEventListener('click', () => navigateRec(-1));
   $('#drNext')?.addEventListener('click', () => navigateRec(1));
   $('#drStar').addEventListener('click', () => {
@@ -5814,6 +6001,20 @@ function toggleDrawer() { TW.drawer = !TW.drawer; applyTweaks(); toast('Drawer '
    the `r` keyboard shortcut. Cooperates with the existing rail/drawer
    toggles: turning reading mode on force-hides the rail, turning it off
    restores the rail to whatever state the user had. */
+const READING_FS_KEY = 'uhri_v2_reading_fs_px';
+function _applyReadingFontSize(px) {
+  const clamped = Math.max(13, Math.min(28, px));
+  document.documentElement.style.setProperty('--reading-fs', clamped + 'px');
+  try { localStorage.setItem(READING_FS_KEY, String(clamped)); } catch {}
+  return clamped;
+}
+function bumpReadingFontSize(delta) {
+  const app = $('#app') || document.body;
+  if (!app.classList.contains('reading-mode')) return;
+  const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--reading-fs')) || 17;
+  const next = _applyReadingFontSize(cur + delta);
+  toast(`Text size: ${next}px`, false, 1200);
+}
 function toggleReadingMode() {
   const app = $('#app') || document.body;
   const on = !app.classList.contains('reading-mode');
@@ -5821,12 +6022,17 @@ function toggleReadingMode() {
     TW._preReadingRail = TW.rail;
     TW.rail = false;
     if (!TW.drawer) TW.drawer = true;
+    // Restore persisted font size
+    try {
+      const saved = parseInt(localStorage.getItem(READING_FS_KEY) || '');
+      if (saved) _applyReadingFontSize(saved);
+    } catch {}
   } else {
     if (TW._preReadingRail !== undefined) { TW.rail = TW._preReadingRail; delete TW._preReadingRail; }
   }
   app.classList.toggle('reading-mode', on);
   applyTweaks();
-  toast(on ? '📖 Reading mode · press R to exit' : 'Reading mode off', false, 1600);
+  toast(on ? '📖 Reading mode · press R to exit · +/- to resize' : 'Reading mode off', false, 1800);
 }
 
 function openTweaks() {
@@ -6464,6 +6670,133 @@ function bmToggle(rec) {
     return true;  // added
   }
 }
+/* =========================================================================
+   NOTES — private per-record research notes kept in localStorage
+   =========================================================================
+   Prywatne notatki użytkownika doklejane do `AnnotationId`. Wyświetlane
+   w drawerze obok tekstu + ikonka 📝 na kartach w drawer-list. Czysto
+   lokalne (brak serwera), tekstowe, z prostym autosave. */
+/* =========================================================================
+   RECORD DIFF — pick two records, open a side-by-side comparison modal
+   =========================================================================
+   Use case: compare two CCPR paragraphs to Turkey 2014 vs 2020, or the
+   same theme addressed to two countries. Pin A, pin B, click 'Compare'. */
+state.diffPins = [];
+function diffPinToggle(rec) {
+  if (!rec || !rec.AnnotationId) return 'none';
+  const idx = state.diffPins.findIndex(p => p.AnnotationId === rec.AnnotationId);
+  if (idx >= 0) {
+    state.diffPins.splice(idx, 1);
+    _renderDiffTray();
+    return 'removed';
+  }
+  if (state.diffPins.length >= 2) state.diffPins.shift();  // FIFO eviction
+  state.diffPins.push(rec);
+  _renderDiffTray();
+  return 'added';
+}
+function diffIsPinned(id) { return state.diffPins.some(p => p.AnnotationId === id); }
+function _renderDiffTray() {
+  let tray = $('#diffTray');
+  if (!state.diffPins.length) { if (tray) tray.remove(); return; }
+  if (!tray) {
+    tray = document.createElement('div');
+    tray.id = 'diffTray';
+    tray.className = 'diff-tray';
+    document.body.appendChild(tray);
+  }
+  const pins = state.diffPins;
+  tray.innerHTML = `
+    <div class="dt-label">📌 Pinned for compare · ${pins.length}/2</div>
+    <div class="dt-pins">
+      ${pins.map((p, i) => `
+        <span class="dt-pin" data-idx="${i}" title="${sanitize(p.AnnotationId)}">
+          <span class="n">${i === 0 ? 'A' : 'B'}</span>
+          <span class="t">${sanitize(cleanCountryName((p.Countries||[])[0]||''))} · ${sanitize(((p.PublicationDate||'').slice(0,4))||'—')}</span>
+          <button class="x" data-x="${i}" aria-label="Unpin">×</button>
+        </span>`).join('')}
+    </div>
+    <div class="dt-actions">
+      ${pins.length === 2 ? '<button id="diffOpen" class="primary">Compare →</button>' : '<span class="muted">pin one more to compare</span>'}
+      <button id="diffClear">clear</button>
+    </div>`;
+  tray.querySelectorAll('[data-x]').forEach(b => b.addEventListener('click', () => {
+    state.diffPins.splice(Number(b.dataset.x), 1);
+    _renderDiffTray();
+  }));
+  $('#diffClear')?.addEventListener('click', () => { state.diffPins = []; _renderDiffTray(); });
+  $('#diffOpen')?.addEventListener('click', () => openDiffModal());
+}
+function openDiffModal() {
+  if (state.diffPins.length !== 2) return;
+  const [A, B] = state.diffPins;
+  const kw = (state.filters.kw || '').trim();
+  const render = r => {
+    const yr = (r.PublicationDate || '').slice(0, 10);
+    const country = cleanCountryName((r.Countries || [])[0] || '—');
+    const body = cleanLabel(r.Body || '—');
+    const themes = (r.Themes || []).slice(0, 4);
+    const groups = (r.AffectedPersons || []).slice(0, 4);
+    const sdgs = (r.Sdgs || []).slice(0, 3);
+    const txt = r.TextPlainCleaned || r.Text || '';
+    return `
+      <div class="diff-col">
+        <div class="dc-head">
+          <div class="dc-yr">${sanitize(yr)}</div>
+          <div class="dc-title">${sanitize(country)}</div>
+          <div class="dc-sub">${sanitize(body)} · ${sanitize(r.Symbol || '—')}</div>
+        </div>
+        <dl class="dc-meta">
+          ${themes.length ? `<dt>Themes</dt><dd>${themes.map(sanitize).join(' · ')}</dd>` : ''}
+          ${groups.length ? `<dt>Groups</dt><dd>${groups.map(sanitize).join(' · ')}</dd>` : ''}
+          ${sdgs.length   ? `<dt>SDGs</dt><dd>${sdgs.map(sanitize).join(' · ')}</dd>` : ''}
+        </dl>
+        <div class="dc-text">${highlightKeyword(txt, kw)}</div>`
+      + `</div>`;
+  };
+  const modal = document.createElement('div');
+  modal.className = 'diff-modal';
+  modal.innerHTML = `
+    <div class="diff-card">
+      <div class="diff-head">
+        <h2>Side-by-side comparison</h2>
+        <div style="flex:1"></div>
+        <button id="diffSwap" title="Swap A and B">↔ Swap</button>
+        <button id="diffClose" title="Close (Esc)">× Close</button>
+      </div>
+      <div class="diff-cols">
+        <div class="diff-label">A</div>
+        <div class="diff-label b">B</div>
+        ${render(A)}
+        ${render(B)}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const close = () => { modal.remove(); document.removeEventListener('keydown', esc); };
+  const esc = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', esc);
+  $('#diffClose', modal).addEventListener('click', close);
+  $('#diffSwap', modal).addEventListener('click', () => { state.diffPins.reverse(); close(); openDiffModal(); _renderDiffTray(); });
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+}
+
+const NOTES_KEY = 'uhri_v2_notes_v1';
+function notesLoad() { try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); } catch { return {}; } }
+function notesSave(obj) { try { localStorage.setItem(NOTES_KEY, JSON.stringify(obj)); } catch {} }
+function noteGet(id) { if (!id) return ''; return (notesLoad()[id] || {}).text || ''; }
+function noteHas(id) { if (!id) return false; const e = notesLoad()[id]; return !!(e && e.text && e.text.trim()); }
+function noteSet(id, text) {
+  if (!id) return;
+  const all = notesLoad();
+  const trimmed = String(text || '').trim();
+  if (trimmed) {
+    all[id] = { text: trimmed, updated_at: Date.now() };
+  } else {
+    delete all[id];
+  }
+  notesSave(all);
+}
+function noteCount() { return Object.keys(notesLoad()).length; }
 function updateBookmarkCount() {
   const n = bmLoad().length;
   const badge = $('#tabBookmarks');
@@ -6918,6 +7251,14 @@ async function boot() {
     else if (e.key === ']' && !inInput) { e.preventDefault(); toggleDrawer(); }
     else if (e.key === '?' && !inInput) { e.preventDefault(); startTour(); }
     else if (e.key === 'r' && !inInput) { e.preventDefault(); toggleReadingMode(); }
+    // +/- in reading mode bumps the text size. Also accept '=' (same key
+    // as '+' without shift on US layouts) and 'Add'/'Subtract' numpad.
+    else if (!inInput && document.body && (e.key === '+' || e.key === '=' || e.key === 'Add')) {
+      if (($('#app')||document.body).classList.contains('reading-mode')) { e.preventDefault(); bumpReadingFontSize(+1); }
+    }
+    else if (!inInput && document.body && (e.key === '-' || e.key === 'Subtract')) {
+      if (($('#app')||document.body).classList.contains('reading-mode')) { e.preventDefault(); bumpReadingFontSize(-1); }
+    }
     // Labels workspace shortcuts — 1-9 (toggle category), n/p (navigate), x (exclude)
     else if (state.view === 'labels' && !inInput) {
       const lab = state.labels;
