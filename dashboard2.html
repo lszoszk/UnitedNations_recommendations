@@ -613,6 +613,15 @@ a{color:inherit;text-decoration:none}
 .kw-examples code{background:var(--paper);border:1px solid var(--line);padding:0 3px;color:var(--ink);font-size:10px}
 /* N selected badge persisted in the Search tab header */
 .t-ctx .tab-selcount{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--accent);background:color-mix(in oklab, var(--accent) 15%, var(--paper));color:var(--ink);font:10px var(--mono);letter-spacing:.06em;vertical-align:baseline}
+/* Inline query-hint banner — surfaced when the backend returns
+   `search_warning` (e.g. operator-only input, empty phrase). Amber
+   accent distinguishes it from regular results without alarming red.
+   Used inside the empty-state block so first-time users get guidance
+   instead of "No records match your filters" when the query is
+   structurally bad. Tag: search-warning-v1. */
+.se-warn-hint{margin:12px 0 4px;padding:10px 14px;background:color-mix(in oklab,#eab308 14%, var(--paper));border-left:3px solid #b88400;font:11px var(--mono);color:var(--ink);line-height:1.55;text-align:left;max-width:520px;margin-left:auto;margin-right:auto}
+.se-warn-hint .ico{color:#b88400;font-weight:700;margin-right:6px}
+.se-warn-hint code{background:var(--paper);border:1px solid var(--line);padding:0 4px;font-size:10px;color:var(--ink);margin:0 2px}
 .se-kw-clear:hover{border-color:#b91c1c;color:#b91c1c}
 .se-sort{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;display:inline-flex;gap:6px;align-items:center}
 .se-sort select{padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:11px var(--mono)}
@@ -1114,6 +1123,8 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
           <div><code>torture NOT detention</code> &nbsp; → torture records that don't mention detention</div>
           <div><code>(child OR woman) AND trafficking</code> &nbsp; → grouped booleans</div>
           <div style="color:var(--dim);margin-top:6px">Note: operators are case-sensitive — <code>and</code> / <code>or</code> lowercased become plain words.</div>
+          <div style="color:var(--dim);margin-top:4px"><strong>Quotes vs bare</strong> — <code>NOT "green"</code> matches only the word "green" (keeps records with <em>greenhouse</em>); <code>NOT green</code> (no quotes) excludes any word starting with "green".</div>
+          <div style="color:var(--dim);margin-top:4px"><strong>Irregular plurals</strong> — <code>woman</code> and <code>women</code> are searched separately (stemmer doesn't merge them). Use <code>woman OR women</code>, or <code>man OR men</code>, for coverage.</div>
         </div>
       </div>
     </div>
@@ -5434,7 +5445,31 @@ async function loadNextSearchPage() {
     if (n) n.textContent = `${fmt(total)} matches · showing ${fmt(state.searchLoaded.length + (r.records||[]).length)}`;
 
     if (state.searchPage === 1 && !(r.records || []).length) {
-      // Empty state on first page
+      // Empty state on first page — three flavours:
+      // (a) backend returned `search_warning` → tailored hint with syntax
+      //     examples (operator-only, empty phrase, etc.). Keeps the user
+      //     oriented instead of a generic "no records" message that
+      //     suggests the filters are the problem.
+      // (b) the user has applied filters → offer quick-reset buttons.
+      // (c) no filters, 0 records → something went very wrong.
+      if (r.search_warning) {
+        $('#seList').innerHTML = `
+          <div class="empty-state">
+            <div class="es-title">Let's refine your search</div>
+            <div class="es-sub">${sanitize(r.search_warning)}</div>
+            <div class="se-warn-hint">
+              <span class="ico">!</span>Search syntax examples:<br>
+              <code>torture AND detention</code> both terms ·
+              <code>"forced labour"</code> exact phrase ·
+              <code>climate NOT green</code> exclude
+            </div>
+            <button class="primary" onclick="document.getElementById('kwInput').focus();document.getElementById('kwInput').select();">Edit keyword</button>
+            <button onclick="document.getElementById('kwInput').value='';state.filters.kw='';onFiltersChanged();">Clear keyword</button>
+          </div>`;
+        const sentinel = $('#seSentinel'); if (sentinel) sentinel.style.display = 'none';
+        state.searchExhausted = true;
+        return;
+      }
       const hasFilters = state.filters.country.size || state.filters.body.size || state.filters.theme.size || state.filters.group.size || state.filters.region.size || state.filters.sdg.size || state.filters.type.size || state.filters.kw.trim() || (state.facets && (state.filters.yearA > state.facets.min_year || state.filters.yearB < state.facets.max_year));
       $('#seList').innerHTML = `
         <div class="empty-state">
