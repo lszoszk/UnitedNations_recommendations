@@ -723,10 +723,20 @@ a{color:inherit;text-decoration:none}
 .toast.hidden{display:none}
 
 /* ---------- EXPORT + OFFLINE BUTTONS ---------- */
-.offline-btn{border:1px solid var(--line);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;color:var(--dim);display:inline-flex;gap:5px;align-items:center;cursor:pointer;background:var(--paper)}
+.offline-btn{border:1px solid var(--line);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;color:var(--dim);display:inline-flex;gap:5px;align-items:center;cursor:pointer;background:var(--paper);position:relative}
 .offline-btn:hover{border-color:var(--ink);color:var(--ink)}
 .offline-btn.is-active{background:#1a7a3e;color:#fff;border-color:#1a7a3e}
 .offline-btn.is-active:hover{background:#156331;color:#fff}
+.offline-btn.has-update::after{content:"";position:absolute;top:2px;right:2px;width:6px;height:6px;border-radius:50%;background:#fbbf24;box-shadow:0 0 0 1.5px var(--paper)}
+
+/* Offline-mode context menu (right-click / long-press on ⚡ button) */
+.ofl-menu{position:fixed;background:var(--paper);border:1px solid var(--ink);box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:500;min-width:200px;font:11px var(--mono);letter-spacing:.04em}
+.ofl-menu .mi{display:block;padding:9px 14px;color:var(--ink);cursor:pointer;border:0;background:transparent;width:100%;text-align:left;font:inherit;letter-spacing:inherit}
+.ofl-menu .mi:hover{background:var(--paper-2)}
+.ofl-menu .mi.danger{color:#b91c1c}
+.ofl-menu .mi.danger:hover{background:#fee2e2}
+.ofl-menu .hdr{padding:8px 14px 4px;font-size:10px;color:var(--dim);letter-spacing:.08em;border-bottom:1px solid var(--line-2)}
+.ofl-menu .sep{border-top:1px solid var(--line-2);margin:2px 0}
 
 .export-menu{position:relative;display:inline-block}
 .export-btn{border:1px solid var(--line);padding:3px 8px;font:10px var(--mono);letter-spacing:.08em;color:var(--ink);cursor:pointer;background:var(--paper);text-transform:uppercase}
@@ -1909,6 +1919,12 @@ const offline = {
   enable() {
     if (!this.data) return;
     this.enabled = true;
+    // Snapshot the live api.* references so disable() can restore them.
+    this._savedApi = {
+      facets: api.facets, analytics: api.analytics, map: api.map,
+      summary: api.summary, records: api.records,
+      recordsCount: api.recordsCount, health: api.health,
+    };
     api.facets = () => Promise.resolve(this.facets());
     api.analytics = (f) => Promise.resolve(this.analytics(f || state.filters));
     api.map = (f) => Promise.resolve(this.map(f || state.filters));
@@ -1921,11 +1937,40 @@ const offline = {
     $('#offlineIcon').textContent = '⚡';
     $('#offlineLbl').textContent = 'INSTANT · ' + fmt(this.data.length) + ' LOCAL';
     $('#offlineBtn').classList.add('is-active');
-    $('#offlineBtn').title = 'Instant Mode active — all ' + fmt(this.data.length) + ' records in your browser. Filters run locally at ~50ms, nothing leaves your machine.';
+    $('#offlineBtn').title = 'Instant Mode active — all ' + fmt(this.data.length) + ' records in your browser. Filters run locally at ~50ms, nothing leaves your machine. Right-click for options.';
     setStatus('live', 'OFFLINE');
     try { localStorage.setItem('uhri_v2_offline_pref', '1'); } catch {}
 
+    // Kick off an age-badge + staleness check in the background
+    (async () => { try { await updateOfflineBadge(); } catch {} })();
+
     toast('⚡ Instant Mode active — ' + fmt(this.data.length) + ' records in browser. Filters are now ~50ms.', false, 5000);
+  },
+
+  /* Swap back to VM mode. Keeps the IDB snapshot so re-enable is still
+     one-click-fast (unless the user explicitly Refreshes the data). */
+  disable({ keepCache = true } = {}) {
+    if (!this.enabled) return;
+    this.enabled = false;
+    if (this._savedApi) {
+      Object.assign(api, this._savedApi);
+      this._savedApi = null;
+    }
+    this.data = null;
+    document.body.classList.remove('offline-mode');
+    $('#offlineIcon').textContent = '⚡';
+    $('#offlineLbl').textContent = keepCache ? 'INSTANT MODE' : 'INSTANT MODE';
+    $('#offlineBtn').classList.remove('is-active', 'has-update');
+    $('#offlineBtn').title = 'Enable Instant Mode — filter the full dataset locally at ~50ms';
+    setStatus('live', 'LIVE');
+    try { localStorage.removeItem('uhri_v2_offline_pref'); } catch {}
+    if (!keepCache) { idbOffline.clear().catch(() => {}); }
+    toast(
+      keepCache
+        ? 'Instant Mode disabled — cache kept, click ⚡ to re-activate instantly'
+        : 'Instant Mode disabled and cache cleared',
+      false, 4000
+    );
   },
 };
 window.__offline = offline;
@@ -2051,6 +2096,117 @@ const idbOffline = {
   },
 };
 window.__idbOffline = idbOffline;
+
+/* Render the age suffix and "has-update" dot on the ⚡ button.
+   Called on enable + periodically. Compares IDB snapshot mtime with the
+   VM's /health modified_at to decide if a refresh is available. */
+async function updateOfflineBadge() {
+  const btn = document.querySelector('#offlineBtn');
+  const lbl = document.querySelector('#offlineLbl');
+  if (!btn || !lbl || !offline.enabled) return;
+
+  const snap = await idbOffline.getSnapshot();
+  const age = snap ? idbOffline.ageInDays(snap) : null;
+
+  // "INSTANT · 267k LOCAL · 3d"
+  const n = offline.data ? fmt(offline.data.length) : '?';
+  const ageTxt = age == null ? '' : ' · ' + (age < 1 ? 'today' : `${Math.round(age)}d`);
+  lbl.textContent = `INSTANT · ${n} LOCAL${ageTxt}`;
+
+  // Compare with VM's dataset modified_at, if we can reach it
+  try {
+    const res = await fetch(API_BASE + '/api/data/health', { cache: 'no-store' });
+    if (!res.ok) return;
+    const h = await res.json();
+    const vmMod = h && h.modified_at ? new Date(h.modified_at).getTime() : 0;
+    const idbMod = snap && snap.fetched_at ? new Date(snap.fetched_at).getTime() : 0;
+    if (vmMod && idbMod && vmMod > idbMod) {
+      btn.classList.add('has-update');
+      btn.title = (btn.title || '').split(' · ')[0] +
+        ` · VM has newer data (${new Date(h.modified_at).toISOString().slice(0,10)}) — right-click → Refresh data`;
+    } else {
+      btn.classList.remove('has-update');
+    }
+  } catch {
+    // Offline / VM unreachable — do not flag; user is happily offline
+  }
+}
+
+/* Small context menu triggered by right-click / long-press on the ⚡ button
+   while Instant Mode is active. Lets users Refresh / Disable / inspect. */
+function showOfflineContextMenu(anchorEl, ev) {
+  // Remove any existing menu first
+  document.querySelectorAll('.ofl-menu').forEach(el => el.remove());
+
+  if (!offline.enabled) return;
+
+  const menu = document.createElement('div');
+  menu.className = 'ofl-menu';
+  const rect = anchorEl.getBoundingClientRect();
+
+  const mkItem = (label, handler, opts = {}) => {
+    const b = document.createElement('button');
+    b.className = 'mi' + (opts.danger ? ' danger' : '');
+    b.textContent = label;
+    b.addEventListener('click', () => { menu.remove(); handler(); });
+    return b;
+  };
+
+  // Header — snapshot stats
+  (async () => {
+    const snap = await idbOffline.getSnapshot();
+    const hdr = document.createElement('div');
+    hdr.className = 'hdr';
+    if (snap) {
+      const age = idbOffline.ageInDays(snap);
+      const sz  = snap.blob ? Math.round(snap.blob.size / (1024 * 1024)) : '?';
+      hdr.textContent = `${fmt(offline.data?.length || 0)} records · ${sz} MB · ${Math.round(age)}d old`;
+    } else {
+      hdr.textContent = 'in-memory only (no cache)';
+    }
+    menu.prepend(hdr);
+  })();
+
+  menu.appendChild(mkItem('↻  Refresh data from VM', () => {
+    offline.disable({ keepCache: false });
+    showOfflineModal();
+  }));
+  menu.appendChild(mkItem('⏻  Disable Instant Mode (keep cache)', () => {
+    offline.disable({ keepCache: true });
+  }));
+  const sep = document.createElement('div');
+  sep.className = 'sep';
+  menu.appendChild(sep);
+  menu.appendChild(mkItem('🗑  Clear cache & disable', () => {
+    offline.disable({ keepCache: false });
+  }, { danger: true }));
+
+  document.body.appendChild(menu);
+  // Position: prefer below-right of the button; flip if runs off viewport
+  const pad = 4;
+  const mW = 220;
+  const x = Math.min(rect.left, window.innerWidth - mW - pad);
+  const y = rect.bottom + pad;
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+
+  // Dismiss on outside click / Esc
+  const dismiss = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener('mousedown', dismiss);
+      document.removeEventListener('keydown', onEsc);
+    }
+  };
+  const onEsc = (e) => { if (e.key === 'Escape') { menu.remove(); document.removeEventListener('mousedown', dismiss); document.removeEventListener('keydown', onEsc); } };
+  // Defer attachment so the right-click that opened us doesn't close it
+  setTimeout(() => {
+    document.addEventListener('mousedown', dismiss);
+    document.addEventListener('keydown', onEsc);
+  }, 0);
+
+  if (ev) ev.preventDefault();
+}
 
 /* Attempt to load a cached dataset from IndexedDB; populate offline.data
    and return the record count on success, 0 on miss/failure.
@@ -7863,16 +8019,20 @@ async function boot() {
   $('#uploadBtn').addEventListener('click', triggerUpload);
 
   // Offline & Private Mode button (#27)
-  $('#offlineBtn').addEventListener('click', async () => {
+  const offlineBtnEl = $('#offlineBtn');
+  offlineBtnEl.addEventListener('click', async (ev) => {
+    // If a long-press already fired the menu, cancel this click.
+    if (offlineBtnEl._suppressClick) { offlineBtnEl._suppressClick = false; return; }
     if (offline.enabled) {
-      toast(`⚡ Instant Mode active · ${fmt(offline.data?.length||0)} records in browser`, false, 3000);
+      // Tier 4C: active-mode click shows the menu instead of a plain toast
+      showOfflineContextMenu(offlineBtnEl, ev);
       return;
     }
     // Tier 4B: if we have a fresh cached snapshot, skip the 420 MB download.
     const snap = await idbOffline.getSnapshot();
     if (idbOffline.isFresh(snap)) {
       $('#offlineLbl').textContent = 'LOADING CACHE…';
-      $('#offlineBtn').disabled = true;
+      offlineBtnEl.disabled = true;
       try {
         const n = await loadOfflineFromIDB();
         if (n > 0) {
@@ -7889,11 +8049,28 @@ async function boot() {
       } catch (err) {
         console.warn('[offline] IDB restore failed, falling back to download:', err);
       } finally {
-        $('#offlineBtn').disabled = false;
+        offlineBtnEl.disabled = false;
       }
     }
     showOfflineModal();
   });
+
+  // Tier 4C: right-click (and long-press on mobile/trackpad) opens context menu
+  offlineBtnEl.addEventListener('contextmenu', (ev) => {
+    if (!offline.enabled) return;
+    ev.preventDefault();
+    showOfflineContextMenu(offlineBtnEl, ev);
+  });
+  let lpTimer = null;
+  offlineBtnEl.addEventListener('pointerdown', (ev) => {
+    if (!offline.enabled) return;
+    lpTimer = setTimeout(() => {
+      offlineBtnEl._suppressClick = true;
+      showOfflineContextMenu(offlineBtnEl, ev);
+    }, 500);
+  });
+  offlineBtnEl.addEventListener('pointerup',    () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } });
+  offlineBtnEl.addEventListener('pointerleave', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } });
 
   // Tier 4B: if the user previously enabled Instant Mode AND we have a
   // fresh IDB snapshot, auto-activate without waiting for a click. If the
