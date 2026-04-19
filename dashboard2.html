@@ -685,6 +685,18 @@ a{color:inherit;text-decoration:none}
 .me .mth-example h3{font-family:var(--serif);font-size:18px;font-weight:500;margin:0 0 8px;color:var(--ink)}
 .me .mth-example p{margin:0;font-size:14px;line-height:1.55;color:var(--ink-2)}
 
+/* SDG profile typeahead results panel */
+.sdg-picker{position:relative}
+.sdg-results{margin-top:4px;max-height:260px;overflow-y:auto;border:1px solid var(--line);background:var(--paper);font:11px var(--mono);z-index:5}
+.sdg-results .sr-goal{padding:6px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);background:var(--paper-2);border-bottom:1px solid var(--line-2);position:sticky;top:0}
+.sdg-results .sr-item{padding:6px 12px;cursor:pointer;border-bottom:1px dotted var(--line-2);display:flex;justify-content:space-between;gap:10px;color:var(--ink)}
+.sdg-results .sr-item:hover{background:color-mix(in oklab, var(--accent) 10%, var(--paper))}
+.sdg-results .sr-item.is-active{background:color-mix(in oklab, var(--accent) 20%, var(--paper));color:var(--ink)}
+.sdg-results .sr-item .sr-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.sdg-results .sr-item .sr-count{color:var(--dim);font-variant-numeric:tabular-nums;flex-shrink:0}
+.sdg-results .sr-item mark{background:color-mix(in oklab, var(--accent) 30%, transparent);color:var(--ink);padding:0}
+.sdg-results .sr-empty{padding:10px 12px;color:var(--dim);font-style:italic}
+
 /* Dataset freshness card on the Methodology tab */
 .me .freshness{background:var(--paper-2);border:1px solid var(--line);padding:14px 18px;margin:14px 0;font:12px var(--mono);letter-spacing:.04em}
 .me .freshness.is-ok{border-left:3px solid #1a7a3e}
@@ -4495,10 +4507,12 @@ async function renderSDG() {
         <div class="cp-kpis" id="spKpis"></div>
         <div id="spRailNote"></div>
       </div>
-      <div class="cp-picker">
+      <div class="cp-picker sdg-picker">
         <label>Switch SDG</label>
-        <input type="text" id="spFilter" placeholder="Type to filter 17 goals + targets…" style="width:100%;margin-bottom:6px;padding:5px 8px;border:1px solid var(--line);font:11px var(--mono);background:var(--paper);color:var(--ink)">
-        <select id="spSelect" size="1">${opts}</select>
+        <input type="text" id="spFilter" placeholder="Type to filter 17 goals + targets (e.g. justice)…" autocomplete="off"
+               style="width:100%;padding:6px 8px;border:1px solid var(--line);font:11px var(--mono);background:var(--paper);color:var(--ink)">
+        <div id="spResults" class="sdg-results" style="display:none"></div>
+        <select id="spSelect" style="margin-top:6px;width:100%">${opts}</select>
       </div>
     </div>
     <div class="cp-body">
@@ -4515,34 +4529,102 @@ async function renderSDG() {
     renderSDG();
   });
 
-  // Typeahead filter — hide/show options whose text doesn't contain the query
+  // Typeahead — shows a visible result panel below the input as the user
+  // types, renders a hierarchical (goal → targets) list with match
+  // highlighting, keyboard navigation (↑/↓/Enter/Esc), and clicking a
+  // result switches the profile.
   const filterInput = $('#spFilter');
-  const selectEl = $('#spSelect');
-  if (filterInput && selectEl) {
-    const allOptions = Array.from(selectEl.querySelectorAll('option'));
-    const allGroups  = Array.from(selectEl.querySelectorAll('optgroup'));
-    filterInput.addEventListener('input', () => {
-      const q = filterInput.value.trim().toLowerCase();
+  const resultsEl   = $('#spResults');
+  const selectEl    = $('#spSelect');
+  if (filterInput && resultsEl) {
+    let activeIdx = 0;
+    let flatMatches = [];
+
+    const pick = (value) => {
+      if (!value) return;
+      state.focusSdg = value;
+      const tabEl = $('#tabSdg'); if (tabEl) tabEl.textContent = value.replace(/^SDG /, 'SDG ');
+      renderSDG();
+    };
+
+    const highlight = (text, q) => {
+      if (!q) return sanitize(text);
+      const lower = text.toLowerCase();
+      const idx = lower.indexOf(q);
+      if (idx < 0) return sanitize(text);
+      return sanitize(text.slice(0, idx)) + '<mark>' +
+             sanitize(text.slice(idx, idx + q.length)) + '</mark>' +
+             sanitize(text.slice(idx + q.length));
+    };
+
+    const render = (q) => {
       if (!q) {
-        allOptions.forEach(o => { o.hidden = false; });
-        allGroups.forEach(g => { g.hidden = false; });
+        resultsEl.style.display = 'none';
+        resultsEl.innerHTML = '';
+        flatMatches = [];
         return;
       }
-      const goalMatch = {};
-      allOptions.forEach(o => {
-        const hit = (o.textContent + ' ' + o.value).toLowerCase().includes(q);
-        o.hidden = !hit;
-        if (hit && o.parentElement?.label) goalMatch[o.parentElement.label] = true;
+      const ql = q.toLowerCase();
+      const out = [];
+      flatMatches = [];
+      for (const g of hierarchy) {
+        const rowsForGoal = [];
+        // Goal row itself
+        const goalLabel = g.label || g.goal;
+        if (goalLabel.toLowerCase().includes(ql)) {
+          rowsForGoal.push({ value: goalLabel, label: goalLabel, count: g.count, isGoal: true });
+        }
+        for (const t of (g.targets || [])) {
+          if (t.value.toLowerCase().includes(ql)) {
+            rowsForGoal.push({ value: t.value, label: t.value, count: t.count, isGoal: false });
+          }
+        }
+        if (rowsForGoal.length) {
+          out.push(`<div class="sr-goal">SDG ${sanitize(g.goal)} · ${sanitize((g.label||'').replace(/^\d+\s*-\s*/, '').slice(0, 52))}</div>`);
+          for (const r of rowsForGoal) {
+            flatMatches.push(r.value);
+            out.push(`<div class="sr-item" data-val="${sanitize(r.value)}" data-idx="${flatMatches.length-1}">
+              <span class="sr-label">${highlight(r.label, ql)}</span>
+              <span class="sr-count">${fmt(r.count)}</span>
+            </div>`);
+          }
+        }
+      }
+      if (!out.length) {
+        resultsEl.innerHTML = `<div class="sr-empty">no SDGs match "${sanitize(q)}"</div>`;
+      } else {
+        resultsEl.innerHTML = out.join('');
+      }
+      resultsEl.style.display = 'block';
+      activeIdx = 0;
+      updateActive();
+    };
+
+    const updateActive = () => {
+      resultsEl.querySelectorAll('.sr-item').forEach((el, i) => {
+        el.classList.toggle('is-active', i === activeIdx);
+        if (i === activeIdx) el.scrollIntoView({ block: 'nearest' });
       });
-      allGroups.forEach(g => { g.hidden = !goalMatch[g.label]; });
-    });
-    // Clear on Escape
+    };
+
+    filterInput.addEventListener('input', () => render(filterInput.value.trim()));
     filterInput.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         filterInput.value = '';
-        filterInput.dispatchEvent(new Event('input'));
+        render('');
+        return;
       }
+      if (!flatMatches.length) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(flatMatches.length - 1, activeIdx + 1); updateActive(); }
+      else if (e.key === 'ArrowUp')   { e.preventDefault(); activeIdx = Math.max(0, activeIdx - 1); updateActive(); }
+      else if (e.key === 'Enter')     { e.preventDefault(); pick(flatMatches[activeIdx]); }
     });
+    resultsEl.addEventListener('click', (e) => {
+      const item = e.target.closest('.sr-item');
+      if (item) pick(item.dataset.val);
+    });
+    // Focus the filter input on load so the user can type immediately
+    setTimeout(() => filterInput.focus(), 50);
   }
   // Intersect rail filters with the focused SDG (Option B). The rail's sdg
   // set is emptied because we pass the raw SDG label through `rawParams`
