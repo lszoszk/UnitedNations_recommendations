@@ -1,10 +1,11 @@
 /* UHRI v2 Service Worker
  * - Cache-first for app shell (dashboard2.html, manifest, icons, fonts)
- * - Stale-while-revalidate for /api/data/facets, /api/data/map, /api/data/analytics
+ * - Stale-while-revalidate for /api/data/facets, /api/data/map, /api/data/analytics,
+ *   /api/data/records (Tier 4a — filter-change instant on repeat visits)
  * - Network-only for /api/feedback/report, /api/data/full
  */
-const SHELL_CACHE  = 'uhri-v2-shell-v21';  // bump to invalidate stale caches on ship
-const DATA_CACHE   = 'uhri-v2-data-v3';   // Tier 2: precompute-aware responses
+const SHELL_CACHE  = 'uhri-v2-shell-v22';  // bump to invalidate stale caches on ship
+const DATA_CACHE   = 'uhri-v2-data-v4';    // Tier 4a: /records now in SWR scope
 const FONT_CACHE   = 'uhri-v2-font-v2';
 
 const SHELL_ASSETS = [
@@ -14,7 +15,7 @@ const SHELL_ASSETS = [
   './icon-512.svg',
 ];
 
-const SWR_PATHS = ['/api/data/facets', '/api/data/map', '/api/data/analytics', '/api/data/record/', '/api/data/cache_status', '/api/data/refresh_status'];
+const SWR_PATHS = ['/api/data/facets', '/api/data/map', '/api/data/analytics', '/api/data/records', '/api/data/record/', '/api/data/cache_status', '/api/data/refresh_status'];
 const NETWORK_ONLY = ['/api/feedback/report', '/api/data/full', '/api/data/export'];
 
 self.addEventListener('install', (event) => {
@@ -99,7 +100,14 @@ async function staleWhileRevalidate(req, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(req);
   const networkPromise = fetch(req).then(res => {
-    if (res.ok) cache.put(req, res.clone()).catch(() => {});
+    // Only cache healthy 2xx responses AND only if they're small enough
+    // that the Cache API won't choke (50 MB budget per entry).
+    if (res.ok) {
+      const len = Number(res.headers.get('content-length') || 0);
+      if (!len || len < 50 * 1024 * 1024) {
+        cache.put(req, res.clone()).catch(() => {});
+      }
+    }
     return res;
   }).catch((err) => {
     // CRITICAL: respondWith() must never receive null/undefined or the SW
@@ -110,6 +118,10 @@ async function staleWhileRevalidate(req, cacheName) {
       { status: 503, headers: { 'Content-Type': 'application/json' } }
     );
   });
+  // If the cached copy is itself a synthesised 503 (from a prior failed
+  // network attempt), skip it and wait for the live network result —
+  // avoid serving a stale error forever.
+  if (cached && cached.status >= 500) return networkPromise;
   return cached || networkPromise;
 }
 
