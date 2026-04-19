@@ -4,8 +4,8 @@
  *   /api/data/records (Tier 4a — filter-change instant on repeat visits)
  * - Network-only for /api/feedback/report, /api/data/full
  */
-const SHELL_CACHE  = 'uhri-v2-shell-v23';  // bump to invalidate stale caches on ship
-const DATA_CACHE   = 'uhri-v2-data-v5';    // Tier 4a: /records now in SWR scope
+const SHELL_CACHE  = 'uhri-v2-shell-v24';  // bump to invalidate stale caches on ship
+const DATA_CACHE   = 'uhri-v2-data-v6';    // moot under cross-origin pass-through
 const FONT_CACHE   = 'uhri-v2-font-v2';
 
 const SHELL_ASSETS = [
@@ -37,16 +37,26 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // Google Fonts — long cache
+  // Google Fonts — long cache (same-origin-ish via preconnect, stable)
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     event.respondWith(cacheFirst(req, FONT_CACHE));
     return;
   }
 
-  // Never cache — form posts & mega payloads
+  // CROSS-ORIGIN PASS-THROUGH: anything not on our own origin — including
+  // the VM API at 150.254.115.204 — we DO NOT intercept. Safari 26's SW
+  // has a regression where cross-origin HTTP/2 + gzip responses sometimes
+  // surface to respondWith() as "TypeError: Load failed" even though the
+  // network succeeded (server access log shows 200). Skipping respondWith
+  // lets the browser handle these natively, which bypasses the bug and
+  // still gets nginx-level gzip + Cache-Control + our Tier-2 precompute.
+  if (url.origin !== location.origin) return;
+
+  // Never cache — form posts & mega payloads (same-origin only now)
   if (NETWORK_ONLY.some(p => url.pathname.includes(p))) return;
 
-  // SWR for data endpoints
+  // SWR for data endpoints (same-origin only — unused today because VM is
+  // cross-origin, but kept for any future same-origin proxied setup)
   if (SWR_PATHS.some(p => url.pathname.includes(p))) {
     event.respondWith(staleWhileRevalidate(req, DATA_CACHE));
     return;
@@ -54,15 +64,13 @@ self.addEventListener('fetch', (event) => {
 
   // Navigation requests (HTML) → NETWORK-FIRST so users always get fresh
   // dashboard code; fall back to cache if offline.
-  if (req.mode === 'navigate' || (url.origin === location.origin && req.destination === 'document')) {
+  if (req.mode === 'navigate' || req.destination === 'document') {
     event.respondWith(networkFirst(req, SHELL_CACHE));
     return;
   }
 
   // Other same-origin static assets (icons, manifest) → cache-first
-  if (url.origin === location.origin) {
-    event.respondWith(cacheFirst(req, SHELL_CACHE));
-  }
+  event.respondWith(cacheFirst(req, SHELL_CACHE));
 });
 
 async function networkFirst(req, cacheName) {
