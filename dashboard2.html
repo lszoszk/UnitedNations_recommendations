@@ -5166,8 +5166,10 @@ async function renderSearch() {
   state.currentResultSource = 'search';
   if (_seObserver) { _seObserver.disconnect(); _seObserver = null; }
 
-  const sortBy = state.searchSort?.by || 'publication_date';
-  const sortDir = state.searchSort?.dir || 'desc';
+  // Auto-default to relevance sort when a keyword query is active AND the
+  // user hasn't explicitly chosen another sort. Otherwise date desc.
+  const sortBy  = state.searchSort?.by  || (kw ? 'relevance' : 'publication_date');
+  const sortDir = state.searchSort?.dir || (kw ? 'asc' : 'desc');
   const sortKey = sortBy + ':' + sortDir;
 
   root.innerHTML = `
@@ -5179,6 +5181,7 @@ async function renderSearch() {
       <span style="flex:1"></span>
       <label class="se-sort">sort
         <select id="seSort" title="Change result order">
+          ${kw ? `<option value="relevance:asc" ${sortKey==='relevance:asc'?'selected':''}>relevance · best match</option>` : ''}
           <option value="publication_date:desc" ${sortKey==='publication_date:desc'?'selected':''}>date · newest first</option>
           <option value="publication_date:asc"  ${sortKey==='publication_date:asc'?'selected':''}>date · oldest first</option>
           <option value="country:asc"           ${sortKey==='country:asc'?'selected':''}>country · A–Z</option>
