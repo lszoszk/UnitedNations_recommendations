@@ -487,7 +487,12 @@ a{color:inherit;text-decoration:none}
 
 /* timeline */
 .tl-wrap{height:220px;position:relative}
-.tl-svg{width:100%;height:100%;display:block}
+.tl-svg{width:100%;display:block;flex:1;min-height:0}
+/* Year labels below the timeline SVG — kept outside the SVG so they
+   don't distort with preserveAspectRatio="none". Positioned absolutely
+   by percentage along the row. */
+.tl-years{position:relative;height:16px;margin:4px 0 0;font:10px var(--mono);color:var(--dim);letter-spacing:.02em}
+.tl-years span{display:inline-block;line-height:1;padding:1px 3px}
 
 /* sankey / body-theme matrix */
 .sk-wrap{height:220px;position:relative;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px}
@@ -3988,14 +3993,18 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
     }
   }
 
-  // X-axis labels every ~4 years (full range is ~20 years now so every 2nd
-  // label would crowd). Pick a step that keeps labels readable.
-  const labelStep = years.length > 16 ? 4 : (years.length > 10 ? 2 : 1);
-  years.forEach((y, i) => {
-    if (i % labelStep === 0 || i === years.length - 1) {
-      g += `<text x="${pad.l+i*xStep}" y="${H-8}" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="${ink}" opacity=".55">${y}</text>`;
-    }
-  });
+  // X-axis labels — DON'T render inside SVG. The SVG uses
+  // preserveAspectRatio="none" which would stretch/squish text along with
+  // the chart. Instead emit a native HTML row of year labels below the
+  // SVG via a small placeholder in `.tl-hint` (see container.innerHTML
+  // below). This keeps labels legible at every container width.
+  const labelStep = years.length > 20 ? 5 : (years.length > 12 ? 2 : 1);
+  const yearLabelsHtml = years
+    .map((y, i) => (i % labelStep === 0 || i === years.length - 1)
+      ? `<span style="position:absolute;left:${(i / Math.max(1, years.length - 1)) * 100}%;transform:translateX(-50%);white-space:nowrap">${y}</span>`
+      : '')
+    .filter(Boolean)
+    .join('');
 
   let modeHint;
   if (mode === 'cumulative') modeHint = 'cumulative total';
@@ -4003,7 +4012,10 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   else if (topBodies.length === 0) modeHint = 'no data';
   else if (topBodies.length === 1) modeHint = `annual · only ${topBodies[0].replace(/^-\s*/, '')}`;
   else modeHint = `annual · stacked by top ${topBodies.length} bodies (click legend to toggle)`;
-  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl-svg">${g}</svg><div class="tl-hint">${modeHint} · ${opts.interactive !== false ? 'click year · drag to select range' : 'read-only'}</div>`;
+  container.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl-svg">${g}</svg>
+    <div class="tl-years">${yearLabelsHtml}</div>
+    <div class="tl-hint">${modeHint} · ${opts.interactive !== false ? 'click year · drag to select range' : 'read-only'}</div>`;
 
   // Click/drag interaction: map pixel x → year, set state.filters.yearA/B
   // Only on Overview's timeline (opts.interactive !== false). Skips country
@@ -4378,10 +4390,12 @@ async function renderCountry() {
       </div>
     </div>
     <div class="cp-body">
-      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume by year</span></div><div class="panel-actions" id="cpLegend"></div></div><div class="tl-wrap" id="cpTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / -1"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume by year</span></div><div class="panel-actions" id="cpLegend"></div></div><div class="tl-wrap" id="cpTime"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Themes</span></div></div><div class="row-list" id="cpThemes"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Recommending bodies</span></div></div><div class="row-list" id="cpBodies"><div class="panel-loading">loading</div></div></div>
-      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="cpSeeAll">see all →</button></div></div><div id="cpSamples"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="cpGroups"><div class="panel-loading">loading</div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Top SDGs</span></div></div><div class="row-list" id="cpSdgs"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / -1"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.F</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="cpSeeAll">see all →</button></div></div><div id="cpSamples"><div class="panel-loading">loading</div></div></div>
     </div>`;
 
   $('#cpSelect').addEventListener('change', e => {
@@ -4430,6 +4444,10 @@ async function renderCountry() {
     renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
     const bodyRows = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).map(([k,v]) => ({ key:k, label:k, v }));
     renderRowList($('#cpBodies'), bodyRows, { facet:'body', sparklines: _bodySparklines });
+    const groups = analytics?.text?.affected_person_counts || [];
+    renderRowList($('#cpGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
+    const sdgs = analytics?.text?.sdg_counts || [];
+    renderRowList($('#cpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
 
     const sampleEl = $('#cpSamples');
     sampleEl.innerHTML = '';
@@ -7947,19 +7965,28 @@ function attachPreloadHover(el) {
 /* =========================================================================
    FULL-TEXT HIGHLIGHTING (Batch 5) — glow the keyword in drawer + reader
    ========================================================================= */
-/* Extract highlight-worthy tokens from a user query.
-   Strips boolean operators (AND/OR/NOT), parens and double-quote marks,
-   splits by whitespace, drops 1-char and empty fragments, keeps the
-   originals so phrase queries like "forced labour" still light up both
-   "forced" AND "labour" independently — which is how FTS5 matched them. */
+/* Extract highlight units from a user query. Phrases in quotes stay as
+   atomic units (highlighted in one mark), bare words stay individual.
+   Boolean operators + parens are stripped. Returns a flat list of strings,
+   phrases first so they win over their own word-tokens in the alternation
+   regex (longest-first ordering handles that). */
 function _kwTokens(kw) {
   if (!kw || !kw.trim()) return [];
-  return kw.trim()
-    .replace(/\b(AND|OR|NOT)\b/gi, ' ')
-    .replace(/[()"]/g, ' ')
-    .split(/\s+/)
-    .map(t => t.trim())
-    .filter(t => t && t.length >= 2);
+  const units = [];
+  const raw = kw.trim();
+  // Extract quoted phrases first, add as atomic units, then remove from raw
+  let remaining = raw.replace(/"([^"]+)"/g, (m, phrase) => {
+    const p = phrase.trim();
+    if (p) units.push(p);
+    return ' ';
+  });
+  // Strip boolean operators + parens from the remainder
+  remaining = remaining.replace(/\b(AND|OR|NOT)\b/g, ' ').replace(/[()]/g, ' ');
+  for (const tok of remaining.split(/\s+/)) {
+    const t = tok.trim();
+    if (t && t.length >= 2) units.push(t);
+  }
+  return units;
 }
 
 function highlightKeyword(text, kw) {
