@@ -4048,7 +4048,7 @@ function exportMapAsSVG() {
 }
 
 function renderOverviewAnalytics(analytics) {
-  updateSparklineCaches();
+  updateSparklineCaches(analytics);
   const topT = (analytics?.themes?.theme_counts || []).slice(0, 10).map(t => ({
     key: t.theme, label: t.theme, v: t.count
   }));
@@ -4186,6 +4186,7 @@ async function renderCountry() {
   const rcSwr = swr('records:country:'+iso,   countryFilter, () => api.records(countryFilter, 1, 5));
 
   const paint = (analytics, records, opts = {}) => {
+    updateSparklineCaches(analytics);
     if (!analytics || !records) return;
     const total = records.total_records;
     const themes = analytics?.themes?.theme_counts || [];
@@ -4213,9 +4214,9 @@ async function renderCountry() {
     root.classList.toggle('stale', !!opts.stale);
 
     renderTimeline($('#cpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#cpLegend'), interactive: false });
-    renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
+    renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
     const bodyRows = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).map(([k,v]) => ({ key:k, label:k, v }));
-    renderRowList($('#cpBodies'), bodyRows, { facet:'body' });
+    renderRowList($('#cpBodies'), bodyRows, { facet:'body', sparklines: _bodySparklines });
 
     const sampleEl = $('#cpSamples');
     sampleEl.innerHTML = '';
@@ -4298,6 +4299,7 @@ async function renderTheme() {
 
   // Reusable painter — called once with stale (if any) then again with fresh
   const paint = (analytics, mapD, records, opts = {}) => {
+    updateSparklineCaches(analytics);
     if (!analytics || !mapD || !records) return;
     const total = records.total_records;
     const countries = mapD.country_counts || [];
@@ -4317,10 +4319,10 @@ async function renderTheme() {
     renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false });
     renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
     const themes = (analytics?.themes?.theme_counts || []).filter(t => t.theme !== name).slice(0,12);
-    renderRowList($('#thThemes'), themes.map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
-    renderRowList($('#thGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group' });
+    renderRowList($('#thThemes'), themes.map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
+    renderRowList($('#thGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
     const sdgs = analytics?.text?.sdg_counts || [];
-    renderRowList($('#thSdgs'),   sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg' });
+    renderRowList($('#thSdgs'),   sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
 
     const sampleEl = $('#thSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -4397,6 +4399,7 @@ async function renderGroup() {
   const rcSwr = swr('records:group:'+name,   filter, () => api.records(filter, 1, 5, { scope: 'records:group-' + name }));
 
   const paint = (analytics, mapD, records, opts = {}) => {
+    updateSparklineCaches(analytics);
     if (!analytics || !mapD || !records) return;
     const total = records.total_records;
     const countries = mapD.country_counts || [];
@@ -4415,10 +4418,10 @@ async function renderGroup() {
     root.classList.toggle('stale', !!opts.stale);
     renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false });
     renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
-    renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
+    renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
     const coGroups = (analytics?.text?.affected_person_counts || []).filter(g => g.affected_person !== name).slice(0,12);
-    renderRowList($('#gpGroups'), coGroups.map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group' });
-    renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg' });
+    renderRowList($('#gpGroups'), coGroups.map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
+    renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
 
     const sampleEl = $('#gpSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -4459,8 +4462,30 @@ async function renderSDG() {
     root.innerHTML = `<div class="me"><h1>Pick an SDG</h1><p>Use ⌘K → "SDG profile" or the rail's SDG grid, then click "Open SDG profile".</p></div>`;
     return;
   }
-  const sdgsList = (state.analytics?.text?.sdg_counts || []).map(s => s.sdg);
-  const opts = sdgsList.map(s => `<option value="${sanitize(s)}" ${s===sdg?'selected':''}>${sanitize(formatSdgLabel(s))}</option>`).join('');
+  // Hierarchical SDG picker: the /facets endpoint returns
+  // `sdgs_hierarchy: [{goal, label, count, targets:[{value,sub,count}]}]`.
+  // Render as a native <optgroup>-based <select> so users can pick a whole
+  // goal (e.g. "16 - PEACE, JUSTICE…") or a specific target ("16.3 - Rule
+  // of law…"). Fallback to the flat list if the hierarchy isn't available.
+  const hierarchy = state.facets?.sdgs_hierarchy || [];
+  let opts;
+  if (hierarchy.length) {
+    opts = hierarchy.map(g => {
+      const goalLabel = g.label || `${g.goal}`;
+      const goalOpt = `<option value="${sanitize(goalLabel)}" ${goalLabel===sdg?'selected':''}>${sanitize(goalLabel)}  —  ${fmt(g.count)} recs</option>`;
+      const targetOpts = (g.targets || []).map(t => {
+        const sel = t.value === sdg ? 'selected' : '';
+        return `<option value="${sanitize(t.value)}" ${sel}>${sanitize(t.value)}  —  ${fmt(t.count)}</option>`;
+      }).join('');
+      return `<optgroup label="SDG ${sanitize(g.goal)} — ${sanitize((goalLabel.replace(/^\d+\s*-\s*/, '') || '').slice(0, 48))}">
+        ${goalOpt}
+        ${targetOpts}
+      </optgroup>`;
+    }).join('');
+  } else {
+    const sdgsList = (state.analytics?.text?.sdg_counts || []).map(s => s.sdg);
+    opts = sdgsList.map(s => `<option value="${sanitize(s)}" ${s===sdg?'selected':''}>${sanitize(formatSdgLabel(s))}</option>`).join('');
+  }
   root.innerHTML = `
     <div class="cp-head">
       <div>
@@ -4470,7 +4495,11 @@ async function renderSDG() {
         <div class="cp-kpis" id="spKpis"></div>
         <div id="spRailNote"></div>
       </div>
-      <div class="cp-picker"><label>Switch SDG</label><select id="spSelect">${opts}</select></div>
+      <div class="cp-picker">
+        <label>Switch SDG</label>
+        <input type="text" id="spFilter" placeholder="Type to filter 17 goals + targets…" style="width:100%;margin-bottom:6px;padding:5px 8px;border:1px solid var(--line);font:11px var(--mono);background:var(--paper);color:var(--ink)">
+        <select id="spSelect" size="1">${opts}</select>
+      </div>
     </div>
     <div class="cp-body">
       <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="spLegend"></div></div><div class="tl-wrap" id="spTime"><div class="panel-loading">loading</div></div></div>
@@ -4485,6 +4514,36 @@ async function renderSDG() {
     $('#tabSdg').textContent = e.target.value.replace(/^SDG /, 'SDG ');
     renderSDG();
   });
+
+  // Typeahead filter — hide/show options whose text doesn't contain the query
+  const filterInput = $('#spFilter');
+  const selectEl = $('#spSelect');
+  if (filterInput && selectEl) {
+    const allOptions = Array.from(selectEl.querySelectorAll('option'));
+    const allGroups  = Array.from(selectEl.querySelectorAll('optgroup'));
+    filterInput.addEventListener('input', () => {
+      const q = filterInput.value.trim().toLowerCase();
+      if (!q) {
+        allOptions.forEach(o => { o.hidden = false; });
+        allGroups.forEach(g => { g.hidden = false; });
+        return;
+      }
+      const goalMatch = {};
+      allOptions.forEach(o => {
+        const hit = (o.textContent + ' ' + o.value).toLowerCase().includes(q);
+        o.hidden = !hit;
+        if (hit && o.parentElement?.label) goalMatch[o.parentElement.label] = true;
+      });
+      allGroups.forEach(g => { g.hidden = !goalMatch[g.label]; });
+    });
+    // Clear on Escape
+    filterInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        filterInput.value = '';
+        filterInput.dispatchEvent(new Event('input'));
+      }
+    });
+  }
   // Intersect rail filters with the focused SDG (Option B). The rail's sdg
   // set is emptied because we pass the raw SDG label through `rawParams`
   // below — buildParams would otherwise emit the numeric shorthand too.
@@ -4503,6 +4562,7 @@ async function renderSDG() {
   const rcSwr = swr('records:sdg:'+sdg,   filterKey, rawRecords);
 
   const paint = (analytics, mapD, records, opts = {}) => {
+    updateSparklineCaches(analytics);
     if (!analytics || !mapD || !records) return;
     const total = records.total_records;
     const countries = mapD.country_counts || [];
@@ -4520,10 +4580,10 @@ async function renderSDG() {
     root.classList.toggle('stale', !!opts.stale);
     renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false });
     renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
-    renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
-    renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group' });
+    renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
+    renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
     const coSdgs = (analytics?.text?.sdg_counts || []).filter(s => s.sdg !== sdg).slice(0,12);
-    renderRowList($('#spSdgs'), coSdgs.map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg' });
+    renderRowList($('#spSdgs'), coSdgs.map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
 
     const sampleEl = $('#spSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -4606,6 +4666,7 @@ async function renderMechanism() {
   const rcSwr = swr('records:mech:'+name,   filter, () => api.records(filter, 1, 5));
 
   const paint = (analytics, mapD, records, opts = {}) => {
+    updateSparklineCaches(analytics);
     if (!analytics || !mapD || !records) return;
     const total = records.total_records;
     const countries = mapD.country_counts || [];
@@ -4626,9 +4687,9 @@ async function renderMechanism() {
 
     renderTimeline($('#mpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#mpLegend'), interactive: false });
     renderRowList($('#mpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
-    renderRowList($('#mpThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme' });
-    renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group' });
-    renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg' });
+    renderRowList($('#mpThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
+    renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
+    renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
 
     const sampleEl = $('#mpSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -7416,8 +7477,10 @@ let _groupSparklines = {};
 let _sdgSparklines = {};
 let _bodySparklines = {};
 
-function updateSparklineCaches() {
-  const a = state.analytics;
+function updateSparklineCaches(analyticsArg) {
+  // Accept an explicit analytics dict so callers rendering BEFORE
+  // state.analytics has been assigned can still populate the caches.
+  const a = analyticsArg || state.analytics;
   if (!a) return;
   _themeSparklines = _yearlyCountsByKey(a?.themes?.yearly_theme_counts, 'theme');
   _groupSparklines = _yearlyCountsByKey(a?.text?.yearly_affected_person_counts, 'affected_person');
