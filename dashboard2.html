@@ -5061,24 +5061,24 @@ async function renderCompare() {
 function smartSnippet(text, kw) {
   const t = String(text || '');
   const fullLen = t.length;
-  if (!kw || fullLen <= 500) {
+  const tokens = _kwTokens(kw);
+  if (!tokens.length || fullLen <= 500) {
     return { html: highlightKeyword(t, kw), isKwic: false, fullLen };
   }
-  const needle = kw.toLowerCase();
-  const idx = t.toLowerCase().indexOf(needle);
+  // Find the best cluster across all tokens (handles "forced labour"
+  // matching via "forced" + "labour" separately when FTS5 stemmed them).
+  const idx = _findBestCluster(t, tokens);
   if (idx < 0 || idx < 400) {
-    // keyword visible in the fade-out window — current UX is fine
+    // hits already visible in the default fade-out window, or no hits
     return { html: highlightKeyword(t, kw), isKwic: false, fullLen };
   }
-  // Build KWIC window — roughly one sentence before + one after
+  // Build KWIC window around the cluster — roughly one sentence before + one after
   let start = Math.max(0, idx - 140);
-  let end   = Math.min(fullLen, idx + needle.length + 220);
-  // Backtrack start to the preceding sentence boundary (or newline)
+  let end   = Math.min(fullLen, idx + 220);
   while (start > 0 && !/[.\n;:]/.test(t[start - 1])) start--;
   while (start < idx && /\s/.test(t[start])) start++;
-  // Forward-track end to the next sentence boundary
   while (end < fullLen && !/[.\n]/.test(t[end])) end++;
-  if (end < fullLen) end++;   // include the period
+  if (end < fullLen) end++;
   const snippet = t.slice(start, end);
   const prefix = start > 0 ? '… ' : '';
   const suffix = end < fullLen ? ' …' : '';
@@ -7909,18 +7909,77 @@ function attachPreloadHover(el) {
 /* =========================================================================
    FULL-TEXT HIGHLIGHTING (Batch 5) — glow the keyword in drawer + reader
    ========================================================================= */
+/* Extract highlight-worthy tokens from a user query.
+   Strips boolean operators (AND/OR/NOT), parens and double-quote marks,
+   splits by whitespace, drops 1-char and empty fragments, keeps the
+   originals so phrase queries like "forced labour" still light up both
+   "forced" AND "labour" independently — which is how FTS5 matched them. */
+function _kwTokens(kw) {
+  if (!kw || !kw.trim()) return [];
+  return kw.trim()
+    .replace(/\b(AND|OR|NOT)\b/gi, ' ')
+    .replace(/[()"]/g, ' ')
+    .split(/\s+/)
+    .map(t => t.trim())
+    .filter(t => t && t.length >= 2);
+}
+
 function highlightKeyword(text, kw) {
-  if (!kw || !kw.trim()) return sanitize(text);
   const safe = sanitize(text);
-  // Match on already-escaped text, but the pattern is the raw keyword
-  const pattern = new RegExp('(' + escapeRegex(kw.trim()) + ')', 'gi');
+  const tokens = _kwTokens(kw);
+  if (!tokens.length) return safe;
+  // Longest tokens first so "human rights" doesn't fragment when both
+  // "human" and "human rights" would match.
+  tokens.sort((a, b) => b.length - a.length);
+  const pattern = new RegExp('(' + tokens.map(escapeRegex).join('|') + ')', 'gi');
   return safe.replace(pattern, '<mark class="kw-match">$1</mark>');
 }
 
 function countMatches(text, kw) {
-  if (!kw || !kw.trim() || !text) return 0;
-  const pattern = new RegExp(escapeRegex(kw.trim()), 'gi');
+  const tokens = _kwTokens(kw);
+  if (!tokens.length || !text) return 0;
+  const pattern = new RegExp(tokens.map(escapeRegex).join('|'), 'gi');
   return (text.match(pattern) || []).length;
+}
+
+/* Find the tightest window containing the most query tokens. Returns the
+   index of the FIRST token in the best window, used by smartSnippet to
+   pick where to centre the KWIC excerpt. */
+function _findBestCluster(text, tokens) {
+  if (!tokens.length) return -1;
+  const lower = text.toLowerCase();
+  const hits = [];
+  for (const t of tokens) {
+    let i = 0;
+    const lt = t.toLowerCase();
+    while ((i = lower.indexOf(lt, i)) !== -1) {
+      hits.push({ pos: i, token: lt });
+      i += lt.length;
+    }
+  }
+  if (!hits.length) return -1;
+  hits.sort((a, b) => a.pos - b.pos);
+  // Sliding window: find the window of hits with the most unique tokens.
+  let best = { pos: hits[0].pos, uniq: 1, span: 0 };
+  let left = 0;
+  const seen = new Map();
+  for (let right = 0; right < hits.length; right++) {
+    const t = hits[right].token;
+    seen.set(t, (seen.get(t) || 0) + 1);
+    while (hits[right].pos - hits[left].pos > 400) {
+      const lt = hits[left].token;
+      const n = seen.get(lt) - 1;
+      if (n <= 0) seen.delete(lt); else seen.set(lt, n);
+      left++;
+    }
+    const uniq = seen.size;
+    const span = hits[right].pos - hits[left].pos;
+    // Prefer more unique tokens, then tighter span
+    if (uniq > best.uniq || (uniq === best.uniq && span < best.span)) {
+      best = { pos: hits[left].pos, uniq, span };
+    }
+  }
+  return best.pos;
 }
 
 /* =========================================================================
