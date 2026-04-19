@@ -956,6 +956,40 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 body.uploaded-mode .offline-btn{background:#854d0e;color:#fff;border-color:#854d0e}
 body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color:#a16207}
 
+/* Dataset toggle pill in header — swaps between cleaned (default) and
+   raw upstream. In raw mode the pill picks up an amber accent so the
+   user never loses track of which dataset they're viewing. */
+.ds-pill{position:relative;border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;cursor:pointer;color:var(--dim);display:inline-flex;align-items:center;gap:5px;text-transform:uppercase}
+.ds-pill:hover{border-color:var(--ink);color:var(--ink)}
+.ds-pill .ds-val{color:var(--ink);font-weight:600}
+.ds-pill.raw{border-color:#b88400;color:#b88400;background:color-mix(in oklab,#eab308 10%, var(--paper))}
+.ds-pill.raw .ds-val{color:#854d0e}
+.ds-pill.raw::before{content:"⚠";margin-right:2px;font-weight:700}
+.ds-popover{position:absolute;top:100%;right:0;margin-top:6px;background:var(--paper);border:1px solid var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.3);padding:14px 16px;width:320px;z-index:150;font:11px var(--mono);color:var(--ink);text-transform:none;letter-spacing:.02em;line-height:1.4;display:none;text-align:left}
+.ds-pill-wrap.open .ds-popover{display:block}
+.ds-pill-wrap.open .ds-pill{border-color:var(--ink);background:var(--paper-2)}
+.ds-popover .ds-title{font-size:10px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
+.ds-popover label{display:block;padding:8px 10px;border:1px solid var(--line);margin-bottom:8px;cursor:pointer;background:var(--paper)}
+.ds-popover label:hover{background:var(--paper-2)}
+.ds-popover label.on{border-color:var(--ink);background:var(--paper-2)}
+.ds-popover label input[type=radio]{margin-right:6px;vertical-align:middle}
+.ds-popover label strong{font-weight:700;font-family:var(--serif);font-size:14px;color:var(--ink)}
+.ds-popover label .desc{display:block;margin-top:4px;color:var(--dim);font-size:10px;line-height:1.45}
+.ds-popover .ds-foot{margin-top:4px;padding-top:8px;border-top:1px dotted var(--line);font-size:10px;color:var(--dim)}
+.ds-popover .ds-foot a{color:var(--accent);text-decoration:none}
+.ds-popover .ds-foot a:hover{text-decoration:underline}
+
+/* Raw mode — subtle amber outline around the whole app plus a sticky
+   banner reminding the user they're looking at unprocessed data. Gets
+   applied to .app via toggle class `.raw-mode`. Avoids loud colours so
+   it isn't distracting during long research sessions, but stays visible
+   in peripheral vision. */
+.raw-banner{display:none;padding:6px 20px;background:color-mix(in oklab,#eab308 18%, var(--paper));border-bottom:1px solid #b88400;font:11px var(--mono);color:#854d0e;letter-spacing:.02em;line-height:1.45;text-align:center}
+.raw-banner strong{color:#713f12;font-weight:700}
+.raw-banner a{color:#854d0e;text-decoration:underline}
+.app.raw-mode .raw-banner{display:block}
+.app.raw-mode{outline:2px dashed #b88400;outline-offset:-2px}
+
 /* Changelog badge — pulsing dot in topbar when a new pipeline refresh is available */
 .changelog-btn{position:relative;border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;cursor:pointer;color:var(--dim);display:inline-flex;align-items:center;gap:4px}
 .changelog-btn:hover{border-color:var(--ink);color:var(--ink)}
@@ -1081,7 +1115,27 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <span class="sep">·</span>
     <a href="#methodology" data-nav="methodology">methodology</a>
     <span class="sep">·</span>
-    <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">classic ↗</a>
+    <span class="ds-pill-wrap" style="position:relative;display:inline-block">
+      <button class="ds-pill" id="dsToggle" title="Switch between the cleaned pipeline and raw upstream data" aria-haspopup="true" aria-expanded="false">
+        DATA · <span class="ds-val" id="dsVal">cleaned</span> ▾
+      </button>
+      <div class="ds-popover" id="dsPopover" role="dialog" aria-label="Dataset chooser">
+        <div class="ds-title">Dataset</div>
+        <label data-ds="cleaned" id="dsOptCleaned">
+          <input type="radio" name="dsRadio" value="cleaned" />
+          <strong>Cleaned</strong>
+          <span class="desc">6-stage pipeline · 267 537 records · canonical body names, inferred countries, artefacts removed. Recommended.</span>
+        </label>
+        <label data-ds="raw" id="dsOptRaw">
+          <input type="radio" name="dsRadio" value="raw" />
+          <strong>Raw upstream</strong>
+          <span class="desc">Original HTML-stripped text · 267 548 records incl. 11 artefacts. Metadata stays pipeline-canonical.</span>
+        </label>
+        <div class="ds-foot">
+          Shareable URL includes <code>?dataset=raw</code> · <a href="#methodology" data-nav="methodology">what's the difference?</a>
+        </div>
+      </div>
+    </span>
     <span class="sep">·</span>
     <button class="changelog-btn seen" id="changelogBtn" title="Data pipeline changelog" aria-label="Pipeline changelog"><span class="pulse" aria-hidden="true"></span>NEW</button>
     <button class="tw-btn" id="twBtn" title="Appearance & layout" aria-label="Appearance settings"><span class="sw-preview" id="twPreview"></span>THEME</button>
@@ -1089,6 +1143,13 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 </header>
 
 <div class="app" id="app">
+
+  <!-- Raw-mode banner: appears only when .app.raw-mode is active. Sticks
+       under the header so the reminder is always visible during scroll. -->
+  <div class="raw-banner" role="status" aria-live="polite">
+    <strong>⚠ RAW upstream data</strong> — you're viewing the un-cleaned text. Search uses the original HTML-stripped text; 11 artefact records are included; facet metadata remains pipeline-canonical.
+    <a href="#" id="rawBannerSwitch">Switch to cleaned</a>
+  </div>
 
   <!-- LEFT RAIL -->
   <aside class="rail" id="rail" aria-label="Filters">
@@ -1439,6 +1500,11 @@ function emptyFilters() {
     kw: '', country: new Set(), body: new Set(), theme: new Set(), group: new Set(),
     region: new Set(), sdg: new Set(), type: new Set(), yearA: null, yearB: null,
     themesMatch: 'any', groupsMatch: 'any',
+    // Preserve the user's current dataset choice across "clear all" /
+    // saved-view loads — raw mode should not silently revert to cleaned
+    // just because filters got wiped. Falls back to 'cleaned' on first call
+    // before state exists (bootstrap safety).
+    dataset: (typeof state !== 'undefined' && state?.filters?.dataset) || 'cleaned',
   };
 }
 
@@ -1691,6 +1757,11 @@ const state = {
     yearA: null, yearB: null,
     themesMatch: 'any',
     groupsMatch: 'any',
+    // Dataset choice — 'cleaned' (default: 6-stage pipeline, 267 537 records)
+    // or 'raw' (upstream HTML-stripped text, 267 548 records incl. 11 Stage 6
+    // artefacts). Read on boot from ?dataset=raw URL param, then localStorage
+    // 'uhri_v2_dataset', falling back to 'cleaned'. Set via the header pill.
+    dataset: 'cleaned',
   },
   selectedRec: null,
   focusCountry: null,   // ISO3
@@ -1725,6 +1796,10 @@ function buildParams(f) {
   if (f.yearB)  p.set('year_end',   f.yearB);
   if (f.themesMatch === 'all') p.set('themes_match', 'all');
   if (f.groupsMatch === 'all') p.set('affected_persons_match', 'all');
+  // Always emit dataset so raw↔cleaned toggles cache-key disambiguate.
+  // Backend maps unknown/missing → cleaned, so omitting would still be safe
+  // but emitting eliminates any ambiguity and helps with debugging requests.
+  if (f.dataset) p.set('dataset', f.dataset);
   return p;
 }
 
@@ -1797,7 +1872,10 @@ async function apiGet(path, params, opts = {}) {
 }
 
 const api = {
-  facets:    ()           => apiGet(E.facets, null, { scope: 'facets' }),
+  // Facets don't take filter params today (they list all available values)
+  // but we do forward the dataset choice so cleaned vs raw responses are
+  // cached separately — future-proofs against backend differentiating them.
+  facets:    ()           => { const p = new URLSearchParams(); if (state.filters.dataset) p.set('dataset', state.filters.dataset); return apiGet(E.facets, p, { scope: 'facets' }); },
   health:    ()           => apiGet(E.health, null, { scope: 'health' }),
   analytics: (f, opts={}) => apiGet(E.analytics, buildParams(f||state.filters), { scope: 'analytics', ...opts }),
   map:       (f, opts={}) => apiGet(E.map,       buildParams(f||state.filters), { scope: 'map', ...opts }),
@@ -6433,7 +6511,7 @@ function renderMethodology() {
       <p>This dashboard aggregates <strong>267,548 observations and recommendations</strong> addressed to UN Member States by Treaty Bodies, Special Procedures and the Universal Periodic Review, covering the twenty-year period 2006 – 2026.</p>
 
       <h2>Data source</h2>
-      <p>All records originate from the OHCHR <strong>Universal Human Rights Index</strong> (<a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a>). We clean the upstream JSON export with a transparent, mostly-deterministic pipeline. You can toggle back to the untouched upstream data in the classic dashboard.</p>
+      <p>All records originate from the OHCHR <strong>Universal Human Rights Index</strong> (<a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a>). By default this dashboard shows data processed by our transparent six-stage pipeline (detailed below). You can switch to the <strong>raw upstream text</strong> using the <code>DATA · cleaned ▾</code> pill in the header — raw mode re-includes 11 Stage 6 artefacts and runs search against the original HTML-stripped text. Country, body and theme metadata remain pipeline-canonical in either mode. Share a raw-mode view by appending <code>?dataset=raw</code> to the URL.</p>
 
       <h2>Cleanup approach — deterministic first</h2>
       <p>The pipeline minimises generative AI involvement:</p>
@@ -8578,6 +8656,145 @@ function maybeShowTour() {
 /* =========================================================================
    BOOT
    ========================================================================= */
+/* ---------- DATASET TOGGLE (cleaned ↔ raw upstream) ----------
+   Restores the user's dataset choice from URL (?dataset=raw) OR
+   localStorage (uhri_v2_dataset), wires the header pill + popover,
+   and handles the confirm-before-first-raw-switch flow. Side effects:
+    - `.app.raw-mode` class toggled for CSS tint + banner
+    - URL (history.replaceState) synced on every change
+    - localStorage 'uhri_v2_dataset' persisted
+    - memCache cleared when mode changes (stale cleaned responses would
+      otherwise leak into raw mode and vice versa)
+    - onFiltersChanged() triggers full re-render */
+const DS_KEY = 'uhri_v2_dataset';
+const DS_CONFIRMED_KEY = 'uhri_v2_raw_confirmed';
+
+function _restoreDataset() {
+  // Priority: URL param beats localStorage (link-shareable wins)
+  let chosen = null;
+  try {
+    const u = new URL(location.href);
+    const q = u.searchParams.get('dataset');
+    if (q === 'raw' || q === 'cleaned') chosen = q;
+  } catch {}
+  if (!chosen) {
+    try { chosen = localStorage.getItem(DS_KEY); } catch {}
+  }
+  if (chosen === 'raw' || chosen === 'cleaned') {
+    state.filters.dataset = chosen;
+  }
+  _applyDatasetUI();
+}
+
+function _applyDatasetUI() {
+  const ds = state.filters.dataset || 'cleaned';
+  const app = $('#app'); if (app) app.classList.toggle('raw-mode', ds === 'raw');
+  const pill = $('#dsToggle'); if (pill) pill.classList.toggle('raw', ds === 'raw');
+  const val = $('#dsVal'); if (val) val.textContent = ds === 'raw' ? 'raw upstream' : 'cleaned';
+  // Sync radio state inside popover
+  const cleanR = document.querySelector('#dsOptCleaned input');
+  const rawR   = document.querySelector('#dsOptRaw input');
+  if (cleanR) cleanR.checked = (ds === 'cleaned');
+  if (rawR)   rawR.checked   = (ds === 'raw');
+  const cleanL = $('#dsOptCleaned'); if (cleanL) cleanL.classList.toggle('on', ds === 'cleaned');
+  const rawL   = $('#dsOptRaw');     if (rawL)   rawL.classList.toggle('on', ds === 'raw');
+  // Sync URL param — replaceState so the back button doesn't collect history
+  // entries for every dataset click.
+  try {
+    const u = new URL(location.href);
+    if (ds === 'raw') u.searchParams.set('dataset', 'raw');
+    else u.searchParams.delete('dataset');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  } catch {}
+}
+
+function _switchDataset(next) {
+  const prev = state.filters.dataset || 'cleaned';
+  if (next === prev) return;
+  // Confirm first switch to raw (once per browser) — prevents accidental
+  // clicks that would silently change every number in the dashboard.
+  let alreadyConfirmed = false;
+  try { alreadyConfirmed = localStorage.getItem(DS_CONFIRMED_KEY) === '1'; } catch {}
+  if (next === 'raw' && !alreadyConfirmed) {
+    const ok = confirm(
+      'Switch to RAW upstream dataset?\n\n' +
+      '• Search will query the original HTML-stripped text\n' +
+      '• 11 artefact records excluded by Stage 6 will reappear\n' +
+      '• Country/body/theme metadata remains pipeline-canonical\n\n' +
+      'This is primarily useful for verifying what the cleaning pipeline changed. ' +
+      'Click Cancel to stay on cleaned.'
+    );
+    if (!ok) {
+      // Reset the radio back so the UI reflects the (unchanged) state.
+      _applyDatasetUI();
+      return;
+    }
+    try { localStorage.setItem(DS_CONFIRMED_KEY, '1'); } catch {}
+  }
+  state.filters.dataset = next;
+  try { localStorage.setItem(DS_KEY, next); } catch {}
+  // Nuke the response cache — cleaned / raw responses share endpoint
+  // paths and would collide otherwise. Also abort in-flight requests so
+  // stale responses don't clobber the fresh ones.
+  try { memCache.clear(); } catch {}
+  try { pendingPromises.forEach(p => { try { p.ctrl?.abort(); } catch {} }); pendingPromises.clear(); } catch {}
+  _applyDatasetUI();
+  if (state.bootstrapDone) {
+    onFiltersChanged();
+    // Re-fetch facets too, in case a future backend release differentiates
+    // them by dataset. Best-effort; fails are absorbed by the offline shell.
+    (async () => {
+      try {
+        state.facets = await api.facets();
+      } catch (err) {
+        if (err.name !== 'AbortError') console.warn('facets refetch failed', err);
+      }
+    })();
+    toast(`Switched to ${next === 'raw' ? 'raw upstream' : 'cleaned'} dataset`, false, 2200);
+  }
+}
+
+function initDatasetToggle() {
+  _restoreDataset();
+  const pillWrap = document.querySelector('.ds-pill-wrap');
+  const pill = $('#dsToggle');
+  if (pill && pillWrap) {
+    pill.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const on = pillWrap.classList.toggle('open');
+      pill.setAttribute('aria-expanded', on ? 'true' : 'false');
+    });
+    // Click outside → close
+    document.addEventListener('click', (e) => {
+      if (!pillWrap.contains(e.target)) {
+        pillWrap.classList.remove('open');
+        pill.setAttribute('aria-expanded', 'false');
+      }
+    });
+    // Escape → close
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && pillWrap.classList.contains('open')) {
+        pillWrap.classList.remove('open');
+        pill.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+  // Radio change
+  document.querySelectorAll('input[name="dsRadio"]').forEach(r => {
+    r.addEventListener('change', (e) => {
+      const next = e.target.value;
+      _switchDataset(next);
+      pillWrap?.classList.remove('open');
+      pill?.setAttribute('aria-expanded', 'false');
+    });
+  });
+  // Raw-banner "Switch to cleaned" link
+  $('#rawBannerSwitch')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    _switchDataset('cleaned');
+  });
+}
+
 async function boot() {
   setStatus('loading');
   // Clean up any lingering focus-mode preference from the previous build
@@ -8586,6 +8803,10 @@ async function boot() {
   TW.drawer = true;  // always-open drawer in the new stacked layout
   bindTweaks(); applyTweaks();
   bindKwInput();
+  // Dataset toggle — do this early so the rest of boot() (analytics,
+  // facets, records) fetches with the restored dataset. Must run after
+  // `state` exists but before any api.* call.
+  initDatasetToggle();
 
   // PWA: register service worker for offline shell + data SWR cache.
   // We listen for updates — if a new SW installs, a small toast invites
