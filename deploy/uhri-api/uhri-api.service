@@ -1,0 +1,80 @@
+# UHRI Dataset API — systemd service unit
+# ---------------------------------------------------------------------------
+# Install:  sudo cp uhri-api.service /etc/systemd/system/
+#           sudo systemctl daemon-reload
+#           sudo systemctl enable --now uhri-api
+#           sudo systemctl status uhri-api
+#           sudo journalctl -u uhri-api -f        # live logs
+#
+# The service listens on 127.0.0.1:8010 and sits behind nginx at
+#   https://<host>/uhri-api/   (see uhri-api.nginx.conf).
+# ---------------------------------------------------------------------------
+
+[Unit]
+Description=UHRI Dataset API (FastAPI) — UN Human Rights recommendations
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=uhri
+Group=uhri
+
+# Expected deploy layout on the VM:
+#   /opt/uhri/                           install root  (chown uhri:uhri)
+#   /opt/uhri/setfit_backend/            backend source (git clone / rsync)
+#   /opt/uhri/.venv/                     virtualenv with dependencies
+#   /opt/uhri/data/uhri-export.json      dataset JSON  (UHRI_DATASET_PATH)
+#   /opt/uhri/data/uhri-export.sqlite3   built SQLite cache (auto-generated)
+WorkingDirectory=/opt/uhri/setfit_backend
+
+Environment=PATH=/opt/uhri/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=UHRI_DATASET_PATH=/opt/uhri/data/uhri-export.json
+Environment=UHRI_DATASET_DB_PATH=/opt/uhri/data/uhri-export.sqlite3
+# Cleaned dataset (produced by `pipeline/refresh.py`). When present, the
+# default dataset view of the API serves this file's per-record cleaned
+# text and section headings; the raw upstream export stays available via
+# `?dataset=raw`. Unset the env var to force the API back to raw-only
+# behaviour.
+Environment=UHRI_CLEANED_PATH=/opt/uhri/pipeline/outputs/stage2/uhri-export.final.jsonl
+
+# CORS allow-list: GitHub Pages frontend + common local dev ports.
+# Replace / extend as needed. Leave "*" ONLY for testing.
+Environment=ALLOW_ORIGINS=https://lszoszk.github.io,http://localhost:5173,http://localhost:8000,http://localhost:8123
+
+# Initial SQLite build from a 267k-row JSON can take a minute; give headroom.
+TimeoutStartSec=120
+
+ExecStart=/opt/uhri/.venv/bin/uvicorn app:app \
+    --host 127.0.0.1 \
+    --port 8010 \
+    --workers 2 \
+    --proxy-headers \
+    --forwarded-allow-ips=127.0.0.1
+
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=15
+
+# --- Hardening ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# Writable paths: dataset dir (SQLite lock/build) + models dir (SetFit saves)
+# + feedback inbox (POST /api/feedback/report appends to
+# pipeline/feedback/inbox.jsonl and is reviewed during the monthly refresh).
+ReadWritePaths=/opt/uhri/data /opt/uhri/setfit_backend/models /opt/uhri/pipeline/feedback
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# torch/pytorch may use JIT + writable-exec pages — keep this OFF.
+MemoryDenyWriteExecute=false
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

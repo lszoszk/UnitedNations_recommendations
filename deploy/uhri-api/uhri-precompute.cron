@@ -1,0 +1,11 @@
+# /etc/cron.d/uhri-precompute
+# Refresh the precomputed zero-filter endpoint cache every 15 minutes.
+# Runs as amuvmuser; writes to /opt/uhri/precomputed/ and logs to /var/log/uhri-precompute.log
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Every 15 min — matches the Cache-Control max-age=900 we set in Tier 1
+*/15 * * * * amuvmuser /opt/uhri/precompute.sh >> /var/log/uhri-precompute.log 2>&1
+
+# Also explicit warm right after the monthly UHRI refresh (03:30)
+35 3 1 * *  amuvmuser /opt/uhri/precompute.sh >> /var/log/uhri-precompute.log 2>&1

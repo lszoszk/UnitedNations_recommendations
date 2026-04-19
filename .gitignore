@@ -1,0 +1,28 @@
+# Deploy-branch .gitignore
+# We only track deploy/ and top-level operations docs.
+/.DS_Store
+/.claude/
+/.tmp_pdf_pages/
+/Other/
+/UnitedNations_recommendations-main/
+/_repo_push/
+/dashboard-codex-pages/
+/export-uhri.json
+/export-uhri.json.sqlite3
+/html_dashboard_codex
+/html_dashboard_codex.html
+/output/
+/pipeline/
+/scripts/
+/search-*.xlsx
+/setfit_backend/
+/trainable-entity-extractor-main/
+/uhri_weekly_sync.py
+/un_analytics_dashboard.html
+/un_analytics_dashboard_v2.html
+# /VM_RECOVERY_2026-04-17.md  # intentionally tracked
+
+# Artefakty narzędzi
+*.pyc
+__pycache__/
+.venv/
