@@ -663,6 +663,14 @@ a{color:inherit;text-decoration:none}
 .se-item .se-tx::after{content:"";position:absolute;bottom:0;left:0;right:0;height:2em;background:linear-gradient(to bottom, transparent, var(--paper) 85%);pointer-events:none}
 .se-item:hover .se-tx::after{background:linear-gradient(to bottom, transparent, var(--paper-2) 85%)}
 .se-item.expanded .se-tx::after{display:none}
+
+/* KWIC mode: the snippet is short and centred on the match, no fade-out */
+.se-item.is-kwic:not(.expanded) .se-tx{max-height:none;overflow:visible}
+.se-item.is-kwic:not(.expanded) .se-tx::after{display:none}
+
+/* KWIC indicator in the header */
+.se-item .se-hdr .kwic-badge{font:9px var(--mono);letter-spacing:.06em;color:var(--dim);border:1px dashed var(--line);padding:0 5px;background:var(--paper-2)}
+.se-item.expanded .se-hdr .kwic-badge{opacity:.3}
 .se-item .se-tx mark,.se-item .se-tx em,.se-item .se-tx mark.kw-match{background:color-mix(in oklab, var(--accent) 35%, transparent);color:var(--ink);font-weight:600;font-style:normal;padding:0 2px;border-radius:1px}
 .se-item .se-more-btn{font:9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);border:0;background:transparent;padding:6px 0 2px;cursor:pointer}
 .se-item .se-more-btn:hover{color:var(--ink)}
@@ -5040,6 +5048,45 @@ async function renderCompare() {
 /* =========================================================================
    VIEW: SEARCH RESULTS
    ========================================================================= */
+
+/* Smart KWIC (keyword-in-context) snippet.
+   For short records (<500 chars) or records where the keyword appears in
+   the first ~400 chars, the existing fade-out preview already shows the
+   highlight — we pass the full text through unchanged. When the keyword
+   only appears past the fade-out fold, we build a 1–2-sentence KWIC
+   window centred on the first hit so the user can see WHY the record
+   matched without clicking "show full". Returns {html, isKwic, fullLen}. */
+function smartSnippet(text, kw) {
+  const t = String(text || '');
+  const fullLen = t.length;
+  if (!kw || fullLen <= 500) {
+    return { html: highlightKeyword(t, kw), isKwic: false, fullLen };
+  }
+  const needle = kw.toLowerCase();
+  const idx = t.toLowerCase().indexOf(needle);
+  if (idx < 0 || idx < 400) {
+    // keyword visible in the fade-out window — current UX is fine
+    return { html: highlightKeyword(t, kw), isKwic: false, fullLen };
+  }
+  // Build KWIC window — roughly one sentence before + one after
+  let start = Math.max(0, idx - 140);
+  let end   = Math.min(fullLen, idx + needle.length + 220);
+  // Backtrack start to the preceding sentence boundary (or newline)
+  while (start > 0 && !/[.\n;:]/.test(t[start - 1])) start--;
+  while (start < idx && /\s/.test(t[start])) start++;
+  // Forward-track end to the next sentence boundary
+  while (end < fullLen && !/[.\n]/.test(t[end])) end++;
+  if (end < fullLen) end++;   // include the period
+  const snippet = t.slice(start, end);
+  const prefix = start > 0 ? '… ' : '';
+  const suffix = end < fullLen ? ' …' : '';
+  return {
+    html: prefix + highlightKeyword(snippet, kw) + suffix,
+    isKwic: true,
+    fullLen,
+  };
+}
+
 /* Renders a single search-result item HTML string */
 /* Heavy-user result card (A–E redesign):
  *  A. Explainer banner above the list (done in renderSearch).
@@ -5066,8 +5113,9 @@ function _renderSearchItem(rec, idx, kw) {
   const typeLabel = (typeRaw && typeRaw !== '—') ? typeRaw : '';
   const symbol = rec.Symbol || '';
   const isLong = fullTxt.length > 520;
+  const snippet = smartSnippet(fullTxt, kw);
   const isSelected = state.searchSelection.has(rec.AnnotationId);
-  return `<div class="se-item${isSelected?' selected':''}" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
+  return `<div class="se-item${isSelected?' selected':''}${snippet.isKwic?' is-kwic':''}" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
     <label class="se-check" title="Select for bulk actions" onclick="event.stopPropagation()"><input type="checkbox" data-bulkcb="${idx}" ${isSelected?'checked':''}></label>
     <div class="se-hdr">
       <span class="yr">${sanitize(yr || '—')}</span>
@@ -5076,6 +5124,7 @@ function _renderSearchItem(rec, idx, kw) {
       ${typeLabel ? `<span class="type ${typeClass}" title="Annotation type">${sanitize(typeLabel)}</span>` : ''}
       ${symbol ? `<span class="sym" title="UN document symbol — cite this">${sanitize(symbol)}</span>` : ''}
       ${kwCount ? `<span class="kw" title="${kwCount} keyword match${kwCount!==1?'es':''}">${kwCount}× "${sanitize(kw)}"</span>` : ''}
+      ${snippet.isKwic ? `<span class="kwic-badge" title="Showing a keyword-in-context snippet. Click 'show full text' to see the whole record.">◎ KWIC</span>` : ''}
       ${(hasNote || starred || isPinned) ? `<span class="marks">
         ${hasNote ? '<span title="You have a note on this record">📝</span>' : ''}
         ${starred ? '<span style="color:#d97706" title="Bookmarked">★</span>' : ''}
@@ -5083,7 +5132,7 @@ function _renderSearchItem(rec, idx, kw) {
       </span>` : ''}
       ${region ? `<span class="region">${sanitize(region)}</span>` : ''}
     </div>
-    <div class="se-tx">${highlightKeyword(fullTxt, kw)}</div>
+    <div class="se-tx" data-full-text="${sanitize(fullTxt)}" data-kw="${sanitize(kw||'')}" data-mode="${snippet.isKwic ? 'kwic' : 'full'}">${snippet.html}</div>
     ${isLong ? `<button class="se-more-btn">↓ Show full text (${fullTxt.length.toLocaleString()} chars)</button>` : ''}
     ${(themes.length || groups.length || sdgs.length) ? `<div class="se-tags">
       ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val" data-tag-kind="theme" data-tag-value="${sanitize(t)}">${sanitize(t)}</span>`).join('')}` : ''}
@@ -5356,10 +5405,23 @@ async function loadNextSearchPage() {
         openReader(state.searchLoaded[idx]);
       });
       // Expand/collapse — same pattern as drawer list cards.
+      // When the se-tx started life as a KWIC snippet, expanding swaps it
+      // for the full highlighted text (and collapsing restores the snippet).
       el.querySelector('.se-more-btn')?.addEventListener('click', (ev) => {
         ev.stopPropagation();
         const on = el.classList.toggle('expanded');
-        ev.currentTarget.textContent = on ? '↑ Collapse' : '↓ Show full text';
+        const btn = ev.currentTarget;
+        const tx  = el.querySelector('.se-tx');
+        if (tx && tx.dataset.mode === 'kwic') {
+          const full = tx.dataset.fullText || '';
+          const kw   = tx.dataset.kw || '';
+          if (on) {
+            tx.innerHTML = highlightKeyword(full, kw);
+          } else {
+            tx.innerHTML = smartSnippet(full, kw).html;
+          }
+        }
+        btn.textContent = on ? '↑ Collapse' : '↓ Show full text';
       });
       // Bulk-select checkbox (G) — syncs to state.searchSelection and the
       // sticky bulk bar. Checkbox click already has stopPropagation via
