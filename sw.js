@@ -4,8 +4,8 @@
  *   /api/data/records (Tier 4a — filter-change instant on repeat visits)
  * - Network-only for /api/feedback/report, /api/data/full
  */
-const SHELL_CACHE  = 'uhri-v2-shell-v22';  // bump to invalidate stale caches on ship
-const DATA_CACHE   = 'uhri-v2-data-v4';    // Tier 4a: /records now in SWR scope
+const SHELL_CACHE  = 'uhri-v2-shell-v23';  // bump to invalidate stale caches on ship
+const DATA_CACHE   = 'uhri-v2-data-v5';    // Tier 4a: /records now in SWR scope
 const FONT_CACHE   = 'uhri-v2-font-v2';
 
 const SHELL_ASSETS = [
@@ -99,30 +99,26 @@ async function cacheFirst(req, cacheName) {
 async function staleWhileRevalidate(req, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(req);
+  // Kick off the background refresh. If it rejects we deliberately do
+  // nothing — the caller either got a cached hit or will let the original
+  // fetch error bubble up through respondWith.
   const networkPromise = fetch(req).then(res => {
-    // Only cache healthy 2xx responses AND only if they're small enough
-    // that the Cache API won't choke (50 MB budget per entry).
-    if (res.ok) {
-      const len = Number(res.headers.get('content-length') || 0);
-      if (!len || len < 50 * 1024 * 1024) {
-        cache.put(req, res.clone()).catch(() => {});
-      }
+    // Only cache healthy 2xx responses.
+    // We keep clone+put in a separate promise chain with its own catch so
+    // a cache.put failure (e.g. Safari quirks around cloned HTTP/2 gzip
+    // responses) can never poison the Response we hand back to the page.
+    if (res && res.ok) {
+      try {
+        const copy = res.clone();
+        cache.put(req, copy).catch(() => {});
+      } catch (_) { /* clone unavailable — serve network result as-is */ }
     }
     return res;
-  }).catch((err) => {
-    // CRITICAL: respondWith() must never receive null/undefined or the SW
-    // raises "Returned response is null" and the whole fetch event fails.
-    if (cached) return cached;
-    return new Response(
-      JSON.stringify({ ok: false, error: 'network_unreachable', detail: String(err) }),
-      { status: 503, headers: { 'Content-Type': 'application/json' } }
-    );
   });
-  // If the cached copy is itself a synthesised 503 (from a prior failed
-  // network attempt), skip it and wait for the live network result —
-  // avoid serving a stale error forever.
-  if (cached && cached.status >= 500) return networkPromise;
-  return cached || networkPromise;
+  // If we already had a cache entry, serve it immediately and let the
+  // network refresh happen in the background. Never return null/undefined.
+  if (cached) return cached;
+  return networkPromise;
 }
 
 // Allow the page to force-update the cache
