@@ -95,10 +95,18 @@ run_stage "db-rebuild" bash -c "
     exit 1
 "
 
-# ---- STAGE 4: FTS5 -----------------------------------------------------
+# ---- STAGE 4 (country backfill) ---------------------------------------
+# Runs AFTER the DB is rebuilt (fresh record_country table) and BEFORE
+# FTS5 so any new country entries are visible to filter paths that join
+# through record_country.
+run_stage "country-backfill" /opt/uhri/.venv/bin/python3 \
+    "$PIPELINE_DIR/stage4_country_backfill.py" \
+    --db "$DATA_DIR/uhri-export.sqlite3"
+
+# ---- STAGE 5 (FTS5) ----------------------------------------------------
 run_stage "fts-rebuild" /opt/uhri/rebuild_fts.py
 
-# ---- STAGE 5: precompute warm ------------------------------------------
+# ---- STAGE 6 (precompute warm) -----------------------------------------
 run_stage "precompute" /opt/uhri/precompute.sh
 
 # ---- Overall status & notification -------------------------------------
@@ -117,7 +125,7 @@ done
     echo "  \"fail_count\": $FAIL_COUNT,"
     echo "  \"stages\": {"
     first=1
-    for name in api-sync stage1-3 publish-cleaned db-rebuild fts-rebuild precompute; do
+    for name in api-sync stage1-3 publish-cleaned db-rebuild country-backfill fts-rebuild precompute; do
         [ $first -eq 1 ] || echo "    ,"
         first=0
         summary="${STAGE_SUMMARY[$name]:-skipped}"
@@ -140,7 +148,7 @@ Duration: ${TOTAL_SECS}s
 Failures: $FAIL_COUNT
 
 Per-stage results:
-$(for name in api-sync stage1-3 publish-cleaned db-rebuild fts-rebuild precompute; do
+$(for name in api-sync stage1-3 publish-cleaned db-rebuild country-backfill fts-rebuild precompute; do
     rc="${STAGE_RC[$name]:-skipped}"
     secs="${STAGE_SECS[$name]:-0}"
     summary="${STAGE_SUMMARY[$name]:-n/a}"
