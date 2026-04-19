@@ -3173,7 +3173,9 @@ function renderRowList(el, rows, opts = {}) {
           return;
         }
         // Primary action — read the records behind this data point.
-        openListDrawer(opts.facet, k);
+        // opts.extraFilter scopes the drawer-list further (Compare uses this
+        // to pin the click to Country A or B so the records match the bar).
+        openListDrawer(opts.facet, k, opts.extraFilter || null);
       });
       // Preload on hover for every entity whose click can open a profile —
       // country / theme / group / body / sdg. 250 ms hover threshold + tag
@@ -5084,16 +5086,22 @@ async function renderCompare() {
       if (subEl) subEl.textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes · ${(an?.text?.affected_person_counts||[]).length} groups`;
       const timeEl = $(`#cmpTime${letter}`);
       if (timeEl) renderTimeline(timeEl, an?.trends?.yearly_body_counts || {}, { interactive: false });
+      // Each Compare bar is clickable — it opens the drawer list scoped to
+      // the country for that side (A or B). `extraFilter` pins the country
+      // so the records behind the bar match what the bar represents, not
+      // the rail's country selection. Shift / ⌘ keep the same contract as
+      // other tabs (toggle rail filter / jump to profile).
+      const cmpScope = { country: new Set([name]) };
       const themeEl = $(`#cmpThemes${letter}`);
       if (themeEl) {
         const t = (an?.themes?.theme_counts||[]).slice(0,8).map(x => ({ key:x.theme, label:x.theme, v:x.count }));
-        renderRowList(themeEl, t, {});
+        renderRowList(themeEl, t, { facet: 'theme', extraFilter: cmpScope });
       }
       // Concerned Groups (top 8)
       const groupEl = $(`#cmpGroups${letter}`);
       if (groupEl) {
         const g = (an?.text?.affected_person_counts||[]).slice(0,8).map(x => ({ key:x.affected_person, label:x.affected_person, v:x.count }));
-        renderRowList(groupEl, g, {});
+        renderRowList(groupEl, g, { facet: 'group', extraFilter: cmpScope });
       }
       // SDGs with granular target names (SDG 16.3 — Promote the rule of law…)
       const sdgEl = $(`#cmpSdgs${letter}`);
@@ -5101,7 +5109,7 @@ async function renderCompare() {
         const s = (an?.text?.sdg_counts||[]).slice(0,12).map(x => ({
           key: x.sdg, label: formatSdgLabel(x.sdg), v: x.count
         }));
-        renderRowList(sdgEl, s, {});
+        renderRowList(sdgEl, s, { facet: 'sdg', extraFilter: cmpScope });
       }
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -6562,10 +6570,15 @@ function navigateRec(step) {
 /* ---------- LIST DRAWER (theme / group click → infinite-scroll list) ---------- */
 let _drListObserver = null;
 
-async function openListDrawer(kind, value) {
+async function openListDrawer(kind, value, extraOverride = null) {
   // kind: 'theme' | 'group' | 'country' | 'body' | 'sdg' | 'selection'
+  //
+  // extraOverride: optional filter bag (e.g. { country: new Set(['China']) })
+  // merged on top of the normal {kind,value} override by listDrawerFilter.
+  // Used by Compare so clicking "A: Themes → trafficking" scopes the drawer
+  // list to Country A, not the whole rail.
   state.drawerMode = 'list';
-  state.drawerList = { kind, value, records: [], page: 1, exhausted: false, total: 0 };
+  state.drawerList = { kind, value, records: [], page: 1, exhausted: false, total: 0, extraOverride };
   if (!TW.drawer) { TW.drawer = true; applyTweaks(); }
   renderDrawer();
   if (kind !== 'selection') await loadMoreListDrawer();
@@ -6616,8 +6629,9 @@ function _sdgToFilterValue(label) {
 function listDrawerFilter() {
   // Drawer list ("All records with this theme/body/SDG/group/country")
   // respects the rail so counts line up with Overview. The drawer's own
-  // facet is layered on top.
-  const { kind, value } = state.drawerList || {};
+  // facet is layered on top. extraOverride (e.g. Compare's country scope)
+  // is merged last and wins on collisions.
+  const { kind, value, extraOverride } = state.drawerList || {};
   const override = {};
   if (kind === 'theme')   override.theme   = new Set([value]);
   else if (kind === 'group')   override.group   = new Set([value]);
@@ -6628,6 +6642,9 @@ function listDrawerFilter() {
     // list we rely on buildParams converting Set<number> via 'SDG N'.
     const n = _sdgToFilterValue(value);
     if (n != null) override.sdg = new Set([n]);
+  }
+  if (extraOverride && typeof extraOverride === 'object') {
+    Object.assign(override, extraOverride);
   }
   return _scopedFilter(override);
 }
