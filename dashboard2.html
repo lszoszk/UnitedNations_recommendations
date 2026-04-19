@@ -598,11 +598,13 @@ a{color:inherit;text-decoration:none}
 .se-explainer .pill.rec{border-color:var(--accent);background:color-mix(in oklab, var(--accent) 12%, var(--paper))}
 .se-explainer kbd{border:1px solid var(--line);padding:0 4px;font-family:var(--mono);font-size:10px;color:var(--ink);background:var(--paper)}
 .se-kw-clear{border:1px solid var(--line);background:var(--paper);color:var(--dim);font-size:14px;line-height:1;padding:1px 6px;cursor:pointer;margin-left:-6px}
+/* N selected badge persisted in the Search tab header */
+.t-ctx .tab-selcount{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--accent);background:color-mix(in oklab, var(--accent) 15%, var(--paper));color:var(--ink);font:10px var(--mono);letter-spacing:.06em;vertical-align:baseline}
 .se-kw-clear:hover{border-color:#b91c1c;color:#b91c1c}
 .se-sort{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;display:inline-flex;gap:6px;align-items:center}
 .se-sort select{padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:11px var(--mono)}
 .se-sort select:hover{border-color:var(--ink);background:var(--paper-2)}
-.se-bulk{display:none;gap:10px;align-items:center;padding:8px 20px;background:color-mix(in oklab, var(--accent) 10%, var(--paper));border-bottom:1px solid var(--accent);font:11px var(--mono);position:sticky;top:0;z-index:4}
+.se-bulk{display:none;gap:10px;align-items:center;padding:8px 20px;background:color-mix(in oklab, var(--accent) 10%, var(--paper));border-bottom:1px solid var(--accent);font:11px var(--mono);position:sticky;top:64px;z-index:3;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .se-bulk.on{display:flex}
 .se-bulk .cnt{color:var(--ink);font-weight:700;font-size:12px}
 .se-bulk button{padding:4px 10px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
@@ -787,7 +789,7 @@ a{color:inherit;text-decoration:none}
 .export-menu{position:relative;display:inline-block}
 .export-btn{border:1px solid var(--line);padding:3px 8px;font:10px var(--mono);letter-spacing:.08em;color:var(--ink);cursor:pointer;background:var(--paper);text-transform:uppercase}
 .export-btn:hover{border-color:var(--ink);background:var(--paper-2)}
-.export-dropdown{position:absolute;bottom:100%;left:0;margin-bottom:4px;background:var(--paper);border:1px solid var(--ink);box-shadow:0 -4px 20px rgba(0,0,0,.15);min-width:180px;z-index:50;display:none}
+.export-dropdown{position:fixed;background:var(--paper);border:1px solid var(--ink);box-shadow:0 4px 20px rgba(0,0,0,.25);min-width:200px;z-index:9999;display:none}
 .export-dropdown.open{display:block}
 .export-dropdown .hd{padding:6px 10px;font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;border-bottom:1px solid var(--line);background:var(--paper-2)}
 .export-item{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font:11px var(--mono);cursor:pointer;border-bottom:1px dotted var(--line);color:var(--ink)}
@@ -5255,6 +5257,16 @@ function _seUpdateBulkBar() {
   const bar = $('#seBulk'); const cnt = $('#seBulkCount');
   if (bar) bar.classList.toggle('on', n > 0);
   if (cnt) cnt.textContent = `${n} selected` + (n >= 2 ? ' · ready to pin 2 or bulk-export' : '');
+  // Tier 4 polish: persist a badge in the Search tab header so users who
+  // scroll/navigate away still see their selection count.
+  const tab = $('#tabSearch');
+  if (tab) {
+    const kw = (state.filters?.kw || '').trim();
+    const kwPart = kw ? `"${kw}"` : '—';
+    tab.innerHTML = n > 0
+      ? `${sanitize(kwPart)} <span class="tab-selcount" title="${n} record${n!==1?'s':''} selected for bulk actions">★ ${n}</span>`
+      : sanitize(kwPart);
+  }
 }
 function _seToggleSelect(rec, onClass) {
   if (!rec || !rec.AnnotationId) return;
@@ -8467,10 +8479,34 @@ async function boot() {
   $('#btnShare').addEventListener('click', openShareModal);
   $('#btnSaveView').addEventListener('click', openSavedViewsModal);
 
-  // Export dropdown (#26)
+  // Export dropdown (#26) — position:fixed so it escapes any overflow:hidden
+  // container. On open we anchor it above the button using viewport coords
+  // from getBoundingClientRect so it pops up as a floating panel.
   $('#btnExport').addEventListener('click', e => {
     e.stopPropagation();
-    $('#exportDropdown').classList.toggle('open');
+    const dd = $('#exportDropdown');
+    const btn = e.currentTarget;
+    const wasOpen = dd.classList.contains('open');
+    dd.classList.toggle('open');
+    if (!wasOpen) {
+      // Position: anchor to the button, prefer opening UPWARDS (dropdown
+      // bottom meets button top). Fall back to below if not enough room up.
+      const r = btn.getBoundingClientRect();
+      dd.style.visibility = 'hidden';
+      dd.style.display = 'block';           // temporarily visible to measure
+      const ddH = dd.offsetHeight || 180;
+      dd.style.display = '';
+      dd.style.visibility = '';
+      const spaceAbove = r.top;
+      const spaceBelow = window.innerHeight - r.bottom;
+      if (spaceAbove >= ddH + 8 || spaceAbove > spaceBelow) {
+        dd.style.top  = (r.top - ddH - 4) + 'px';
+        dd.style.left = r.left + 'px';
+      } else {
+        dd.style.top  = (r.bottom + 4) + 'px';
+        dd.style.left = r.left + 'px';
+      }
+    }
   });
   document.addEventListener('click', e => {
     if (!e.target.closest('.export-menu')) $('#exportDropdown').classList.remove('open');
