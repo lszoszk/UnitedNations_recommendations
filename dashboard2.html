@@ -7908,6 +7908,22 @@ async function boot() {
     await navigate(state.view);
   }
 
+  // Re-apply URL state on hash-only changes (browser back/forward, or any
+  // programmatic location.hash write from outside the app). Without this
+  // _restoreUrlState only ran at boot — clicking Back after drilling into
+  // a theme profile would update the address bar but leave the view stale.
+  window.addEventListener('hashchange', async () => {
+    // Reset filter Sets before re-reading so stale filters don't accumulate
+    state.filters = { ...emptyFilters(), yearA: state.facets?.min_year, yearB: state.facets?.max_year };
+    state.focusCountry = null; state.focusTheme = null; state.focusGroup = null;
+    state.focusSdg = null; state.focusMechanism = null;
+    _restoreUrlState();
+    ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
+    if ($('#kwInput')) $('#kwInput').value = state.filters.kw || '';
+    renderActiveFilters();
+    await navigate(state.view || 'overview');
+  });
+
   // Phase 2: slow analytics in background — user can already interact
   try {
     const analytics = await api.analytics({});
