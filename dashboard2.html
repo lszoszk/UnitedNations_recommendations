@@ -598,6 +598,14 @@ a{color:inherit;text-decoration:none}
 .se-explainer .pill.rec{border-color:var(--accent);background:color-mix(in oklab, var(--accent) 12%, var(--paper))}
 .se-explainer kbd{border:1px solid var(--line);padding:0 4px;font-family:var(--mono);font-size:10px;color:var(--ink);background:var(--paper)}
 .se-kw-clear{border:1px solid var(--line);background:var(--paper);color:var(--dim);font-size:14px;line-height:1;padding:1px 6px;cursor:pointer;margin-left:-6px}
+/* Keyword input hint + expandable examples */
+.kw-hint{font:10px var(--mono);color:var(--dim);line-height:1.55;margin:6px 2px 2px;letter-spacing:.02em}
+.kw-hint code{background:var(--paper-2);border:1px solid var(--line);padding:0 3px;font-size:10px;color:var(--ink)}
+.kw-hint a{color:var(--accent);text-decoration:none;margin-left:4px;cursor:pointer}
+.kw-hint a:hover{text-decoration:underline}
+.kw-examples{background:var(--paper-2);border-left:2px solid var(--accent);padding:8px 10px;margin:4px 0 2px;font:10px var(--mono);line-height:1.55;letter-spacing:.01em;color:var(--ink-2)}
+.kw-examples > div{margin:3px 0}
+.kw-examples code{background:var(--paper);border:1px solid var(--line);padding:0 3px;color:var(--ink);font-size:10px}
 /* N selected badge persisted in the Search tab header */
 .t-ctx .tab-selcount{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--accent);background:color-mix(in oklab, var(--accent) 15%, var(--paper));color:var(--ink);font:10px var(--mono);letter-spacing:.06em;vertical-align:baseline}
 .se-kw-clear:hover{border-color:#b91c1c;color:#b91c1c}
@@ -1084,7 +1092,25 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 
     <div class="facet" data-facet="kw">
       <div class="facet-head"><span class="fh-idx">01</span><span>KEYWORD</span><span class="fh-toggle">▾</span></div>
-      <div class="facet-body"><input id="kwInput" class="kwinput" placeholder="e.g. forced labour, death penalty…"/></div>
+      <div class="facet-body">
+        <input id="kwInput" class="kwinput" placeholder='e.g. forced labour, "death penalty", torture OR abuse'/>
+        <div class="kw-hint" id="kwHint">
+          Plain words match all (implicit AND). Use
+          <code>"exact phrase"</code>, or
+          <code>AND</code> / <code>OR</code> / <code>NOT</code> (uppercase)
+          for boolean.
+          <a href="#" id="kwHintMore" title="Show examples">examples ▾</a>
+        </div>
+        <div class="kw-examples" id="kwExamples" style="display:none">
+          <div><code>torture</code> &nbsp; → all records mentioning torture (with prefix — catches tortured, tortures, torturing)</div>
+          <div><code>forced labour</code> &nbsp; → records containing BOTH "forced" and "labour" (stemming: forced matches force/forcibly)</div>
+          <div><code>"forced labour"</code> &nbsp; → records with the exact phrase</div>
+          <div><code>torture OR abuse</code> &nbsp; → union — records with either word</div>
+          <div><code>torture NOT detention</code> &nbsp; → torture records that don't mention detention</div>
+          <div><code>(child OR woman) AND trafficking</code> &nbsp; → grouped booleans</div>
+          <div style="color:var(--dim);margin-top:6px">Note: operators are case-sensitive — <code>and</code> / <code>or</code> lowercased become plain words.</div>
+        </div>
+      </div>
     </div>
     <div class="facet" data-facet="country"><div class="facet-head"><span class="fh-idx">02</span><span>COUNTRY</span><span class="fh-n" id="n-country">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-country"></div></div>
     <div class="facet" data-facet="body"><div class="facet-head"><span class="fh-idx">03</span><span>RECOMMENDING BODY</span><span class="fh-n" id="n-body">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-body"></div></div>
@@ -2901,6 +2927,18 @@ function bindYearSlider(minY, maxY) {
 /* ---------- Keyword input ---------- */
 const debouncedKw = debounce(() => onFiltersChanged(), 350);
 function bindKwInput() {
+  // Query-syntax examples — show/hide on click
+  const kwHintMore = $('#kwHintMore');
+  const kwExamples = $('#kwExamples');
+  if (kwHintMore && kwExamples) {
+    kwHintMore.addEventListener('click', (e) => {
+      e.preventDefault();
+      const open = kwExamples.style.display === 'block';
+      kwExamples.style.display = open ? 'none' : 'block';
+      kwHintMore.textContent = open ? 'examples ▾' : 'hide examples ▴';
+    });
+  }
+
   $('#kwInput').addEventListener('input', e => {
     state.filters.kw = e.target.value;
     $('#tabSearch').textContent = e.target.value.trim() || '—';
