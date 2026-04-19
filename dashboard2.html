@@ -5969,6 +5969,7 @@ function renderMethodology() {
         <li><strong>Stage 1 — rule-based OCR & HTML cleanup.</strong> ~700 lines of Python, no AI. Cleans <strong>99.75 %</strong> of records.</li>
         <li><strong>Stage 2 — LLM-assisted residue review.</strong> Only ~712 records (0.27 %) with hard OCR corruption go through a bounded Claude Sonnet prompt with structural validation rails.</li>
         <li><strong>Stage 3 — deterministic AnnotationType normalisation.</strong> ~3,294 records had missing or UUID-coded <code>type</code> fields. A multilingual regex classifier (EN/ES/FR/PT verbs + UPR imperatives) correctly re-labels <strong>2,603 of them (79 %)</strong>. Every change is audit-tagged in an <code>AnnotationTypeSource</code> field. No AI involved.</li>
+        <li><strong>Stage 4 — country backfill from UN document symbol.</strong> 108 records (0.04 %) arrived with no country metadata despite a country code being literally present in their symbol (<code>CEDAW/C/<strong>ALB</strong>/CO/4</code>, <code>CRPD/C/<strong>AZE</strong>/CO/1</code>). A single regex + data-derived ISO-alpha-3 lookup rescues <strong>107 of them</strong> (mostly Azerbaijan CRPD-2014 + Albania CEDAW-2016 batches); 1 thematic SR report is legitimately country-agnostic. Country coverage: 99.96 % → 99.9996 %. Appends-only, tagged <code>source: inferred:symbol</code> in <code>record_country</code>.</li>
       </ul>
 
       <h2>Does the cleaning change your results?</h2>
