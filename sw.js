@@ -3,8 +3,8 @@
  * - Stale-while-revalidate for /api/data/facets, /api/data/map, /api/data/analytics
  * - Network-only for /api/feedback/report, /api/data/full
  */
-const SHELL_CACHE  = 'uhri-v2-shell-v20';  // bump to invalidate stale caches on ship
-const DATA_CACHE   = 'uhri-v2-data-v2';
+const SHELL_CACHE  = 'uhri-v2-shell-v21';  // bump to invalidate stale caches on ship
+const DATA_CACHE   = 'uhri-v2-data-v3';   // Tier 2: precompute-aware responses
 const FONT_CACHE   = 'uhri-v2-font-v2';
 
 const SHELL_ASSETS = [
@@ -101,7 +101,15 @@ async function staleWhileRevalidate(req, cacheName) {
   const networkPromise = fetch(req).then(res => {
     if (res.ok) cache.put(req, res.clone()).catch(() => {});
     return res;
-  }).catch(() => cached);
+  }).catch((err) => {
+    // CRITICAL: respondWith() must never receive null/undefined or the SW
+    // raises "Returned response is null" and the whole fetch event fails.
+    if (cached) return cached;
+    return new Response(
+      JSON.stringify({ ok: false, error: 'network_unreachable', detail: String(err) }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
+  });
   return cached || networkPromise;
 }
 
