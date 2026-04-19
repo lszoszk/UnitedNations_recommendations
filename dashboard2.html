@@ -5549,37 +5549,19 @@ function renderMethodology() {
       <h1>Methodology <em style="color:var(--accent)">·</em> notes & caveats</h1>
       <p>This dashboard aggregates <strong>267,548 observations and recommendations</strong> addressed to UN Member States by Treaty Bodies, Special Procedures and the Universal Periodic Review, covering the twenty-year period 2006 – 2026.</p>
 
-      <h2>Data sources</h2>
-      <p>All records originate from the OHCHR <strong>Universal Human Rights Index</strong> (<a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a>). We clean the upstream JSON export with a transparent, mostly-deterministic pipeline and publish the corrected dataset on <a href="https://huggingface.co/datasets/lszoszk/uhri-cleaned" target="_blank" rel="noopener">Hugging Face</a>. You can always toggle back to the untouched upstream data in the classic dashboard.</p>
+      <h2>Data source</h2>
+      <p>All records originate from the OHCHR <strong>Universal Human Rights Index</strong> (<a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a>). We clean the upstream JSON export with a transparent, mostly-deterministic pipeline. You can toggle back to the untouched upstream data in the classic dashboard.</p>
 
-      <h2>Our cleanup approach — deterministic first, LLMs only where justified</h2>
-      <p>The field of human rights is rightly cautious about generative AI. Our pipeline reflects that principle:</p>
+      <h2>Cleanup approach — deterministic first</h2>
+      <p>The pipeline minimises generative AI involvement:</p>
       <ul>
         <li><strong>Stage 1 — rule-based OCR & HTML cleanup.</strong> ~700 lines of Python, no AI. Cleans <strong>99.75 %</strong> of records.</li>
         <li><strong>Stage 2 — LLM-assisted residue review.</strong> Only ~712 records (0.27 %) with hard OCR corruption go through a bounded Claude Sonnet prompt with structural validation rails.</li>
-        <li><strong>Stage 3 — deterministic AnnotationType normalisation.</strong> ~3,294 records had missing or UUID-coded type fields (0.68 % empties from old UPR, 0.29 % UUID codes from the 2026 CRC batch). A multilingual regex classifier (English + Spanish + French + Portuguese — verbs + UPR-style imperatives) correctly re-labels <strong>2,603 of them (79 %)</strong>. Every change is audit-tagged in the <code>AnnotationTypeSource</code> field (<code>upstream</code>, <code>inferred:text_en</code>, <code>inferred:text_en_imperative</code>, <code>inferred:text_es</code>, <code>inferred:heading</code>, or <code>unresolved</code>). Only 691 records (0.26 %) remain unresolved. No AI involved.</li>
+        <li><strong>Stage 3 — deterministic AnnotationType normalisation.</strong> ~3,294 records had missing or UUID-coded <code>type</code> fields. A multilingual regex classifier (EN/ES/FR/PT verbs + UPR imperatives) correctly re-labels <strong>2,603 of them (79 %)</strong>. Every change is audit-tagged in an <code>AnnotationTypeSource</code> field. No AI involved.</li>
       </ul>
-      <p>Full methodology — every rule, every regex, every sample — is in <a href="https://github.com/lszoszk/UnitedNations_recommendations/blob/main/pipeline/METHODOLOGY.md" target="_blank" rel="noopener"><code>pipeline/METHODOLOGY.md</code></a>.</p>
 
       <h2>Does the cleaning change your results?</h2>
-      <p>For <strong>large-trend analysis</strong> — top themes, aggregate country counts, 2006–2026 timelines, cross-region comparisons — the cleaned and upstream datasets are functionally identical. Stage 3 touches 1.23 % of records; Stage 1+2 text changes touch ~32 % but don't change which paragraph goes into which bucket. If you're reading the dashboard for headline patterns, upstream vs. cleaned is <em>immaterial</em>.</p>
-
-      <p>The cleaning <em>does</em> matter for three narrow kinds of research question, where the 1.23 % concentrates:</p>
-
-      <div class="mth-example">
-        <h3>① UPR second-cycle longitudinal research (2012–2016)</h3>
-        <p>Of the 1,371 records with missing <code>AnnotationType</code> upstream, the vast majority are <strong>UPR second-cycle reports</strong>. If you filter by <code>type = Recommendations</code> on the upstream dataset, you silently miss roughly 8–14 % of UPR paragraphs for countries like Denmark (237 records), Lebanon (221), Nepal (203) and Mauritania (200). Stage 3 rescues these. For a comparative UPR-cycle study, that's the difference between seeing the pattern and missing it.</p>
-      </div>
-
-      <div class="mth-example">
-        <h3>② Rights of the Child — 2026 batch (CRC, CEDAW, CMW)</h3>
-        <p>The 2026 upstream import swapped the usual <code>Recommendations</code> / <code>Observations</code> labels for internal UUID codes on <strong>768 records across 14 country reports</strong>: CRC for Malaysia, Colombia, Ethiopia, Maldives, Pakistan; CEDAW for Iraq; CMW for Indonesia. On upstream, these all fall into the "Other" bucket and vanish from type filters. For anyone tracking <em>what the Committee on the Rights of the Child is saying right now</em>, the cleaned dataset is what makes them visible.</p>
-      </div>
-
-      <div class="mth-example">
-        <h3>③ Latin-American Special-Procedure visits (Spanish-language)</h3>
-        <p>SR country-visit reports written in Spanish (SR Sale of Children, SR Migrants, SR Independence of Judges, SR Minorities) often left the type field empty — about 1,300 records, concentrated in Guatemala, Honduras, Dominican Republic, Colombia, Paraguay. Stage 3's Spanish classifier rescues the clearly-verb-led paragraphs (<code>recomienda</code>, <code>exhorta</code>, <code>acoge con beneplácito</code>). Comparative Latin-America studies get coverage the upstream dataset silently omits.</p>
-      </div>
+      <p>For large-trend analysis — top themes, country counts, 2006–2026 timelines, cross-region comparisons — cleaned and upstream datasets are functionally identical. The cleaning matters for narrow questions where Stage 3 concentrates, notably UPR second-cycle longitudinal work, the 2026 CRC/CEDAW/CMW batch, and Latin-American Spanish-language Special-Procedure visits. Full methodology available on request.</p>
 
       <h2>Architecture</h2>
       <p>Three-column Bloomberg-terminal layout: rail filters → main content → selected-record drawer. All analytics computed server-side on demand (<code>/api/data/facets</code>, <code>/api/data/analytics</code>, <code>/api/data/records</code>, <code>/api/data/map</code>) with a materialised-view cache on the VM for single-entity profile queries.</p>
