@@ -1930,6 +1930,147 @@ const offline = {
 };
 window.__offline = offline;
 
+/* =========================================================================
+   TIER 4B — IndexedDB persistence for offline mode
+   =========================================================================
+   Stores the downloaded dataset as a single gzipped blob keyed by
+   'current' in the 'snapshot' object store of the 'uhri-offline' DB.
+   CompressionStream / DecompressionStream are widely supported (Chrome 80+,
+   Firefox 113+, Safari 16.4+). If unavailable we fall back to uncompressed
+   storage (~130 MB instead of ~40 MB — still works).
+
+   The snapshot carries metadata so we can age-check and decide whether to
+   reuse vs. re-download on re-enable. */
+const idbOffline = {
+  DB_NAME: 'uhri-offline',
+  DB_VERSION: 1,
+  STORE: 'snapshot',
+  MAX_AGE_DAYS: 30,
+
+  _open() {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window)) return reject(new Error('IndexedDB unavailable'));
+      const req = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(this.STORE)) {
+          db.createObjectStore(this.STORE, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror   = () => reject(req.error);
+      req.onblocked = () => reject(new Error('IDB open blocked'));
+    });
+  },
+
+  async getSnapshot() {
+    try {
+      const db = await this._open();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(this.STORE, 'readonly');
+        const req = tx.objectStore(this.STORE).get('current');
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror   = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn('[idbOffline] getSnapshot failed:', e);
+      return null;
+    }
+  },
+
+  async putSnapshot(records, dataset = 'cleaned') {
+    const json = JSON.stringify(records);
+    let blob;
+    let compressed = false;
+    try {
+      blob = await this._gzip(json);
+      compressed = true;
+    } catch (e) {
+      // Fallback — store uncompressed Blob if CompressionStream unavailable
+      console.warn('[idbOffline] gzip failed, storing uncompressed:', e);
+      blob = new Blob([json], { type: 'application/json' });
+    }
+    const db = await this._open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.STORE, 'readwrite');
+      tx.objectStore(this.STORE).put({
+        id: 'current',
+        dataset,
+        blob,
+        compressed,
+        total: records.length,
+        fetched_at: new Date().toISOString(),
+        schema_version: 1,
+      });
+      tx.oncomplete = () => resolve({ bytes: blob.size, compressed });
+      tx.onerror    = () => reject(tx.error);
+      tx.onabort    = () => reject(tx.error || new Error('IDB txn aborted'));
+    });
+  },
+
+  async readRecords(snapshot) {
+    if (!snapshot || !snapshot.blob) return null;
+    if (snapshot.compressed) {
+      return JSON.parse(await this._gunzipText(snapshot.blob));
+    }
+    return JSON.parse(await snapshot.blob.text());
+  },
+
+  async clear() {
+    try {
+      const db = await this._open();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(this.STORE, 'readwrite');
+        tx.objectStore(this.STORE).delete('current');
+        tx.oncomplete = () => resolve();
+        tx.onerror    = () => reject(tx.error);
+      });
+    } catch (e) {
+      console.warn('[idbOffline] clear failed:', e);
+    }
+  },
+
+  ageInDays(snapshot) {
+    if (!snapshot || !snapshot.fetched_at) return Infinity;
+    return (Date.now() - new Date(snapshot.fetched_at).getTime()) / 86400000;
+  },
+
+  isFresh(snapshot) {
+    return snapshot && this.ageInDays(snapshot) < this.MAX_AGE_DAYS;
+  },
+
+  async _gzip(text) {
+    const cs = new CompressionStream('gzip');
+    const stream = new Blob([text]).stream().pipeThrough(cs);
+    return await new Response(stream).blob();
+  },
+
+  async _gunzipText(blob) {
+    const ds = new DecompressionStream('gzip');
+    return await new Response(blob.stream().pipeThrough(ds)).text();
+  },
+};
+window.__idbOffline = idbOffline;
+
+/* Attempt to load a cached dataset from IndexedDB; populate offline.data
+   and return the record count on success, 0 on miss/failure.
+   Expected turn-around ~1.5 s for a 40 MB compressed snapshot. */
+async function loadOfflineFromIDB(onProgress) {
+  onProgress && onProgress({ phase: 'reading-cache' });
+  const snap = await idbOffline.getSnapshot();
+  if (!idbOffline.isFresh(snap)) return 0;
+  onProgress && onProgress({ phase: 'decompressing', size: snap.blob?.size || 0 });
+  const records = await idbOffline.readRecords(snap);
+  if (!Array.isArray(records) || !records.length) return 0;
+  offline.data = records;
+  onProgress && onProgress({
+    phase: 'done-cached',
+    count: records.length,
+    age_days: idbOffline.ageInDays(snap),
+  });
+  return records.length;
+}
+
 /* ---------- OFFLINE DOWNLOAD UI ----------
    Streams the cleaned dataset from the VM with progress feedback. The
    endpoint returns a single JSON array (~350MB), which we read chunk-by-
@@ -1963,6 +2104,20 @@ async function runOfflineDownload(onProgress) {
   offline.data = parsed;
   const elapsed = Math.round(performance.now() - t0);
   onProgress && onProgress({ received, total, phase: 'done', elapsed, count: parsed.length });
+
+  // Tier 4B: persist to IndexedDB so the next page load skips the download.
+  // Do not block the caller — report progress via a secondary callback.
+  (async () => {
+    onProgress && onProgress({ phase: 'persisting' });
+    try {
+      const meta = await idbOffline.putSnapshot(parsed, 'cleaned');
+      onProgress && onProgress({ phase: 'persisted', bytes: meta.bytes, compressed: meta.compressed });
+    } catch (err) {
+      console.warn('[offline] IDB persist failed (continuing in-memory only):', err);
+      onProgress && onProgress({ phase: 'persist-failed', error: String(err) });
+    }
+  })();
+
   return parsed;
 }
 
@@ -7708,21 +7863,71 @@ async function boot() {
   $('#uploadBtn').addEventListener('click', triggerUpload);
 
   // Offline & Private Mode button (#27)
-  $('#offlineBtn').addEventListener('click', () => {
+  $('#offlineBtn').addEventListener('click', async () => {
     if (offline.enabled) {
       toast(`⚡ Instant Mode active · ${fmt(offline.data?.length||0)} records in browser`, false, 3000);
       return;
     }
+    // Tier 4B: if we have a fresh cached snapshot, skip the 420 MB download.
+    const snap = await idbOffline.getSnapshot();
+    if (idbOffline.isFresh(snap)) {
+      $('#offlineLbl').textContent = 'LOADING CACHE…';
+      $('#offlineBtn').disabled = true;
+      try {
+        const n = await loadOfflineFromIDB();
+        if (n > 0) {
+          offline.enable();
+          refreshCurrentView?.();
+          refreshHitCount?.();
+          toast(
+            `⚡ Instant Mode activated from cache · ${fmt(n)} records · ` +
+            `${Math.round(idbOffline.ageInDays(snap))}d old`,
+            false, 4000
+          );
+          return;
+        }
+      } catch (err) {
+        console.warn('[offline] IDB restore failed, falling back to download:', err);
+      } finally {
+        $('#offlineBtn').disabled = false;
+      }
+    }
     showOfflineModal();
   });
 
-  // If user previously enabled offline mode, auto-offer to re-enable
-  try {
-    if (localStorage.getItem('uhri_v2_offline_pref') === '1') {
+  // Tier 4B: if the user previously enabled Instant Mode AND we have a
+  // fresh IDB snapshot, auto-activate without waiting for a click. If the
+  // snapshot is missing/stale, fall back to the old "RELOAD LOCAL" hint
+  // that lets the user re-download on demand.
+  (async () => {
+    try {
+      if (localStorage.getItem('uhri_v2_offline_pref') !== '1') return;
+      const snap = await idbOffline.getSnapshot();
+      if (idbOffline.isFresh(snap)) {
+        $('#offlineLbl').textContent = 'LOADING CACHE…';
+        try {
+          const n = await loadOfflineFromIDB();
+          if (n > 0) {
+            offline.enable();
+            refreshCurrentView?.();
+            refreshHitCount?.();
+            toast(
+              `⚡ Instant Mode restored from cache · ${fmt(n)} records · ` +
+              `${Math.round(idbOffline.ageInDays(snap))}d old · click button to refresh data`,
+              false, 5000
+            );
+            return;
+          }
+        } catch (e) {
+          console.warn('[offline] auto-restore failed:', e);
+        }
+      }
+      // Snapshot missing or stale — keep prompting user to re-enable
       $('#offlineLbl').textContent = 'RELOAD LOCAL';
-      $('#offlineBtn').title = 'You previously enabled Instant Mode — click to re-download the dataset and re-activate';
-    }
-  } catch {}
+      $('#offlineBtn').title =
+        'You previously enabled Instant Mode — click to download fresh data and re-activate';
+    } catch {}
+  })();
 
   $$('[data-nav]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.nav); }));
 
