@@ -1,11 +1,15 @@
 # /etc/cron.d/uhri-precompute
-# Refresh the precomputed zero-filter endpoint cache every 15 minutes.
-# Runs as amuvmuser; writes to /opt/uhri/precomputed/ and logs to /var/log/uhri-precompute.log
+# Refresh the precomputed zero-filter endpoint cache every 15 minutes,
+# and rebuild the FTS5 text-search indexes after the monthly UHRI refresh.
+# Runs as amuvmuser; writes to /opt/uhri/precomputed/ and logs to /var/log/uhri-*.log
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 # Every 15 min — matches the Cache-Control max-age=900 we set in Tier 1
 */15 * * * * amuvmuser /opt/uhri/precompute.sh >> /var/log/uhri-precompute.log 2>&1
 
-# Also explicit warm right after the monthly UHRI refresh (03:30)
-35 3 1 * *  amuvmuser /opt/uhri/precompute.sh >> /var/log/uhri-precompute.log 2>&1
+# After the monthly UHRI refresh (~03:30) — order matters:
+#   03:35  rebuild FTS5 indexes against the refreshed DB (~20 s)
+#   03:40  warm the precompute cache against the new data + new FTS5 tables
+35 3 1 * *  amuvmuser /opt/uhri/rebuild_fts.py >> /var/log/uhri-fts.log        2>&1
+40 3 1 * *  amuvmuser /opt/uhri/precompute.sh  >> /var/log/uhri-precompute.log 2>&1
