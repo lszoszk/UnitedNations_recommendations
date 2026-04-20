@@ -251,6 +251,17 @@ a{color:inherit;text-decoration:none}
 
 /* Timeline drag-select overlay */
 .tl-wrap{position:relative}
+/* T2: Floating tooltip for timeline hover. Pinned to cursor, flips
+   when it would overflow the container. Shows year + total + top-3
+   contributors (family or body depending on stackBy mode). */
+.tl-tooltip{position:absolute;pointer-events:none;background:var(--paper);border:1px solid var(--ink);box-shadow:0 6px 20px rgba(0,0,0,.2);padding:8px 10px;font:11px var(--mono);color:var(--ink);min-width:180px;max-width:280px;z-index:5;line-height:1.35}
+.tl-tooltip .tl-tt-head{display:flex;justify-content:space-between;gap:10px;padding-bottom:5px;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.tl-tooltip .tl-tt-year{font-family:var(--serif);font-size:15px;line-height:1;color:var(--ink)}
+.tl-tooltip .tl-tt-total{font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+.tl-tooltip .tl-tt-row{display:flex;align-items:center;gap:6px;font-size:10px;padding:1px 0}
+.tl-tooltip .tl-tt-sw{width:8px;height:8px;flex-shrink:0}
+.tl-tooltip .tl-tt-lbl{flex:1;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-tooltip .tl-tt-n{font-variant-numeric:tabular-nums;color:var(--ink)}
 .tl-sel{position:absolute;top:14px;bottom:26px;background:var(--accent-soft);border-left:2px solid var(--accent);border-right:2px solid var(--accent);pointer-events:none;z-index:2}
 .tl-wrap svg{cursor:crosshair}
 .tl-hint{position:absolute;top:4px;right:8px;font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;pointer-events:none;background:color-mix(in oklab, var(--paper) 80%, transparent);padding:2px 4px}
@@ -3467,7 +3478,12 @@ function renderRowList(el, rows, opts = {}) {
     let sparkHtml = '';
     if (showSpark) {
       if (sparkSource && sparkSource[r.key]) {
-        sparkHtml = buildSparklineSVG(sparkSource[r.key], minY, maxY);
+        // T3: tint body sparklines by their mechanism family so the
+        // colour coding propagates from the timeline into every Top
+        // Bodies row. Non-body rows (themes, groups, SDGs, countries)
+        // keep the default accent.
+        const sparkColor = opts.facet === 'body' ? _bodyColor(r.key) : null;
+        sparkHtml = buildSparklineSVG(sparkSource[r.key], minY, maxY, sparkColor);
       } else {
         sparkHtml = '';  // placeholder — will be filled by backfillCountrySparklines
       }
@@ -4276,23 +4292,64 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   const years = [];
   for (let y = rangeMin; y <= rangeMax; y++) years.push(y);
   const mode = opts.mode || getTimelineMode();  // 'annual' | 'cumulative' | 'total-line'
-  // Collect top N bodies by total volume
-  const bodyTotals = {};
-  years.forEach(y => {
-    const m = yearlyBodyCounts[y] || {};
-    Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c);
-  });
-  const topBodies = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
-  // Hidden bodies are zeroed out in the stacks so their area disappears,
-  // but they still appear in the legend (dimmed + strikethrough) for toggle.
+  // T1: stack dimension — 'body' (default, top 6 bodies) or 'family'
+  // (3 layers: UPR / Treaty Bodies / Special Procedures, colour-coded
+  // with --mech-* custom props). Overview + Compare pass 'family' so
+  // the big-picture view matches the KPI strip; drill-down profiles
+  // (country, theme, mechanism single body…) stay at body granularity.
+  const stackBy = opts.stackBy || 'body';
+
+  let stackKeys;       // ordered list of stack-layer identifiers
+  let stackLabels;     // human-readable label per layer (for legend/tooltip)
+  let stackColors;     // CSS colour per layer (index-aligned with stackKeys)
+  let yearToLayer;     // (year) => [countsForEachLayer]
+
+  if (stackBy === 'family') {
+    // Three deterministic layers — always in this order so colours and
+    // legend stay stable regardless of which mechanisms actually have
+    // data in the current filter.
+    stackKeys   = ['upr', 'treaty', 'sp'];
+    stackLabels = { upr: 'UPR', treaty: 'Treaty Bodies', sp: 'Special Procedures' };
+    stackColors = {
+      upr:    cssVar('--mech-upr') || '#c2410c',
+      treaty: cssVar('--mech-tb')  || '#0d9488',
+      sp:     cssVar('--mech-sp')  || '#7c3aed',
+    };
+    yearToLayer = (y) => {
+      const m = yearlyBodyCounts[y] || {};
+      const agg = { upr: 0, treaty: 0, sp: 0, other: 0 };
+      Object.entries(m).forEach(([b, c]) => { agg[classifyBody(b)] += c; });
+      return stackKeys.map(k => agg[k]);
+    };
+  } else {
+    // Original behaviour — top 6 bodies in greyscale.
+    const bodyTotals = {};
+    years.forEach(y => {
+      const m = yearlyBodyCounts[y] || {};
+      Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c);
+    });
+    stackKeys = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
+    stackLabels = Object.fromEntries(stackKeys.map(k => [k, k]));
+    const ink = cssVar('--ink'), accent = cssVar('--accent');
+    stackColors = Object.fromEntries(stackKeys.map((k, i) => [k,
+      i===0?ink:(i===1?'#3a3a3a':i===2?'#5c5a55':i===3?'#7a7872':i===4?'#98968f':accent)
+    ]));
+    yearToLayer = (y) => {
+      const m = yearlyBodyCounts[y] || {};
+      return stackKeys.map(b => m[b] || 0);
+    };
+  }
+
+  // Hidden layers are zeroed so their area disappears; still show in legend.
   const hidden = state._hiddenBodies || new Set();
-  const stacks = years.map(y => topBodies.map(b => hidden.has(b) ? 0 : ((yearlyBodyCounts[y]||{})[b] || 0)));
+  const stacks = years.map(y => yearToLayer(y).map((v, i) => hidden.has(stackKeys[i]) ? 0 : v));
   const annualTotals = stacks.map(s => s.reduce((a,b)=>a+b,0));
   // Cumulative: running sum — each year includes everything before it
   const cumulTotals = [];
   annualTotals.reduce((acc, v, i) => { cumulTotals[i] = acc + v; return cumulTotals[i]; }, 0);
 
   const xStep = (W-pad.l-pad.r) / Math.max(1, years.length-1);
+  // Kept for cumulative / total-line modes which use ink/accent directly
   const ink = cssVar('--ink'), accent = cssVar('--accent');
 
   // Pick series/max depending on mode
@@ -4328,14 +4385,17 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
       g += `<circle cx="${pad.l+i*xStep}" cy="${yOf(annualTotals[i])}" r="2" fill="${ink}"><title>${years[i]}: ${fmt(annualTotals[i])}</title></circle>`;
     });
   } else {
-    // Default: stacked area by body
+    // Default: stacked area by stackBy dimension (family or body)
     const cumulative = years.map(()=>0);
-    topBodies.forEach((b, bi) => {
+    stackKeys.forEach((key, bi) => {
       for (let i = 0; i < years.length; i++) cumulative[i] += stacks[i][bi];
       const topPts = years.map((_,i)=>`${pad.l+i*xStep},${yOf(cumulative[i])}`);
       const botPts = years.map((_,i)=>`${pad.l+i*xStep},${yOf(cumulative[i]-stacks[i][bi])}`).reverse();
-      const col = bi===0?ink:(bi===1?'#3a3a3a':bi===2?'#5c5a55':bi===3?'#7a7872':bi===4?'#98968f':accent);
-      g += `<polygon points="${topPts.concat(botPts).join(' ')}" fill="${col}" opacity="${bi===5?0.9:(0.85-bi*0.06)}"><title>${sanitize(b)}</title></polygon>`;
+      const col = stackColors[key] || accent;
+      // In family mode all 3 layers have similar weight — fuller opacity.
+      // In body mode keep the fade so top-1 reads strongest.
+      const alpha = stackBy === 'family' ? 0.82 : (bi===5?0.9:(0.85-bi*0.06));
+      g += `<polygon points="${topPts.concat(botPts).join(' ')}" fill="${col}" opacity="${alpha}"><title>${sanitize(stackLabels[key] || key)}</title></polygon>`;
     });
     // Sparse-data markers: when the dataset only has a handful of years
     // with non-zero data, plain trapezoids are hard to read. Overlay a
@@ -4366,9 +4426,10 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   let modeHint;
   if (mode === 'cumulative') modeHint = 'cumulative total';
   else if (mode === 'total-line') modeHint = 'annual total (all bodies)';
-  else if (topBodies.length === 0) modeHint = 'no data';
-  else if (topBodies.length === 1) modeHint = `annual · only ${topBodies[0].replace(/^-\s*/, '')}`;
-  else modeHint = `annual · stacked by top ${topBodies.length} bodies (click legend to toggle)`;
+  else if (stackKeys.length === 0) modeHint = 'no data';
+  else if (stackBy === 'family') modeHint = 'annual · stacked by mechanism family (click legend to toggle)';
+  else if (stackKeys.length === 1) modeHint = `annual · only ${String(stackKeys[0]).replace(/^-\s*/, '')}`;
+  else modeHint = `annual · stacked by top ${stackKeys.length} bodies (click legend to toggle)`;
   container.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl-svg">${g}</svg>
     <div class="tl-years">${yearLabelsHtml}</div>
@@ -4420,14 +4481,15 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
     svg.addEventListener('mouseleave', e => { if (dragStart != null) finish(e); });
   }
 
-  // Interactive legend — each body can be toggled off/on via click
+  // Interactive legend — each stack layer can be toggled off/on via click
   if (opts.legendEl) {
-    opts.legendEl.innerHTML = topBodies.map((b,i) => {
-      const col = i===0?'var(--ink)':i===1?'#3a3a3a':i===2?'#5c5a55':i===3?'#7a7872':i===4?'#98968f':'var(--accent)';
-      const lbl = cleanLabel(b);
+    opts.legendEl.innerHTML = stackKeys.map((key) => {
+      const col = stackColors[key] || 'var(--accent)';
+      const rawLbl = stackLabels[key] || key;
+      const lbl = stackBy === 'family' ? rawLbl : cleanLabel(rawLbl);
       const short = lbl.length > 20 ? lbl.slice(0,18)+'…' : lbl;
-      const isOff = (state._hiddenBodies || new Set()).has(b);
-      return `<span class="legend-body${isOff?' off':''}" data-body="${sanitize(b)}" title="${sanitize(lbl)} — click to ${isOff?'show':'hide'}" style="display:inline-flex;gap:4px;align-items:center;margin-right:6px;font-size:10px"><span class="swatch" style="width:10px;height:10px;background:${col};display:inline-block"></span>${sanitize(short)}</span>`;
+      const isOff = (state._hiddenBodies || new Set()).has(key);
+      return `<span class="legend-body${isOff?' off':''}" data-body="${sanitize(key)}" title="${sanitize(lbl)} — click to ${isOff?'show':'hide'}" style="display:inline-flex;gap:4px;align-items:center;margin-right:6px;font-size:10px"><span class="swatch" style="width:10px;height:10px;background:${col};display:inline-block"></span>${sanitize(short)}</span>`;
     }).join('');
     opts.legendEl.querySelectorAll('.legend-body').forEach(span => {
       span.addEventListener('click', () => {
@@ -4440,6 +4502,97 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
       });
     });
   }
+
+  // ---------- T2: rich hover tooltip ----------
+  // Replaces the primitive SVG <title> tooltips with a floating HTML
+  // card showing year · total · top 3 contributors. Attached to the
+  // container (not the SVG) so it can escape SVG clipping. Uses native
+  // mousemove to compute the year under the cursor and pull the
+  // top-3 breakdown from the original (non-hidden-filtered) data so
+  // numbers match what the user sees in the stack.
+  _wireTimelineTooltip(container, {
+    years, xStep, pad, W,
+    stackBy, stackKeys, stackLabels, stackColors,
+    yearlyBodyCounts, annualTotals, cumulTotals,
+    mode,
+  });
+}
+
+/* Build/position a rich floating tooltip over a timeline SVG.
+   Handles mousemove → year lookup → tooltip render. Single reusable
+   overlay element per container so we don't leak DOM on re-render.
+   Tag: timeline-tooltip-v1 */
+function _wireTimelineTooltip(container, ctx) {
+  if (!container) return;
+  const svg = container.querySelector('svg');
+  if (!svg) return;
+
+  // Re-use existing tooltip div if present (re-render case)
+  let tip = container.querySelector('.tl-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.className = 'tl-tooltip';
+    tip.style.display = 'none';
+    container.appendChild(tip);
+  }
+
+  const { years, xStep, pad, W, stackBy, stackKeys, stackLabels, stackColors, yearlyBodyCounts, annualTotals, cumulTotals, mode } = ctx;
+
+  const xToYearIdx = (clientX) => {
+    const rect = svg.getBoundingClientRect();
+    const relX = (clientX - rect.left) / rect.width;
+    const innerPct = (relX * W - pad.l) / (W - pad.l - pad.r);
+    const i = Math.round(innerPct * (years.length - 1));
+    return Math.max(0, Math.min(years.length - 1, i));
+  };
+
+  const render = (yearIdx, clientX, clientY) => {
+    const year = years[yearIdx];
+    const total = mode === 'cumulative' ? cumulTotals[yearIdx] : annualTotals[yearIdx];
+
+    // Per-year breakdown using ORIGINAL data (even hidden layers appear
+    // dimmed in breakdown so hover always shows full truth).
+    const yearMap = yearlyBodyCounts[year] || {};
+    let breakdownRows = [];
+    if (stackBy === 'family') {
+      const agg = { upr: 0, treaty: 0, sp: 0, other: 0 };
+      Object.entries(yearMap).forEach(([b, c]) => { agg[classifyBody(b)] += c; });
+      breakdownRows = stackKeys
+        .map(k => ({ key: k, label: stackLabels[k], count: agg[k], color: stackColors[k] }))
+        .filter(r => r.count > 0);
+    } else {
+      breakdownRows = Object.entries(yearMap)
+        .map(([b, c]) => ({ key: b, label: cleanLabel(b), count: c, color: stackColors[b] || 'var(--dim)' }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3);
+    }
+
+    const rowsHtml = breakdownRows.length
+      ? breakdownRows.map(r => `<div class="tl-tt-row"><span class="tl-tt-sw" style="background:${r.color}"></span><span class="tl-tt-lbl">${sanitize(r.label)}</span><span class="tl-tt-n">${fmt(r.count)}</span></div>`).join('')
+      : '<div class="tl-tt-row" style="color:var(--dim)">no data this year</div>';
+
+    tip.innerHTML = `
+      <div class="tl-tt-head">
+        <span class="tl-tt-year">${year}</span>
+        <span class="tl-tt-total">${fmt(total)} record${total===1?'':'s'}${mode==='cumulative'?' (cumulative)':''}</span>
+      </div>
+      ${rowsHtml}`;
+
+    // Position: follow cursor but keep inside container bounds.
+    const rect = container.getBoundingClientRect();
+    let x = clientX - rect.left + 14;
+    let y = clientY - rect.top + 14;
+    tip.style.display = 'block';
+    // After display:block we can measure size
+    const tipRect = tip.getBoundingClientRect();
+    if (x + tipRect.width > rect.width - 4) x = clientX - rect.left - tipRect.width - 10;
+    if (y + tipRect.height > rect.height - 4) y = clientY - rect.top - tipRect.height - 10;
+    tip.style.left = Math.max(4, x) + 'px';
+    tip.style.top = Math.max(4, y) + 'px';
+  };
+
+  svg.onmousemove = (e) => render(xToYearIdx(e.clientX), e.clientX, e.clientY);
+  svg.onmouseleave = () => { tip.style.display = 'none'; };
 }
 
 /* =========================================================================
@@ -4571,7 +4724,7 @@ function _wireTimelineModeToggle() {
       setTimelineMode(mode);
       modes.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tlmode === mode));
       if (state.analytics) {
-        renderTimeline($('#tlWrap'), state.analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#tlLegend'), mode });
+        renderTimeline($('#tlWrap'), state.analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#tlLegend'), mode, stackBy: 'family' });
       }
       announce('Timeline mode switched to ' + mode);
     });
@@ -4703,9 +4856,15 @@ function renderOverviewAnalytics(analytics) {
   renderRowList($('#topSdgs'), topS, { facet:'sdg', sparklines: _sdgSparklines });
 
   const mode = getTimelineMode();
+  // T1: Overview timeline stacks by MECHANISM FAMILY (3 layers: UPR /
+  // Treaty Bodies / Special Procedures) — matches the FIG.00 KPI strip
+  // colours above the map and keeps the top-of-page narrative coherent.
+  // Drill-down profile timelines (Country / Theme / Group / SDG /
+  // Mechanism single body) keep body-level stacks for granular context.
   renderTimeline($('#tlWrap'), analytics?.trends?.yearly_body_counts || {}, {
     legendEl: mode === 'annual' ? $('#tlLegend') : null,
     mode,
+    stackBy: 'family',
   });
   // Hide the per-body legend when the timeline mode doesn't have bodies
   const legend = $('#tlLegend'); if (legend && mode !== 'annual') legend.innerHTML = '';
@@ -5617,7 +5776,7 @@ async function renderCompare() {
       const subEl = $(`#cmpSub${letter}`);
       if (subEl) subEl.textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes · ${(an?.text?.affected_person_counts||[]).length} groups`;
       const timeEl = $(`#cmpTime${letter}`);
-      if (timeEl) renderTimeline(timeEl, an?.trends?.yearly_body_counts || {}, { interactive: false });
+      if (timeEl) renderTimeline(timeEl, an?.trends?.yearly_body_counts || {}, { interactive: false, stackBy: 'family' });
       // Each Compare bar is clickable — it opens the drawer list scoped to
       // the country for that side (A or B). `extraFilter` pins the country
       // so the records behind the bar match what the bar represents, not
@@ -8438,7 +8597,13 @@ function _yearlyCountsByKey(list, keyField) {
   return out;
 }
 
-function buildSparklineSVG(yearToCount, minYear, maxYear) {
+function buildSparklineSVG(yearToCount, minYear, maxYear, color = null) {
+  // T3: optional `color` override — used to tint body sparklines by
+  // their mechanism family (teal / violet / orange) so Top Bodies lists
+  // gain the same colour coding as the timeline stack + KPI strip.
+  // Defaults to --accent when no override is supplied.
+  const strokeCol = color || 'var(--accent)';
+  const fillCol = color || 'var(--accent)';
   const W = 54, H = 16, pad = 1;
   if (!yearToCount) return '';
   const years = [];
@@ -8456,10 +8621,21 @@ function buildSparklineSVG(yearToCount, minYear, maxYear) {
   // Last point highlighted
   const last = pts[pts.length - 1];
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-    <path d="${fill}" fill="var(--accent)" opacity="0.16"/>
-    <polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="1" vector-effect="non-scaling-stroke"/>
-    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="1.5" fill="var(--accent)"/>
+    <path d="${fill}" fill="${fillCol}" opacity="0.16"/>
+    <polyline points="${line}" fill="none" stroke="${strokeCol}" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="1.5" fill="${strokeCol}"/>
   </svg>`;
+}
+
+/* Family-color lookup for body sparklines. Maps body name → CSS var
+   string usable in SVG fill/stroke. Falls back to null (→ default
+   accent) for orphan/unclassified bodies. */
+function _bodyColor(bodyName) {
+  const fam = classifyBody(String(bodyName || '').replace(/^-\s*/, ''));
+  if (fam === 'upr')    return 'var(--mech-upr)';
+  if (fam === 'treaty') return 'var(--mech-tb)';
+  if (fam === 'sp')     return 'var(--mech-sp)';
+  return null;
 }
 
 /* Precomputed sparkline data maps — updated when analytics lands.
