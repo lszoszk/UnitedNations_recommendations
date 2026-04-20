@@ -44,6 +44,10 @@
 *{box-sizing:border-box}
 html,body{background:var(--paper);color:var(--ink);margin:0;height:100%}
 body{font-family:var(--mono);font-size:12px;line-height:1.4;-webkit-font-smoothing:antialiased;overflow:hidden}
+/* M3: dvh fallback for iOS Safari where 100vh includes URL bar area
+   (content gets clipped when bar appears). dvh = dynamic viewport
+   height, always the visible area. */
+@supports (height: 100dvh){body{height:100dvh}}
 ::selection{background:var(--accent);color:var(--paper)}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 input{font:inherit;color:inherit}
@@ -82,6 +86,7 @@ a{color:inherit;text-decoration:none}
 
 /* ---------- APP LAYOUT ---------- */
 .app{display:grid;grid-template-columns:var(--rail-w) 1fr var(--drawer-w);height:calc(100vh - var(--top-h) - 30px);overflow:hidden}
+@supports (height: 100dvh){.app{height:calc(100dvh - var(--top-h) - 30px)}}
 /* ---------- FOOTER (always visible at bottom) ---------- */
 .dash-footer{position:fixed;bottom:0;left:0;right:0;height:30px;background:var(--paper);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;z-index:25;gap:16px;overflow:hidden;white-space:nowrap}
 .dash-footer .df-left{overflow:hidden;text-overflow:ellipsis;display:flex;gap:12px;align-items:center}
@@ -1200,7 +1205,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .drawer.mobile-open{display:block;position:fixed;top:var(--top-h);right:0;bottom:0;width:min(340px,90vw);z-index:28;background:var(--paper);border-left:1px solid var(--line);box-shadow:-4px 0 20px rgba(0,0,0,.15)}
   .cmdk-hint{display:none}
   .cmdk{max-width:none}
-  .mobile-menu-btn{display:inline-flex;align-items:center;justify-content:center}
+  .mobile-menu-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;font-size:16px;min-width:44px;min-height:44px}
   /* On mobile: keep the status chip (dot + size) visible, hide the rest
      of the header meta clutter. The chip itself drops the numeric size
      on narrow viewports so only the pulsing dot remains. */
@@ -1214,6 +1219,76 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .map-wrap{height:240px}
   .tab{min-width:110px}
   .tab .t-ctx{max-width:100px}
+
+  /* ---------- M3: MOBILE RESPONSIVE PACK ---------- */
+
+  /* H2: Bump sub-12px fonts to legible size. Density stays "tight"
+     semantically but actual pixel sizes go above the WCAG comfort line. */
+  .tab-eyebrow, .tab .t-idx, .facet-head, .fh-n, .facet-filter,
+  .af-chip .k, .se-hdr .region, .se-hdr .kw, .se-hdr .type,
+  .kw-hint, .dash-footer, .panel-head .panel-actions,
+  .cp-iso, .cp-sub, .cp-kpi .l, .mt-family, .tl-hint{font-size:12px!important;line-height:1.4}
+  .rnk{font-size:11px}
+
+  /* H3: touch targets — checkboxes, chips, list rows at least 44px hit area */
+  .opt{padding:10px 8px;min-height:44px;font-size:13px}
+  .opt .box{width:18px;height:18px}
+  .bc{padding:8px 12px;min-height:40px;font-size:12px}
+  .facet-head{padding:14px 12px;min-height:44px}
+  .sdg-cell{min-width:44px;min-height:44px}
+
+  /* H1: Year slider handles — enlarge the actual :before hit-target
+     (the 14x14 dot stays visually small but the tappable area covers 44px) */
+  .ys-handle{position:relative}
+  .ys-handle::before{content:"";position:absolute;inset:-15px;min-width:44px;min-height:44px}
+
+  /* H7: Stop iOS auto-zoom when focusing inputs. iOS zooms any <input>
+     whose font-size is <16px. Force 16px (but only when the user's
+     device is touch — desktop keeps 11-12px density). */
+  .kwinput, .facet-filter, input[type=text], input[type=search],
+  input[type=number], select, textarea{font-size:16px!important}
+
+  /* H5: Bottom-sheet pattern for floating UI. Desktop-sized popovers/
+     modals with fixed right/width values don't fit 375px viewports.
+     On mobile they slide up from the bottom edge, full-width. */
+  .tweaks,.ds-popover,.changelog-modal .ch-card,.tour-pop,.diff-tray,
+  .slow-load-banner{
+    position:fixed!important;inset:auto 0 0 0!important;
+    left:0!important;right:0!important;top:auto!important;
+    width:100%!important;max-width:none!important;min-width:0!important;
+    margin:0!important;border-radius:10px 10px 0 0;box-sizing:border-box
+  }
+  /* Command palette modal — fill viewport instead of centered card */
+  .cmd-palette{padding:0!important}
+  .cmd-card{max-height:82vh}
+
+  /* Reader modal on mobile — full-screen-ish, less padding */
+  .reader{padding:0}
+  .reader-inner{padding:24px 16px;max-height:100vh;max-height:100dvh;border-radius:0}
+
+  /* H4: Overview hex map squeezed; keep aspect without 520px forced height */
+  .hex-svg{height:360px}
+
+  /* H8: Diff compare side-by-side illegible on phones */
+  .diff-cols, .sh-options{grid-template-columns:1fr}
+
+  /* H9: Search result action bar — hover pattern dead on touch */
+  .se-item .se-actions{opacity:1}
+
+  /* Tabs overflow affordance — larger fade + hint */
+  .tabs::after{width:32px}
+
+  /* Mobile backdrop visible when rail or drawer is open */
+  .mobile-backdrop{z-index:27}
+}
+
+/* pointer:coarse covers touch regardless of viewport width — some
+   large tablets/laptops with touch also benefit. */
+@media(pointer:coarse){
+  .kwinput, .facet-filter, input[type=text], input[type=search],
+  input[type=number], select, textarea{font-size:16px}
+  .opt{min-height:44px}
+  button{min-height:36px}
 }
 </style>
 </head>
@@ -3983,30 +4058,88 @@ async function renderChoroplethMap(container, countryCounts) {
     }));
   $('#geoReset', container)?.addEventListener('click', () => fitToRegion('world'));
 
-  // Pan with drag
-  svg.addEventListener('mousedown', e => {
-    if (e.target.classList.contains('country')) return;  // let click on country take precedence
-    panning = true;
-    panStart = { x: e.clientX, y: e.clientY };
-    vbStart = getVB();
-    svg.style.cursor = 'grabbing';
+  // M3 · C2: Pan + pinch-zoom with Pointer Events (covers mouse, pen, touch).
+  // Two-finger pinch detected by tracking active pointers; distance ratio
+  // drives zoom. Single pointer does pan.
+  const activePointers = new Map();  // pointerId → {x, y}
+  let pinchStartDist = 0, pinchStartVB = null, pinchCenterRatio = null;
+
+  const getPointerMidAndDist = () => {
+    const pts = [...activePointers.values()];
+    if (pts.length < 2) return null;
+    const [a, b] = pts;
+    return {
+      mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      dist: Math.hypot(b.x - a.x, b.y - a.y),
+    };
+  };
+
+  svg.addEventListener('pointerdown', e => {
+    if (e.target.classList.contains('country') && activePointers.size === 0) return;  // let click on country take precedence
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    svg.setPointerCapture?.(e.pointerId);
+    if (activePointers.size === 1) {
+      panning = true;
+      panStart = { x: e.clientX, y: e.clientY };
+      vbStart = getVB();
+      svg.style.cursor = 'grabbing';
+    } else if (activePointers.size === 2) {
+      // Start pinch
+      panning = false;
+      const info = getPointerMidAndDist();
+      if (info) {
+        pinchStartDist = info.dist;
+        pinchStartVB = getVB();
+        const rect = svg.getBoundingClientRect();
+        pinchCenterRatio = {
+          rx: (info.mid.x - rect.left) / rect.width,
+          ry: (info.mid.y - rect.top) / rect.height,
+        };
+      }
+    }
     e.preventDefault();
   });
-  window.addEventListener('mousemove', e => {
-    if (!panning) return;
-    const vb = vbStart;
-    const rect = svg.getBoundingClientRect();
-    const scale = vb[2] / rect.width;
-    setVB(vb[0] - (e.clientX - panStart.x) * scale,
-          vb[1] - (e.clientY - panStart.y) * scale,
-          vb[2], vb[3]);
+
+  svg.addEventListener('pointermove', e => {
+    if (!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.size === 2 && pinchStartVB) {
+      // Pinch zoom
+      const info = getPointerMidAndDist();
+      if (!info || !pinchStartDist) return;
+      const scale = pinchStartDist / info.dist;   // <1 = zoom in, >1 = zoom out
+      const newW = pinchStartVB[2] * scale;
+      const newH = pinchStartVB[3] * scale;
+      // Keep the midpoint anchored (same SVG point under the midpoint)
+      const anchorX = pinchStartVB[0] + pinchCenterRatio.rx * pinchStartVB[2];
+      const anchorY = pinchStartVB[1] + pinchCenterRatio.ry * pinchStartVB[3];
+      const newX = anchorX - pinchCenterRatio.rx * newW;
+      const newY = anchorY - pinchCenterRatio.ry * newH;
+      setVB(newX, newY, newW, newH);
+    } else if (activePointers.size === 1 && panning) {
+      const vb = vbStart;
+      const rect = svg.getBoundingClientRect();
+      const scale = vb[2] / rect.width;
+      setVB(vb[0] - (e.clientX - panStart.x) * scale,
+            vb[1] - (e.clientY - panStart.y) * scale,
+            vb[2], vb[3]);
+    }
   });
-  window.addEventListener('mouseup', () => {
-    if (panning) { panning = false; svg.style.cursor = 'grab'; }
-  });
-  // Also allow click-through to countries — track pan-distance to distinguish
-  let clickStartX = 0, clickStartY = 0;
-  svg.addEventListener('mousedown', e => { clickStartX = e.clientX; clickStartY = e.clientY; });
+
+  const releasePointer = (e) => {
+    if (!activePointers.has(e.pointerId)) return;
+    activePointers.delete(e.pointerId);
+    if (activePointers.size < 2) {
+      pinchStartDist = 0; pinchStartVB = null; pinchCenterRatio = null;
+    }
+    if (activePointers.size === 0) {
+      panning = false;
+      svg.style.cursor = 'grab';
+    }
+  };
+  svg.addEventListener('pointerup', releasePointer);
+  svg.addEventListener('pointercancel', releasePointer);
+  svg.addEventListener('pointerleave', releasePointer);
 
   // Scroll to zoom (centered on cursor position in SVG coords)
   svg.addEventListener('wheel', e => {
@@ -4014,12 +4147,10 @@ async function renderChoroplethMap(container, countryCounts) {
     const factor = e.deltaY > 0 ? 1.12 : 0.89;
     const vb = getVB();
     const rect = svg.getBoundingClientRect();
-    // Cursor position in SVG coords
     const sx = vb[0] + (e.clientX - rect.left) / rect.width * vb[2];
     const sy = vb[1] + (e.clientY - rect.top) / rect.height * vb[3];
     const newW = vb[2] * factor;
     const newH = vb[3] * factor;
-    // Keep the cursor over the same SVG point
     const newX = sx - (e.clientX - rect.left) / rect.width * newW;
     const newY = sy - (e.clientY - rect.top) / rect.height * newH;
     setVB(newX, newY, newW, newH);
@@ -4626,27 +4757,30 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
       return Math.max(years[0], Math.min(years[years.length - 1], year));
     };
     let dragStart = null, selEl = null;
-    svg.addEventListener('mousedown', e => {
-      dragStart = xToYear(e.clientX);
+    // M3 · C1: use Pointer Events so touch + pen + mouse all work through
+    // the same handlers. Legacy mouseleave kept via pointerleave so the
+    // drag cancels correctly when the pointer exits the SVG mid-drag.
+    const pointerDown = (clientX, clientY) => {
+      dragStart = xToYear(clientX);
       selEl = document.createElement('div');
       selEl.className = 'tl-sel';
       const rect = svg.getBoundingClientRect();
-      const startX = e.clientX - rect.left;
+      const startX = clientX - rect.left;
       selEl.style.left = startX + 'px';
       selEl.style.width = '1px';
       container.appendChild(selEl);
-    });
-    svg.addEventListener('mousemove', e => {
+    };
+    const pointerMove = (clientX) => {
       if (!dragStart || !selEl) return;
       const rect = svg.getBoundingClientRect();
       const startX = ((dragStart - years[0]) / (years.length - 1)) * (rect.width * (W - pad.l - pad.r) / W) + rect.width * pad.l / W;
-      const curX = e.clientX - rect.left;
+      const curX = clientX - rect.left;
       selEl.style.left = Math.min(startX, curX) + 'px';
       selEl.style.width = Math.abs(curX - startX) + 'px';
-    });
-    const finish = e => {
+    };
+    const finish = (clientX) => {
       if (dragStart == null) return;
-      const endYear = xToYear(e.clientX);
+      const endYear = xToYear(clientX);
       const [a, b] = dragStart <= endYear ? [dragStart, endYear] : [endYear, dragStart];
       state.filters.yearA = a;
       state.filters.yearB = b;
@@ -4655,8 +4789,11 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
       dragStart = null;
       onFiltersChanged();
     };
-    svg.addEventListener('mouseup', finish);
-    svg.addEventListener('mouseleave', e => { if (dragStart != null) finish(e); });
+    svg.addEventListener('pointerdown', e => { svg.setPointerCapture?.(e.pointerId); pointerDown(e.clientX, e.clientY); });
+    svg.addEventListener('pointermove', e => pointerMove(e.clientX));
+    svg.addEventListener('pointerup',   e => finish(e.clientX));
+    svg.addEventListener('pointercancel', e => { if (dragStart != null) finish(e.clientX); });
+    svg.addEventListener('pointerleave',  e => { if (dragStart != null) finish(e.clientX); });
   }
 
   // Interactive legend — each stack layer can be toggled off/on via click
@@ -5344,7 +5481,8 @@ async function renderTheme() {
   const root = $('#view-theme');
   const name = state.focusTheme;
   if (!name) {
-    root.innerHTML = `<div class="me"><h1>Pick a theme</h1><p>Use the command palette (⌘K), click a theme in the Overview, or pick one from the rail.</p></div>`;
+    root.innerHTML = `<div class="me"><h1>Pick a theme</h1><p>Click a theme in Overview's Top Themes, pick one from the rail, or search via the command palette.</p><button class="dr-btn primary" id="openPaletteFromTh">Open command palette</button></div>`;
+    $('#openPaletteFromTh')?.addEventListener('click', openPalette);
     return;
   }
 
@@ -5458,7 +5596,8 @@ async function renderGroup() {
   const root = $('#view-group');
   const name = state.focusGroup;
   if (!name) {
-    root.innerHTML = `<div class="me"><h1>Pick a concerned group</h1><p>Click a group on Overview's Top Groups, use the rail facet, or ⌘K → "Group profile".</p></div>`;
+    root.innerHTML = `<div class="me"><h1>Pick a concerned group</h1><p>Click a group on Overview's Top Groups, use the rail facet, or search via the command palette.</p><button class="dr-btn primary" id="openPaletteFromGp">Open command palette</button></div>`;
+    $('#openPaletteFromGp')?.addEventListener('click', openPalette);
     return;
   }
   // Q3a: options annotated with counts
@@ -5561,7 +5700,8 @@ async function renderSDG() {
   const root = $('#view-sdg');
   const sdg = state.focusSdg;
   if (!sdg) {
-    root.innerHTML = `<div class="me"><h1>Pick an SDG</h1><p>Use ⌘K → "SDG profile" or the rail's SDG grid, then click "Open SDG profile".</p></div>`;
+    root.innerHTML = `<div class="me"><h1>Pick an SDG</h1><p>Use the SDG grid in the left rail, then click "Open SDG profile". Or search for a specific target via the command palette.</p><button class="dr-btn primary" id="openPaletteFromSp">Open command palette</button></div>`;
+    $('#openPaletteFromSp')?.addEventListener('click', openPalette);
     return;
   }
   // Hierarchical SDG picker: the /facets endpoint returns
@@ -8102,6 +8242,12 @@ function renderDrawer() {
   if ((state.selectedRec || state.drawerMode === 'list') && TW.drawer === false) {
     TW.drawer = true; applyTweaks();
   }
+  // M3 · C4: on mobile, the drawer is display:none until .mobile-open is
+  // added. Fire the opener whenever we have a selected record or list to
+  // show — without this, clicking a record did nothing visible on phones.
+  if ((state.selectedRec || state.drawerMode === 'list') && window.innerWidth < 960) {
+    window._openMobileDrawer?.();
+  }
 
   // Branch: list mode (theme/group preview) vs record mode (default)
   if (state.drawerMode === 'list' && state.drawerList) {
@@ -9878,22 +10024,43 @@ async function boot() {
   $('#drawerClear').addEventListener('click', () => { state.selectedRec = null; renderDrawer(); });
   $('#drawerReadingMode')?.addEventListener('click', toggleReadingMode);
 
-  // Mobile menu: rail slides in from left as overlay with backdrop
+  // Mobile menu: rail slides in from left as overlay with backdrop.
+  // M3 · C4: drawer gets the same treatment — slides in from right.
+  // Previously `.drawer{display:none}` on mobile with no trigger meant
+  // clicking a record did nothing visible.
   function closeMobileRail() {
     $('#rail').classList.remove('mobile-open');
-    $('#mobileBackdrop').classList.add('hidden');
+    const bd = $('#mobileBackdrop');
+    if (bd && !$('#drawer')?.classList.contains('mobile-open')) bd.classList.add('hidden');
   }
   function openMobileRail() {
     $('#rail').classList.add('mobile-open');
+    // Close drawer if open (they can't both live at once on mobile)
+    $('#drawer')?.classList.remove('mobile-open');
     $('#mobileBackdrop').classList.remove('hidden');
   }
+  function closeMobileDrawer() {
+    $('#drawer')?.classList.remove('mobile-open');
+    const bd = $('#mobileBackdrop');
+    if (bd && !$('#rail')?.classList.contains('mobile-open')) bd.classList.add('hidden');
+  }
+  function openMobileDrawer() {
+    if (window.innerWidth >= 960) return;  // desktop has it always visible
+    $('#drawer')?.classList.add('mobile-open');
+    $('#rail')?.classList.remove('mobile-open');
+    $('#mobileBackdrop').classList.remove('hidden');
+  }
+  // Expose so renderDrawer can trigger after selectedRec is set
+  window._openMobileDrawer = openMobileDrawer;
+  window._closeMobileDrawer = closeMobileDrawer;
   $('#mobileMenuBtn').addEventListener('click', () => {
     if ($('#rail').classList.contains('mobile-open')) closeMobileRail();
     else openMobileRail();
   });
-  $('#mobileBackdrop').addEventListener('click', closeMobileRail);
+  $('#mobileBackdrop').addEventListener('click', () => { closeMobileRail(); closeMobileDrawer(); });
+  $('#drawerClear')?.addEventListener('click', () => { if (window.innerWidth < 960) closeMobileDrawer(); });
   // Also: on mobile, clicking a tab or closing a filter should auto-close the rail
-  $$('.tab').forEach(t => t.addEventListener('click', () => { if (window.innerWidth < 960) closeMobileRail(); }));
+  $$('.tab').forEach(t => t.addEventListener('click', () => { if (window.innerWidth < 960) { closeMobileRail(); closeMobileDrawer(); } }));
   $('#clearFilters').addEventListener('click', () => {
     state.filters = { ...emptyFilters(),
       yearA: state.facets?.min_year, yearB: state.facets?.max_year };
