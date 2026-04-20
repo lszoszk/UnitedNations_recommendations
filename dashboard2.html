@@ -534,6 +534,40 @@ a{color:inherit;text-decoration:none}
 .dr-empty{padding:40px 20px;text-align:center;color:var(--dim);font-size:11px}
 .dr-empty .big{font-family:var(--serif);font-size:22px;color:var(--ink);margin-bottom:8px}
 
+/* ---------- MECHANISM PROFILE scope picker + compare grid ----------
+   Segmented control at the top of the Mechanism tab swaps between
+   three modes: single body · family rollup · compare all three. */
+.mech-scope{display:flex;gap:0;border:1px solid var(--line);background:var(--paper-2);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.mech-scope button{border:0;background:transparent;padding:6px 14px;color:var(--dim);cursor:pointer;font-family:inherit;font-size:inherit;letter-spacing:inherit;text-transform:inherit;border-right:1px solid var(--line)}
+.mech-scope button:last-child{border-right:0}
+.mech-scope button:hover{background:var(--paper)}
+.mech-scope button.on{background:var(--ink);color:var(--paper)}
+.mech-scope button.on:hover{background:var(--ink)}
+
+/* Family accent in the Mechanism-profile header (left-border + eyebrow
+   colour) so the user instantly recognises which family they're in. */
+.cp-family-header{border-left:4px solid var(--mp-color,var(--line));padding-left:14px}
+.cp-family-header.tb{--mp-color:var(--mech-tb)}
+.cp-family-header.sp{--mp-color:var(--mech-sp)}
+.cp-family-header.upr{--mp-color:var(--mech-upr)}
+
+/* 3-column compare layout for Mechanism · Compare all three. Each
+   column is a slim mechanism profile (volume mini-chart + top 5 of
+   each facet). Stacks on mobile. */
+.mech-compare{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line)}
+.mech-compare .mc-col{background:var(--paper);padding:16px 16px 20px}
+.mech-compare .mc-col.tb  {border-top:3px solid var(--mech-tb)}
+.mech-compare .mc-col.sp  {border-top:3px solid var(--mech-sp)}
+.mech-compare .mc-col.upr {border-top:3px solid var(--mech-upr)}
+.mech-compare .mc-head{font-family:var(--serif);font-size:22px;color:var(--ink);margin:0 0 2px}
+.mech-compare .mc-sub{font-size:10px;color:var(--dim);margin-bottom:14px}
+.mech-compare .mc-kpi{font-family:var(--serif);font-size:32px;line-height:1;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.mech-compare .mc-kpi-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:14px}
+.mech-compare .mc-section{margin-top:16px}
+.mech-compare .mc-section-title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.mech-compare .mc-empty{color:var(--dim);font-size:11px;padding:20px 0;text-align:center;font-style:italic}
+@media(max-width:960px){.mech-compare{grid-template-columns:1fr}}
+
 /* ---------- MECHANISM TILES (drawer + overview) ---------------------
    Three clickable cards — Treaty Bodies / Special Procedures / UPR —
    used both in the empty drawer (at-a-glance panel) and in the
@@ -1843,7 +1877,9 @@ const state = {
   focusTheme: null,     // theme string
   focusGroup: null,     // concerned group string
   focusSdg: null,       // SDG label e.g. "SDG 16.3"
-  focusMechanism: null, // recommending body, e.g. "CCPR"
+  focusMechanism: null, // recommending body, e.g. "CCPR" (scope=single)
+  focusFamily: null,    // mechanism family key, e.g. "treaty"    (scope=family)
+  mechScope: 'single',  // 'single' | 'family' | 'compare' (Mechanism tab mode)
   cmpA: null, cmpB: null,
   facets: null,         // will be populated from /api/data/facets
   analytics: null,      // last global analytics
@@ -5280,30 +5316,145 @@ async function renderSDG() {
    =========================================================================
    Mirrors Theme/Group/SDG profile shape but scopes by body (e.g. CCPR,
    UPR, SR on Torture). Uses _scopedFilter so rail intersects normally. */
+/* ---------- MECHANISM PROFILE — three scopes ---------------------
+   Single tab, three modes controlled by a segmented picker:
+     single  — one body (CCPR, CEDAW, SR on Torture, …) — original behaviour
+     family  — one family aggregated (all Treaty Bodies, all SP, UPR)
+     compare — all three families side-by-side
+   Sub-functions below each render one mode; renderMechanism() is the
+   dispatcher + picker host. */
 async function renderMechanism() {
   const root = $('#view-mechanism');
-  const name = state.focusMechanism;
-  if (!name) {
-    root.innerHTML = `<div class="me"><h1>Pick a recommending body</h1><p>Use the command palette (⌘K → "Mechanism profile"), shift-click a body in the rail, or click a body in Overview to open it here.</p></div>`;
+  const scope = state.mechScope || 'single';
+
+  // Scope picker is always visible; body/family select appears based on scope.
+  const scopeBar = `
+    <div class="mech-scope" role="tablist" aria-label="Mechanism profile mode">
+      <button data-scope="single"  class="${scope==='single'?'on':''}"  role="tab">Single body</button>
+      <button data-scope="family"  class="${scope==='family'?'on':''}"  role="tab">Family rollup</button>
+      <button data-scope="compare" class="${scope==='compare'?'on':''}" role="tab">Compare all 3</button>
+    </div>`;
+
+  if (scope === 'compare') {
+    root.innerHTML = `
+      <div class="cp-head">
+        <div>
+          <div class="cp-iso">RECOMMENDING BODY · MECHANISM PROFILE</div>
+          <h1 class="cp-name" style="font-size:40px">Compare all three</h1>
+          <div class="cp-sub">Side-by-side volume, countries, themes, groups, and SDGs for every UN recommendation family.</div>
+        </div>
+        <div class="cp-picker" style="align-self:start">${scopeBar}</div>
+      </div>
+      <div class="mech-compare" id="mcGrid">
+        ${MECH_FAMILIES.map(f => `
+          <div class="mc-col ${f.cls}" data-family="${f.key}">
+            <div class="mc-head">${f.full}</div>
+            <div class="mc-sub">${f.desc}</div>
+            <div class="mc-kpi" id="mcKpi-${f.key}">—</div>
+            <div class="mc-kpi-label">records</div>
+            <div class="mc-section">
+              <div class="mc-section-title">Top 5 countries</div>
+              <div class="row-list" id="mcCountries-${f.key}"><div class="panel-loading">loading</div></div>
+            </div>
+            <div class="mc-section">
+              <div class="mc-section-title">Top 5 themes</div>
+              <div class="row-list" id="mcThemes-${f.key}"><div class="panel-loading">loading</div></div>
+            </div>
+            <div class="mc-section">
+              <div class="mc-section-title">Top 5 concerned groups</div>
+              <div class="row-list" id="mcGroups-${f.key}"><div class="panel-loading">loading</div></div>
+            </div>
+          </div>
+        `).join('')}
+      </div>`;
+    _wireScopeBar(root);
+    // Fire three parallel analytics calls, one per family (body filter = union of bodies in that family)
+    MECH_FAMILIES.forEach(f => {
+      const bodies = bodiesInFamily(f.key);
+      if (!bodies.length) {
+        $(`#mcKpi-${f.key}`).textContent = '0';
+        ['mcCountries','mcThemes','mcGroups'].forEach(id => { const el = $(`#${id}-${f.key}`); if (el) el.innerHTML = '<div class="mc-empty">no bodies matched</div>'; });
+        return;
+      }
+      const filter = _scopedFilter({ body: new Set(bodies) });
+      Promise.all([
+        api.analytics(filter, { scope: 'analytics:family:'+f.key }),
+        api.recordsCount(filter),
+      ]).then(([analytics, count]) => {
+        const k = $(`#mcKpi-${f.key}`); if (k) k.textContent = fmt(count.total_records);
+        renderRowList($(`#mcCountries-${f.key}`), (analytics?.map?.country_counts || analytics?.countries?.country_counts || []).slice(0,5).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country', extraFilter: { body: new Set(bodies) } });
+        renderRowList($(`#mcThemes-${f.key}`),    (analytics?.themes?.theme_counts || []).slice(0,5).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme',   extraFilter: { body: new Set(bodies) } });
+        renderRowList($(`#mcGroups-${f.key}`),    (analytics?.text?.affected_person_counts || []).slice(0,5).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', extraFilter: { body: new Set(bodies) } });
+      }).catch(err => {
+        if (err.name === 'AbortError') return;
+        console.warn('compare family load failed:', f.key, err);
+        ['mcCountries','mcThemes','mcGroups'].forEach(id => { const el = $(`#${id}-${f.key}`); if (el) el.innerHTML = '<div class="mc-empty">load failed</div>'; });
+      });
+    });
     return;
   }
 
-  // Populate the switcher from the facets (raw, dash-stripped to match state)
-  const bodies = (state.facets?.bodies || [])
-    .filter(b => b && b !== '-')
-    .map(b => b.replace(/^-\s*/, ''));
-  const opts = bodies.map(b => `<option value="${sanitize(b)}" ${b===name?'selected':''}>${sanitize(b)}</option>`).join('');
+  // --- single + family share the same 6-figure layout ---
+  // Decide target: body name (single) or family key (family). If neither,
+  // default family to treaty (biggest / most-familiar) in family mode,
+  // or show picker-empty state in single mode.
+  let target, title, eyebrow, filterOverride, picker, headerClass;
+  if (scope === 'family') {
+    if (!state.focusFamily) state.focusFamily = 'treaty';
+    const fam = MECH_FAMILIES.find(f => f.key === state.focusFamily);
+    const bodies = bodiesInFamily(state.focusFamily);
+    target = state.focusFamily;
+    title = fam.full;
+    eyebrow = `FAMILY ROLLUP · ${bodies.length} ${bodies.length === 1 ? 'body' : 'bodies'}`;
+    filterOverride = { body: new Set(bodies) };
+    headerClass = fam.cls;
+    picker = `
+      <label>Family</label>
+      <select id="mpFamSelect">
+        ${MECH_FAMILIES.map(f => `<option value="${f.key}" ${f.key===state.focusFamily?'selected':''}>${f.full}</option>`).join('')}
+      </select>`;
+  } else {
+    const bodies = (state.facets?.bodies || [])
+      .filter(b => b && b !== '-')
+      .map(b => b.replace(/^-\s*/, ''));
+    if (!state.focusMechanism && bodies.length) state.focusMechanism = bodies[0];
+    if (!state.focusMechanism) {
+      root.innerHTML = `
+        <div class="cp-head">
+          <div>
+            <div class="cp-iso">RECOMMENDING BODY · MECHANISM PROFILE</div>
+            <h1 class="cp-name" style="font-size:44px">Pick a body</h1>
+            <div class="cp-sub">Use the command palette (⌘K → "Mechanism profile"), shift-click a body in the rail, or click a body in Overview.</div>
+          </div>
+          <div class="cp-picker" style="align-self:start">${scopeBar}</div>
+        </div>`;
+      _wireScopeBar(root);
+      return;
+    }
+    target = state.focusMechanism;
+    title = state.focusMechanism;
+    eyebrow = 'RECOMMENDING BODY · MECHANISM PROFILE';
+    filterOverride = { body: new Set([state.focusMechanism]) };
+    const famKey = classifyBody(state.focusMechanism);
+    const fam = MECH_FAMILIES.find(f => f.key === famKey);
+    headerClass = fam?.cls || '';
+    const opts = bodies.map(b => `<option value="${sanitize(b)}" ${b===state.focusMechanism?'selected':''}>${sanitize(b)}</option>`).join('');
+    picker = `<label>Switch body</label><select id="mpSelect">${opts}</select>`;
+  }
 
   root.innerHTML = `
     <div class="cp-head">
-      <div>
-        <div class="cp-iso">RECOMMENDING BODY · MECHANISM PROFILE</div>
-        <h1 class="cp-name" style="font-size:48px">${sanitize(name)}</h1>
+      <div class="cp-family-header ${headerClass}">
+        <div class="cp-iso">${eyebrow}</div>
+        <h1 class="cp-name" style="font-size:48px">${sanitize(title)}</h1>
         <div class="cp-sub">Loading…</div>
         <div class="cp-kpis" id="mpKpis"></div>
         <div id="mpRailNote"></div>
       </div>
-      <div class="cp-picker"><label>Switch mechanism</label><select id="mpSelect">${opts}</select></div>
+      <div class="cp-picker" style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
+        ${scopeBar}
+        <div>${picker}</div>
+      </div>
     </div>
     <div class="cp-body">
       <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="mpLegend"></div></div><div class="tl-wrap" id="mpTime"><div class="panel-loading">loading</div></div></div>
@@ -5313,18 +5464,27 @@ async function renderMechanism() {
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.E</span><span class="t">Top SDGs</span></div></div><div class="row-list" id="mpSdgs"><div class="panel-loading">loading</div></div></div>
       <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.F</span><span class="t">Sample recommendations</span></div><div class="panel-actions"><button id="mpSeeAll">see all →</button></div></div><div id="mpSamples"><div class="panel-loading">loading</div></div></div>
     </div>`;
+  _wireScopeBar(root);
 
-  $('#mpSelect').addEventListener('change', e => {
+  // Scope-specific picker change handlers
+  $('#mpSelect')?.addEventListener('change', e => {
     state.focusMechanism = e.target.value;
     $('#tabMechanism').textContent = e.target.value;
     renderMechanism();
   });
+  $('#mpFamSelect')?.addEventListener('change', e => {
+    state.focusFamily = e.target.value;
+    const fam = MECH_FAMILIES.find(f => f.key === e.target.value);
+    if (fam) $('#tabMechanism').textContent = fam.full;
+    renderMechanism();
+  });
 
-  const filter = _scopedFilter({ body: new Set([name]) });
+  const cacheKey = scope + ':' + target;
+  const filter = _scopedFilter(filterOverride);
 
-  const anSwr = swr('analytics:mech:'+name, filter, () => api.analytics(filter));
-  const mpSwr = swr('map:mech:'+name,       filter, () => api.map(filter));
-  const rcSwr = swr('records:mech:'+name,   filter, () => api.records(filter, 1, 5));
+  const anSwr = swr('analytics:mech:'+cacheKey, filter, () => api.analytics(filter));
+  const mpSwr = swr('map:mech:'+cacheKey,       filter, () => api.map(filter));
+  const rcSwr = swr('records:mech:'+cacheKey,   filter, () => api.records(filter, 1, 5));
 
   const paint = (analytics, mapD, records, opts = {}) => {
     updateSparklineCaches(analytics);
@@ -5347,10 +5507,11 @@ async function renderMechanism() {
     root.classList.toggle('stale', !!opts.stale);
 
     renderTimeline($('#mpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#mpLegend'), interactive: false });
-    renderRowList($('#mpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
-    renderRowList($('#mpThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
-    renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
-    renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
+    const extraFilter = filterOverride;
+    renderRowList($('#mpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country', extraFilter });
+    renderRowList($('#mpThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines, extraFilter });
+    renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines, extraFilter });
+    renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines, extraFilter });
 
     const sampleEl = $('#mpSamples'); sampleEl.innerHTML = '';
     state.currentResultList = records.records || [];
@@ -5372,7 +5533,8 @@ async function renderMechanism() {
     const [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
     paint(analytics, mapD, records, { stale: false });
     $('#mpSeeAll')?.addEventListener('click', () => {
-      state.filters.body = new Set([name]);
+      // "See all" pipes the current scope into the rail filter + Search tab.
+      state.filters.body = new Set(Array.from(filterOverride.body || []));
       refreshFacetUI('body');
       navigate('search');
       onFiltersChanged();
@@ -5380,6 +5542,29 @@ async function renderMechanism() {
   } catch (err) {
     if (err.name !== 'AbortError') { console.error(err); toast('Failed to load Mechanism profile: ' + err.message, true); }
   }
+}
+
+/* Bind scope-picker buttons in the Mechanism tab header to switch modes. */
+function _wireScopeBar(root) {
+  root.querySelectorAll('.mech-scope button[data-scope]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const next = btn.dataset.scope;
+      if (next === state.mechScope) return;
+      state.mechScope = next;
+      // Update tab label to match new mode
+      const tab = $('#tabMechanism');
+      if (tab) {
+        if (next === 'compare') tab.textContent = 'All 3 families';
+        else if (next === 'family') {
+          const fam = MECH_FAMILIES.find(f => f.key === (state.focusFamily || 'treaty'));
+          tab.textContent = fam?.full || 'Family rollup';
+        } else if (state.focusMechanism) {
+          tab.textContent = state.focusMechanism;
+        }
+      }
+      renderMechanism();
+    });
+  });
 }
 
 /* =========================================================================
