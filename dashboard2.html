@@ -1324,6 +1324,10 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .dash-footer .df-right a:not([href="#methodology"]),
   .dash-footer .df-right .df-sep{display:none}
   .dash-footer{font-size:10px}
+
+  /* Upload + Instant Mode are desktop-only workflows (see inline HTML
+     comment near the buttons). Hide on mobile so the header fits. */
+  .desktop-only{display:none!important}
 }
 
 /* M3 · C5 — Row action sheet. Mouse-activated at cursor for desktop
@@ -1377,11 +1381,16 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <span class="cmdk-hint">Search 267,548 recommendations · jump to country, theme, year…</span>
   </button>
   <div class="meta">
-    <button class="offline-btn" id="uploadBtn" title="Upload your own UHRI JSON export to analyse locally">
+    <!-- Instant Mode (~300MB IndexedDB download) and Upload (user-supplied
+         JSON file import) are desktop-only workflows. On mobile they eat
+         header space, can't actually complete (cellular data, storage
+         limits), and the existing server-side O6 profile endpoint already
+         serves profile tabs in <100ms. Hidden below 960px. -->
+    <button class="offline-btn desktop-only" id="uploadBtn" title="Upload your own UHRI JSON export to analyse locally">
       <span>↑</span>
       <span>UPLOAD</span>
     </button>
-    <button class="offline-btn" id="offlineBtn" title="Enable Instant Mode — download the full dataset to your browser. Everything filters locally, nothing leaves your machine, and queries run at ~50ms instead of ~10s.">
+    <button class="offline-btn desktop-only" id="offlineBtn" title="Enable Instant Mode — download the full dataset to your browser. Everything filters locally, nothing leaves your machine, and queries run at ~50ms instead of ~10s.">
       <span id="offlineIcon">⚡</span>
       <span id="offlineLbl">INSTANT MODE</span>
     </button>
