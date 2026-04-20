@@ -1250,12 +1250,12 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
      stays below in the tabs strip. */
   .brand .b-sub{display:none}
 
-  /* Topbar packing — on mobile the `1fr` middle column stretched the
-     cmdk 🔍 button to fill all available width between UHRI and meta,
-     making the header feel dispersed. Collapse cmdk to intrinsic size
-     and tighten the grid gap. */
-  .topbar{grid-template-columns:auto auto 1fr;gap:8px;padding:0 10px}
-  .cmdk{width:auto;max-width:none;padding:8px 10px;justify-self:end}
+  /* Topbar packing — shrink the stretched cmdk a bit and tighten the
+     grid so the row doesn't feel dispersed. Keep auto/1fr/auto grid
+     structure (changing it to auto/auto/1fr introduced horizontal
+     overflow that shifted the whole viewport right). */
+  .topbar{gap:10px;padding:0 10px}
+  .cmdk{max-width:220px;padding:8px 10px}
 
   /* FIG.00 mech-tiles on mobile — three columns at 375px gave each
      tile ~120px which forced heavy wrapping ("Universal Periodic
