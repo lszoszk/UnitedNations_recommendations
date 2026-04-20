@@ -4371,7 +4371,10 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
 
   // Pick series/max depending on mode
   const series = mode === 'cumulative' ? cumulTotals : annualTotals;
-  const max = Math.max(1, ...series);
+  // C2: allow caller to force a shared Y-axis max (Compare A-vs-B uses
+  // this so both timelines share the same scale — without it, a small
+  // peak in B can render at the same pixel height as a huge peak in A).
+  const max = (opts.yMax && opts.yMax > 0) ? Math.max(1, opts.yMax) : Math.max(1, ...series);
   const yOf = v => pad.t + (H-pad.t-pad.b)*(1 - v/max);
 
   // Grid + Y labels
@@ -4528,17 +4531,27 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   // top-3 breakdown from the original (non-hidden-filtered) data so
   // numbers match what the user sees in the stack.
   _wireTimelineTooltip(container, {
-    years, xStep, pad, W,
+    years, xStep, pad, W, H,
     stackBy, stackKeys, stackLabels, stackColors,
     yearlyBodyCounts, annualTotals, cumulTotals,
     mode,
+    syncGroup: opts.syncGroup || null,
   });
 }
 
-/* Build/position a rich floating tooltip over a timeline SVG.
-   Handles mousemove → year lookup → tooltip render. Single reusable
-   overlay element per container so we don't leak DOM on re-render.
-   Tag: timeline-tooltip-v1 */
+/* Sync registry for linked timelines. Each timeline that opts into a
+   syncGroup registers { container, renderAtYear, hide } so sibling
+   timelines can drive it remotely. Used by Compare (A ↔ B) so a hover
+   on one chart paints the cursor + tooltip on the other at the same
+   year. Entries are replaced on re-render (same container key). */
+const _tlSyncRegistry = {};
+
+/* Build/position a rich floating tooltip over a timeline SVG + an
+   in-chart vertical cursor line. Handles mousemove → year lookup →
+   render. Single reusable overlay element per container. Opts into
+   cross-chart sync via ctx.syncGroup — sibling timelines in the same
+   group mirror the hovered year so Compare A vs B shows both timelines
+   highlighted at the same moment. Tag: timeline-tooltip-v2 */
 function _wireTimelineTooltip(container, ctx) {
   if (!container) return;
   const svg = container.querySelector('svg');
@@ -4553,7 +4566,23 @@ function _wireTimelineTooltip(container, ctx) {
     container.appendChild(tip);
   }
 
-  const { years, xStep, pad, W, stackBy, stackKeys, stackLabels, stackColors, yearlyBodyCounts, annualTotals, cumulTotals, mode } = ctx;
+  // C5: in-chart vertical cursor line. Re-created each render because
+  // the previous SVG gets replaced; no DOM leak.
+  let cursor = svg.querySelector('.tl-cursor');
+  if (!cursor) {
+    cursor = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    cursor.setAttribute('class', 'tl-cursor');
+    cursor.setAttribute('stroke', 'currentColor');
+    cursor.setAttribute('stroke-opacity', '0.35');
+    cursor.setAttribute('stroke-width', '1');
+    cursor.setAttribute('pointer-events', 'none');
+    cursor.style.display = 'none';
+    svg.appendChild(cursor);
+  }
+
+  const { years, xStep, pad, W, H, stackBy, stackKeys, stackLabels, stackColors, yearlyBodyCounts, annualTotals, cumulTotals, mode, syncGroup } = ctx;
+  cursor.setAttribute('y1', pad.t);
+  cursor.setAttribute('y2', H - pad.b);
 
   const xToYearIdx = (clientX) => {
     const rect = svg.getBoundingClientRect();
@@ -4563,12 +4592,17 @@ function _wireTimelineTooltip(container, ctx) {
     return Math.max(0, Math.min(years.length - 1, i));
   };
 
-  const render = (yearIdx, clientX, clientY) => {
+  const moveCursor = (yearIdx) => {
+    const svgX = pad.l + yearIdx * xStep;
+    cursor.setAttribute('x1', svgX);
+    cursor.setAttribute('x2', svgX);
+    cursor.style.display = 'block';
+  };
+
+  const renderTooltip = (yearIdx, clientX, clientY) => {
     const year = years[yearIdx];
     const total = mode === 'cumulative' ? cumulTotals[yearIdx] : annualTotals[yearIdx];
 
-    // Per-year breakdown using ORIGINAL data (even hidden layers appear
-    // dimmed in breakdown so hover always shows full truth).
     const yearMap = yearlyBodyCounts[year] || {};
     let breakdownRows = [];
     if (stackBy === 'family') {
@@ -4595,12 +4629,10 @@ function _wireTimelineTooltip(container, ctx) {
       </div>
       ${rowsHtml}`;
 
-    // Position: follow cursor but keep inside container bounds.
     const rect = container.getBoundingClientRect();
     let x = clientX - rect.left + 14;
     let y = clientY - rect.top + 14;
     tip.style.display = 'block';
-    // After display:block we can measure size
     const tipRect = tip.getBoundingClientRect();
     if (x + tipRect.width > rect.width - 4) x = clientX - rect.left - tipRect.width - 10;
     if (y + tipRect.height > rect.height - 4) y = clientY - rect.top - tipRect.height - 10;
@@ -4608,8 +4640,50 @@ function _wireTimelineTooltip(container, ctx) {
     tip.style.top = Math.max(4, y) + 'px';
   };
 
-  svg.onmousemove = (e) => render(xToYearIdx(e.clientX), e.clientX, e.clientY);
-  svg.onmouseleave = () => { tip.style.display = 'none'; };
+  /* External sync entry-point: shown on sibling timelines when the user
+     hovers this chart's partner. Positions tooltip near cursor at mid-
+     chart-height since there's no real mouse event to drive position. */
+  const renderAtYear = (yearIdx) => {
+    moveCursor(yearIdx);
+    const rect = svg.getBoundingClientRect();
+    const svgX = pad.l + yearIdx * xStep;
+    const clientX = rect.left + (svgX / W) * rect.width;
+    const clientY = rect.top + rect.height * 0.35; // upper-third looks nicer than dead-centre
+    renderTooltip(yearIdx, clientX, clientY);
+  };
+
+  const hide = () => {
+    tip.style.display = 'none';
+    cursor.style.display = 'none';
+  };
+
+  const broadcast = (fn) => {
+    if (!syncGroup) return;
+    const peers = _tlSyncRegistry[syncGroup] || [];
+    peers.forEach(p => { if (p.container !== container) fn(p); });
+  };
+
+  svg.onmousemove = (e) => {
+    const idx = xToYearIdx(e.clientX);
+    moveCursor(idx);
+    renderTooltip(idx, e.clientX, e.clientY);
+    broadcast(p => p.renderAtYear(idx));
+  };
+  svg.onmouseleave = () => {
+    hide();
+    broadcast(p => p.hide());
+  };
+
+  // Register in sync group. Also evict any dead entries whose container
+  // is no longer in the DOM (happens when renderCompare re-runs and
+  // swaps out the whole panel HTML — the old refs become orphan).
+  if (syncGroup) {
+    if (!_tlSyncRegistry[syncGroup]) _tlSyncRegistry[syncGroup] = [];
+    _tlSyncRegistry[syncGroup] = _tlSyncRegistry[syncGroup].filter(p =>
+      document.contains(p.container) && p.container !== container
+    );
+    _tlSyncRegistry[syncGroup].push({ container, renderAtYear, hide });
+  }
 }
 
 /* Render the family/body stack toggle into a panel-actions slot and wire
@@ -5810,8 +5884,14 @@ async function renderCompare() {
         <div class="sub" id="cmpSubB">loading…</div></div>
     </div>
     <div class="cmp-body">
-      <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">Over time</span></div></div><div class="tl-wrap" id="cmpTimeA"></div></div>
-      <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">Over time</span></div></div><div class="tl-wrap" id="cmpTimeB"></div></div>
+      <!-- C1: Timelines stacked vertically, both full-width. Half-width
+           side-by-side squeezed 21 years into ~500 px and made year
+           labels + Y scale unreadable. Timelines now get the full
+           horizontal budget; row-list panels (themes / groups / SDGs)
+           remain two-column because they fit fine at half width and
+           direct visual alignment row-by-row is actually the point. -->
+      <div class="panel" style="grid-column:1 / -1"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">Over time — <span id="cmpTimeALbl">—</span></span></div><div class="panel-actions" id="cmpTimeALegend"></div></div><div class="tl-wrap" id="cmpTimeA"></div></div>
+      <div class="panel" style="grid-column:1 / -1;background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">Over time — <span id="cmpTimeBLbl">—</span></span></div><div class="panel-actions" id="cmpTimeBLegend"></div></div><div class="tl-wrap" id="cmpTimeB"></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">Themes</span></div></div><div class="row-list" id="cmpThemesA"></div></div>
       <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">Themes</span></div></div><div class="row-list" id="cmpThemesB"></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">A</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="cmpGroupsA"></div></div>
@@ -5822,6 +5902,44 @@ async function renderCompare() {
 
   $('#cmpSelA').addEventListener('change', e => { state.cmpA = e.target.value; renderCompare(); });
   $('#cmpSelB').addEventListener('change', e => { state.cmpB = e.target.value; renderCompare(); });
+
+  // C2: shared-Y coordinator. Each side's analytics lands asynchronously;
+  // timelines render with their own scale first (so the user sees data
+  // immediately), then when both are in, we re-render both with the
+  // shared max so peak heights are actually comparable.
+  // C5: both charts share a sync group so a hover on A paints the
+  // cursor + tooltip on B at the same year, and vice versa.
+  const cmpState = { A: null, B: null, nameA: state.cmpA, nameB: state.cmpB };
+
+  const _paintCmpTimeline = (letter, yMax) => {
+    const an = cmpState[letter];
+    const timeEl = $(`#cmpTime${letter}`);
+    if (!timeEl || !an) return;
+    renderTimeline(timeEl, an?.trends?.yearly_body_counts || {}, {
+      interactive: false,
+      stackBy: 'family',
+      yMax: yMax || undefined,
+      legendEl: $(`#cmpTime${letter}Legend`),
+      syncGroup: 'compare-tl',
+    });
+    const lbl = $(`#cmpTime${letter}Lbl`);
+    if (lbl) lbl.textContent = cmpState['name' + letter] || '—';
+  };
+
+  const _reconcileSharedY = () => {
+    if (!cmpState.A || !cmpState.B) return;
+    const yearlyMax = (an) => {
+      const yc = an?.trends?.yearly_body_counts || {};
+      const totals = Object.values(yc).map(m => {
+        if (m && typeof m === 'object') return Object.values(m).reduce((a,b) => a + (+b||0), 0);
+        return 0;
+      });
+      return totals.length ? Math.max(...totals) : 0;
+    };
+    const sharedMax = Math.max(yearlyMax(cmpState.A), yearlyMax(cmpState.B), 1);
+    _paintCmpTimeline('A', sharedMax);
+    _paintCmpTimeline('B', sharedMax);
+  };
 
   async function loadSide(name, letter) {  // letter is 'A' or 'B'
     // Both sides intersect the current rail (body, theme, year etc.)
@@ -5837,8 +5955,12 @@ async function renderCompare() {
       ]);
       const subEl = $(`#cmpSub${letter}`);
       if (subEl) subEl.textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes · ${(an?.text?.affected_person_counts||[]).length} groups`;
-      const timeEl = $(`#cmpTime${letter}`);
-      if (timeEl) renderTimeline(timeEl, an?.trends?.yearly_body_counts || {}, { interactive: false, stackBy: 'family' });
+      cmpState[letter] = an;
+      cmpState['name' + letter] = name;
+      // Initial paint uses local max — once both sides are in, the
+      // coordinator re-paints with a shared max so peaks are comparable.
+      _paintCmpTimeline(letter, null);
+      _reconcileSharedY();
       // Each Compare bar is clickable — it opens the drawer list scoped to
       // the country for that side (A or B). `extraFilter` pins the country
       // so the records behind the bar match what the bar represents, not
