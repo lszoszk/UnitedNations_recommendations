@@ -33,6 +33,11 @@
   --mech-tb:#0d9488;   --mech-tb-soft:color-mix(in oklab, #0d9488 14%, var(--paper));
   --mech-sp:#7c3aed;   --mech-sp-soft:color-mix(in oklab, #7c3aed 14%, var(--paper));
   --mech-upr:#c2410c;  --mech-upr-soft:color-mix(in oklab, #c2410c 14%, var(--paper));
+  /* Colour for the "Other (N bodies)" aggregate layer on timelines.
+     Sits below the top-8 greyscale stacks — faded neutral so it reads
+     "bundled / minor / completeness" without competing with the named
+     bodies for attention. Palette-aware via color-mix. */
+  --stack-other:color-mix(in oklab, var(--dim) 40%, var(--paper));
 }
 [data-palette="terminal"]{--paper:#0b0d0b;--paper-2:#121612;--paper-3:#1a1f1a;--ink:#d6e6cf;--ink-2:#b4c8ac;--dim:#6a7a62;--dimmer:#3e4a39;--line:rgba(214,230,207,.14);--line-2:rgba(214,230,207,.06);--accent:#9cf06b;--accent-soft:rgba(156,240,107,.14);--mech-tb:#2dd4bf;--mech-sp:#a78bfa;--mech-upr:#fb923c;--mech-tb-soft:color-mix(in oklab,#2dd4bf 18%, var(--paper));--mech-sp-soft:color-mix(in oklab,#a78bfa 18%, var(--paper));--mech-upr-soft:color-mix(in oklab,#fb923c 18%, var(--paper));}
 [data-palette="ink"]{--paper:#fff;--paper-2:#f4f4f5;--paper-3:#e9e9eb;--ink:#000;--ink-2:#1a1a1a;--dim:#7a7a7a;--dimmer:#c0c0c0;--line:rgba(0,0,0,.12);--line-2:rgba(0,0,0,.06);--accent:#1d4ed8;--accent-soft:rgba(29,78,216,.14);--mech-tb:#0f766e;--mech-sp:#6d28d9;--mech-upr:#9a3412;--mech-tb-soft:color-mix(in oklab,#0f766e 10%, var(--paper));--mech-sp-soft:color-mix(in oklab,#6d28d9 10%, var(--paper));--mech-upr-soft:color-mix(in oklab,#9a3412 10%, var(--paper));}
@@ -4339,22 +4344,45 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
       return stackKeys.map(k => agg[k]);
     };
   } else {
-    // Original behaviour — top 6 bodies in greyscale.
+    // P4: dynamic top-8 + Other. If ≤8 bodies in the filter, show them
+    // all (every layer named). If >8, show the top-8 by volume and
+    // bundle the remaining N-8 into an "Other (N-8 bodies)" aggregate
+    // stack in a faded neutral. This fixes the old "top 6 only" silent
+    // truncation where the chart claimed "Volume over time" but
+    // actually excluded every non-top-6 body — so annualTotals lied
+    // about the Y-axis max too. Now Y reflects true annual volume.
     const bodyTotals = {};
     years.forEach(y => {
       const m = yearlyBodyCounts[y] || {};
       Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c);
     });
-    stackKeys = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
-    stackLabels = Object.fromEntries(stackKeys.map(k => [k, k]));
+    const allSorted = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+    const TOP_N = 8;
+    const topBodies = allSorted.slice(0, TOP_N);
+    const otherBodies = allSorted.slice(TOP_N);
+    const hasOther = otherBodies.length > 0;
+    stackKeys = hasOther ? [...topBodies, '__other__'] : topBodies;
+    stackLabels = Object.fromEntries(topBodies.map(k => [k, k]));
+    if (hasOther) {
+      stackLabels['__other__'] = `Other (${otherBodies.length} ${otherBodies.length===1?'body':'bodies'})`;
+    }
     const ink = cssVar('--ink'), accent = cssVar('--accent');
-    stackColors = Object.fromEntries(stackKeys.map((k, i) => [k,
-      i===0?ink:(i===1?'#3a3a3a':i===2?'#5c5a55':i===3?'#7a7872':i===4?'#98968f':accent)
-    ]));
+    // Greyscale ramp for up to 8 named bodies. 8th gets accent to stand
+    // out against adjacent greys; previous code had accent on 6th — we
+    // keep the same "tail in accent" feel with one more grey step.
+    const bodyPalette = [ink, '#3a3a3a', '#4e4c47', '#62605b', '#76746e', '#8a8881', '#9e9c95', accent];
+    stackColors = Object.fromEntries(topBodies.map((k, i) => [k, bodyPalette[i] || '#aba9a2']));
+    if (hasOther) stackColors['__other__'] = cssVar('--stack-other') || '#bcbab2';
     yearToLayer = (y) => {
       const m = yearlyBodyCounts[y] || {};
-      return stackKeys.map(b => m[b] || 0);
+      return stackKeys.map(k => {
+        if (k === '__other__') return otherBodies.reduce((sum, b) => sum + (m[b] || 0), 0);
+        return m[k] || 0;
+      });
     };
+    // Stash for tooltip use so body-mode breakdown can expose the
+    // individual bodies that roll up into "Other" when the user hovers.
+    opts._otherBodies = otherBodies;
   }
 
   // Hidden layers are zeroed so their area disappears; still show in legend.
@@ -4449,7 +4477,12 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   else if (stackKeys.length === 0) modeHint = 'no data';
   else if (stackBy === 'family') modeHint = 'annual · stacked by mechanism family (click legend to toggle)';
   else if (stackKeys.length === 1) modeHint = `annual · only ${String(stackKeys[0]).replace(/^-\s*/, '')}`;
-  else modeHint = `annual · stacked by top ${stackKeys.length} bodies (click legend to toggle)`;
+  else if (stackKeys.includes('__other__')) {
+    const otherN = (opts._otherBodies || []).length;
+    const namedN = stackKeys.length - 1; // minus '__other__'
+    modeHint = `annual · top ${namedN} bodies + Other (${otherN} more bundled · all bodies included)`;
+  }
+  else modeHint = `annual · stacked by all ${stackKeys.length} bodies (click legend to toggle)`;
   container.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl-svg">${g}</svg>
     <div class="tl-years">${yearLabelsHtml}</div>
@@ -4535,6 +4568,7 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
     stackBy, stackKeys, stackLabels, stackColors,
     yearlyBodyCounts, annualTotals, cumulTotals,
     mode,
+    otherBodies: opts._otherBodies || [],
     syncGroup: opts.syncGroup || null,
   });
 }
@@ -4580,7 +4614,7 @@ function _wireTimelineTooltip(container, ctx) {
     svg.appendChild(cursor);
   }
 
-  const { years, xStep, pad, W, H, stackBy, stackKeys, stackLabels, stackColors, yearlyBodyCounts, annualTotals, cumulTotals, mode, syncGroup } = ctx;
+  const { years, xStep, pad, W, H, stackBy, stackKeys, stackLabels, stackColors, yearlyBodyCounts, annualTotals, cumulTotals, mode, syncGroup, otherBodies = [] } = ctx;
   cursor.setAttribute('y1', pad.t);
   cursor.setAttribute('y2', H - pad.b);
 
@@ -4612,10 +4646,27 @@ function _wireTimelineTooltip(container, ctx) {
         .map(k => ({ key: k, label: stackLabels[k], count: agg[k], color: stackColors[k] }))
         .filter(r => r.count > 0);
     } else {
+      // Body mode — top 3 named bodies. If the stack contains an
+      // "__other__" aggregate AND at least one of the Other bodies
+      // contributed this year, append a dedicated "Other (N)" row so
+      // the tooltip covers the same categories the stack shows.
+      const namedKeys = new Set(stackKeys.filter(k => k !== '__other__'));
       breakdownRows = Object.entries(yearMap)
+        .filter(([b]) => namedKeys.has(b))
         .map(([b, c]) => ({ key: b, label: cleanLabel(b), count: c, color: stackColors[b] || 'var(--dim)' }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 3);
+      if (stackKeys.includes('__other__') && otherBodies.length) {
+        const otherSum = otherBodies.reduce((sum, b) => sum + (yearMap[b] || 0), 0);
+        if (otherSum > 0) {
+          breakdownRows.push({
+            key: '__other__',
+            label: `Other (${otherBodies.length} ${otherBodies.length===1?'body':'bodies'})`,
+            count: otherSum,
+            color: stackColors['__other__'] || 'var(--dim)',
+          });
+        }
+      }
     }
 
     const rowsHtml = breakdownRows.length
@@ -4766,7 +4817,6 @@ function buildOverviewShell() {
       <div class="panel p-time">
         <div class="panel-head"><div class="panel-title"><span class="idx">FIG.04</span><span class="t">Volume over time</span></div>
           <div class="panel-actions">
-            <span style="font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase" title="Annual totals stacked by the 6 most-active recommending bodies in the current filter">annual · stacked by top 6 bodies</span>
             <button class="chart-export small" id="tlExport" title="Export timeline as SVG">⬇ SVG</button>
             <span id="tlLegend" style="margin-left:8px"></span>
           </div></div>
@@ -5865,9 +5915,67 @@ function _wireScopeBar(root) {
 /* =========================================================================
    VIEW: COMPARE (A vs B)
    ========================================================================= */
+/* D5: Compare A/B default resolution. Three layers of priority:
+    1. URL params  ?compareA=Poland&compareB=Germany — link-shareable
+    2. localStorage — last user choice, persists across sessions
+    3. Alphabetical — neutral cold-start (first two non-empty country names)
+   The old "top-by-volume" default (China vs Colombia) was removed because
+   it pinned the first Compare view to the most politically scrutinised
+   state, reading as editorial choice in a research tool. Tag: compare-d5. */
+const CMP_A_KEY = 'uhri_v2_compare_a';
+const CMP_B_KEY = 'uhri_v2_compare_b';
+
+function _resolveCompareDefaults() {
+  const countries = cleanCountryList(state.facets?.countries || []).slice().sort();
+  if (!countries.length) return;
+
+  // Layer 1: URL params (wins over everything)
+  let chosenA = null, chosenB = null;
+  try {
+    const u = new URL(location.href);
+    const qa = u.searchParams.get('compareA');
+    const qb = u.searchParams.get('compareB');
+    if (qa && countries.includes(qa)) chosenA = qa;
+    if (qb && countries.includes(qb)) chosenB = qb;
+  } catch {}
+
+  // Layer 2: localStorage
+  if (!chosenA) {
+    try { const v = localStorage.getItem(CMP_A_KEY); if (v && countries.includes(v)) chosenA = v; } catch {}
+  }
+  if (!chosenB) {
+    try { const v = localStorage.getItem(CMP_B_KEY); if (v && countries.includes(v)) chosenB = v; } catch {}
+  }
+
+  // Layer 3: alphabetical (skip duplicates so A !== B)
+  if (!chosenA) chosenA = countries[0];
+  if (!chosenB) chosenB = countries.find(c => c !== chosenA) || countries[1] || countries[0];
+
+  state.cmpA = chosenA;
+  state.cmpB = chosenB;
+}
+
+function _persistCompareChoice() {
+  // Save current pair to localStorage + keep URL in sync so copy-link
+  // captures the comparison. replaceState — no new history entry.
+  try {
+    if (state.cmpA) localStorage.setItem(CMP_A_KEY, state.cmpA);
+    if (state.cmpB) localStorage.setItem(CMP_B_KEY, state.cmpB);
+  } catch {}
+  try {
+    const u = new URL(location.href);
+    if (state.cmpA) u.searchParams.set('compareA', state.cmpA); else u.searchParams.delete('compareA');
+    if (state.cmpB) u.searchParams.set('compareB', state.cmpB); else u.searchParams.delete('compareB');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  } catch {}
+}
+
 async function renderCompare() {
   const root = $('#view-compare');
   const countries = cleanCountryList(state.facets?.countries || []).sort();
+  // Defaults resolved once at boot (_resolveCompareDefaults in boot()).
+  // Keep the guards so direct nav to Compare without boot init still works.
+  if (!state.cmpA) _resolveCompareDefaults();
   if (!state.cmpA) state.cmpA = countries[0] || null;
   if (!state.cmpB) state.cmpB = countries[1] || null;
   const opts = name => countries.map(c => `<option value="${sanitize(c)}" ${c===name?'selected':''}>${sanitize(c)}</option>`).join('');
@@ -5900,8 +6008,8 @@ async function renderCompare() {
       <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">SDGs</span></div></div><div class="row-list" id="cmpSdgsB"></div></div>
     </div>`;
 
-  $('#cmpSelA').addEventListener('change', e => { state.cmpA = e.target.value; renderCompare(); });
-  $('#cmpSelB').addEventListener('change', e => { state.cmpB = e.target.value; renderCompare(); });
+  $('#cmpSelA').addEventListener('change', e => { state.cmpA = e.target.value; _persistCompareChoice(); renderCompare(); });
+  $('#cmpSelB').addEventListener('change', e => { state.cmpB = e.target.value; _persistCompareChoice(); renderCompare(); });
 
   // C2: shared-Y coordinator. Each side's analytics lands asynchronously;
   // timelines render with their own scale first (so the user sees data
@@ -9938,15 +10046,19 @@ async function boot() {
     // Build rail with partial data (no theme/group counts yet — will refresh on analytics)
     buildRail(facets, cachedAnalytics || { themes:{theme_counts:[]}, text:{affected_person_counts:[], sdg_counts:[]}, trends:{} });
 
-    // Defaults — compare & focus use the top-volume countries (from map data),
-    // not alphabetical, so the initial Compare view is actually interesting.
+    // Defaults. focusCountry stays at top-by-volume (the first Country
+    // profile the user lands on is "the busiest one" which is genuinely
+    // useful context). Compare A / B were previously also top-by-volume
+    // which defaulted to China + Colombia — politically charged for a
+    // research tool. D5: Compare now resolves defaults via a three-layer
+    // lookup — URL params (link-shareable), then localStorage (user's
+    // last pick across sessions), then alphabetical (neutral cold-start).
     const topByVolume = (mapD.country_counts || [])
       .map(c => cleanCountryName(c.country))
       .filter(n => n && n.length > 2);
     if (!state.focusCountry) state.focusCountry = NAME_TO_ISO[topByVolume[0]] || 'COL';
     $('#tabCountry').textContent = ISO_TO_NAME[state.focusCountry] || state.focusCountry;
-    if (!state.cmpA) state.cmpA = topByVolume[0] || 'Colombia';
-    if (!state.cmpB) state.cmpB = topByVolume[1] || 'Brazil';
+    _resolveCompareDefaults();
 
     _restoreUrlState();
     renderActiveFilters();
