@@ -262,6 +262,9 @@ a{color:inherit;text-decoration:none}
 .active-filters .af-chip .x:hover{color:var(--ink)}
 .active-filters .af-clear{font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border:1px dashed var(--line);cursor:pointer;margin-left:auto;background:transparent}
 .active-filters .af-clear:hover{border-color:var(--ink);color:var(--ink)}
+/* Fix: "+N more" collapsed-chips toggle when filter bar gets long */
+.active-filters .af-more{font-size:11px;color:var(--accent);letter-spacing:.02em;padding:3px 8px;border:1px solid var(--accent-soft);background:var(--paper);cursor:pointer;font-family:var(--mono)}
+.active-filters .af-more:hover{border-color:var(--accent);background:var(--accent-soft)}
 
 /* Citation picker (inside drawer) */
 .cite-picker{position:relative;display:inline-block}
@@ -1221,8 +1224,14 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 }
 @media(max-width:960px){
   .app{grid-template-columns:1fr!important}
-  .rail{display:none;position:fixed;top:var(--top-h);left:0;bottom:0;width:min(320px,85vw);z-index:28;background:var(--paper);border-right:1px solid var(--line);box-shadow:4px 0 20px rgba(0,0,0,.15)}
+  .rail{display:none;position:fixed;top:var(--top-h);left:0;bottom:0;width:min(320px,85vw);z-index:28;background:var(--paper);border-right:1px solid var(--line);box-shadow:4px 0 20px rgba(0,0,0,.15);box-sizing:border-box;overflow-x:hidden}
   .rail.mobile-open{display:block}
+  /* Fix: on a 375px mobile the rail is ~318px — but the big 34px
+     serif hit count could clip against the left edge if any parent
+     had a stray transform / negative margin. Force container to
+     respect its padding. */
+  .filter-result{overflow:hidden}
+  .fr-num{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .drawer{display:none}
   .drawer.mobile-open{display:block;position:fixed;top:var(--top-h);right:0;bottom:0;width:min(340px,90vw);z-index:28;background:var(--paper);border-left:1px solid var(--line);box-shadow:-4px 0 20px rgba(0,0,0,.15)}
   .cmdk-hint{display:none}
@@ -1249,7 +1258,12 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .tab-eyebrow, .tab .t-idx, .facet-head, .fh-n, .facet-filter,
   .af-chip .k, .se-hdr .region, .se-hdr .kw, .se-hdr .type,
   .kw-hint, .dash-footer, .panel-head .panel-actions,
-  .cp-iso, .cp-sub, .cp-kpi .l, .mt-family, .tl-hint{font-size:12px!important;line-height:1.4}
+  .cp-iso, .cp-sub, .cp-kpi .l, .mt-family{font-size:12px!important;line-height:1.4}
+  /* Fix: .tl-hint stays tiny AND moves below the chart. On desktop it
+     sits absolutely positioned in the top-right; on mobile a bumped font
+     + narrow width wrapped it to 3 lines that covered the chart. */
+  .tl-hint{position:static!important;display:block;font-size:10px!important;padding:6px 8px;background:var(--paper-2);border-top:1px dotted var(--line);text-align:left;line-height:1.4}
+  .tl-wrap{position:relative}
   .rnk{font-size:11px}
 
   /* H3: touch targets — checkboxes, chips, list rows at least 44px hit area */
@@ -1277,8 +1291,10 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .slow-load-banner{
     position:fixed!important;inset:auto 0 0 0!important;
     left:0!important;right:0!important;top:auto!important;
+    transform:none!important;  /* override desktop translateX(-50%) */
     width:100%!important;max-width:none!important;min-width:0!important;
-    margin:0!important;border-radius:10px 10px 0 0;box-sizing:border-box
+    margin:0!important;border-radius:10px 10px 0 0;box-sizing:border-box;
+    flex-wrap:wrap;z-index:190
   }
   /* Command palette modal — fill viewport instead of centered card */
   .cmd-palette{padding:0!important}
@@ -1302,6 +1318,12 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 
   /* Mobile backdrop visible when rail or drawer is open */
   .mobile-backdrop{z-index:27}
+
+  /* Footer on mobile: hide the "RE:CONSTITUTION" decorative links
+     that eat space — user only needs Methodology. */
+  .dash-footer .df-right a:not([href="#methodology"]),
+  .dash-footer .df-right .df-sep{display:none}
+  .dash-footer{font-size:10px}
 }
 
 /* M3 · C5 — Row action sheet. Mouse-activated at cursor for desktop
@@ -3627,14 +3649,25 @@ function renderActiveFilters() {
   const bar = $('#activeFilters');
   if (!chips.length) { bar.classList.remove('on'); bar.innerHTML = ''; return; }
   bar.classList.add('on');
+  // Fix: when the user adds "All Treaty Bodies" (12 chips) or "All
+  // Special Procedures" (~40 chips), the bar grows to a full screen of
+  // stacked chips — especially on mobile. Collapse after 6 with a
+  // "…+N more" toggle that expands in place.
+  const COLLAPSE_AT = 6;
+  const expanded = !!state._afExpanded;
+  const shown = (expanded || chips.length <= COLLAPSE_AT) ? chips : chips.slice(0, COLLAPSE_AT);
+  const hidden = chips.length - shown.length;
+  const chipHtml = (c, i) => `
+    <span class="af-chip kind-${c.kind}">
+      <span class="k">${sanitize(c.label)}</span>
+      <span class="v" title="${sanitize(c.value)}">${sanitize(c.value)}</span>
+      <button class="x" data-i="${i}" aria-label="Remove filter">×</button>
+    </span>`;
   bar.innerHTML =
     '<span class="af-label">filtering</span>' +
-    chips.map((c, i) => `
-      <span class="af-chip kind-${c.kind}">
-        <span class="k">${sanitize(c.label)}</span>
-        <span class="v" title="${sanitize(c.value)}">${sanitize(c.value)}</span>
-        <button class="x" data-i="${i}" aria-label="Remove filter">×</button>
-      </span>`).join('') +
+    shown.map(chipHtml).join('') +
+    (hidden > 0 ? `<button class="af-more" id="afMore">…+${hidden} more</button>` : '') +
+    (expanded && chips.length > COLLAPSE_AT ? `<button class="af-more" id="afLess">show less</button>` : '') +
     '<button class="af-clear" id="afClearAll">clear all ×</button>';
 
   bar.querySelectorAll('.af-chip .x').forEach(btn => btn.addEventListener('click', () => {
@@ -3649,6 +3682,8 @@ function renderActiveFilters() {
     if (chips[i].kind === 'country') state.hexRegion = 'world';
     onFiltersChanged();
   }));
+  $('#afMore')?.addEventListener('click', () => { state._afExpanded = true; renderActiveFilters(); });
+  $('#afLess')?.addEventListener('click', () => { state._afExpanded = false; renderActiveFilters(); });
   $('#afClearAll').addEventListener('click', () => $('#clearFilters').click());
 }
 
@@ -5342,12 +5377,36 @@ function exportMapAsSVG() {
   const svg = $('#mapWrap svg');
   if (!svg) { toast('No map to export yet', true); return; }
   const clone = svg.cloneNode(true);
-  // Inline the computed styles so the exported SVG renders without the host page
+  // Fix: hex fills use `fill="var(--accent)"` + `color-mix(...)` which
+  // are UNRESOLVED when the SVG is opened standalone (iOS preview,
+  // Chrome file://, etc.) — every hex rendered BLACK. Walk the clone
+  // and replace each fill attribute with its computed colour from the
+  // live page (getComputedStyle resolves the CSS vars). Uses a throw-
+  // away div to let the browser compute `color-mix(...)` → rgb().
+  const probe = document.createElement('div');
+  document.body.appendChild(probe);
+  const resolveColor = (raw) => {
+    if (!raw || raw === 'none' || raw === 'transparent') return raw;
+    probe.style.color = raw;
+    const c = getComputedStyle(probe).color;
+    return c || raw;
+  };
+  clone.querySelectorAll('[fill]').forEach(el => {
+    el.setAttribute('fill', resolveColor(el.getAttribute('fill')));
+  });
+  clone.querySelectorAll('[stroke]').forEach(el => {
+    el.setAttribute('stroke', resolveColor(el.getAttribute('stroke')));
+  });
+  // Also pull computed colors of class-styled fills (for CSS rules like
+  // .country.empty{fill:var(--paper-2)}).
+  clone.querySelectorAll('.country.empty').forEach(el => el.setAttribute('fill', resolveColor('var(--paper-2)')));
+  probe.remove();
+
+  // Inline static styles (non-var) as a safety net.
   const css = `
     text{font-family:monospace;font-size:9px}
     .region-lbl{font-size:10px;fill:#6B6863;letter-spacing:2px}
     .country{stroke:#0F0F10;stroke-width:.4}
-    .country.empty{fill:#E1DCD0;opacity:.5}
     .sphere{fill:none;stroke:#0F0F10;stroke-width:.4}
     .graticule{fill:none;stroke:rgba(0,0,0,.08);stroke-width:.3}
     .hex polygon{stroke:#F2EFE8;stroke-width:1.5}
