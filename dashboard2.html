@@ -2049,7 +2049,63 @@ const api = {
     p.set('page', 1); p.set('page_size', 1);
     return apiGet(E.records, p, { scope: 'recordsCount' });
   },
+  // O6: bundled profile endpoint. One server round-trip returns
+  // { analytics, map, records_sample, meta } for Country / Body / Theme
+  // / Group / SDG / Region / Type profile tabs. MV-backed → second hit
+  // is <50ms.
+  profile: (entityType, entityValue, opts = {}) => {
+    const p = new URLSearchParams();
+    if (state.filters.dataset) p.set('dataset', state.filters.dataset);
+    const path = `/api/data/profile/${encodeURIComponent(entityType)}/${encodeURIComponent(entityValue)}`;
+    return apiGet(path, p, { scope: `profile:${entityType}:${entityValue}`, ...opts });
+  },
 };
+
+/* O6 helper: true when the rail carries no filters that would narrow
+   a profile below its "show everything for this entity" default. When
+   empty, the profile renderers can use the bundled /profile endpoint;
+   when non-empty, they fall back to the 3-call intersection path. */
+function _railIsEmpty(filter) {
+  const f = filter || state.filters;
+  if ((f.kw || '').trim()) return false;
+  for (const key of ['country', 'body', 'theme', 'group', 'region', 'sdg', 'type']) {
+    const s = f[key];
+    if (s && typeof s.size === 'number' && s.size > 0) return false;
+  }
+  if (state.facets) {
+    if (f.yearA && f.yearA !== state.facets.min_year) return false;
+    if (f.yearB && f.yearB !== state.facets.max_year) return false;
+  }
+  return true;
+}
+
+/* O6: unified profile loader. Returns { stale, fresh } — stale is the
+   localStorage SWR hit (instant paint), fresh is the network promise.
+   Bundled path used when rail is empty; otherwise falls back to the
+   three separate analytics/map/records calls so rail-filter intersection
+   still works (user can drill "Poland + CCPR" etc.). */
+function _loadProfile(entityType, entityValue, scopeOverride) {
+  const filter = _scopedFilter(scopeOverride || {});
+  const railEmpty = _railIsEmpty();
+  const norm = d => d ? { analytics: d.analytics, mapD: d.map, records: d.records_sample || d.records } : null;
+
+  if (railEmpty) {
+    const pSwr = swr(`profile:${entityType}:${entityValue}`, filter, () => api.profile(entityType, entityValue));
+    return {
+      stale: norm(pSwr.stale),
+      fresh: pSwr.fresh.then(norm),
+    };
+  }
+
+  const anSwr = swr(`analytics:${entityType}:${entityValue}`, filter, () => api.analytics(filter));
+  const mpSwr = swr(`map:${entityType}:${entityValue}`, filter, () => api.map(filter));
+  const rcSwr = swr(`records:${entityType}:${entityValue}`, filter, () => api.records(filter, 1, 5));
+  const combine = (a, m, r) => ({ analytics: a, mapD: m, records: r });
+  return {
+    stale: (anSwr.stale && mpSwr.stale && rcSwr.stale) ? combine(anSwr.stale, mpSwr.stale, rcSwr.stale) : null,
+    fresh: Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]).then(([a, m, r]) => combine(a, m, r)),
+  };
+}
 
 /* =========================================================================
    OFFLINE DATA LAYER (#27) — in-memory aggregations over the full dataset
@@ -5199,9 +5255,10 @@ async function renderCountry() {
   // Profile view intersects the rail with the focused country (Option B).
   // Cloning rail filter sets so override of `country` doesn't mutate state.
   const countryFilter = _scopedFilter({ country: new Set([name]) });
-
-  const anSwr = swr('analytics:country:'+iso, countryFilter, () => api.analytics(countryFilter));
-  const rcSwr = swr('records:country:'+iso,   countryFilter, () => api.records(countryFilter, 1, 5));
+  // O6: bundled endpoint when rail is empty (common case). Country profile
+  // only uses analytics + records in paint() — map is ignored but harmless
+  // to fetch (free from MV). Fallback 3-call when rail has filters.
+  const cpProfile = _loadProfile('country', name, { country: new Set([name]) });
 
   const paint = (analytics, records, opts = {}) => {
     updateSparklineCaches(analytics);
@@ -5265,10 +5322,10 @@ async function renderCountry() {
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
   };
 
-  if (anSwr.stale && rcSwr.stale) paint(anSwr.stale, rcSwr.stale, { stale: true });
+  if (cpProfile.stale) paint(cpProfile.stale.analytics, cpProfile.stale.records, { stale: true });
   try {
-    const [analytics, records] = await Promise.all([anSwr.fresh, rcSwr.fresh]);
-    paint(analytics, records, { stale: false });
+    const d = await cpProfile.fresh;
+    paint(d.analytics, d.records, { stale: false });
     $('#cpSeeAll')?.addEventListener('click', () => {
       state.filters.country = new Set([name]);
       refreshFacetUI('country');
@@ -5328,9 +5385,9 @@ async function renderTheme() {
   const themeFilter = _scopedFilter({ theme: new Set([name]) });
 
   // --- SWR: try cache first for instant paint, then refresh in background
-  const anSwr = swr('analytics:theme:'+name, themeFilter, () => api.analytics(themeFilter));
-  const mpSwr = swr('map:theme:'+name,       themeFilter, () => api.map(themeFilter));
-  const rcSwr = swr('records:theme:'+name,   themeFilter, () => api.records(themeFilter, 1, 5));
+  // O6: bundled /profile endpoint (MV-backed). Fallback to 3-call when
+  // rail has filters that would narrow below "whole theme" scope.
+  const thProfile = _loadProfile('theme', name, { theme: new Set([name]) });
 
   // Reusable painter — called once with stale (if any) then again with fresh
   const paint = (analytics, mapD, records, opts = {}) => {
@@ -5379,12 +5436,10 @@ async function renderTheme() {
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
   };
 
-  if (anSwr.stale && mpSwr.stale && rcSwr.stale) {
-    paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
-  }
+  if (thProfile.stale) paint(thProfile.stale.analytics, thProfile.stale.mapD, thProfile.stale.records, { stale: true });
   try {
-    const [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
-    paint(analytics, mapD, records, { stale: false });
+    const d = await thProfile.fresh;
+    paint(d.analytics, d.mapD, d.records, { stale: false });
     $('#thSeeAll')?.addEventListener('click', () => {
       state.filters.theme = new Set([name]);
       refreshFacetUI('theme');
@@ -5437,9 +5492,8 @@ async function renderGroup() {
   });
   const filter = _scopedFilter({ group: new Set([name]) });
 
-  const anSwr = swr('analytics:group:'+name, filter, () => api.analytics(filter, { scope: 'analytics:group-' + name }));
-  const mpSwr = swr('map:group:'+name,       filter, () => api.map(filter, { scope: 'map:group-' + name }));
-  const rcSwr = swr('records:group:'+name,   filter, () => api.records(filter, 1, 5, { scope: 'records:group-' + name }));
+  // O6: bundled profile endpoint
+  const gpProfile = _loadProfile('group', name, { group: new Set([name]) });
 
   const paint = (analytics, mapD, records, opts = {}) => {
     updateSparklineCaches(analytics);
@@ -5485,10 +5539,10 @@ async function renderGroup() {
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
   };
 
-  if (anSwr.stale && mpSwr.stale && rcSwr.stale) paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
+  if (gpProfile.stale) paint(gpProfile.stale.analytics, gpProfile.stale.mapD, gpProfile.stale.records, { stale: true });
   try {
-    const [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
-    paint(analytics, mapD, records, { stale: false });
+    const d = await gpProfile.fresh;
+    paint(d.analytics, d.mapD, d.records, { stale: false });
     $('#gpSeeAll')?.addEventListener('click', () => {
       state.filters.group = new Set([name]);
       refreshFacetUI('group');
@@ -5662,22 +5716,9 @@ async function renderSDG() {
     // Focus the filter input on load so the user can type immediately
     setTimeout(() => filterInput.focus(), 50);
   }
-  // Intersect rail filters with the focused SDG (Option B). The rail's sdg
-  // set is emptied because we pass the raw SDG label through `rawParams`
-  // below — buildParams would otherwise emit the numeric shorthand too.
-  const filter = _scopedFilter({ sdg: new Set() });
-  const rawParams = buildParams(filter);
-  rawParams.set('sdgs', sdg);
-  // Synthetic filter used only for SWR key — includes the raw SDG so the
-  // cache key distinguishes sub-targets from goal-level.
-  const filterKey = { ...filter, sdg: new Set([String(sdg)]) };
-  const rawAnalytics = () => apiGet(E.analytics, rawParams, { scope: 'analytics:sdg-' + sdg });
-  const rawMap       = () => apiGet(E.map,       rawParams, { scope: 'map:sdg-' + sdg });
-  const rawRecords   = () => { const p = new URLSearchParams(rawParams); p.set('page','1'); p.set('page_size','5'); return apiGet(E.records, p, { scope: 'records:sdg-' + sdg }); };
-
-  const anSwr = swr('analytics:sdg:'+sdg, filterKey, rawAnalytics);
-  const mpSwr = swr('map:sdg:'+sdg,       filterKey, rawMap);
-  const rcSwr = swr('records:sdg:'+sdg,   filterKey, rawRecords);
+  // O6: bundled /profile endpoint handles SDG shorthand → full-label
+  // alias backend-side (perf-v6 F2). When rail is empty, hits MV.
+  const spProfile = _loadProfile('sdg', sdg, {});
 
   const paint = (analytics, mapD, records, opts = {}) => {
     updateSparklineCaches(analytics);
@@ -5722,10 +5763,10 @@ async function renderSDG() {
     if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
   };
 
-  if (anSwr.stale && mpSwr.stale && rcSwr.stale) paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
+  if (spProfile.stale) paint(spProfile.stale.analytics, spProfile.stale.mapD, spProfile.stale.records, { stale: true });
   try {
-    const [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
-    paint(analytics, mapD, records, { stale: false });
+    const d = await spProfile.fresh;
+    paint(d.analytics, d.mapD, d.records, { stale: false });
     $('#spSeeAll')?.addEventListener('click', () => {
       const m = String(sdg).match(/(\d+)/);
       if (m) { state.filters.sdg.add(Number(m[1])); refreshFacetUI('sdg'); }
@@ -5919,9 +5960,18 @@ async function renderMechanism() {
   const cacheKey = scope + ':' + target;
   const filter = _scopedFilter(filterOverride);
 
-  const anSwr = swr('analytics:mech:'+cacheKey, filter, () => api.analytics(filter));
-  const mpSwr = swr('map:mech:'+cacheKey,       filter, () => api.map(filter));
-  const rcSwr = swr('records:mech:'+cacheKey,   filter, () => api.records(filter, 1, 5));
+  // O6: single-body mode uses the bundled /profile endpoint (MV-backed,
+  // <50ms warm). Family + compare modes stay on the 3-call path because
+  // they pass multi-body filters that /profile can't express.
+  const useBundle = (scope === 'single');
+  let anSwr, mpSwr, rcSwr, profileLoader;
+  if (useBundle) {
+    profileLoader = _loadProfile('body', target, filterOverride);
+  } else {
+    anSwr = swr('analytics:mech:'+cacheKey, filter, () => api.analytics(filter));
+    mpSwr = swr('map:mech:'+cacheKey,       filter, () => api.map(filter));
+    rcSwr = swr('records:mech:'+cacheKey,   filter, () => api.records(filter, 1, 5));
+  }
 
   const paint = (analytics, mapD, records, opts = {}) => {
     updateSparklineCaches(analytics);
@@ -5965,9 +6015,19 @@ async function renderMechanism() {
     if (!(records.records || []).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
   };
 
-  if (anSwr.stale && mpSwr.stale && rcSwr.stale) paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
+  if (useBundle) {
+    if (profileLoader.stale) paint(profileLoader.stale.analytics, profileLoader.stale.mapD, profileLoader.stale.records, { stale: true });
+  } else if (anSwr.stale && mpSwr.stale && rcSwr.stale) {
+    paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
+  }
   try {
-    const [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
+    let analytics, mapD, records;
+    if (useBundle) {
+      const d = await profileLoader.fresh;
+      analytics = d.analytics; mapD = d.mapD; records = d.records;
+    } else {
+      [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
+    }
     paint(analytics, mapD, records, { stale: false });
     $('#mpSeeAll')?.addEventListener('click', () => {
       // "See all" pipes the current scope into the rail filter + Search tab.
