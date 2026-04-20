@@ -869,18 +869,21 @@
     </div>
     <div class="yr-axis" id="yrAxis"></div>
 
-    <div class="timeline-callouts">
-      <div class="callout">
-        <div class="yr">2012 · spike</div>
-        <div class="txt">Second UPR cycle begins — recommendation volume jumps 38%.</div>
+    <!-- Callouts are populated by renderTimelineCallouts() from the real
+         yearly_counts (peak / trough / latest). Fallback values shown
+         until loadLive() resolves. -->
+    <div class="timeline-callouts" id="timelineCallouts">
+      <div class="callout" data-cl="peak">
+        <div class="yr">Peak · —</div>
+        <div class="txt">—</div>
       </div>
-      <div class="callout">
-        <div class="yr">2020 · dip</div>
-        <div class="txt">Pandemic-era sessions suspended or moved online — throughput falls.</div>
+      <div class="callout" data-cl="trough">
+        <div class="yr">Trough · —</div>
+        <div class="txt">—</div>
       </div>
-      <div class="callout">
-        <div class="yr">2024 · peak</div>
-        <div class="txt">Third-cycle backlog clears; 23,410 new observations recorded in one year.</div>
+      <div class="callout" data-cl="latest">
+        <div class="yr">Latest · —</div>
+        <div class="txt">—</div>
       </div>
     </div>
   </div>
@@ -961,11 +964,16 @@
    UN Human Rights Analytics — landing page behavior
    ========================================================= */
 
-(() => {
+(async () => {
   const tw = window.__TWEAKS__ || {};
+  const API_BASE = 'https://150.254.115.204/uhri-api';
 
-  /* ---------- data: synthesized but plausible ---------- */
-  const THEMES = [
+  /* ---------- data: fallback (replaced by loadLive() before render) ----------
+     These arrays are used verbatim if the API is unreachable. When /api/data
+     endpoints respond we overwrite them with fresh real counts + live UN
+     recommendation excerpts. The structure stays identical so all the
+     render functions below work with either source. */
+  let THEMES = [
     ["Women's rights / gender",          23812],
     ["Children's rights",                21440],
     ["Torture & ill-treatment",          18920],
@@ -976,7 +984,7 @@
     ["Health & social security",         10488],
   ];
 
-  const GROUPS = [
+  let GROUPS = [
     ["Women & girls",                    28910],
     ["Children",                         22104],
     ["Minorities (ethnic, religious)",   17620],
@@ -987,7 +995,7 @@
     ["Indigenous peoples",                5140],
   ];
 
-  const COUNTRIES = [
+  let COUNTRIES = [
     ["CHN","China",3218],["MEX","Mexico",2990],["IRN","Iran",2840],
     ["COL","Colombia",2711],["RUS","Russia",2620],["BRA","Brazil",2544],
     ["TUR","Türkiye",2411],["IND","India",2380],["USA","United States",2225],
@@ -997,8 +1005,10 @@
     ["SAU","Saudi Arabia",1705],["ETH","Ethiopia",1680],
   ];
 
-  /* real-feeling recommendation excerpts for the ticker */
-  const RECS = [
+  /* Hand-authored ticker fallback excerpts — visible only if the live
+     /api/data/records call fails. Kept so the page never looks broken
+     offline, but the real deployment should always fetch live. */
+  let RECS = [
     { yr: 2024, cc: "COL", mech: "CCPR", txt: "Guarantee prompt, effective and impartial investigations into attacks against social leaders and human rights defenders." },
     { yr: 2023, cc: "IRN", mech: "UPR",  txt: "Establish a moratorium on executions with a view to abolishing the death penalty, particularly for juvenile offenders." },
     { yr: 2025, cc: "HUN", mech: "CERD", txt: "Combat segregation of Roma children in education and ensure equal access to mainstream schools." },
@@ -1020,6 +1030,161 @@
     "UPR": "A", "CCPR": "B", "CESCR": "C", "CERD": "D",
     "CEDAW": "E", "CAT": "F", "CRC": "G", "CRPD": "H", "SR": "I"
   };
+
+  /* ---------- loadLive(): fetch real counts from the UHRI API ----------
+     Fires three parallel requests: /api/data/facets (total / countries /
+     bodies counts for the hero KPIs), /api/data/analytics (theme counts,
+     yearly counts) + /api/data/map (country breakdowns for the hex map)
+     + /api/data/records (recent Recommendations for the ticker). On
+     success we overwrite THEMES / GROUPS / COUNTRIES / RECS / tlData +
+     patch the hero [data-counter] attributes in place, so the counter
+     observer (defined below) animates to the live totals instead of the
+     fallback ones. On timeout or network error we keep the hardcoded
+     fallback above — the page stays functional offline. */
+  const LIVE_TIMEOUT_MS = 4500;
+  const MECH_NAME_TO_ISO3 = {
+    /* OHCHR country_counts returns display names ("China", "United States",
+       "Türkiye") but the HEX_LAYOUT grid is keyed by ISO-alpha-3. Canonical
+       country-name → ISO3 mapping lives in the dashboard's facets payload
+       too, but the landing keeps its own lookup so it can colour hexes
+       even when the dashboard module isn't loaded. */
+    "China":"CHN","Mexico":"MEX","Iran":"IRN","Iran (Islamic Republic of)":"IRN",
+    "Colombia":"COL","Russia":"RUS","Russian Federation":"RUS","Brazil":"BRA",
+    "Türkiye":"TUR","Turkey":"TUR","India":"IND","United States":"USA",
+    "United States of America":"USA","Indonesia":"IDN","Egypt":"EGY",
+    "Philippines":"PHL","Nigeria":"NGA","Pakistan":"PAK","Ukraine":"UKR",
+    "Myanmar":"MMR","Venezuela":"VEN","Venezuela (Bolivarian Republic of)":"VEN",
+    "Kenya":"KEN","Saudi Arabia":"SAU","Ethiopia":"ETH","Viet Nam":"VNM",
+    "Vietnam":"VNM","Republic of Korea":"KOR","Democratic People's Republic of Korea":"PRK",
+    "Lao People's Democratic Republic":"LAO","Bolivia":"BOL",
+    "Bolivia (Plurinational State of)":"BOL","Syria":"SYR","Syrian Arab Republic":"SYR",
+    "United Kingdom":"GBR","United Kingdom of Great Britain and Northern Ireland":"GBR",
+    "Republic of Moldova":"MDA","Moldova":"MDA","Czechia":"CZE","Czech Republic":"CZE",
+    "Bosnia and Herzegovina":"BIH","North Macedonia":"MKD","Democratic Republic of the Congo":"COD",
+    "DR Congo":"COD","Côte d'Ivoire":"CIV","United Republic of Tanzania":"TZA","Tanzania":"TZA",
+    "Cabo Verde":"CPV","Cape Verde":"CPV","Timor-Leste":"TLS","Eswatini":"SWZ","Swaziland":"SWZ",
+  };
+  function _nameToIso3(name) {
+    if (!name) return null;
+    if (MECH_NAME_TO_ISO3[name]) return MECH_NAME_TO_ISO3[name];
+    // Try short forms (strip parenthetical disambiguators)
+    const base = name.replace(/\s*\([^)]+\)\s*$/, '').trim();
+    return MECH_NAME_TO_ISO3[base] || null;
+  }
+  function _shortBody(body) {
+    // Strip leading "- " that the raw dataset sometimes carries.
+    return String(body || '').replace(/^-\s*/, '').trim();
+  }
+  function _countryCc(rec) {
+    // Prefer ISO2 from CountryISO2 if present, else first 2-3 chars of name.
+    const c = (rec.CountryISO2 || rec.CountryISO3 || (rec.Countries || [''])[0] || '').toUpperCase();
+    return c.length <= 4 ? c : c.slice(0, 3);
+  }
+  async function loadLive() {
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), LIVE_TIMEOUT_MS);
+    try {
+      const opts = { signal: ac.signal };
+      const [facets, analytics, mapPayload, recs] = await Promise.all([
+        fetch(API_BASE + '/api/data/facets', opts).then(r => r.json()),
+        fetch(API_BASE + '/api/data/analytics', opts).then(r => r.json()),
+        fetch(API_BASE + '/api/data/map', opts).then(r => r.json()),
+        fetch(API_BASE + '/api/data/records?sort_by=publication_date&sort_dir=desc&page_size=120&annotation_type=Recommendations&text_query=recommend', opts).then(r => r.json()),
+      ]);
+      clearTimeout(timeout);
+
+      /* KPIs — overwrite the [data-counter] attrs BEFORE the counter
+         observer fires. 267,537 real vs 267,548 fake is a 11-record
+         difference (Stage 6 artefacts removed during cleaning). */
+      const patchCounter = (selector, target) => {
+        const el = document.querySelector(selector);
+        if (!el || target == null) return;
+        el.dataset.counter = String(target);
+      };
+      patchCounter('[data-counter="267548"]', facets.total_records);
+      patchCounter('[data-counter="199"]',    (facets.countries || []).length);
+      patchCounter('[data-counter="75"]',     (facets.bodies || []).length);
+
+      /* THEMES — top 8 by count, same shape as hardcoded [[name, count]] */
+      const themeCounts = analytics?.themes?.theme_counts || [];
+      if (themeCounts.length) {
+        THEMES = themeCounts.slice(0, 8).map(t => [t.theme, t.count]);
+      }
+
+      /* GROUPS — concerned groups (affected_persons) from text analytics */
+      const apCounts = analytics?.text?.affected_person_counts || [];
+      if (apCounts.length) {
+        GROUPS = apCounts.slice(0, 8).map(g => [g.affected_person, g.count]);
+      }
+
+      /* COUNTRIES — top 20 from /api/data/map (keyed for hex coloring) */
+      const cc = mapPayload?.country_counts || [];
+      if (cc.length) {
+        COUNTRIES = cc.slice(0, 20)
+          .map(c => [_nameToIso3(c.country) || c.country.slice(0, 3).toUpperCase(), c.country, c.count]);
+      }
+
+      /* Full country lookup used by the hex map — every country in the
+         map endpoint, keyed by ISO3. Enables correct coloring of all 212
+         countries, not just the top 20 we use for the hero summary. */
+      window.__LIVE_COUNTRY_BY_ISO3 = {};
+      cc.forEach(c => {
+        const iso = _nameToIso3(c.country);
+        if (iso) window.__LIVE_COUNTRY_BY_ISO3[iso] = c.count;
+      });
+
+      /* TIMELINE — yearly counts, [[year, count]] shape */
+      const yc = analytics?.trends?.yearly_counts || [];
+      if (yc.length) {
+        tlData = yc.filter(y => y.year >= 2006 && y.year <= 2026)
+                   .map(y => [y.year, y.count]);
+      }
+
+      /* TICKER — real recommendations, diversified by (country, body, year)
+         to avoid 10 sequential paragraphs from the same report. Skip
+         procedural paragraphs ("the State Party is requested to...") and
+         items too short/long for a readable scroll. */
+      const tickerPicks = [];
+      const seenKeys = new Set();
+      for (const r of (recs.records || [])) {
+        const country = (r.Countries || [''])[0];
+        const body = _shortBody(r.Body || '');
+        const yr = Number((r.PublicationDate || '').slice(0, 4));
+        const key = country + '|' + body + '|' + yr;
+        if (seenKeys.has(key)) continue;
+        let txt = (r.TextPlainCleaned || r.Text || '').trim();
+        txt = txt.replace(/^\d+\.\s*/, '').replace(/^Data\s+\d+\.\s*/, '');
+        if (txt.length < 80 || txt.length > 320) continue;
+        const low = txt.toLowerCase();
+        if (low.startsWith('the state party is requested') ||
+            low.startsWith('in accordance with') ||
+            low.startsWith('the committee requests') ||
+            low.includes('disseminate') && low.length < 160) continue;
+        seenKeys.add(key);
+        tickerPicks.push({
+          yr: yr || 0,
+          cc: _countryCc(r) || country.slice(0, 3).toUpperCase(),
+          mech: body,
+          txt,
+        });
+        if (tickerPicks.length >= 16) break;
+      }
+      if (tickerPicks.length >= 6) RECS = tickerPicks;
+      return true;
+    } catch (e) {
+      clearTimeout(timeout);
+      console.warn('[landing] live data unavailable, using fallback:', e && e.message || e);
+      return false;
+    }
+  }
+
+  /* Kick off fetch in parallel with font + layout settle. We don't await
+     here — all the setup (event listeners, observers) + first render with
+     fallback data still runs synchronously, so the landing is interactive
+     immediately. When _liveReady resolves we call applyLiveData() below
+     to overwrite the sections that depend on real counts. Offline users
+     keep the hardcoded fallback. */
+  const _liveReady = loadLive();
 
   /* ---------- counters ---------- */
   const counters = document.querySelectorAll("[data-counter]");
@@ -1227,6 +1392,10 @@
 
   /* ---------- theme / group lists ---------- */
   function renderBars(listEl, data, maxLabel = true) {
+    if (!data || !data.length) return;
+    /* Idempotent: clear previous data rows (keep the <h3> header) so
+       applyLiveData() can call us again without duplicating rows. */
+    listEl.querySelectorAll('.row').forEach(r => r.remove());
     const top = data[0][1];
     const html = data.map(([name, val], i) => {
       const pct = (val / top) * 100;
@@ -1345,16 +1514,33 @@
     [24,13,'AUS','Australia','oceania'],[25,12,'PNG','Papua New Guinea','oceania'],
     [25,14,'NZL','New Zealand','oceania'],[26,12,'FJI','Fiji','oceania'],
   ];
-  // Merge real counts from COUNTRIES (iso, name, count) + fallback synthetic for tail
-  const COUNT_BY_ISO = {};
-  COUNTRIES.forEach(([iso,name,v]) => { COUNT_BY_ISO[iso] = v; });
-  HEX_LAYOUT.forEach(([c,r,iso]) => {
-    if (COUNT_BY_ISO[iso] == null) {
-      COUNT_BY_ISO[iso] = 80 + Math.round(Math.pow(Math.random(), 2.6) * 520);
+  /* COUNT_BY_ISO — volume per ISO-alpha-3 for hex coloring.
+     Priority: __LIVE_COUNTRY_BY_ISO3 (populated by loadLive from /api/data/map,
+     ~212 countries) > COUNTRIES fallback > small random for uncovered states.
+     Kept as a let + rebuildable object so applyLiveData() can refresh it. */
+  let COUNT_BY_ISO = {};
+  let HEX_MAX = 1;
+  function _rebuildCountByIso() {
+    COUNT_BY_ISO = {};
+    const live = window.__LIVE_COUNTRY_BY_ISO3 || null;
+    if (live) {
+      Object.assign(COUNT_BY_ISO, live);
+    } else {
+      COUNTRIES.forEach(([iso,name,v]) => { COUNT_BY_ISO[iso] = v; });
     }
-  });
-  const HEX_MAX = Math.max(...Object.values(COUNT_BY_ISO));
-  document.getElementById('hexScaleMax').textContent = fmt(HEX_MAX);
+    HEX_LAYOUT.forEach(([c,r,iso]) => {
+      if (COUNT_BY_ISO[iso] == null) {
+        /* For hex cells with no recorded recommendations in either live
+           nor fallback data, use a small deterministic shade so the map
+           never has visibly "empty" cells that look like bugs. */
+        COUNT_BY_ISO[iso] = live ? 0 : (80 + Math.round(Math.pow(Math.random(), 2.6) * 520));
+      }
+    });
+    HEX_MAX = Math.max(1, ...Object.values(COUNT_BY_ISO));
+    const scaleEl = document.getElementById('hexScaleMax');
+    if (scaleEl) scaleEl.textContent = fmt(HEX_MAX);
+  }
+  _rebuildCountByIso();
 
   const hexSvg = document.getElementById('hexSvg');
   const hexTip = document.getElementById('hexTip');
@@ -1473,7 +1659,7 @@
   /* ---------- timeline ---------- */
   const tlSvg = document.getElementById("tlSvg");
   const yrAxis = document.getElementById("yrAxis");
-  const tlData = [
+  let tlData = [
     [2006, 7200],[2007, 7900],[2008, 8800],[2009, 9400],[2010, 10800],
     [2011, 12400],[2012, 17100],[2013, 18600],[2014, 16200],[2015, 14900],
     [2016, 14100],[2017, 14800],[2018, 11800],[2019, 15400],[2020, 8100],
@@ -1506,13 +1692,24 @@
       return `<circle cx="${cx}" cy="${cy}" r="3" fill="${ink}"/>`;
     }).join("");
 
-    // callout year markers
-    const markers = [2012, 2020, 2024].map(yr => {
-      const i = tlData.findIndex(d => d[0] === yr);
+    // callout year markers — data-driven: peak, trough, and latest year.
+    // Drawn with open circles + a dashed drop-line to the x-axis.
+    const peakIdx = tlData.reduce((best, d, i) => d[1] > tlData[best][1] ? i : best, 0);
+    const troughIdx = tlData.reduce((worst, d, i) => d[1] < tlData[worst][1] ? i : worst, 0);
+    const latestIdx = tlData.length - 1;
+    const markerIdxs = Array.from(new Set([peakIdx, troughIdx, latestIdx]));
+    const markers = markerIdxs.map(i => {
       const cx = pad.l + i*step, cy = yOf(tlData[i][1]);
       return `<circle cx="${cx}" cy="${cy}" r="7" fill="none" stroke="${accent}" stroke-width="2"/>
               <line x1="${cx}" y1="${cy+10}" x2="${cx}" y2="${H - pad.b + 4}" stroke="${accent}" stroke-opacity=".4"/>`;
     }).join("");
+    /* Publish callout metadata for renderTimelineCallouts() below to
+       consume — keeps the SVG markers + the text callouts in sync. */
+    window.__TL_CALLOUTS__ = {
+      peak:   { year: tlData[peakIdx][0],   count: tlData[peakIdx][1] },
+      trough: { year: tlData[troughIdx][0], count: tlData[troughIdx][1] },
+      latest: { year: tlData[latestIdx][0], count: tlData[latestIdx][1] },
+    };
 
     tlSvg.innerHTML = `
       <defs>
@@ -1544,6 +1741,36 @@
     yrAxis.innerHTML = tlData
       .map(([y], i) => (i % 2 === 0) ? `<span>${y}</span>` : `<span style="opacity:.35">·</span>`)
       .join("");
+
+    renderTimelineCallouts();
+  }
+
+  /* Populates the three callouts under the timeline from the same peak /
+     trough / latest indices used for the SVG marker circles. Runs after
+     drawTimeline() so window.__TL_CALLOUTS__ is set. Idempotent — called
+     again by applyLiveData() when the fetch completes. */
+  function renderTimelineCallouts() {
+    const cl = window.__TL_CALLOUTS__;
+    if (!cl) return;
+    const wrap = document.getElementById('timelineCallouts');
+    if (!wrap) return;
+    const total = tlData.reduce((s, d) => s + d[1], 0);
+    const pctOf = v => total > 0 ? Math.round(v / total * 1000) / 10 : 0;
+    const set = (sel, label, txt) => {
+      const el = wrap.querySelector(`[data-cl="${sel}"]`);
+      if (!el) return;
+      el.querySelector('.yr').textContent = label;
+      el.querySelector('.txt').textContent = txt;
+    };
+    set('peak',
+        `${cl.peak.year} · peak`,
+        `${fmt(cl.peak.count)} recommendations recorded — ${pctOf(cl.peak.count)}% of two decades in one year.`);
+    set('trough',
+        `${cl.trough.year} · low`,
+        `Only ${fmt(cl.trough.count)} recommendations — likely reflects session suspensions or incomplete-year collection.`);
+    set('latest',
+        `${cl.latest.year} · latest`,
+        `${fmt(cl.latest.count)} recommendations recorded in the most recent year of the dataset.`);
   }
   drawTimeline();
 
@@ -1688,6 +1915,45 @@
   /* boot */
   syncTweaksUI();
   applyTweaks();
+
+  /* ---------- apply live data after the initial fallback render ----------
+     Runs once loadLive() resolves (typical: 200-400 ms, max 4.5 s on
+     timeout). Overwrites the visible sections with real counts. Each
+     step is idempotent — re-rendering bar lists clears existing rows,
+     hex map rebuilds COUNT_BY_ISO, timeline swaps SVG. For counters we
+     either update the textContent (if the observer already fired) or
+     rely on the patched data-counter attr (if it fires after). */
+  _liveReady.then(isLive => {
+    if (!isLive) {
+      // Quiet failure — fallback already rendered, nothing to do. In the
+      // future we could show a small "offline mode" chip in the topbar.
+      return;
+    }
+    // KPI counters: re-fire for any counter whose textContent is
+    // currently "0" (observer hasn't reached it yet → data-counter attr
+    // is already patched, next fire uses live value). For counters that
+    // already animated to fallback, re-run with the new target.
+    document.querySelectorAll('[data-counter]').forEach(el => {
+      const target = parseInt(el.dataset.counter, 10);
+      if (!Number.isFinite(target)) return;
+      if (el.dataset.fired) {
+        // Already counted up — nudge to the live target (may be a tiny delta)
+        runCounter(el, target, 600);
+      }
+      // Else: observer will pick up the updated data-counter when it fires
+    });
+    // Bars — renderBars is idempotent, swaps existing rows
+    renderBars(document.getElementById("themeList"), THEMES);
+    renderBars(document.getElementById("groupList"), GROUPS);
+    // Hex map — rebuild count lookup from live COUNTRIES, then re-render
+    _rebuildCountByIso();
+    const activeRegion = document.querySelector('#hexRegions button.active')?.dataset.r || 'world';
+    renderHex(activeRegion);
+    // Timeline — drawTimeline() reads tlData which has been swapped
+    drawTimeline();
+    // Ticker — renderTicker() uses RECS which is now live recommendations
+    renderTicker();
+  });
 })();
 
 </script>
