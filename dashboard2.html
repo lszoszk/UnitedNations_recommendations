@@ -68,6 +68,14 @@ a{color:inherit;text-decoration:none}
 .brand .b-name{font-weight:700;letter-spacing:.14em}
 .brand .b-sub{color:var(--dim)}
 .cmdk{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--paper-2);padding:4px 10px;max-width:560px;width:100%;justify-self:center;color:var(--dim);font-size:11px}
+/* N4: swap ⌘K symbols for a magnifier on touch devices (no physical
+   keyboard). Desktop users still see the shortcut. */
+.cmdk-k-mobile{display:none;font-size:14px;line-height:1}
+@media(hover:none),(max-width:960px){
+  .cmdk-k-mac{display:none}
+  .cmdk-k-mobile{display:inline-block}
+  .cmdk{min-height:40px}
+}
 .cmdk:hover{border-color:var(--ink)}
 .cmdk span.k{font-weight:700;color:var(--ink);border:1px solid var(--line);padding:1px 5px;background:var(--paper)}
 .cmdk-hint{color:var(--dim);flex:1;text-align:left;padding-left:8px}
@@ -120,6 +128,11 @@ a{color:inherit;text-decoration:none}
 .reading-toggle{border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink);margin-right:6px}
 .reading-toggle:hover{border-color:var(--ink);background:var(--paper-2)}
 .app.reading-mode .reading-toggle{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+/* N2: A−/A+ font-size controls visible only when reading-mode is on */
+.fs-btn{display:none;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:3px 8px;font:11px var(--mono);letter-spacing:.04em;cursor:pointer;min-width:32px}
+.fs-btn:hover{border-color:var(--ink);background:var(--paper-2)}
+.app.reading-mode .fs-btn{display:inline-block}
+@media(max-width:960px){.fs-btn{padding:8px 10px;min-width:40px;min-height:36px;font-size:13px}}
 
 /* ---------- RAIL ---------- */
 .rail{border-right:1px solid var(--line);overflow-y:auto;background:var(--paper);padding:0}
@@ -1318,6 +1331,11 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   input[type=number], select, textarea{font-size:16px}
   .opt{min-height:44px}
   button{min-height:36px}
+  /* N5: iOS momentum scroll for every scrollable container so touch
+     drag releases glide with kinetic feel. Noop on non-iOS browsers. */
+  .rail, .main, .drawer, .tabs, .facet-body, .dr-text,
+  .reader-inner, .cmd-results, .sdg-results, .sv-list,
+  .diff-cols .diff-col, .sh-filters-summary{-webkit-overflow-scrolling:touch}
 }
 </style>
 </head>
@@ -1331,8 +1349,9 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <a href="./index2.html" class="b-name" style="cursor:pointer;color:inherit;text-decoration:none" title="Back to landing">UHRI</a>
     <span class="b-sub">/ analytics (preview)</span>
   </div>
-  <button class="cmdk" id="cmdkBtn">
-    <span class="k">⌘</span><span class="k">K</span>
+  <button class="cmdk" id="cmdkBtn" aria-label="Open command palette">
+    <span class="k cmdk-k-mac">⌘</span><span class="k cmdk-k-mac">K</span>
+    <span class="cmdk-k-mobile" aria-hidden="true">🔍</span>
     <span class="cmdk-hint">Search 267,548 recommendations · jump to country, theme, year…</span>
   </button>
   <div class="meta">
@@ -1520,6 +1539,11 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <div class="drawer-head">
       <h2 style="margin:0;font:inherit;color:inherit">SELECTED · RECOMMENDATION</h2>
       <div style="display:flex;gap:4px;align-items:center">
+        <!-- N2: reading-mode A-/A+ buttons. Visible only in reading-mode
+             (CSS below). Desktop users keep +/- keyboard shortcuts; this
+             is the touch-equivalent. -->
+        <button class="fs-btn" id="drFontDown" aria-label="Decrease reading font size" title="Smaller text (shortcut: -)">A−</button>
+        <button class="fs-btn" id="drFontUp" aria-label="Increase reading font size" title="Larger text (shortcut: +)">A+</button>
         <button class="reading-toggle" id="drawerReadingMode" title="Reading mode — wide drawer + larger text (shortcut: r)">📖 Read</button>
         <button class="linkbtn" id="drawerClear" aria-label="Clear selected record">× clear</button>
       </div>
@@ -8502,6 +8526,25 @@ function renderDrawer() {
   }
   $('#drPrev')?.addEventListener('click', () => navigateRec(-1));
   $('#drNext')?.addEventListener('click', () => navigateRec(1));
+  // N1: horizontal swipe on drawer body → prev/next record. Threshold
+  // 60px so vertical scroll isn't hijacked; only triggers when the user
+  // makes a clearly horizontal gesture (|Δx| > 2·|Δy|).
+  const drawerBody = $('#drawerBody');
+  if (drawerBody && list.length > 1 && idx >= 0) {
+    let sx = 0, sy = 0, swiping = false;
+    drawerBody.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; swiping = true;
+    }, { passive: true });
+    drawerBody.addEventListener('touchend', (e) => {
+      if (!swiping) return; swiping = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
+        navigateRec(dx < 0 ? 1 : -1);
+      }
+    }, { passive: true });
+  }
   $('#drStar').addEventListener('click', () => {
     const nowOn = bmToggle(r);
     toast(nowOn ? '★ Bookmarked' : 'Bookmark removed', false, 1800);
@@ -9947,6 +9990,17 @@ function startTour() {
 function maybeShowTour() {
   try {
     if (localStorage.getItem('uhri_v2_tour_done')) return;
+    // N3: tour spots are anchored via getBoundingClientRect to specific
+    // desktop elements (rail, drawer, tabs). On mobile the rail is
+    // hidden behind the hamburger and several steps target off-screen
+    // elements — the tour pops up in empty space and confuses users.
+    // Skip entirely under 960px; mobile users learn via the empty-state
+    // CTAs + command palette. Mark as seen so desktop revisits don't
+    // re-trigger after the user has been on mobile.
+    if (window.innerWidth < 960) {
+      localStorage.setItem('uhri_v2_tour_done', 'skipped:mobile');
+      return;
+    }
     // Delay a beat so the layout settles
     setTimeout(startTour, 900);
   } catch {}
@@ -10166,6 +10220,9 @@ async function boot() {
   $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') $('#reader').classList.add('hidden'); });
   $('#drawerClear').addEventListener('click', () => { state.selectedRec = null; renderDrawer(); });
   $('#drawerReadingMode')?.addEventListener('click', toggleReadingMode);
+  // N2: A−/A+ wiring (visible only in reading-mode via CSS)
+  $('#drFontDown')?.addEventListener('click', () => bumpReadingFontSize(-1));
+  $('#drFontUp')?.addEventListener('click', () => bumpReadingFontSize(+1));
 
   // Mobile menu: rail slides in from left as overlay with backdrop.
   // M3 · C4: drawer gets the same treatment — slides in from right.
