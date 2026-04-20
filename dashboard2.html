@@ -508,6 +508,13 @@ a{color:inherit;text-decoration:none}
 .rl-row .rnk{color:var(--dim);font-variant-numeric:tabular-nums;font-size:10px}
 .rl-row .nm{position:relative;overflow:hidden;padding:2px 4px}
 .rl-row .bar{position:absolute;left:0;top:0;bottom:0;background:var(--accent-soft);border-left:2px solid var(--accent);z-index:0;transition:width .5s cubic-bezier(.2,.7,.2,1)}
+/* Body rows inherit the mechanism-family colour so the progress bar +
+   sparkline + row-list chip read as a single coloured unit. Matches the
+   FIG.00 KPI strip + timeline stacks. Set via data-family attribute on
+   the row from renderRowList when facet='body'. */
+.rl-row[data-family="upr"] .bar{background:var(--mech-upr-soft);border-left-color:var(--mech-upr)}
+.rl-row[data-family="treaty"] .bar{background:var(--mech-tb-soft);border-left-color:var(--mech-tb)}
+.rl-row[data-family="sp"] .bar{background:var(--mech-sp-soft);border-left-color:var(--mech-sp)}
 .rl-row .txt{position:relative;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rl-row .v{font-variant-numeric:tabular-nums;color:var(--ink)}
 .rl-row .spark{display:flex;align-items:center;justify-content:flex-end;opacity:.85}
@@ -3142,6 +3149,64 @@ function _openFamilyListDrawer(familyKey) {
   openListDrawer('body', fam.full, { body: new Set(bodies) });
 }
 
+/* ---------- Profile dropdown helpers (Q3a+b) ----------
+   Shared renderers for the `Switch <entity>` dropdowns in Theme,
+   Concerned-groups and SDG profiles. Reproduces the SDG-profile
+   pattern (every option annotated with its record count) for the
+   other three so the user can pick Kenya over Chad because Kenya
+   has 312 records vs Chad's 64 without guessing. For bodies the
+   dropdown also gets <optgroup> family headers — UPR at the top,
+   then Treaty Bodies, then Special Procedures — so UPR no longer
+   sorts alphabetically between SR-entries. */
+function _dropdownOptionsWithCount(entities, selected, countsByKey) {
+  return entities.map(name => {
+    const c = countsByKey ? countsByKey[name] : null;
+    const tail = (c != null && c >= 0) ? ` · ${fmt(c)}` : '';
+    return `<option value="${sanitize(name)}" ${name===selected?'selected':''}>${sanitize(name)}${tail}</option>`;
+  }).join('');
+}
+
+function _bodyDropdownGroupedOptions(bodies, selected, countsByKey) {
+  // Partition by family, sort alphabetically within each, emit optgroups
+  // in a stable narrative order: UPR → Treaty Bodies → Special Procedures
+  // → Other (should be empty in a clean dataset but keep the escape hatch).
+  const buckets = { upr: [], treaty: [], sp: [], other: [] };
+  bodies.forEach(b => buckets[classifyBody(b)].push(b));
+  Object.keys(buckets).forEach(k => buckets[k].sort((a,b) => a.localeCompare(b)));
+  const renderGroup = (label, bs) => {
+    if (!bs.length) return '';
+    return `<optgroup label="${label}">${_dropdownOptionsWithCount(bs, selected, countsByKey)}</optgroup>`;
+  };
+  return [
+    renderGroup('Universal Periodic Review', buckets.upr),
+    renderGroup('Treaty Bodies', buckets.treaty),
+    renderGroup('Special Procedures', buckets.sp),
+    renderGroup('Other', buckets.other),
+  ].join('');
+}
+
+/* Build a body→total-count map from cached analytics. Used when the
+   body dropdown options render — so each option shows "CCPR · 1,136". */
+function _bodyTotalsFromAnalytics() {
+  const a = state.analytics;
+  const src = a?.trends?.yearly_body_counts || a?.trends?.body_year_totals || [];
+  const out = {};
+  if (Array.isArray(src)) {
+    src.forEach(row => {
+      const b = String(row.body || '').replace(/^-\s*/, '');
+      if (b) out[b] = (out[b] || 0) + Number(row.count || 0);
+    });
+  } else if (src && typeof src === 'object') {
+    Object.entries(src).forEach(([body, yearMap]) => {
+      const b = String(body || '').replace(/^-\s*/, '');
+      if (!b || !yearMap) return;
+      const total = Object.values(yearMap).reduce((a, v) => a + (+v || 0), 0);
+      out[b] = (out[b] || 0) + total;
+    });
+  }
+  return out;
+}
+
 function buildBodyFacetGrouped(bodies) {
   const el = $('#f-body');
   const currentSet = () => state.filters.body;
@@ -3511,7 +3576,7 @@ function renderRowList(el, rows, opts = {}) {
       }
     }
     return `
-    <div class="rl-row ${showSpark?'has-spark':''}" data-key="${sanitize(r.key||'')}" data-facet="${opts.facet||''}">
+    <div class="rl-row ${showSpark?'has-spark':''}" data-key="${sanitize(r.key||'')}" data-facet="${opts.facet||''}"${opts.facet === 'body' ? ` data-family="${classifyBody(r.key || '')}"` : ''}>
       <div class="rnk">${String(i+1).padStart(2,'0')}</div>
       <div class="nm"><span class="bar" style="width:${(r.v/top)*100}%"></span><span class="txt" title="${sanitize(r.label)}">${highlightKeyword(r.label, (state.filters.kw||'').trim())}</span></div>
       ${showSpark ? `<div class="spark" title="2006–2026 evolution">${sparkHtml}</div>` : ''}
@@ -4357,7 +4422,10 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
       Object.entries(m).forEach(([b,c]) => bodyTotals[b] = (bodyTotals[b]||0) + c);
     });
     const allSorted = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
-    const TOP_N = 8;
+    // Top 6 + Other reads more cleanly than top 8 + Other — 6 greyscale
+    // layers stay individually distinguishable; 8 blur together in the
+    // stacked chart. Tail still visible as a "Other (N bodies)" aggregate.
+    const TOP_N = 6;
     const topBodies = allSorted.slice(0, TOP_N);
     const otherBodies = allSorted.slice(TOP_N);
     const hasOther = otherBodies.length > 0;
@@ -4367,10 +4435,10 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
       stackLabels['__other__'] = `Other (${otherBodies.length} ${otherBodies.length===1?'body':'bodies'})`;
     }
     const ink = cssVar('--ink'), accent = cssVar('--accent');
-    // Greyscale ramp for up to 8 named bodies. 8th gets accent to stand
-    // out against adjacent greys; previous code had accent on 6th — we
-    // keep the same "tail in accent" feel with one more grey step.
-    const bodyPalette = [ink, '#3a3a3a', '#4e4c47', '#62605b', '#76746e', '#8a8881', '#9e9c95', accent];
+    // Greyscale ramp for top 6 named bodies. 6th gets accent to stand
+    // out against adjacent greys; Other (if present) uses --stack-other
+    // — a faded neutral palette-aware tint.
+    const bodyPalette = [ink, '#3a3a3a', '#5c5a55', '#7a7872', '#98968f', accent];
     stackColors = Object.fromEntries(topBodies.map((k, i) => [k, bodyPalette[i] || '#aba9a2']));
     if (hasOther) stackColors['__other__'] = cssVar('--stack-other') || '#bcbab2';
     yearToLayer = (y) => {
@@ -5089,7 +5157,13 @@ async function renderCountry() {
   }
 
   const countries = cleanCountryList(state.facets?.countries || []).sort();
-  const options = countries.map(c => `<option value="${sanitize(c)}" ${c===name?'selected':''}>${sanitize(c)}</option>`).join('');
+  // Q3a: country dropdown gets per-country totals from last analytics/map
+  // response so the user can pick Kenya over Chad because Kenya has 312
+  // records not Chad's 64 — same pattern as SDG profile.
+  const countryCountsByKey = Object.fromEntries(
+    (state._lastCountryCounts || state.analytics?.map?.country_counts || []).map(c => [c.country, c.count])
+  );
+  const options = _dropdownOptionsWithCount(countries, name, countryCountsByKey);
 
   root.innerHTML = `
     <div class="cp-head">
@@ -5216,8 +5290,11 @@ async function renderTheme() {
     return;
   }
 
-  const themesList = (state.analytics?.themes?.theme_counts || []).map(t => t.theme);
-  const opts = themesList.map(t => `<option value="${sanitize(t)}" ${t===name?'selected':''}>${sanitize(t)}</option>`).join('');
+  // Q3a: options annotated with total counts (mirrors SDG dropdown UX)
+  const themeCountList = state.analytics?.themes?.theme_counts || [];
+  const themesList = themeCountList.map(t => t.theme);
+  const themeCountsByKey = Object.fromEntries(themeCountList.map(t => [t.theme, t.count]));
+  const opts = _dropdownOptionsWithCount(themesList, name, themeCountsByKey);
 
   root.innerHTML = `
     <div class="cp-head">
@@ -5328,8 +5405,11 @@ async function renderGroup() {
     root.innerHTML = `<div class="me"><h1>Pick a concerned group</h1><p>Click a group on Overview's Top Groups, use the rail facet, or ⌘K → "Group profile".</p></div>`;
     return;
   }
-  const groupsList = (state.analytics?.text?.affected_person_counts || []).map(g => g.affected_person);
-  const opts = groupsList.map(g => `<option value="${sanitize(g)}" ${g===name?'selected':''}>${sanitize(g)}</option>`).join('');
+  // Q3a: options annotated with counts
+  const groupCountList = state.analytics?.text?.affected_person_counts || [];
+  const groupsList = groupCountList.map(g => g.affected_person);
+  const groupCountsByKey = Object.fromEntries(groupCountList.map(g => [g.affected_person, g.count]));
+  const opts = _dropdownOptionsWithCount(groupsList, name, groupCountsByKey);
   root.innerHTML = `
     <div class="cp-head">
       <div>
@@ -5753,10 +5833,16 @@ async function renderMechanism() {
     eyebrow = `FAMILY ROLLUP · ${bodies.length} ${bodies.length === 1 ? 'body' : 'bodies'}`;
     filterOverride = { body: new Set(bodies) };
     headerClass = fam.cls;
+    // Q3a: family picker also gets counts (UPR · 133,510 / Treaty Bodies · 70,420 etc.)
+    const famCounts = _computeMechCounts() || { upr: 0, treaty: 0, sp: 0 };
     picker = `
       <label>Family</label>
       <select id="mpFamSelect">
-        ${MECH_FAMILIES.map(f => `<option value="${f.key}" ${f.key===state.focusFamily?'selected':''}>${f.full}</option>`).join('')}
+        ${MECH_FAMILIES.map(f => {
+          const c = famCounts[f.key];
+          const tail = (c != null && c > 0) ? ` · ${fmt(c)}` : '';
+          return `<option value="${f.key}" ${f.key===state.focusFamily?'selected':''}>${f.full}${tail}</option>`;
+        }).join('')}
       </select>`;
   } else {
     const bodies = (state.facets?.bodies || [])
@@ -5783,7 +5869,12 @@ async function renderMechanism() {
     const famKey = classifyBody(state.focusMechanism);
     const fam = MECH_FAMILIES.find(f => f.key === famKey);
     headerClass = fam?.cls || '';
-    const opts = bodies.map(b => `<option value="${sanitize(b)}" ${b===state.focusMechanism?'selected':''}>${sanitize(b)}</option>`).join('');
+    // Q3a+b: optgroup by mechanism family (UPR → TB → SP) with totals.
+    // Prevents UPR from sorting alphabetically between SR and WG bodies
+    // in the flat list, and surfaces the body's record count as the SDG
+    // dropdown already does.
+    const bodyCounts = _bodyTotalsFromAnalytics();
+    const opts = _bodyDropdownGroupedOptions(bodies, state.focusMechanism, bodyCounts);
     picker = `<label>Switch body</label><select id="mpSelect">${opts}</select>`;
   }
 
