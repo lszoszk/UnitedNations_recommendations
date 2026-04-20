@@ -1249,6 +1249,19 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
      the THEME button already identify the app. Page title (selected tab)
      stays below in the tabs strip. */
   .brand .b-sub{display:none}
+
+  /* Topbar packing — on mobile the `1fr` middle column stretched the
+     cmdk 🔍 button to fill all available width between UHRI and meta,
+     making the header feel dispersed. Collapse cmdk to intrinsic size
+     and tighten the grid gap. */
+  .topbar{grid-template-columns:auto auto 1fr;gap:8px;padding:0 10px}
+  .cmdk{width:auto;max-width:none;padding:8px 10px;justify-self:end}
+
+  /* FIG.00 mech-tiles on mobile — three columns at 375px gave each
+     tile ~120px which forced heavy wrapping ("Universal Periodic
+     Review" = 3 lines, description = 12 lines). Stack as one column
+     instead so each tile gets full width + natural reading flow. */
+  .mech-tiles{grid-template-columns:1fr}
   .ov-grid{grid-template-columns:1fr}
   .p-map,.p-top-countries,.p-top-themes,.p-time,.p-sankey{grid-column:1;grid-row:auto}
   .cp-head{grid-template-columns:1fr}
