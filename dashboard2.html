@@ -1054,6 +1054,24 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 .lab-banner button{margin-top:8px;padding:6px 12px;background:var(--ink);color:var(--paper);border:0;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
 .lab-banner button:hover{background:var(--accent)}
 
+/* D1: migration banner — shown once when old TF-IDF sets detected.
+   Deliberately amber/warning-styled so user knows it's important but
+   not dismissive (they have to pick Convert or Skip to dismiss). */
+.rules-migrate{border:1px solid #eab308;border-left-width:3px;background:color-mix(in oklab,#eab308 10%, var(--paper));padding:14px 18px;margin-bottom:18px}
+.rules-migrate-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.rules-migrate-head strong{font-family:var(--serif);font-weight:600;font-size:14px;color:var(--ink)}
+.rules-migrate p{margin:0 0 10px;font-size:12.5px;line-height:1.55;color:var(--ink)}
+.rules-migrate-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.rules-migrate-actions button{padding:7px 14px;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.rules-migrate-actions button:hover{border-color:var(--ink);background:var(--paper-2)}
+.rules-migrate-actions button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.rules-migrate-actions button.primary:hover{background:var(--accent);border-color:var(--accent)}
+.rules-migrate-note{font-size:11px!important;color:var(--dim)!important;font-style:italic;margin:4px 0 0!important}
+@media(max-width:960px){
+  .rules-migrate{padding:12px 14px}
+  .rules-migrate-actions button{flex:1;min-width:140px}
+}
+
 /* Labels intro panel — shown only when no categories defined yet */
 .lab-intro{border:1px solid var(--line);background:var(--paper-2);padding:18px 20px;margin-bottom:18px}
 .lab-intro-head{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
@@ -7170,6 +7188,258 @@ if (!state.labels) {
   };
 }
 
+/* ===================================================================
+   D1 — Boolean Rule Builder foundation (pipeline/labels-rebuild/DESIGN.md)
+   ===================================================================
+   Replaces the TF-IDF workspace incrementally. D1 lays down the data
+   model, FTS5 compilation, persistence schema v2, migration detection
+   and the term-suggester helper. renderLabels() still renders the old
+   workspace — the new renderRules() lands in D2.
+   =================================================================== */
+const RULES_KEY        = 'uhri_v2_rule_sets_v2';
+const RULES_ACTIVE_KEY = 'uhri_v2_rule_active_v2';
+const RULES_MIGRATED_KEY = 'uhri_v2_rules_migration_v2';  // 'done' | 'skipped'
+const RULES_SCHEMA_VERSION = 2;
+
+if (!state.rules) {
+  state.rules = {
+    active: null,            // active RuleSet id (string) or null
+    rules: [],               // [{id, name, must[], also[], not[], rawQuery?, notes?, seedExamples?}]
+    counts: {},              // ruleId → integer (last-known count, cached between renders)
+    _countInflight: {},      // ruleId → abortController (debounced count fetches)
+    _sampleCache: null,      // candidate pool for ⚡ Suggest-terms modal
+    _suggestOpen: null,      // ruleId whose suggester is open, or null
+    _peekOpen: {},           // ruleId → bool (which rule cards are showing peek-5)
+    _migration: null,        // 'pending' | 'done' | 'skipped' | 'none'
+  };
+}
+
+/* ------------- Rule compilation — FTS5 emitter -------------
+   Emits exactly the shape the backend's search endpoint accepts
+   (plain FTS5 with AND / OR / NOT / parens). Order matters: positive
+   groups AND-ed, then optional NOT appended. Empty rule → empty
+   string (caller should treat as "no query, skip"). */
+function compileRule(r) {
+  if (!r) return '';
+  if (r.rawQuery && r.rawQuery.trim()) return r.rawQuery.trim();
+  const clean = (arr) => (arr || [])
+    .map(s => String(s || '').trim())
+    .filter(Boolean);
+  const wrap = (arr) => arr.length === 1 ? arr[0] : '(' + arr.join(' OR ') + ')';
+  const must = clean(r.must);
+  const also = clean(r.also);
+  const no   = clean(r.not);
+  const parts = [];
+  if (must.length) parts.push(wrap(must));
+  if (also.length) parts.push(wrap(also));
+  const positive = parts.join(' AND ');
+  if (!positive) return '';
+  return no.length ? `${positive} NOT ${wrap(no)}` : positive;
+}
+
+/* ------------- Rule validation — cheap client-side checks -------------
+   Catches unbalanced parens and trailing operators before hitting the
+   API (backend returns opaque HTTP errors on malformed FTS5). Returns
+   { ok: bool, error?: string }. Permissive — doesn't try to fully
+   parse FTS5 grammar, just guards against the top-3 foot-guns. */
+function validateRule(r) {
+  const q = compileRule(r);
+  if (!q) return { ok: true, empty: true };                // empty = unbooked, not invalid
+  // Balanced parens
+  let depth = 0;
+  for (const ch of q) {
+    if (ch === '(') depth++;
+    else if (ch === ')') { depth--; if (depth < 0) return { ok: false, error: 'Unbalanced parentheses' }; }
+  }
+  if (depth !== 0) return { ok: false, error: 'Unbalanced parentheses' };
+  // No trailing operator
+  if (/\b(AND|OR|NOT)\s*$/.test(q)) return { ok: false, error: 'Query ends with an operator' };
+  // No empty groups
+  if (/\(\s*\)/.test(q)) return { ok: false, error: 'Empty group ()' };
+  return { ok: true };
+}
+
+/* ------------- RuleSet persistence (schema v2) ------------- */
+function rulesGenId() { return 'rs_' + Math.random().toString(36).slice(2, 10); }
+function ruleGenId()  { return 'r_'  + Math.random().toString(36).slice(2, 10); }
+function rulesLoadSets() {
+  try { return JSON.parse(localStorage.getItem(RULES_KEY) || '[]'); } catch { return []; }
+}
+function rulesSaveSets(list) {
+  try { localStorage.setItem(RULES_KEY, JSON.stringify(list)); }
+  catch { toast('localStorage full — cannot save rule set', true, 4000); }
+}
+function rulesLoadSet(id) {
+  const s = rulesLoadSets().find(x => x.id === id);
+  if (!s) return false;
+  state.rules.active = s.id;
+  state.rules.rules  = JSON.parse(JSON.stringify(s.rules || []));
+  state.rules.counts = {};
+  try { localStorage.setItem(RULES_ACTIVE_KEY, id); } catch {}
+  return true;
+}
+function rulesSnapshotCurrent(name) {
+  const id = state.rules.active || rulesGenId();
+  const sets = rulesLoadSets().filter(s => s.id !== id);
+  sets.unshift({
+    id,
+    name: name || ('Rules ' + new Date().toLocaleDateString()),
+    rules: JSON.parse(JSON.stringify(state.rules.rules || [])),
+    saved_at: Date.now(),
+    version: RULES_SCHEMA_VERSION,
+  });
+  rulesSaveSets(sets);
+  state.rules.active = id;
+  try { localStorage.setItem(RULES_ACTIVE_KEY, id); } catch {}
+  return id;
+}
+function rulesDeleteSet(id) {
+  rulesSaveSets(rulesLoadSets().filter(s => s.id !== id));
+  if (state.rules.active === id) {
+    state.rules.active = null;
+    state.rules.rules = [];
+    state.rules.counts = {};
+    try { localStorage.removeItem(RULES_ACTIVE_KEY); } catch {}
+  }
+}
+
+/* ------------- Migration from v1 TF-IDF sets ------------- */
+function rulesDetectMigrationNeeded() {
+  // Only prompt once per browser — once user picks done/skipped, leave them alone
+  try {
+    const flag = localStorage.getItem(RULES_MIGRATED_KEY);
+    if (flag === 'done' || flag === 'skipped') { state.rules._migration = flag; return false; }
+  } catch {}
+  const oldSets = (() => { try { return JSON.parse(localStorage.getItem(LABELS_KEY) || '[]'); } catch { return []; } })();
+  if (!Array.isArray(oldSets) || !oldSets.length) { state.rules._migration = 'none'; return false; }
+  state.rules._migration = 'pending';
+  return true;
+}
+
+function rulesMigrateFromV1() {
+  // Convert each v1 category into a Rule with an empty term-list but
+  // seedExamples populated from the old tagging work. User clicks
+  // ⚡ Suggest terms in D2 to generate actual query terms.
+  const oldSets = (() => { try { return JSON.parse(localStorage.getItem(LABELS_KEY) || '[]'); } catch { return []; } })();
+  const migrated = [];
+  for (const os of oldSets) {
+    const cats = Array.isArray(os.categories) ? os.categories : [];
+    if (!cats.length) continue;
+    const rules = cats.map(catName => {
+      const seedExamples = {};
+      for (const [recId, ex] of Object.entries(os.examples || {})) {
+        if (!ex || typeof ex !== 'object') continue;
+        if (ex.excluded) { seedExamples[recId] = 'negative'; continue; }
+        if (Array.isArray(ex.labels) && ex.labels.includes(catName)) {
+          seedExamples[recId] = 'positive';
+        }
+      }
+      return {
+        id: ruleGenId(),
+        name: String(catName),
+        must: [], also: [], not: [],
+        notes: '',
+        seedExamples,
+      };
+    });
+    migrated.push({
+      id: rulesGenId(),
+      name: String(os.name || 'Migrated set'),
+      rules,
+      saved_at: Date.now(),
+      version: RULES_SCHEMA_VERSION,
+      migrated_from_v1: true,
+    });
+  }
+  // Save alongside existing v2 sets (if any) — never clobber
+  const existing = rulesLoadSets();
+  rulesSaveSets([...migrated, ...existing]);
+  try { localStorage.setItem(RULES_MIGRATED_KEY, 'done'); } catch {}
+  state.rules._migration = 'done';
+  return migrated.length;
+}
+
+function rulesSkipMigration() {
+  try { localStorage.setItem(RULES_MIGRATED_KEY, 'skipped'); } catch {}
+  state.rules._migration = 'skipped';
+}
+
+/* ------------- ⚡ Suggest terms — TF-IDF helper -------------
+   Reuses the math helpers from the old classifier (labTokenize,
+   labComputeTfIdf, labCentroid) — defined further down in the file,
+   hoisted via function declaration. Given a map of annotationId →
+   'positive' | 'negative', returns two ranked term lists. Pure-client,
+   no Instant Mode required — runs on the records the user has just
+   hand-tagged (10–20 typically).
+
+   Resolver: findRec(id) → record object (from offline.data,
+   lab.sampleRows, or an explicit poolById map passed in).
+
+   Output shape:
+     {
+       positive: [{term, score}, ...],   // top 8, score > 0
+       negative: [{term, score}, ...],   // top 6, score < 0
+     }
+   Throws on too few examples (< 5 positive or < 5 negative). */
+function suggestTerms(seedExamples, findRec) {
+  const pos = [];
+  const neg = [];
+  for (const [id, tag] of Object.entries(seedExamples || {})) {
+    if (tag !== 'positive' && tag !== 'negative') continue;
+    const rec = findRec ? findRec(id) : null;
+    if (!rec) continue;
+    const text = labGetClassificationText(rec);  // hoisted
+    const toks = labTokenize(text);              // hoisted
+    if (!toks.length) continue;
+    (tag === 'positive' ? pos : neg).push(toks);
+  }
+  if (pos.length < 5) throw new Error('Need at least 5 POSITIVE examples (have ' + pos.length + ')');
+  if (neg.length < 5) throw new Error('Need at least 5 NEGATIVE examples (have ' + neg.length + ')');
+
+  const { vectors } = labComputeTfIdf([...pos, ...neg]);  // hoisted
+  const posVec = labCentroid(vectors.slice(0, pos.length));
+  const negVec = labCentroid(vectors.slice(pos.length));
+  const allTerms = new Set([...Object.keys(posVec), ...Object.keys(negVec)]);
+  const scores = [];
+  for (const t of allTerms) {
+    const s = (posVec[t] || 0) - (negVec[t] || 0);
+    if (!s) continue;
+    scores.push({ term: t, score: s });
+  }
+  return {
+    positive: scores.filter(x => x.score > 0).sort((a,b)=>b.score-a.score).slice(0, 8),
+    negative: scores.filter(x => x.score < 0).sort((a,b)=>a.score-b.score).slice(0, 6),
+    stats: { pos: pos.length, neg: neg.length },
+  };
+}
+
+/* ------------- Candidate pool for the ⚡ Suggest-terms tagger -------------
+   Resolves which records the user can tag in the inline tagger. Prefers
+   offline.data if Instant Mode is on (no network), else falls back to
+   the first page of the current rail filter from the API. Returns a
+   Promise<Record[]>. Caches on state.rules._sampleCache to avoid
+   re-fetching if user opens the modal on two rules in a row. */
+async function rulesBuildCandidatePool(maxRecords = 40) {
+  if (Array.isArray(state.rules._sampleCache) && state.rules._sampleCache.length) {
+    return state.rules._sampleCache.slice(0, maxRecords);
+  }
+  if (offline.enabled && Array.isArray(offline.data) && offline.data.length) {
+    // Reuse labBuildSampleRows logic — already filters by rail
+    const sample = labBuildSampleRows(maxRecords);
+    state.rules._sampleCache = sample;
+    return sample;
+  }
+  try {
+    const r = await api.records(state.filters, 1, maxRecords, { scope: 'rules:sample' });
+    const recs = r.records || [];
+    state.rules._sampleCache = recs;
+    return recs;
+  } catch (e) {
+    console.warn('[rules] sample pool fetch failed:', e);
+    return [];
+  }
+}
+
 const LABELS_COMMUNITY = [
   {
     id: 'rule_of_law',
@@ -7456,6 +7726,12 @@ function renderLabels() {
     if (id && labLoadSets().find(s => s.id === id)) labLoadSet(id);
   }
 
+  // D1: check once per render whether we should show the migration
+  // prompt (old TF-IDF sets detected, new rules schema empty, user
+  // hasn't dismissed yet). Used by the banner below.
+  if (state.rules._migration == null) rulesDetectMigrationNeeded();
+  const showMigrationBanner = state.rules._migration === 'pending';
+
   const hasCats = lab.categories.length > 0;
   const taggedCount = Object.values(lab.examples).filter(e => !e.excluded && e.labels && e.labels.length).length;
   const excludedCount = Object.values(lab.examples).filter(e => e.excluded).length;
@@ -7473,6 +7749,19 @@ function renderLabels() {
 
   root.innerHTML = `
     <div class="lab-wrap">
+      ${showMigrationBanner ? `
+        <div class="rules-migrate">
+          <div class="rules-migrate-head">
+            <strong>Labels is becoming a boolean rule builder.</strong>
+            <span class="tab-beta">preview</span>
+          </div>
+          <p>We detected saved classifier sets from the current workspace. The upcoming rebuild replaces TF-IDF classification with explicit <strong>boolean queries</strong> — deterministic, fully explainable in a methodology section, no 300 MB download. Your old categories can be converted to rule stubs now; your tagged examples will seed the upcoming <em>⚡ Suggest terms</em> helper so you can generate the actual query terms with one click when the new workspace ships.</p>
+          <div class="rules-migrate-actions">
+            <button id="rulesMigrateGo" class="primary">⚡ Convert my saved sets</button>
+            <button id="rulesMigrateSkip">Skip — I'll start fresh later</button>
+          </div>
+          <p class="rules-migrate-note">You can also decide this later — this message returns if dismissed without picking.</p>
+        </div>` : ''}
       ${(!hasCats && !lab.predictions && !lab.model) ? `
         <div class="lab-intro">
           <div class="lab-intro-head">
@@ -7657,6 +7946,23 @@ function labBindEvents() {
 
   const onEnableInstant = $('#labEnableInstant');
   if (onEnableInstant) onEnableInstant.addEventListener('click', () => showOfflineModal());
+
+  // D1: rule-builder migration prompt buttons
+  $('#rulesMigrateGo')?.addEventListener('click', () => {
+    try {
+      const n = rulesMigrateFromV1();
+      toast(`Converted ${n} set${n === 1 ? '' : 's'} to rule stubs — visible once the new workspace ships.`, false, 3800);
+    } catch (e) {
+      console.error('[rules] migration failed:', e);
+      toast('Migration failed — see console', true, 3000);
+    }
+    renderLabels();
+  });
+  $('#rulesMigrateSkip')?.addEventListener('click', () => {
+    rulesSkipMigration();
+    toast('Skipped. Your classifier sets stay intact.', false, 2500);
+    renderLabels();
+  });
 
   const addCat = () => {
     const input = $('#labCatInput');
