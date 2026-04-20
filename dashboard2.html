@@ -205,11 +205,20 @@ a{color:inherit;text-decoration:none}
 .main::-webkit-scrollbar{width:10px}
 .main::-webkit-scrollbar-thumb{background:var(--paper-3)}
 
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:10;overflow-x:auto;scrollbar-width:thin}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:10;overflow-x:auto;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
 .tabs::-webkit-scrollbar{height:4px}
 .tabs::-webkit-scrollbar-thumb{background:var(--paper-3);border-radius:2px}
-.tabs::after{content:"";position:sticky;right:0;width:18px;background:linear-gradient(to right, transparent, var(--paper) 70%);flex-shrink:0;pointer-events:none}
-.tabs::-webkit-scrollbar{height:4px}
+.tabs::after{content:"";position:sticky;right:0;width:32px;background:linear-gradient(to right, transparent, var(--paper) 70%);flex-shrink:0;pointer-events:none}
+
+/* M3 · H6 — Tabs overflow chevron. Wraps .tabs in a positioned parent;
+   chevron floats at the right edge when there's more content than fits.
+   JS toggles .has-overflow based on scrollWidth vs clientWidth. */
+.tabs-wrap{position:relative}
+.tabs-chevron{display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:14px;line-height:1;cursor:pointer;z-index:11;align-items:center;justify-content:center}
+.tabs-chevron:hover{border-color:var(--ink);background:var(--paper-2)}
+.tabs-wrap.has-overflow .tabs-chevron{display:flex}
+.tabs-wrap.scrolled-end .tabs-chevron{display:none}
+@media(max-width:960px){.tabs-chevron{width:40px;height:40px}}
 .tab{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-right:1px solid var(--line);min-width:96px;max-width:200px;position:relative;color:var(--dim);flex-shrink:0}
 .tab.active{background:var(--paper-2);color:var(--ink)}
 .tab.active::after{content:"";position:absolute;left:0;bottom:-1px;height:2px;width:100%;background:var(--accent)}
@@ -1282,6 +1291,26 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .mobile-backdrop{z-index:27}
 }
 
+/* M3 · C5 — Row action sheet. Mouse-activated at cursor for desktop
+   (via long-press), bottom-sheet on mobile. Matches .ds-popover
+   aesthetic (ink border, paper bg) for consistency. */
+.row-action-sheet{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.95);opacity:0;background:var(--paper);border:1px solid var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35);padding:12px;min-width:280px;max-width:360px;z-index:180;font-family:var(--mono);transition:transform .15s cubic-bezier(.2,.7,.2,1),opacity .15s}
+.row-action-sheet.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.row-action-sheet .ras-head{font-size:10px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;padding:4px 6px 10px;border-bottom:1px dotted var(--line);margin-bottom:6px}
+.row-action-sheet .ras-btn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:12px 14px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-family:inherit;font-size:13px;margin-bottom:6px;text-align:left;cursor:pointer}
+.row-action-sheet .ras-btn:hover{background:var(--paper-2);border-color:var(--ink)}
+.row-action-sheet .ras-btn strong{font-weight:600}
+.row-action-sheet .ras-btn span{font-size:10px;color:var(--dim);line-height:1.35;letter-spacing:.02em}
+.row-action-sheet .ras-close{width:100%;padding:10px;margin-top:4px;background:transparent;border:1px solid var(--line);color:var(--dim);font-family:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.row-action-sheet .ras-close:hover{border-color:var(--ink);color:var(--ink)}
+/* Desktop hint hides the touch-only long-press callout */
+.rl-hint-touch{display:none}
+@media(hover:none){.rl-hint-touch{display:inline;color:var(--dim)}}
+@media(max-width:960px){
+  .row-action-sheet{position:fixed;left:0;right:0;bottom:0;top:auto;transform:translateY(20px);max-width:none;border-radius:12px 12px 0 0;border:1px solid var(--line);border-bottom:0}
+  .row-action-sheet.on{transform:translateY(0)}
+}
+
 /* pointer:coarse covers touch regardless of viewport width — some
    large tablets/laptops with touch also benefit. */
 @media(pointer:coarse){
@@ -1454,6 +1483,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 
   <!-- MAIN -->
   <main class="main" id="main" tabindex="-1" aria-label="Dashboard main content">
+    <div class="tabs-wrap" id="tabsWrap">
     <nav class="tabs" id="tabs" role="tablist" aria-label="Dashboard views">
       <a class="tab active" data-nav="overview" role="tab" aria-selected="true" tabindex="0" title="Overview"><span class="t-idx">01</span><span class="t-lbl">Overview</span></a>
       <a class="tab" data-nav="country" role="tab" aria-selected="false" tabindex="-1" title="Country profile"><span class="t-idx">02</span><span class="t-lbl">Country</span><span class="t-ctx" id="tabCountry">—</span></a>
@@ -1467,6 +1497,8 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Train your own classifier"><span class="t-idx">10</span><span class="t-lbl">Labels</span><span class="t-ctx" id="tabLabels">—</span></a>
       <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1" title="Dataset notes & caveats"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
     </nav>
+    <button class="tabs-chevron" id="tabsChevron" aria-label="Scroll tabs right" type="button">›</button>
+    </div>
 
     <div class="active-filters" id="activeFilters"></div>
 
@@ -3687,6 +3719,88 @@ const _announceHit = debounce(() => {
 /* =========================================================================
    CHART HELPERS
    ========================================================================= */
+
+/* M3 · C5 — Long-press utility. Touch devices have no Shift/Cmd modifiers,
+   so the unified click contract (plain=read · shift=filter · ⌘=profile)
+   only exposes one-third of the actions. A 500ms pointerdown-without-move
+   gesture opens an action sheet giving the other two back. Works on mouse
+   too (press + hold + release without moving ≥10px) — desktop users who
+   prefer menus over keyboard shortcuts also benefit. */
+function _attachLongPress(el, onLongPress, { thresholdMs = 500, moveCancelPx = 10 } = {}) {
+  let timerId = null, startX = 0, startY = 0, fired = false;
+  const cancel = () => { if (timerId) { clearTimeout(timerId); timerId = null; } };
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    fired = false;
+    startX = e.clientX; startY = e.clientY;
+    timerId = setTimeout(() => {
+      fired = true;
+      timerId = null;
+      onLongPress(e);
+    }, thresholdMs);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!timerId) return;
+    if (Math.abs(e.clientX - startX) > moveCancelPx || Math.abs(e.clientY - startY) > moveCancelPx) cancel();
+  });
+  el.addEventListener('pointerup', () => cancel());
+  el.addEventListener('pointercancel', () => cancel());
+  el.addEventListener('pointerleave', () => cancel());
+  // Suppress the click that follows a long-press so the row doesn't also
+  // open the drawer in "read" mode while the menu is already up.
+  el.addEventListener('click', (e) => {
+    if (fired) { e.preventDefault(); e.stopImmediatePropagation(); fired = false; }
+  }, true);
+}
+
+/* Action sheet for a rl-row long-press — offers Read / Filter / Profile
+   as three touch-friendly buttons. Positioned near the row on desktop,
+   bottom-sheet on mobile (via CSS). Tag: m3-c5-action-sheet */
+function _openRowActionSheet(row, opts) {
+  const key = row.dataset.key; if (!key) return;
+  // Don't stack multiple sheets
+  document.querySelector('.row-action-sheet')?.remove();
+  const facet = opts.facet;
+  const label = row.querySelector('.txt')?.textContent?.trim() || key;
+  const sheet = document.createElement('div');
+  sheet.className = 'row-action-sheet';
+  sheet.innerHTML = `
+    <div class="ras-head">${sanitize(facet.toUpperCase())} · ${sanitize(label.slice(0, 60))}</div>
+    <button class="ras-btn" data-act="read">📖 <strong>Read records</strong><span>Open the drawer list of recommendations</span></button>
+    <button class="ras-btn" data-act="filter">⊕ <strong>Add to rail filter</strong><span>Narrow the whole dashboard by this ${facet}</span></button>
+    <button class="ras-btn" data-act="profile">⌂ <strong>Open profile</strong><span>Jump to the dedicated ${facet} profile tab</span></button>
+    <button class="ras-close">Cancel</button>
+  `;
+  document.body.appendChild(sheet);
+  const close = () => sheet.remove();
+  sheet.querySelector('.ras-close')?.addEventListener('click', close);
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
+  sheet.querySelectorAll('.ras-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const act = btn.dataset.act;
+      close();
+      if (act === 'read') {
+        openListDrawer(facet, key, opts.extraFilter || null);
+      } else if (act === 'filter') {
+        const val = facet === 'sdg' ? _sdgToFilterValue(key) : key;
+        const s = state.filters[facet];
+        if (val != null && s) {
+          if (s.has(val)) s.delete(val); else s.add(val);
+          refreshFacetUI(facet);
+          onFiltersChanged();
+        }
+      } else if (act === 'profile') {
+        if (facet === 'country') { state.focusCountry = NAME_TO_ISO[key] || key; $('#tabCountry').textContent = key; navigate('country'); }
+        else if (facet === 'theme') { state.focusTheme = key; $('#tabTheme').textContent = key; navigate('theme'); }
+        else if (facet === 'group') { state.focusGroup = key; $('#tabGroup').textContent = key; navigate('group'); }
+        else if (facet === 'body')  { state.focusMechanism = key; $('#tabMechanism').textContent = key; navigate('mechanism'); }
+        else if (facet === 'sdg')   { state.focusSdg = key; const t = $('#tabSdg'); if (t) t.textContent = key; navigate('sdg'); }
+      }
+    });
+  });
+  setTimeout(() => sheet.classList.add('on'), 10);  // trigger CSS transition
+}
+
 function renderRowList(el, rows, opts = {}) {
   const top = Math.max(...rows.map(r => r.v), 1);
   const sparkSource = opts.sparklines;  // dict key → {year→count}
@@ -3762,13 +3876,19 @@ function renderRowList(el, rows, opts = {}) {
       if (['country','theme','group','body','sdg'].includes(opts.facet)) {
         attachPreloadHover(row);
       }
+      // M3 · C5: long-press opens an action sheet on touch so users
+      // without modifier keys still reach [Read · Filter · Profile].
+      // Desktop click contract stays intact.
+      if (['country','theme','group','body','sdg'].includes(opts.facet)) {
+        _attachLongPress(row, () => _openRowActionSheet(row, opts));
+      }
     });
     // Add the 3-action hint under every interactive panel list, once per
     // render. Scoped to facets that actually support all three actions.
     if (['country','theme','group','body','sdg'].includes(opts.facet) && !el.querySelector('.rl-hint')) {
       const hint = document.createElement('div');
       hint.className = 'rl-hint';
-      hint.innerHTML = 'click = <strong>read</strong> records · Shift = filter · ⌘ = profile';
+      hint.innerHTML = 'click = <strong>read</strong> · Shift = filter · ⌘ = profile · <span class="rl-hint-touch">long-press = menu</span>';
       el.appendChild(hint);
     }
   }
@@ -10018,6 +10138,29 @@ async function boot() {
   }
 
   $('#cmdkBtn').addEventListener('click', openPalette);
+
+  // M3 · H6: Tabs overflow chevron. Shows a right-floating button when
+  // tabs overflow their container; scrolls by one "page" on click.
+  // Hides when scrolled to the end. Re-evaluates on resize.
+  const tabsWrap = $('#tabsWrap');
+  const tabsNav = $('#tabs');
+  const tabsChev = $('#tabsChevron');
+  const updateTabsOverflow = () => {
+    if (!tabsWrap || !tabsNav) return;
+    const overflow = tabsNav.scrollWidth - tabsNav.clientWidth > 2;
+    tabsWrap.classList.toggle('has-overflow', overflow);
+    const scrolledEnd = tabsNav.scrollLeft + tabsNav.clientWidth >= tabsNav.scrollWidth - 4;
+    tabsWrap.classList.toggle('scrolled-end', scrolledEnd);
+  };
+  tabsChev?.addEventListener('click', () => {
+    if (!tabsNav) return;
+    tabsNav.scrollBy({ left: tabsNav.clientWidth * 0.8, behavior: 'smooth' });
+  });
+  tabsNav?.addEventListener('scroll', updateTabsOverflow);
+  window.addEventListener('resize', updateTabsOverflow);
+  // Initial check after DOM ready + one more after fonts load (font swap can change scrollWidth)
+  setTimeout(updateTabsOverflow, 50);
+  setTimeout(updateTabsOverflow, 500);
   $('#cmdInput').addEventListener('input', e => renderPalette(e.target.value));
   $('#cmdPalette').addEventListener('click', e => { if (e.target.id === 'cmdPalette') closePalette(); });
   $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') $('#reader').classList.add('hidden'); });
