@@ -1054,6 +1054,148 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 .lab-banner button{margin-top:8px;padding:6px 12px;background:var(--ink);color:var(--paper);border:0;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
 .lab-banner button:hover{background:var(--accent)}
 
+/* ==== D2: Boolean rule-builder workspace ==== */
+.rules-wrap{padding:20px 24px 40px;max-width:1280px;margin:0 auto}
+.rules-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;margin-bottom:14px;background:var(--paper-2);border:1px solid var(--line)}
+.rules-toolbar label{font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.rules-toolbar select{padding:4px 8px;border:1px solid var(--line);background:var(--paper);font:12px var(--mono);color:var(--ink);min-width:160px}
+.rules-toolbar button{padding:5px 10px;border:1px solid var(--line);background:var(--paper);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink)}
+.rules-toolbar button:hover{border-color:var(--ink);background:var(--paper-2)}
+.rules-toolbar .rules-scope-note{font-family:var(--serif);font-style:italic;color:var(--dim);font-size:11px;margin-left:auto;text-transform:none;letter-spacing:0}
+
+.rules-empty{border:1px solid var(--line);background:var(--paper-2);padding:28px 24px;text-align:center;margin-bottom:16px}
+.rules-empty h2{margin:0 0 8px;font-family:var(--serif);font-weight:400;font-size:22px;color:var(--ink)}
+.rules-empty p{margin:0 0 14px;font-size:13px;line-height:1.55;color:var(--ink)}
+.rules-empty p.dim{color:var(--dim);font-size:12px}
+.rules-empty .starter-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.rules-empty .starter-row button{padding:6px 12px;border:1px solid var(--line);background:var(--paper);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink)}
+.rules-empty .starter-row button:hover{border-color:var(--accent);background:color-mix(in oklab,var(--accent) 8%, var(--paper))}
+.rules-empty .add-first{margin-top:16px;padding:10px 18px;background:var(--ink);color:var(--paper);border:0;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.rules-empty .add-first:hover{background:var(--accent)}
+
+.rules-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.rule-card{border:1px solid var(--line);background:var(--paper)}
+.rule-card.invalid{border-color:#b91c1c}
+.rule-card.has-peek{border-left:3px solid var(--accent)}
+.rule-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+.rule-head .rule-name{flex:1;font-family:var(--serif);font-size:17px;color:var(--ink);background:transparent;border:1px dashed transparent;padding:2px 6px;font-weight:500;min-width:0}
+.rule-head .rule-name:focus{outline:none;border-color:var(--accent);background:var(--paper)}
+.rule-head .rule-count{font:11px var(--mono);letter-spacing:.06em;padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-variant-numeric:tabular-nums;min-width:72px;text-align:center}
+.rule-head .rule-count.ok{border-color:#16a34a;color:#15803d}
+.rule-head .rule-count.warn{border-color:#ca8a04;color:#a16207}
+.rule-head .rule-count.zero{border-color:#b91c1c;color:#b91c1c}
+.rule-head .rule-count.loading{color:var(--dim);font-style:italic}
+.rule-head .rule-count.err{border-color:#b91c1c;color:#b91c1c;font-style:italic;cursor:help}
+.rule-head .rule-btn{background:transparent;border:1px solid transparent;padding:3px 6px;color:var(--dim);font-size:15px;line-height:1;cursor:pointer}
+.rule-head .rule-btn:hover{color:var(--ink);border-color:var(--line);background:var(--paper)}
+.rule-head .rule-btn.danger:hover{color:#b91c1c;border-color:#b91c1c}
+
+.rule-body{padding:10px 14px 12px}
+.rule-row{display:grid;grid-template-columns:60px 1fr;gap:10px;margin-bottom:6px;align-items:start}
+.rule-row .lbl{font:10px var(--mono);letter-spacing:.14em;color:var(--dim);text-transform:uppercase;padding-top:6px;font-weight:700}
+.rule-row.r-must .lbl{color:#0d9488}
+.rule-row.r-also .lbl{color:var(--dim)}
+.rule-row.r-not  .lbl{color:#b91c1c}
+.rule-terms{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 6px;border:1px dashed var(--line);background:var(--paper-2);min-height:30px}
+.rule-terms.r-must{border-left:2px solid #0d9488}
+.rule-terms.r-not{border-left:2px solid #b91c1c}
+.term-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 8px;background:var(--paper);border:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--ink);line-height:1.5}
+.term-chip .x{background:transparent;border:0;color:var(--dim);cursor:pointer;padding:0 4px;font-size:13px;line-height:1}
+.term-chip .x:hover{color:#b91c1c}
+.term-input{flex:1;min-width:120px;padding:3px 6px;background:transparent;border:0;font:12px var(--mono);color:var(--ink);outline:none}
+.term-input::placeholder{color:var(--dimmer)}
+
+.rule-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dotted var(--line)}
+.rule-actions button{background:transparent;border:1px solid transparent;padding:3px 8px;font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;cursor:pointer}
+.rule-actions button:hover{border-color:var(--line);background:var(--paper-2);color:var(--ink)}
+.rule-actions button:disabled{opacity:.4;cursor:not-allowed}
+.rule-actions button.active{color:var(--ink);background:var(--paper-2);border-color:var(--line)}
+
+.rule-raw{margin-top:8px}
+.rule-raw textarea{width:100%;min-height:56px;padding:8px;border:1px solid var(--line);background:var(--paper);font:12px var(--mono);color:var(--ink);resize:vertical;box-sizing:border-box}
+.rule-raw textarea:focus{outline:none;border-color:var(--accent)}
+.rule-raw .hint{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);margin-top:4px;text-transform:uppercase}
+.rule-err{margin-top:6px;padding:6px 10px;background:color-mix(in oklab,#b91c1c 6%, var(--paper));border-left:2px solid #b91c1c;font-size:11.5px;color:#991b1b;font-family:var(--mono)}
+
+.rule-peek{margin-top:8px;padding:8px 10px;border:1px solid var(--line);background:var(--paper-2);font-family:var(--serif);font-size:12.5px;line-height:1.5;color:var(--ink-2);max-height:240px;overflow-y:auto}
+.rule-peek .pk{padding:4px 0;border-top:1px dotted var(--line)}
+.rule-peek .pk:first-child{border-top:0}
+.rule-peek .pk .pk-meta{font:9px var(--mono);letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin-bottom:2px}
+.rule-peek .pk-loading{color:var(--dim);font-style:italic}
+
+.add-rule-btn{width:100%;padding:10px 14px;border:1px dashed var(--line);background:transparent;color:var(--dim);font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.add-rule-btn:hover{border-color:var(--ink);color:var(--ink);background:var(--paper-2)}
+
+.rules-bottom{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:14px;padding:12px 14px;border:1px solid var(--line);background:var(--paper-2)}
+.rules-bottom button{padding:6px 12px;border:1px solid var(--line);background:var(--paper);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink)}
+.rules-bottom button:hover{border-color:var(--ink);background:var(--paper-2)}
+.rules-bottom button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.rules-bottom button.primary:hover{background:var(--accent);border-color:var(--accent)}
+.rules-bottom button:disabled{opacity:.4;cursor:not-allowed}
+.rules-bottom .coverage{margin-left:auto;font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;text-align:right}
+.rules-bottom .coverage strong{color:var(--ink);font-family:var(--serif);font-size:15px;font-weight:400;font-variant-numeric:tabular-nums;text-transform:none;letter-spacing:0}
+
+@media(max-width:960px){
+  .rules-wrap{padding:14px 14px 40px}
+  .rules-toolbar{padding:10px 12px}
+  .rules-toolbar select{min-width:120px;flex:1}
+  .rules-toolbar .rules-scope-note{flex-basis:100%;text-align:right;margin-left:0}
+  .rule-row{grid-template-columns:1fr}
+  .rule-row .lbl{padding-top:0;padding-bottom:2px}
+  .rule-head{flex-wrap:wrap;gap:6px}
+  .rule-head .rule-count{order:3;margin-left:auto}
+  .rule-actions{justify-content:flex-start}
+  .rules-bottom{flex-direction:column;align-items:stretch}
+  .rules-bottom button{width:100%}
+  .rules-bottom .coverage{margin:6px 0 0;text-align:left}
+}
+
+/* ==== D2: ⚡ Suggest-terms modal ==== */
+.sug-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px}
+.sug-modal{background:var(--paper);border:1px solid var(--line);box-shadow:0 18px 60px rgba(0,0,0,.2);width:640px;max-width:100%;max-height:calc(100vh - 40px);display:flex;flex-direction:column}
+.sug-head{padding:14px 18px;border-bottom:1px solid var(--line);background:var(--paper-2);display:flex;align-items:center;gap:10px}
+.sug-head h3{margin:0;font-family:var(--serif);font-weight:500;font-size:17px;color:var(--ink);flex:1}
+.sug-head .x{background:transparent;border:0;font-size:18px;line-height:1;color:var(--dim);cursor:pointer;padding:4px 8px}
+.sug-head .x:hover{color:#b91c1c}
+.sug-body{flex:1;overflow-y:auto;padding:16px 18px}
+.sug-lead{font-size:12.5px;line-height:1.55;color:var(--ink);margin:0 0 12px}
+.sug-progress{display:flex;align-items:center;gap:10px;margin-bottom:10px;font:10px var(--mono);letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
+.sug-progress .bar{flex:1;height:4px;background:var(--paper-2);border:1px solid var(--line)}
+.sug-progress .bar span{display:block;height:100%;background:var(--accent);transition:width .2s}
+.sug-card{border:1px solid var(--line);background:var(--paper);padding:12px 14px;margin-bottom:10px}
+.sug-card .meta{font:9px var(--mono);letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin-bottom:6px}
+.sug-card .tx{font-family:var(--serif);font-size:14px;line-height:1.5;color:var(--ink-2);max-height:180px;overflow-y:auto;margin-bottom:8px}
+.sug-card .choose{display:flex;gap:6px;flex-wrap:wrap}
+.sug-card .choose button{padding:5px 12px;font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);cursor:pointer;color:var(--ink)}
+.sug-card .choose button:hover{border-color:var(--ink);background:var(--paper-2)}
+.sug-card .choose button.pos.active{background:#16a34a;color:#fff;border-color:#16a34a}
+.sug-card .choose button.neg.active{background:#b91c1c;color:#fff;border-color:#b91c1c}
+.sug-card .choose button.skip.active{background:var(--dim);color:var(--paper);border-color:var(--dim)}
+.sug-compute{margin-top:10px;padding:10px 14px;background:var(--ink);color:var(--paper);border:0;font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;width:100%}
+.sug-compute:hover{background:var(--accent)}
+.sug-compute:disabled{background:var(--dimmer);cursor:not-allowed}
+
+.sug-results h4{margin:14px 0 6px;font:10px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;font-weight:700}
+.sug-results .chip-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.sug-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;user-select:none}
+.sug-chip:hover{border-color:var(--ink)}
+.sug-chip.picked{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+.sug-chip.picked.neg{background:#b91c1c;border-color:#b91c1c}
+.sug-chip .s{font-size:9px;opacity:.6;margin-left:2px;font-variant-numeric:tabular-nums}
+.sug-add-row{display:flex;gap:6px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line);margin-top:12px}
+.sug-add-row button{padding:7px 12px;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);cursor:pointer;color:var(--ink)}
+.sug-add-row button:hover{border-color:var(--ink);background:var(--paper-2)}
+.sug-add-row button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.sug-add-row button.primary:hover{background:var(--accent);border-color:var(--accent)}
+.sug-footer{padding:10px 18px;border-top:1px solid var(--line);background:var(--paper-2);display:flex;justify-content:space-between;font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+
+@media(max-width:720px){
+  .sug-overlay{padding:0;align-items:flex-end}
+  .sug-modal{width:100%;max-height:90vh;border-radius:0}
+  .sug-head{padding:12px 14px}
+  .sug-body{padding:12px 14px}
+}
+
 /* D1: migration banner — shown once when old TF-IDF sets detected.
    Deliberately amber/warning-styled so user knows it's important but
    not dismissive (they have to pick Convert or Skip to dismiss). */
@@ -7715,6 +7857,720 @@ function labBuildUncertainRows(max = 120) {
   return scored.slice(0, max).map(x => x.r);
 }
 
+/* =====================================================================
+   D2 — Boolean Rule Builder UI (renderRules + helpers)
+   =====================================================================
+   Replaces the old 3-step TF-IDF workspace. Each rule is a boolean
+   FTS5 query shown as three editable chip rows (MUST / AND / NOT).
+   Live count + peek hit the backend directly — no Instant Mode gate.
+   Per-rule ⚡ Suggest-terms modal uses the retained TF-IDF math to
+   propose terms from a small user-tagged sample.
+   ===================================================================== */
+
+/* ------------- Count fetching (debounced per-rule) ------------- */
+const RULES_COUNT_DEBOUNCE = 350;
+function rulesScheduleCount(rule) {
+  const id = rule.id;
+  if (state.rules._countInflight[id]) {
+    clearTimeout(state.rules._countInflight[id]);
+  }
+  const timer = setTimeout(() => rulesFetchCount(rule), RULES_COUNT_DEBOUNCE);
+  state.rules._countInflight[id] = timer;
+}
+async function rulesFetchCount(rule) {
+  const validation = validateRule(rule);
+  if (!validation.ok) {
+    state.rules.counts[rule.id] = { error: validation.error };
+    rulesPaintCount(rule);
+    return;
+  }
+  const compiled = compileRule(rule);
+  if (!compiled) {
+    state.rules.counts[rule.id] = { n: null, empty: true };
+    rulesPaintCount(rule);
+    return;
+  }
+  state.rules.counts[rule.id] = { loading: true };
+  rulesPaintCount(rule);
+  try {
+    const f = { ...state.filters, kw: compiled };
+    const r = await api.recordsCount(f);
+    state.rules.counts[rule.id] = { n: r.total_records || 0 };
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    state.rules.counts[rule.id] = { error: 'API error' };
+  }
+  rulesPaintCount(rule);
+}
+
+function rulesPaintCount(rule) {
+  // In-place update of just the .rule-count element, no full re-render
+  const el = document.querySelector(`[data-rule-id="${rule.id}"] .rule-count`);
+  if (!el) return;
+  const c = state.rules.counts[rule.id];
+  if (!c) { el.textContent = '—'; el.className = 'rule-count'; return; }
+  if (c.loading) { el.textContent = 'counting…'; el.className = 'rule-count loading'; return; }
+  if (c.error) { el.textContent = '⚠ invalid'; el.className = 'rule-count err'; el.title = c.error; return; }
+  if (c.empty) { el.textContent = 'empty rule'; el.className = 'rule-count loading'; return; }
+  const n = c.n || 0;
+  // Percentage denominator: rail hits if rail is active (so "% of Poland
+  // records matching") else the dataset total.
+  const denom = (!_railIsEmpty(state.filters) && state.totalHits)
+    ? state.totalHits
+    : 267548;
+  const pct = (n / denom * 100).toFixed(n < 100 ? 2 : 1);
+  el.textContent = `${fmt(n)} (${pct}%)`;
+  el.className = 'rule-count ' + (n === 0 ? 'zero' : (n >= 50 && n <= 20000 ? 'ok' : 'warn'));
+  el.title = `${fmt(n)} of ${fmt(total)} records match · click card for details`;
+}
+
+function rulesRefreshAllCounts() {
+  for (const r of (state.rules.rules || [])) rulesScheduleCount(r);
+}
+
+/* ------------- Rule CRUD helpers ------------- */
+function rulesAddRule(name) {
+  const r = {
+    id: ruleGenId(),
+    name: name || 'New rule',
+    must: [], also: [], not: [],
+    rawQuery: '',
+    notes: '',
+  };
+  state.rules.rules.push(r);
+  return r;
+}
+function rulesDeleteRule(id) {
+  state.rules.rules = state.rules.rules.filter(r => r.id !== id);
+  delete state.rules.counts[id];
+  delete state.rules._peekOpen[id];
+}
+function rulesFindById(id) { return state.rules.rules.find(r => r.id === id); }
+function rulesAddTerm(rule, bucket, raw) {
+  // Accept comma-separated paste. Trim. Dedupe. Skip empties.
+  const incoming = String(raw || '')
+    .split(/[,\n]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  const existing = new Set(rule[bucket]);
+  for (const t of incoming) if (!existing.has(t)) { rule[bucket].push(t); existing.add(t); }
+}
+function rulesRemoveTerm(rule, bucket, term) {
+  rule[bucket] = rule[bucket].filter(t => t !== term);
+}
+
+/* ------------- Main render ------------- */
+function renderRules() {
+  const root = $('#view-labels');
+  if (!root) return;
+
+  // Resume active set if one is saved
+  if (!state.rules.active) {
+    const id = (() => { try { return localStorage.getItem(RULES_ACTIVE_KEY); } catch { return null; } })();
+    if (id && rulesLoadSets().find(s => s.id === id)) rulesLoadSet(id);
+  }
+
+  // Check for migration prompt
+  if (state.rules._migration == null) rulesDetectMigrationNeeded();
+  const showMigrationBanner = state.rules._migration === 'pending';
+
+  const sets = rulesLoadSets();
+  const rules = state.rules.rules || [];
+  const hasRules = rules.length > 0;
+  const activeSet = sets.find(s => s.id === state.rules.active);
+
+  // Compute rail-scope hint
+  const railActive = !_railIsEmpty(state.filters);
+
+  root.innerHTML = `
+    <div class="rules-wrap">
+
+      ${showMigrationBanner ? `
+        <div class="rules-migrate">
+          <div class="rules-migrate-head">
+            <strong>Welcome — your saved classifier sets can be converted.</strong>
+          </div>
+          <p>This workspace is now a <strong>boolean rule builder</strong>. Your old categories can be imported as rule stubs — tagged examples will seed the <em>⚡ Suggest terms</em> helper so you can generate query terms with one click.</p>
+          <div class="rules-migrate-actions">
+            <button id="rulesMigrateGo" class="primary">⚡ Convert my saved sets</button>
+            <button id="rulesMigrateSkip">Skip — I'll start fresh</button>
+          </div>
+        </div>` : ''}
+
+      ${!hasRules ? `
+        <div class="rules-empty">
+          <h2>Define your labels as boolean queries</h2>
+          <p>No training. No 300 MB download. Every label is one query that runs server-side — fully explainable in a methodology section.</p>
+          <p class="dim">Don't know the right terms yet? Tag a few examples and the <strong>⚡ Suggest terms</strong> helper proposes candidates from your positive/negative picks.</p>
+          <div class="starter-row" id="rulesStarterRow">
+            ${RULES_STARTER_TEMPLATES.map(t => `<button data-starter="${sanitize(t.id)}">${sanitize(t.name)} (${t.rules.length})</button>`).join('')}
+          </div>
+          <button class="add-first" id="rulesAddFirst">+ Add first rule</button>
+        </div>` : ''}
+
+      ${hasRules ? `
+        <div class="rules-toolbar">
+          <label>Set:
+            <select id="rulesSetSelect" title="Switch between saved rule sets">
+              <option value="">${activeSet ? '— unsaved changes —' : '— not saved —'}</option>
+              ${sets.map(s => `<option value="${sanitize(s.id)}" ${s.id === state.rules.active ? 'selected' : ''}>${sanitize(s.name)} (${s.rules.length})</option>`).join('')}
+            </select>
+          </label>
+          <button id="rulesNewSet" title="Start a fresh rule set">+ New set</button>
+          <button id="rulesImportJson" title="Import rules from a JSON file">⬆ Import</button>
+          ${railActive ? `<span class="rules-scope-note">Counts scoped to current rail filter · <a href="#" data-nav="search" style="color:var(--accent)">clear rail</a></span>` : `<span class="rules-scope-note">Dataset-wide (no rail filter active)</span>`}
+        </div>
+
+        <div class="rules-cards" id="rulesCards">
+          ${rules.map(r => renderRuleCard(r)).join('')}
+        </div>
+
+        <button class="add-rule-btn" id="rulesAddAnother">+ Add rule</button>
+
+        <div class="rules-bottom">
+          <button id="rulesSaveSet" class="primary">💾 Save set${activeSet ? ' (overwrite)' : ''}</button>
+          <button id="rulesSaveAsNew" ${activeSet ? '' : 'disabled'}>💾 Save as new</button>
+          <button id="rulesExportJson">⬇ JSON</button>
+          <button id="rulesExportCsv" title="Records × rules assignment matrix (lands in D3)" disabled>⬇ CSV (D3)</button>
+          <span class="coverage"><span id="rulesCoverageText">Coverage: <strong>—</strong></span><br><span class="dim" id="rulesCoverageSub" style="font-family:var(--mono);font-size:10px;color:var(--dim)">Overlap details coming in D3</span></span>
+        </div>` : ''}
+    </div>`;
+
+  rulesBindEvents();
+  rulesRefreshAllCounts();
+}
+
+/* ------------- Per-rule card render ------------- */
+function renderRuleCard(rule) {
+  const validation = validateRule(rule);
+  const errMsg = validation.ok ? '' : validation.error;
+  const useRaw = !!(rule.rawQuery && rule.rawQuery.trim());
+  return `
+    <div class="rule-card ${errMsg ? 'invalid' : ''} ${state.rules._peekOpen[rule.id] ? 'has-peek' : ''}" data-rule-id="${sanitize(rule.id)}">
+      <div class="rule-head">
+        <input class="rule-name" type="text" value="${sanitize(rule.name)}" placeholder="Rule name — e.g. Judicial independence" />
+        <span class="rule-count">—</span>
+        <button class="rule-btn" data-act="peek" title="Show 5 matching records inline">👁</button>
+        <button class="rule-btn" data-act="suggest" title="⚡ Suggest terms from tagged examples">⚡</button>
+        <button class="rule-btn danger" data-act="delete" title="Delete this rule">×</button>
+      </div>
+      <div class="rule-body">
+        ${useRaw ? `
+          <div class="rule-raw">
+            <textarea data-raw="${sanitize(rule.id)}" placeholder="Enter FTS5 query directly (e.g. (judiciary OR court*) AND independen* NOT executive)">${sanitize(rule.rawQuery || '')}</textarea>
+            <div class="hint">RAW FTS5 MODE · <a href="#" data-act="unraw" data-rule="${sanitize(rule.id)}">← switch back to chips</a></div>
+          </div>
+        ` : `
+          ${renderRuleRow(rule, 'must', 'MUST',  'judiciary, court*', '#0d9488')}
+          ${renderRuleRow(rule, 'also', 'AND',   'independen*, impartial', 'var(--dim)')}
+          ${renderRuleRow(rule, 'not',  'NOT',   'executive', '#b91c1c')}
+        `}
+        ${errMsg ? `<div class="rule-err">${sanitize(errMsg)}</div>` : ''}
+        <div class="rule-actions">
+          <button data-act="toggleRaw" class="${useRaw ? 'active' : ''}">${useRaw ? '✓ RAW mode' : 'Raw FTS5'}</button>
+          <button data-act="copy">📋 Copy query</button>
+          <button data-act="openInSearch">🔎 Open in Search</button>
+        </div>
+        ${state.rules._peekOpen[rule.id] ? `<div class="rule-peek" data-peek="${sanitize(rule.id)}"><span class="pk-loading">Loading peek…</span></div>` : ''}
+      </div>
+    </div>`;
+}
+
+function renderRuleRow(rule, bucket, label, placeholder, color) {
+  const terms = rule[bucket] || [];
+  return `
+    <div class="rule-row r-${bucket}">
+      <div class="lbl" style="${color ? `color:${color}` : ''}">${label}</div>
+      <div class="rule-terms r-${bucket}" data-bucket="${bucket}" data-rule="${sanitize(rule.id)}">
+        ${terms.map(t => `<span class="term-chip">${sanitize(t)}<button class="x" data-rmterm="${sanitize(t)}" data-bucket="${bucket}">×</button></span>`).join('')}
+        <input class="term-input" type="text" data-add-bucket="${bucket}" data-rule="${sanitize(rule.id)}" placeholder="${sanitize(placeholder)}" />
+      </div>
+    </div>`;
+}
+
+/* ------------- Event bindings (called after each render) ------------- */
+function rulesBindEvents() {
+  const root = $('#view-labels');
+  if (!root) return;
+
+  // Migration banner
+  $('#rulesMigrateGo')?.addEventListener('click', () => {
+    try {
+      const n = rulesMigrateFromV1();
+      toast(`Converted ${n} set${n === 1 ? '' : 's'}. Open the set selector to find them.`, false, 3500);
+    } catch (e) {
+      console.error('[rules] migration failed:', e);
+      toast('Migration failed — see console', true, 3000);
+    }
+    renderRules();
+  });
+  $('#rulesMigrateSkip')?.addEventListener('click', () => {
+    rulesSkipMigration();
+    toast('Skipped.', false, 1800);
+    renderRules();
+  });
+
+  // Starter templates + first rule (empty state)
+  $$('#rulesStarterRow [data-starter]').forEach(btn => btn.addEventListener('click', () => {
+    const id = btn.dataset.starter;
+    const t = RULES_STARTER_TEMPLATES.find(x => x.id === id);
+    if (!t) return;
+    state.rules.rules = JSON.parse(JSON.stringify(t.rules)).map(r => ({ ...r, id: ruleGenId() }));
+    state.rules.active = null;     // force save-as flow
+    state.rules.counts = {};
+    renderRules();
+  }));
+  $('#rulesAddFirst')?.addEventListener('click', () => {
+    rulesAddRule();
+    renderRules();
+    setTimeout(() => $('.rule-name')?.focus(), 40);
+  });
+
+  // Set selector
+  $('#rulesSetSelect')?.addEventListener('change', (e) => {
+    const id = e.target.value;
+    if (!id) return;
+    if (rulesLoadSet(id)) renderRules();
+  });
+  $('#rulesNewSet')?.addEventListener('click', () => {
+    state.rules.active = null;
+    state.rules.rules = [];
+    state.rules.counts = {};
+    try { localStorage.removeItem(RULES_ACTIVE_KEY); } catch {}
+    renderRules();
+  });
+
+  // Import JSON
+  $('#rulesImportJson')?.addEventListener('click', () => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.json,application/json';
+    inp.onchange = async (ev) => {
+      const f = ev.target.files && ev.target.files[0];
+      if (!f) return;
+      try {
+        const txt = await f.text();
+        const data = JSON.parse(txt);
+        // Accept either a single RuleSet or an array of them
+        const incoming = Array.isArray(data) ? data : [data];
+        const existing = rulesLoadSets();
+        for (const s of incoming) {
+          if (!s || !Array.isArray(s.rules)) continue;
+          existing.unshift({
+            ...s,
+            id: rulesGenId(),
+            saved_at: Date.now(),
+            version: RULES_SCHEMA_VERSION,
+          });
+        }
+        rulesSaveSets(existing);
+        toast(`Imported ${incoming.length} set${incoming.length === 1 ? '' : 's'}.`, false, 2400);
+        renderRules();
+      } catch (e) {
+        toast('Import failed — invalid JSON', true, 3000);
+      }
+    };
+    inp.click();
+  });
+
+  // Save set
+  $('#rulesSaveSet')?.addEventListener('click', () => {
+    const name = state.rules.active
+      ? (rulesLoadSets().find(s => s.id === state.rules.active)?.name || 'Saved rule set')
+      : prompt('Name this rule set:', 'Rules ' + new Date().toLocaleDateString());
+    if (!name) return;
+    rulesSnapshotCurrent(name);
+    toast('Saved.', false, 1500);
+    renderRules();
+  });
+  $('#rulesSaveAsNew')?.addEventListener('click', () => {
+    const name = prompt('Name for new set:', 'Copy of current');
+    if (!name) return;
+    state.rules.active = null;    // force new id
+    rulesSnapshotCurrent(name);
+    toast('Saved as new set.', false, 1500);
+    renderRules();
+  });
+
+  // Export JSON
+  $('#rulesExportJson')?.addEventListener('click', () => {
+    const payload = {
+      name: rulesLoadSets().find(s => s.id === state.rules.active)?.name || 'Rules',
+      rules: state.rules.rules,
+      version: RULES_SCHEMA_VERSION,
+      exported_at: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'uhri-rules-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Add rule
+  $('#rulesAddAnother')?.addEventListener('click', () => {
+    rulesAddRule();
+    renderRules();
+    setTimeout(() => {
+      const cards = $$('.rule-card');
+      cards[cards.length - 1]?.querySelector('.rule-name')?.focus();
+    }, 40);
+  });
+
+  // Per-rule bindings
+  $$('#rulesCards .rule-card').forEach(card => {
+    const id = card.dataset.ruleId;
+    const rule = rulesFindById(id);
+    if (!rule) return;
+
+    // Name edit
+    const nameEl = card.querySelector('.rule-name');
+    nameEl?.addEventListener('blur', () => {
+      rule.name = (nameEl.value || '').trim() || 'Untitled rule';
+    });
+    nameEl?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); }
+    });
+
+    // Term input (add)
+    card.querySelectorAll('[data-add-bucket]').forEach(inp => {
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ',') {
+          e.preventDefault();
+          const v = (inp.value || '').trim().replace(/,$/, '');
+          if (!v) return;
+          rulesAddTerm(rule, inp.dataset.addBucket, v);
+          inp.value = '';
+          renderRules();
+          rulesScheduleCount(rule);
+        } else if (e.key === 'Backspace' && !inp.value) {
+          // Delete last chip on backspace in empty input
+          const bucket = inp.dataset.addBucket;
+          if (rule[bucket].length) {
+            rule[bucket].pop();
+            renderRules();
+            rulesScheduleCount(rule);
+          }
+        }
+      });
+      inp.addEventListener('blur', () => {
+        const v = (inp.value || '').trim();
+        if (!v) return;
+        rulesAddTerm(rule, inp.dataset.addBucket, v);
+        inp.value = '';
+        renderRules();
+        rulesScheduleCount(rule);
+      });
+    });
+
+    // Term chip remove
+    card.querySelectorAll('.term-chip .x').forEach(btn => btn.addEventListener('click', () => {
+      const bucket = btn.dataset.bucket;
+      const term = btn.dataset.rmterm;
+      rulesRemoveTerm(rule, bucket, term);
+      renderRules();
+      rulesScheduleCount(rule);
+    }));
+
+    // Raw textarea (debounced save on input)
+    const rawEl = card.querySelector('textarea[data-raw]');
+    if (rawEl) {
+      let t = null;
+      rawEl.addEventListener('input', () => {
+        rule.rawQuery = rawEl.value;
+        clearTimeout(t);
+        t = setTimeout(() => rulesScheduleCount(rule), 200);
+      });
+    }
+
+    // Action buttons
+    card.querySelectorAll('.rule-head .rule-btn, .rule-actions button, a[data-act]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const act = btn.dataset.act;
+        if (act === 'delete') {
+          if (confirm(`Delete rule "${rule.name}"?`)) {
+            rulesDeleteRule(id);
+            renderRules();
+          }
+        } else if (act === 'toggleRaw') {
+          if (rule.rawQuery && rule.rawQuery.trim()) {
+            rule.rawQuery = '';   // drop back to chips
+          } else {
+            rule.rawQuery = compileRule(rule);  // seed from current chips
+          }
+          renderRules();
+        } else if (act === 'unraw') {
+          rule.rawQuery = '';
+          renderRules();
+        } else if (act === 'copy') {
+          const q = compileRule(rule);
+          if (!q) { toast('Rule is empty', true, 1500); return; }
+          navigator.clipboard.writeText(q).then(
+            () => toast('FTS5 query copied', false, 1500),
+            () => toast('Copy failed — select the rule-count to see query in tooltip', true, 2400));
+        } else if (act === 'openInSearch') {
+          const q = compileRule(rule);
+          if (!q) { toast('Rule is empty', true, 1500); return; }
+          state.filters.kw = q;
+          navigate('search');
+        } else if (act === 'peek') {
+          const open = !state.rules._peekOpen[id];
+          state.rules._peekOpen[id] = open;
+          renderRules();
+          if (open) rulesLoadPeek(rule);
+        } else if (act === 'suggest') {
+          rulesOpenSuggestModal(rule);
+        }
+      });
+    });
+  });
+}
+
+/* ------------- Peek 5 records inline ------------- */
+async function rulesLoadPeek(rule) {
+  const el = document.querySelector(`[data-peek="${rule.id}"]`);
+  if (!el) return;
+  const q = compileRule(rule);
+  if (!q) { el.innerHTML = '<span class="pk-loading">Empty rule</span>'; return; }
+  try {
+    const r = await api.records({ ...state.filters, kw: q }, 1, 5, { scope: `rules:peek:${rule.id}` });
+    const recs = r.records || [];
+    if (!recs.length) { el.innerHTML = '<span class="pk-loading">No matches</span>'; return; }
+    el.innerHTML = recs.map(rec => {
+      const yr = (rec.PublicationDate || '').slice(0, 4) || '—';
+      const country = cleanCountryName((rec.Countries || [])[0] || '—');
+      const body = cleanLabel(rec.Body || '—');
+      const txt = rec.TextPlainCleaned || rec.Text || '—';
+      return `<div class="pk">
+        <div class="pk-meta">${sanitize(yr)} · ${sanitize(country)} · ${sanitize(body)}</div>
+        ${sanitize(txt.slice(0, 240))}${txt.length > 240 ? '…' : ''}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    el.innerHTML = '<span class="pk-loading">Peek failed</span>';
+  }
+}
+
+/* ------------- ⚡ Suggest-terms modal ------------- */
+let _sugState = null;
+
+async function rulesOpenSuggestModal(rule) {
+  _sugState = {
+    rule,
+    pool: [],
+    idx: 0,
+    tags: { ...(rule.seedExamples || {}) },      // start from any existing seeds
+    results: null,
+    picked: { positive: new Set(), negative: new Set() },
+  };
+  // Build pool (up to 40 candidates)
+  const pool = await rulesBuildCandidatePool(40);
+  _sugState.pool = pool;
+  // Jump cursor past any already-tagged records
+  while (_sugState.idx < pool.length && _sugState.tags[pool[_sugState.idx]?.AnnotationId]) _sugState.idx++;
+  rulesRenderSuggestModal();
+}
+
+function rulesRenderSuggestModal() {
+  // Remove existing
+  document.querySelector('.sug-overlay')?.remove();
+  if (!_sugState) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'sug-overlay';
+  const { rule, pool, idx, tags, results } = _sugState;
+  const pos = Object.values(tags).filter(t => t === 'positive').length;
+  const neg = Object.values(tags).filter(t => t === 'negative').length;
+  const done = Object.keys(tags).length;
+  const total = Math.min(pool.length, 20);   // cap tagger at 20
+  const canCompute = pos >= 5 && neg >= 5;
+
+  if (results) {
+    // Results screen
+    overlay.innerHTML = `
+      <div class="sug-modal">
+        <div class="sug-head">
+          <h3>Suggested terms for "${sanitize(rule.name)}"</h3>
+          <button class="x" data-sug-act="close">×</button>
+        </div>
+        <div class="sug-body sug-results">
+          <p class="sug-lead">Click chips to select, pick which bucket to add them to. Terms stay in your rule until you remove them. Based on ${results.stats.pos} positive + ${results.stats.neg} negative examples.</p>
+
+          <h4>Positive-class terms (candidates for MUST / AND)</h4>
+          <div class="chip-row" id="sugPosChips">
+            ${results.positive.map(x => `<span class="sug-chip" data-sug-term="${sanitize(x.term)}" data-sug-class="pos">${sanitize(x.term)}<span class="s">${(x.score * 100).toFixed(0)}</span></span>`).join('') || '<span style="color:var(--dim);font-size:11px">None — positive and negative examples looked too similar.</span>'}
+          </div>
+
+          <h4>Negative-class terms (candidates for NOT)</h4>
+          <div class="chip-row" id="sugNegChips">
+            ${results.negative.map(x => `<span class="sug-chip" data-sug-term="${sanitize(x.term)}" data-sug-class="neg">${sanitize(x.term)}<span class="s">${Math.abs(x.score * 100).toFixed(0)}</span></span>`).join('') || '<span style="color:var(--dim);font-size:11px">None — no terms strongly marked negative examples.</span>'}
+          </div>
+
+          <div class="sug-add-row">
+            <button data-sug-act="addMust" class="primary">Add picked to MUST</button>
+            <button data-sug-act="addAlso">Add picked to AND</button>
+            <button data-sug-act="addNot">Add picked to NOT</button>
+            <button data-sug-act="back">← Back to tagger</button>
+          </div>
+        </div>
+        <div class="sug-footer">
+          <span>${results.stats.pos} positive · ${results.stats.neg} negative</span>
+          <span>Close when done</span>
+        </div>
+      </div>`;
+  } else {
+    // Tagger screen
+    const rec = pool[idx];
+    overlay.innerHTML = `
+      <div class="sug-modal">
+        <div class="sug-head">
+          <h3>⚡ Suggest terms for "${sanitize(rule.name)}"</h3>
+          <button class="x" data-sug-act="close">×</button>
+        </div>
+        <div class="sug-body">
+          <p class="sug-lead">Tag records as <strong>positive</strong> (fit the concept), <strong>negative</strong> (clearly don't), or <strong>skip</strong>. We'll compute distinguishing terms. Goal: ≥5 of each.</p>
+
+          <div class="sug-progress">
+            <span>${done}/${total}</span>
+            <div class="bar"><span style="width:${Math.min(100, done / total * 100)}%"></span></div>
+            <span>${pos}p · ${neg}n</span>
+          </div>
+
+          ${rec ? `
+            <div class="sug-card">
+              <div class="meta">${sanitize((rec.PublicationDate || '').slice(0,4) || '—')} · ${sanitize(cleanCountryName((rec.Countries || [])[0] || '—'))} · ${sanitize(cleanLabel(rec.Body || '—'))}${rec.AnnotationType ? ' · ' + sanitize(rec.AnnotationType) : ''}</div>
+              <div class="tx">${sanitize((rec.TextPlainCleaned || rec.Text || '—').slice(0, 1200))}</div>
+              <div class="choose">
+                <button class="pos ${tags[rec.AnnotationId] === 'positive' ? 'active' : ''}" data-sug-act="tag" data-tag="positive">✓ Positive</button>
+                <button class="neg ${tags[rec.AnnotationId] === 'negative' ? 'active' : ''}" data-sug-act="tag" data-tag="negative">✗ Negative</button>
+                <button class="skip ${tags[rec.AnnotationId] === 'skip' ? 'active' : ''}" data-sug-act="tag" data-tag="skip">↻ Skip</button>
+                <button data-sug-act="prev" ${idx === 0 ? 'disabled' : ''} style="margin-left:auto">← Prev</button>
+                <button data-sug-act="next" ${idx >= pool.length - 1 ? 'disabled' : ''}>Next →</button>
+              </div>
+            </div>
+          ` : '<p style="color:var(--dim);text-align:center;padding:40px 0">No candidate records. Try widening your rail filter and re-open.</p>'}
+
+          <button class="sug-compute" data-sug-act="compute" ${canCompute ? '' : 'disabled'}>${canCompute ? `Compute suggestions (${pos}+${neg})` : `Need ${Math.max(0, 5 - pos)}+ positive, ${Math.max(0, 5 - neg)}+ negative`}</button>
+        </div>
+        <div class="sug-footer">
+          <span>Pool: ${pool.length} candidates</span>
+          <span>Tap outside to cancel</span>
+        </div>
+      </div>`;
+  }
+
+  document.body.appendChild(overlay);
+
+  // Bind events
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { _sugState = null; overlay.remove(); return; }
+    const btn = e.target.closest('[data-sug-act]');
+    if (!btn) return;
+    const act = btn.dataset.sugAct;
+    if (act === 'close') { _sugState = null; overlay.remove(); }
+    else if (act === 'tag') {
+      const rec = _sugState.pool[_sugState.idx];
+      if (rec) {
+        _sugState.tags[rec.AnnotationId] = btn.dataset.tag;
+        // auto-advance
+        if (_sugState.idx < _sugState.pool.length - 1) _sugState.idx++;
+      }
+      rulesRenderSuggestModal();
+    }
+    else if (act === 'prev') { _sugState.idx = Math.max(0, _sugState.idx - 1); rulesRenderSuggestModal(); }
+    else if (act === 'next') { _sugState.idx = Math.min(_sugState.pool.length - 1, _sugState.idx + 1); rulesRenderSuggestModal(); }
+    else if (act === 'compute') {
+      try {
+        const findRec = (id) => _sugState.pool.find(r => r.AnnotationId === id);
+        _sugState.results = suggestTerms(_sugState.tags, findRec);
+        // Persist the tagged examples into the rule so reopening keeps them
+        _sugState.rule.seedExamples = { ..._sugState.tags };
+        rulesRenderSuggestModal();
+      } catch (e) {
+        toast(e.message || 'Suggest failed', true, 3000);
+      }
+    }
+    else if (act === 'back') {
+      _sugState.results = null;
+      _sugState.picked = { positive: new Set(), negative: new Set() };
+      rulesRenderSuggestModal();
+    }
+    else if (act === 'addMust' || act === 'addAlso' || act === 'addNot') {
+      const bucket = act === 'addMust' ? 'must' : (act === 'addAlso' ? 'also' : 'not');
+      const picks = [
+        ..._sugState.picked.positive,
+        ...(bucket === 'not' ? _sugState.picked.negative : []),
+      ];
+      if (!picks.length) { toast('No chips picked — click some first', true, 2000); return; }
+      const targetRule = _sugState.rule;        // grab ref before we null _sugState
+      rulesAddTerm(targetRule, bucket, picks.join(','));
+      toast(`Added ${picks.length} term${picks.length === 1 ? '' : 's'} to ${bucket.toUpperCase()}.`, false, 2000);
+      _sugState = null;
+      overlay.remove();
+      renderRules();
+      rulesScheduleCount(targetRule);
+    }
+  });
+
+  // Chip pick handlers (on results screen)
+  overlay.querySelectorAll('.sug-chip').forEach(chip => chip.addEventListener('click', () => {
+    const term = chip.dataset.sugTerm;
+    const cls  = chip.dataset.sugClass;
+    const set = cls === 'pos' ? _sugState.picked.positive : _sugState.picked.negative;
+    if (set.has(term)) { set.delete(term); chip.classList.remove('picked'); if (cls === 'neg') chip.classList.remove('neg'); }
+    else { set.add(term); chip.classList.add('picked'); if (cls === 'neg') chip.classList.add('neg'); }
+  }));
+}
+
+/* ------------- Starter templates (seeded good-enough terms) ------------- */
+const RULES_STARTER_TEMPLATES = [
+  {
+    id: 'rule_of_law',
+    name: 'Rule of law',
+    rules: [
+      { id: '', name: 'Judicial independence', must: ['judiciary','judicial','court*'], also: ['independen*','impartial','"separation of powers"'], not: [] },
+      { id: '', name: 'Access to justice', must: ['access*'], also: ['justice','court*','"legal aid"','remedy'], not: [] },
+      { id: '', name: 'Due process', must: ['"due process"','"fair trial"','"fair hearing"'], also: [], not: [] },
+      { id: '', name: 'Anti-corruption', must: ['corrupt*','"anti-corruption"','bribery'], also: [], not: [] },
+      { id: '', name: 'Transitional justice', must: ['"transitional justice"','reparations','"truth commission"'], also: [], not: [] },
+    ],
+  },
+  {
+    id: 'gender_equality',
+    name: 'Gender equality & SGBV',
+    rules: [
+      { id: '', name: 'Gender-based violence', must: ['"gender-based violence"','"sexual violence"','femicide','"domestic violence"'], also: [], not: [] },
+      { id: '', name: 'Equal participation', must: ['women','gender'], also: ['participation','representation','quota*'], not: [] },
+      { id: '', name: 'Reproductive rights', must: ['reproductive','"sexual health"','abortion','contraception'], also: [], not: [] },
+      { id: '', name: 'Discriminatory laws', must: ['discriminat*'], also: ['law*','legislation','statute*'], not: [] },
+    ],
+  },
+  {
+    id: 'civic_space',
+    name: 'Civic space',
+    rules: [
+      { id: '', name: 'Freedom of expression', must: ['"freedom of expression"','"free speech"','press'], also: [], not: [] },
+      { id: '', name: 'Freedom of assembly', must: ['"freedom of assembly"','"peaceful assembly"','protest*'], also: [], not: [] },
+      { id: '', name: 'Freedom of association', must: ['"freedom of association"','"civil society"','NGO*'], also: [], not: [] },
+      { id: '', name: 'Human rights defenders', must: ['"human rights defender*"','"human rights activist*"','HRD*'], also: [], not: [] },
+    ],
+  },
+  {
+    id: 'detention',
+    name: 'Detention & torture',
+    rules: [
+      { id: '', name: 'Torture & ill-treatment', must: ['torture','"ill-treatment"','"cruel"','"inhuman"','"degrading"'], also: [], not: [] },
+      { id: '', name: 'Arbitrary detention', must: ['detention','detain*','"deprivation of liberty"'], also: ['arbitrary','unlawful','incommunicado'], not: [] },
+      { id: '', name: 'Prison conditions', must: ['prison','detention'], also: ['overcrowd*','conditions','facilit*'], not: [] },
+      { id: '', name: 'Death penalty', must: ['"death penalty"','execution','"capital punishment"'], also: [], not: [] },
+    ],
+  },
+];
+
 /* ---------- renderLabels() ---------- */
 function renderLabels() {
   const root = $('#view-labels');
@@ -9273,7 +10129,7 @@ async function navigate(view) {
   else if (view === 'compare') await renderCompare();
   else if (view === 'search') { state.searchPage = 1; await renderSearch(); }
   else if (view === 'bookmarks') renderBookmarks();
-  else if (view === 'labels') renderLabels();
+  else if (view === 'labels') renderRules();   // D2: new boolean rule builder (was renderLabels)
   else if (view === 'methodology') renderMethodology();
 }
 
