@@ -24,9 +24,18 @@
   --serif:"Instrument Serif","Times New Roman",serif;
   --rail-w:280px; --drawer-w:340px; --top-h:44px;
   --row-h:22px;
+  /* Mechanism family colours — same three UN source-types the landing
+     page promises (Treaty Bodies · Special Procedures · UPR). Used on
+     the Overview KPI strip, the drawer at-a-glance tiles, body chips,
+     timeline stacks, and the Mechanism Profile scope picker.
+     Teal / violet / orange are distinct under the three palettes and
+     hold up in colour-blind simulation (IBM accessibility palette). */
+  --mech-tb:#0d9488;   --mech-tb-soft:color-mix(in oklab, #0d9488 14%, var(--paper));
+  --mech-sp:#7c3aed;   --mech-sp-soft:color-mix(in oklab, #7c3aed 14%, var(--paper));
+  --mech-upr:#c2410c;  --mech-upr-soft:color-mix(in oklab, #c2410c 14%, var(--paper));
 }
-[data-palette="terminal"]{--paper:#0b0d0b;--paper-2:#121612;--paper-3:#1a1f1a;--ink:#d6e6cf;--ink-2:#b4c8ac;--dim:#6a7a62;--dimmer:#3e4a39;--line:rgba(214,230,207,.14);--line-2:rgba(214,230,207,.06);--accent:#9cf06b;--accent-soft:rgba(156,240,107,.14);}
-[data-palette="ink"]{--paper:#fff;--paper-2:#f4f4f5;--paper-3:#e9e9eb;--ink:#000;--ink-2:#1a1a1a;--dim:#7a7a7a;--dimmer:#c0c0c0;--line:rgba(0,0,0,.12);--line-2:rgba(0,0,0,.06);--accent:#1d4ed8;--accent-soft:rgba(29,78,216,.14);}
+[data-palette="terminal"]{--paper:#0b0d0b;--paper-2:#121612;--paper-3:#1a1f1a;--ink:#d6e6cf;--ink-2:#b4c8ac;--dim:#6a7a62;--dimmer:#3e4a39;--line:rgba(214,230,207,.14);--line-2:rgba(214,230,207,.06);--accent:#9cf06b;--accent-soft:rgba(156,240,107,.14);--mech-tb:#2dd4bf;--mech-sp:#a78bfa;--mech-upr:#fb923c;--mech-tb-soft:color-mix(in oklab,#2dd4bf 18%, var(--paper));--mech-sp-soft:color-mix(in oklab,#a78bfa 18%, var(--paper));--mech-upr-soft:color-mix(in oklab,#fb923c 18%, var(--paper));}
+[data-palette="ink"]{--paper:#fff;--paper-2:#f4f4f5;--paper-3:#e9e9eb;--ink:#000;--ink-2:#1a1a1a;--dim:#7a7a7a;--dimmer:#c0c0c0;--line:rgba(0,0,0,.12);--line-2:rgba(0,0,0,.06);--accent:#1d4ed8;--accent-soft:rgba(29,78,216,.14);--mech-tb:#0f766e;--mech-sp:#6d28d9;--mech-upr:#9a3412;--mech-tb-soft:color-mix(in oklab,#0f766e 10%, var(--paper));--mech-sp-soft:color-mix(in oklab,#6d28d9 10%, var(--paper));--mech-upr-soft:color-mix(in oklab,#9a3412 10%, var(--paper));}
 *{box-sizing:border-box}
 html,body{background:var(--paper);color:var(--ink);margin:0;height:100%}
 body{font-family:var(--mono);font-size:12px;line-height:1.4;-webkit-font-smoothing:antialiased;overflow:hidden}
@@ -365,14 +374,15 @@ a{color:inherit;text-decoration:none}
    Drawer always open and wider (460px) so previewed records are always
    within reach. Everything below the map scrolls naturally. */
 :root{--drawer-w:460px}
-.ov-grid{display:grid;grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto auto auto;gap:1px;background:var(--line)}
-.ov-grid .p-map{grid-column:1;grid-row:1}
-.ov-grid .p-time{grid-column:1;grid-row:2}
-.ov-grid .p-top-countries{grid-column:1;grid-row:3}
-.ov-grid .p-top-themes{grid-column:1;grid-row:4}
-.ov-grid .p-sankey{grid-column:1;grid-row:5}
-.ov-grid .p-top-bodies{grid-column:1;grid-row:6}
-.ov-grid .p-top-sdgs{grid-column:1;grid-row:7}
+.ov-grid{display:grid;grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto auto auto auto;gap:1px;background:var(--line)}
+.ov-grid .p-mech-strip{grid-column:1;grid-row:1}
+.ov-grid .p-map{grid-column:1;grid-row:2}
+.ov-grid .p-time{grid-column:1;grid-row:3}
+.ov-grid .p-top-countries{grid-column:1;grid-row:4}
+.ov-grid .p-top-themes{grid-column:1;grid-row:5}
+.ov-grid .p-sankey{grid-column:1;grid-row:6}
+.ov-grid .p-top-bodies{grid-column:1;grid-row:7}
+.ov-grid .p-top-sdgs{grid-column:1;grid-row:8}
 .panel{background:var(--paper);padding:14px 16px;min-height:0;overflow:hidden;position:relative}
 .panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
 .panel-title{display:flex;gap:10px;align-items:baseline}
@@ -523,6 +533,53 @@ a{color:inherit;text-decoration:none}
 .dr-btn:hover{background:var(--accent);color:var(--paper);border-color:var(--accent)}
 .dr-empty{padding:40px 20px;text-align:center;color:var(--dim);font-size:11px}
 .dr-empty .big{font-family:var(--serif);font-size:22px;color:var(--ink);margin-bottom:8px}
+
+/* ---------- MECHANISM TILES (drawer + overview) ---------------------
+   Three clickable cards — Treaty Bodies / Special Procedures / UPR —
+   used both in the empty drawer (at-a-glance panel) and in the
+   Overview KPI strip above the map. Each card inherits its accent
+   colour from --mech-{tb,sp,upr}-* custom props so a single CSS rule
+   covers both locations and all three palettes. */
+.mech-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);margin:0 0 1px}
+.mech-tile{background:var(--paper);padding:14px 14px 12px;cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:background .15s;text-align:left;font-family:var(--mono);border:0}
+.mech-tile:hover{background:var(--paper-2)}
+.mech-tile .mt-family{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:6px}
+.mech-tile .mt-family::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--mt-color,var(--dim));flex-shrink:0}
+.mech-tile .mt-name{font-family:var(--serif);font-size:18px;line-height:1.15;color:var(--ink);margin-top:2px}
+.mech-tile .mt-count{font-family:var(--serif);font-size:28px;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink);margin-top:6px}
+.mech-tile .mt-sub{font-size:10px;color:var(--dim);line-height:1.4}
+.mech-tile .mt-desc{font-size:10px;color:var(--ink-2);line-height:1.45;margin-top:6px}
+.mech-tile.tb{--mt-color:var(--mech-tb)}
+.mech-tile.sp{--mt-color:var(--mech-sp)}
+.mech-tile.upr{--mt-color:var(--mech-upr)}
+.mech-tile.tb:hover{background:var(--mech-tb-soft)}
+.mech-tile.sp:hover{background:var(--mech-sp-soft)}
+.mech-tile.upr:hover{background:var(--mech-upr-soft)}
+/* Compact variant used inside the drawer (tight vertical space) */
+.mech-tiles.compact{grid-template-columns:1fr;gap:1px}
+.mech-tiles.compact .mech-tile{padding:10px 14px;flex-direction:row;align-items:center;gap:10px}
+.mech-tiles.compact .mech-tile .mt-family{flex:0 0 auto}
+.mech-tiles.compact .mech-tile .mt-name{font-size:15px;margin:0;flex:1}
+.mech-tiles.compact .mech-tile .mt-count{font-size:18px;margin:0;flex:0 0 auto}
+.mech-tiles.compact .mech-tile .mt-sub,
+.mech-tiles.compact .mech-tile .mt-desc{display:none}
+/* Reusable "family pill" — slim version for inline use in headers etc. */
+.mech-pill{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;font:10px var(--mono);letter-spacing:.06em;border:1px solid var(--mp-color,var(--line));color:var(--mp-color,var(--ink));background:var(--paper)}
+.mech-pill.tb{--mp-color:var(--mech-tb)}
+.mech-pill.sp{--mp-color:var(--mech-sp)}
+.mech-pill.upr{--mp-color:var(--mech-upr)}
+
+/* Drawer-embedded "at a glance" panel — shown when drawer is empty on
+   Overview. Mechanism tiles plus a small stats header with dataset
+   scale so the first-visit experience answers "what am I looking at?"
+   without requiring any interaction. Tag: drawer-at-a-glance-v1 */
+.dr-glance{padding:18px 20px 16px;border-bottom:1px solid var(--line)}
+.dr-glance .dg-eyebrow{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.dr-glance .dg-title{font-family:var(--serif);font-size:20px;line-height:1.2;color:var(--ink);margin:0 0 12px}
+.dr-glance .dg-stats{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;font-size:10px;color:var(--dim)}
+.dr-glance .dg-stats .s .n{font-family:var(--serif);font-size:17px;color:var(--ink);display:block;font-variant-numeric:tabular-nums;line-height:1.1}
+.dr-glance .dg-quick{margin-top:10px;padding-top:10px;border-top:1px dotted var(--line);font-size:10px;color:var(--dim)}
+.dr-glance .dg-quick strong{color:var(--ink)}
 
 /* ---------- READER ---------- */
 .reader{position:fixed;inset:0;background:rgba(15,15,16,.85);z-index:100;display:flex;align-items:center;justify-content:center;padding:40px;animation:fadeIn .2s}
@@ -2896,6 +2953,126 @@ function classifyBody(name) {
   return 'other';
 }
 
+/* ---------- MECHANISM FAMILY HELPERS ----------
+   Shared by the drawer at-a-glance tiles, the Overview KPI strip, and
+   the Mechanism Profile family-rollup + compare-all-3 modes. Three
+   families plus "other" (orphan bodies — should normally be empty).
+   Single source of truth for:
+     - the (key, label, css-class) triple
+     - pretty labels + one-liner descriptions for the tile UI
+     - body-list → family → total-count aggregation */
+const MECH_FAMILIES = [
+  { key: 'upr',    cls: 'upr', label: 'UPR',
+    full: 'Universal Periodic Review',
+    desc: 'Peer review of every UN State every ~4.5 years — recommendations from one State to another.' },
+  { key: 'treaty', cls: 'tb',  label: 'Treaty Bodies',
+    full: 'Treaty Bodies',
+    desc: 'Independent expert committees (CCPR, CEDAW, CAT…) reviewing compliance with the 10 core UN human-rights treaties.' },
+  { key: 'sp',     cls: 'sp',  label: 'Special Procedures',
+    full: 'Special Procedures',
+    desc: 'Special Rapporteurs, Working Groups, and Independent Experts on thematic or country-specific mandates.' },
+];
+
+/* Aggregate body-level counts into {upr,treaty,sp,other} totals.
+   Pass either:
+    - analytics.trends.body_year_totals (object: body → count)
+    - analytics.themes.body_counts (array: [{body, count}])
+    - a Map/array produced elsewhere
+   Returns { upr, treaty, sp, other } as numbers. */
+function aggregateMechanismCounts(source) {
+  const totals = { upr: 0, treaty: 0, sp: 0, other: 0 };
+  if (!source) return totals;
+  let pairs = [];
+  if (Array.isArray(source)) {
+    pairs = source.map(x => [x.body || x.name || x.key, +(x.count || x.v || x.total || 0)]);
+  } else if (typeof source === 'object') {
+    pairs = Object.entries(source).map(([k, v]) => {
+      if (v && typeof v === 'object') {
+        // Nested year-maps: sum values
+        return [k, Object.values(v).reduce((a,b) => a + (+b||0), 0)];
+      }
+      return [k, +(v||0)];
+    });
+  }
+  for (const [body, n] of pairs) {
+    const k = classifyBody(String(body || '').replace(/^-\s*/, ''));
+    totals[k] += Number.isFinite(n) ? n : 0;
+  }
+  return totals;
+}
+
+/* Render three clickable mechanism tiles. Used by both the Overview
+   KPI strip and the drawer at-a-glance panel. `mode` controls layout:
+    - 'full'    — 3-column grid with counts + description
+    - 'compact' — single-column stack, count-first (drawer)
+   `onClick(familyKey)` fires when a tile is activated. */
+function renderMechTiles(container, counts, { mode = 'full', onClick = null } = {}) {
+  if (!container) return;
+  const tiles = MECH_FAMILIES.map(f => {
+    const n = counts[f.key] || 0;
+    const pct = counts._total ? Math.round(100 * n / counts._total) : null;
+    return `
+      <button class="mech-tile ${f.cls}" data-family="${f.key}" aria-label="${f.full} — ${n} records">
+        <div class="mt-family">${f.label}</div>
+        <div class="mt-name">${f.full}</div>
+        <div class="mt-count">${fmt(n)}${pct !== null ? ` <span class="mt-sub" style="display:inline;font-size:11px;margin-left:4px">${pct}%</span>` : ''}</div>
+        ${mode === 'full' ? `<div class="mt-desc">${f.desc}</div>` : ''}
+      </button>`;
+  }).join('');
+  container.className = 'mech-tiles' + (mode === 'compact' ? ' compact' : '');
+  container.innerHTML = tiles;
+  if (onClick) {
+    container.querySelectorAll('.mech-tile').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        onClick(el.dataset.family, e);
+      });
+    });
+  }
+}
+
+/* Given a family key ('upr' | 'treaty' | 'sp'), return the list of
+   body names belonging to that family drawn from the current facet
+   list. Used when opening a drawer list scoped to a whole family. */
+function bodiesInFamily(familyKey) {
+  const bodies = state.facets?.bodies || [];
+  return bodies
+    .filter(b => b && b !== '-')
+    .map(b => String(b).replace(/^-\s*/, ''))
+    .filter(b => classifyBody(b) === familyKey);
+}
+
+/* Compute current mechanism-family counts from cached analytics. Looks
+   at the most reliable source first (yearly body totals summed) and
+   falls back to body_counts array. Returns { upr, treaty, sp, other,
+   _total } or null if no analytics are loaded yet. */
+function _computeMechCounts() {
+  const a = state.analytics;
+  if (!a) return null;
+  // Prefer the yearly-body totals (richest shape the backend provides).
+  let src = a.trends?.yearly_body_counts || a.trends?.body_year_totals;
+  if (!src) src = a.bodies?.body_counts || a.body_counts;
+  const totals = aggregateMechanismCounts(src);
+  totals._total = totals.upr + totals.treaty + totals.sp + totals.other;
+  if (totals._total === 0) return null;
+  return totals;
+}
+
+/* Open a drawer-list scoped to all recommendations from a whole
+   mechanism family. Uses the existing openListDrawer plumbing but
+   passes a body-Set override with every body classified as `familyKey`
+   so the drawer shows the union. */
+function _openFamilyListDrawer(familyKey) {
+  const fam = MECH_FAMILIES.find(f => f.key === familyKey);
+  if (!fam) return;
+  const bodies = bodiesInFamily(familyKey);
+  if (!bodies.length) { toast(`No ${fam.full} bodies in current dataset`, true, 2000); return; }
+  // Use the `body` kind with the family label as the value so the drawer
+  // list header reads nicely ("Treaty Bodies"), and pass the body-Set
+  // override so the actual filter covers every body in that family.
+  openListDrawer('body', fam.full, { body: new Set(bodies) });
+}
+
 function buildBodyFacetGrouped(bodies) {
   const el = $('#f-body');
   const currentSet = () => state.filters.body;
@@ -4253,6 +4430,18 @@ function buildOverviewShell() {
   if (root.dataset.built) return;
   root.innerHTML = `
     <div class="ov-grid">
+      <!-- FIG.00: mechanism KPI strip — three clickable tiles showing
+           the breakdown of the dataset by UN source type. Reinforces
+           the landing-page promise ("Treaty Bodies · UPR · Special
+           Procedures") at the top of the first working tab. Click a
+           tile to open all that family's recommendations in the drawer. -->
+      <div class="panel p-mech-strip">
+        <div class="panel-head">
+          <div class="panel-title"><span class="idx">FIG.00</span><span class="t">Three UN mechanisms</span></div>
+          <div class="panel-actions"><span style="color:var(--dim);font-size:10px">click a tile → all recommendations from that family</span></div>
+        </div>
+        <div id="ovMechTiles">${_skelRowList(3)}</div>
+      </div>
       <div class="panel p-map">
         <div class="panel-head">
           <div class="panel-title"><span class="idx">FIG.01</span><span class="t">Where the recommendations land</span></div>
@@ -4418,6 +4607,33 @@ function exportMapAsSVG() {
 
 function renderOverviewAnalytics(analytics) {
   updateSparklineCaches(analytics);
+
+  // FIG.00 — mechanism KPI strip. Aggregate body counts into three
+  // family totals and render as clickable tiles. Click → drawer list
+  // with that family's records. State.analytics gets written here so
+  // other callers (_computeMechCounts for the drawer at-a-glance) can
+  // reuse the same figures without a second API round-trip.
+  state.analytics = analytics;
+  const mechCounts = _computeMechCounts();
+  if (mechCounts && mechCounts._total > 0) {
+    renderMechTiles($('#ovMechTiles'), mechCounts, {
+      mode: 'full',
+      onClick: (family) => _openFamilyListDrawer(family),
+    });
+  }
+  // Also refresh the drawer if it's currently on the empty at-a-glance
+  // panel — the tiles there show the same counts and were rendered
+  // before analytics arrived.
+  if (!state.selectedRec && state.drawerMode !== 'list') {
+    const drTiles = $('#drMechTiles');
+    if (drTiles && mechCounts && mechCounts._total > 0) {
+      renderMechTiles(drTiles, mechCounts, {
+        mode: 'compact',
+        onClick: (family) => _openFamilyListDrawer(family),
+      });
+    }
+  }
+
   const topT = (analytics?.themes?.theme_counts || []).slice(0, 10).map(t => ({
     key: t.theme, label: t.theme, v: t.count
   }));
@@ -7107,7 +7323,41 @@ function renderDrawer() {
   const el = $('#drawerBody');
   const r = state.selectedRec;
   if (!r) {
-    el.innerHTML = `<div class="dr-empty"><div class="big">No record selected</div><div>Click any recommendation in a list, map cell or search result to preview it here.<br><br>Or press <kbd style="border:1px solid var(--line);padding:0 4px;font-family:var(--mono)">⌘K</kbd> for the command palette.</div></div>`;
+    // Empty drawer: show the at-a-glance panel (3 mechanism tiles +
+    // dataset stats) before falling back to the generic "no record"
+    // placeholder. Gives first-time visitors concrete facts about the
+    // dataset structure without requiring any interaction. Tag:
+    // drawer-at-a-glance-v1
+    const mechCounts = _computeMechCounts();
+    const hasMech = mechCounts && (mechCounts.upr + mechCounts.treaty + mechCounts.sp) > 0;
+    const facets = state.facets || {};
+    const total  = facets.total_records || (mechCounts?._total) || 267537;
+    const nCountries = (facets.countries || []).filter(c => c && c !== '—').length;
+    const minY = facets.min_year || 2006, maxY = facets.max_year || 2026;
+    const kwHint = (state.filters.kw || '').trim();
+    el.innerHTML = `
+      <div class="dr-glance">
+        <div class="dg-eyebrow">UHRI · at a glance</div>
+        <div class="dg-title">Three UN mechanisms. One dataset.</div>
+        <div class="dg-stats">
+          <div class="s"><span class="n">${fmt(total)}</span>records</div>
+          <div class="s"><span class="n">${nCountries || '—'}</span>countries</div>
+          <div class="s"><span class="n">${minY}–${maxY}</span>years</div>
+        </div>
+        ${hasMech ? `<div id="drMechTiles"></div>` : `<div style="font-size:10px;color:var(--dim);padding:10px 0">Loading mechanism breakdown…</div>`}
+        <div class="dg-quick">
+          Click any tile → all recommendations from that mechanism · or click a record anywhere to preview it here${kwHint ? ` · current keyword <strong>"${sanitize(kwHint.slice(0,40))}"</strong>` : ''}
+        </div>
+      </div>
+      <div class="dr-empty" style="padding:24px 20px">
+        <div>Click any record on the map, in a list, or in Search to preview it here.<br><br>Or press <kbd style="border:1px solid var(--line);padding:0 4px;font-family:var(--mono)">⌘K</kbd> for the command palette.</div>
+      </div>`;
+    if (hasMech) {
+      renderMechTiles($('#drMechTiles'), mechCounts, {
+        mode: 'compact',
+        onClick: (family) => _openFamilyListDrawer(family),
+      });
+    }
     return;
   }
   const list = state.currentResultList || [];
