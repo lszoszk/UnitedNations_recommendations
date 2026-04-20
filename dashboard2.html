@@ -60,6 +60,10 @@ a{color:inherit;text-decoration:none}
 .meta a{color:var(--ink);border-bottom:1px dotted var(--line)}
 .meta a:hover{color:var(--accent);border-color:var(--accent)}
 .meta .sep{color:var(--dimmer)}
+/* Unified live-status + dataset size chip. Groups the pulsing dot with the
+   record count so they read as one atomic signal ("● 267,537 records")
+   rather than three separated items ("● LIVE · VM · 267,537 records"). */
+.meta .status-chip{display:inline-flex;align-items:center;gap:7px;color:var(--ink);font-variant-numeric:tabular-nums;cursor:help}
 @keyframes pulse{50%{opacity:.4}}
 
 /* ---------- APP LAYOUT ---------- */
@@ -1000,18 +1004,6 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 .app.raw-mode .raw-banner{display:block}
 .app.raw-mode{outline:2px dashed #b88400;outline-offset:-2px}
 
-/* Changelog badge — pulsing dot in topbar when a new pipeline refresh is available */
-.changelog-btn{position:relative;border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;cursor:pointer;color:var(--dim);display:inline-flex;align-items:center;gap:4px}
-.changelog-btn:hover{border-color:var(--ink);color:var(--ink)}
-.changelog-btn .pulse{width:6px;height:6px;border-radius:50%;background:#d97706;animation:pulse 1.4s infinite;box-shadow:0 0 0 3px rgba(217,119,6,.25)}
-.changelog-btn.seen .pulse{display:none}
-.changelog-modal .ch-card{background:var(--paper);max-width:620px;width:100%;padding:28px 32px;font-family:var(--mono);box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:82vh;overflow-y:auto}
-.changelog-modal .ch-card h2{font-family:var(--serif);font-size:28px;margin:0 0 6px;line-height:1.1;color:var(--ink)}
-.changelog-modal .ch-card .sub{font-size:11px;color:var(--dim);letter-spacing:.08em;margin-bottom:18px}
-.changelog-modal .ch-block{margin-bottom:16px;padding:14px 16px;background:var(--paper-2);border-left:2px solid var(--accent)}
-.changelog-modal .ch-block h4{margin:0 0 6px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
-.changelog-modal .ch-block .v{font-family:var(--serif);font-size:14px;line-height:1.5;color:var(--ink-2);white-space:pre-wrap}
-.changelog-modal .ch-num{font-family:var(--serif);font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
 
 /* Onboarding tour — first-visit spotlight */
 .tour-backdrop{position:fixed;inset:0;background:rgba(15,15,16,.72);z-index:240;animation:fadeIn .25s}
@@ -1082,7 +1074,11 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .cmdk-hint{display:none}
   .cmdk{max-width:none}
   .mobile-menu-btn{display:inline-flex;align-items:center;justify-content:center}
-  .meta > span:not(.dot),.meta > a:nth-of-type(n+2){display:none}
+  /* On mobile: keep the status chip (dot + size) visible, hide the rest
+     of the header meta clutter. The chip itself drops the numeric size
+     on narrow viewports so only the pulsing dot remains. */
+  .meta > span:not(.status-chip),.meta > a:nth-of-type(n+2){display:none}
+  .meta .status-chip #datasetSize{display:none}
   .ov-grid{grid-template-columns:1fr}
   .p-map,.p-top-countries,.p-top-themes,.p-time,.p-sankey{grid-column:1;grid-row:auto}
   .cp-head{grid-template-columns:1fr}
@@ -1102,7 +1098,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle filters">☰</button>
     <a href="./index2.html" class="mono-sq" title="Back to landing page" style="cursor:pointer" aria-label="Back to landing"></a>
     <a href="./index2.html" class="b-name" style="cursor:pointer;color:inherit;text-decoration:none" title="Back to landing">UHRI</a>
-    <span class="b-sub">/ analytics v2 (preview)</span>
+    <span class="b-sub">/ analytics (preview)</span>
   </div>
   <button class="cmdk" id="cmdkBtn">
     <span class="k">⌘</span><span class="k">K</span>
@@ -1118,10 +1114,18 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <span id="offlineLbl">INSTANT MODE</span>
     </button>
     <span class="sep">·</span>
-    <span class="dot" id="statusDot" title="Live VM connection"></span>
-    <span id="statusLbl">LIVE</span>
-    <span class="sep">·</span>
-    <span title="Total records in the served dataset">VM · <span id="datasetSize">—</span></span>
+    <!-- Unified live-status pill: pulsing dot + dataset size in a single
+         compact unit. Replaces the old "● LIVE · VM · 267,537 records"
+         triple-group. Tooltip on the chip (updated by setStatus) covers
+         the former "LIVE" label + "VM" prefix so removing both from the
+         top bar doesn't lose any info for hover-readers. `statusLbl` stays
+         off-screen so state transitions (LIVE ↔ LOADING ↔ OFFLINE) still
+         reach screen readers via aria-live. -->
+    <span class="status-chip" id="statusChip" title="Live VM connection">
+      <span class="dot" id="statusDot"></span>
+      <span id="datasetSize">—</span>
+    </span>
+    <span id="statusLbl" class="sr-only" aria-live="polite">LIVE</span>
     <span class="sep">·</span>
     <a href="#methodology" data-nav="methodology">methodology</a>
     <span class="sep">·</span>
@@ -1146,8 +1150,6 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
         </div>
       </div>
     </span>
-    <span class="sep">·</span>
-    <button class="changelog-btn seen" id="changelogBtn" title="Data pipeline changelog" aria-label="Pipeline changelog"><span class="pulse" aria-hidden="true"></span>NEW</button>
     <button class="tw-btn" id="twBtn" title="Appearance & layout" aria-label="Appearance settings"><span class="sw-preview" id="twPreview"></span>THEME</button>
   </div>
 </header>
@@ -1352,7 +1354,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <div class="row">
     <span>Density</span>
     <select id="densitySel">
-      <option value="tight">Tight (Bloomberg)</option>
+      <option value="tight">Tight (dense)</option>
       <option value="cozy">Cozy</option>
       <option value="roomy">Roomy</option>
     </select>
@@ -1366,7 +1368,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 
 <script>
 /* =========================================================================
-   UHRI Analytics Dashboard v2 — real-data Bloomberg-terminal UX
+   UHRI Analytics Dashboard — information-dense analyst UX
    ========================================================================= */
 
 /* ---------- CONFIG ---------- */
@@ -2657,9 +2659,19 @@ function toast(msg, isErr=false, ms=3200) {
 
 /* ---------- STATUS DOT ---------- */
 function setStatus(kind, lbl) {
-  const d = $('#statusDot'), l = $('#statusLbl');
+  const d = $('#statusDot'), l = $('#statusLbl'), c = $('#statusChip');
   d.className = 'dot' + (kind==='loading'?' loading':kind==='error'?' error':'');
-  l.textContent = lbl || (kind==='error'?'OFFLINE':kind==='loading'?'LOADING':'LIVE');
+  const text = lbl || (kind==='error'?'OFFLINE':kind==='loading'?'LOADING':'LIVE');
+  l.textContent = text;
+  // Keep the unified status-chip tooltip in sync with current state so the
+  // dot colour isn't the only signal of LIVE ↔ LOADING ↔ OFFLINE.
+  if (c) {
+    const size = $('#datasetSize')?.textContent || '';
+    const base = kind === 'error'   ? 'OFFLINE — VM unreachable'
+              : kind === 'loading' ? 'Loading dataset…'
+              : 'Live VM connection';
+    c.title = size && size !== '—' ? `${base} · ${size}` : base;
+  }
 }
 
 /* ---------- HIT COUNT ----------
@@ -6582,7 +6594,7 @@ function renderMethodology() {
       </div>
 
       <h2>Architecture</h2>
-      <p>Three-column Bloomberg-terminal layout: rail filters → main content → selected-record drawer. All analytics computed server-side on demand (<code>/api/data/facets</code>, <code>/api/data/analytics</code>, <code>/api/data/records</code>, <code>/api/data/map</code>) with a materialised-view cache on the VM for single-entity profile queries.</p>
+      <p>Three-column analyst layout: rail filters → main content → selected-record drawer. All analytics computed server-side on demand (<code>/api/data/facets</code>, <code>/api/data/analytics</code>, <code>/api/data/records</code>, <code>/api/data/map</code>) with a materialised-view cache on the VM for single-entity profile queries.</p>
 
       <h2>Glossary</h2>
       <dl class="grid-def">
@@ -7326,7 +7338,7 @@ function renderPalette(q) {
     { kind:'ACTION', label:'Palette: Archive', sub:'warm paper (default)',  action:()=>{closePalette();setPalette('archive');} },
     { kind:'ACTION', label:'Palette: Terminal', sub:'dark green-on-black',  action:()=>{closePalette();setPalette('terminal');} },
     { kind:'ACTION', label:'Palette: Ink',      sub:'white + cobalt',       action:()=>{closePalette();setPalette('ink');} },
-    { kind:'ACTION', label:'Density: Tight',    sub:'Bloomberg-dense',      action:()=>{closePalette();setDensity('tight');} },
+    { kind:'ACTION', label:'Density: Tight',    sub:'ultra-compact',        action:()=>{closePalette();setDensity('tight');} },
     { kind:'ACTION', label:'Density: Cozy',     sub:'balanced',             action:()=>{closePalette();setDensity('cozy');} },
     { kind:'ACTION', label:'Density: Roomy',    sub:'comfortable',          action:()=>{closePalette();setDensity('roomy');} },
     { kind:'ACTION', label:'Toggle left rail',  sub:'hide / show filters ([)', action:()=>{closePalette();toggleRail();} },
@@ -8611,90 +8623,6 @@ function startTour() {
   render();
 }
 
-/* =========================================================================
-   CHANGELOG BADGE — surface pipeline refreshes in the UI
-   =========================================================================
-   /api/data/refresh_status returns info about the last pipeline run. We
-   compare it to a localStorage marker; if newer, show a pulsing orange
-   dot next to the THEME button. Click opens a modal with what changed. */
-async function initChangelog() {
-  try {
-    const res = await fetch(API_BASE + '/api/data/refresh_status');
-    if (!res.ok) return;
-    const data = await res.json();
-    state.refreshStatus = data;
-    // Build a stable signature from the fields the API returns
-    const sig = JSON.stringify({
-      updated_at: data.updated_at || data.date || data.dataset_updated_at,
-      total_records: data.total_records,
-      headline: data.headline || data.summary,
-    });
-    const seen = localStorage.getItem('uhri_v2_changelog_seen');
-    const btn = $('#changelogBtn');
-    if (!btn) return;
-    btn.dataset.sig = sig;
-    if (seen !== sig) btn.classList.remove('seen');
-    btn.addEventListener('click', openChangelogModal);
-  } catch (e) {
-    console.warn('refresh_status failed', e);
-    const btn = $('#changelogBtn');
-    if (btn) btn.style.display = 'none';
-  }
-}
-
-function openChangelogModal() {
-  const data = state.refreshStatus || {};
-  const btn = $('#changelogBtn');
-  // Mark as seen
-  if (btn?.dataset.sig) localStorage.setItem('uhri_v2_changelog_seen', btn.dataset.sig);
-  btn?.classList.add('seen');
-
-  const m = document.createElement('div');
-  m.className = 'sh-modal changelog-modal';
-  m.setAttribute('role', 'dialog');
-  m.setAttribute('aria-modal', 'true');
-  m.setAttribute('aria-labelledby', 'chTitle');
-
-  const blocks = [];
-  const fmtDate = d => d ? new Date(d).toISOString().slice(0, 10) : null;
-
-  if (data.updated_at || data.dataset_updated_at) {
-    blocks.push(`<div class="ch-block"><h4>Last updated</h4><div class="v">${fmtDate(data.updated_at || data.dataset_updated_at)}</div></div>`);
-  }
-  if (data.total_records) {
-    blocks.push(`<div class="ch-block"><h4>Dataset size</h4><div class="ch-num">${fmt(data.total_records)}</div><div style="font-size:10px;color:var(--dim);margin-top:2px">records</div></div>`);
-  }
-  if (data.headline) {
-    blocks.push(`<div class="ch-block"><h4>Headline</h4><div class="v">${sanitize(data.headline)}</div></div>`);
-  }
-  if (data.summary) {
-    blocks.push(`<div class="ch-block"><h4>Summary</h4><div class="v">${sanitize(data.summary)}</div></div>`);
-  }
-  if (Array.isArray(data.changes) && data.changes.length) {
-    blocks.push(`<div class="ch-block"><h4>Recent changes</h4><div class="v">${data.changes.map(c => '• ' + sanitize(c)).join('\n')}</div></div>`);
-  }
-  if (data.stage2_stats) {
-    const s = data.stage2_stats;
-    blocks.push(`<div class="ch-block"><h4>Stage 2 pipeline</h4><div class="v" style="font-family:var(--mono);font-size:11px">${Object.entries(s).map(([k,v]) => `${sanitize(k)}: ${sanitize(String(v))}`).join('\n')}</div></div>`);
-  }
-  if (!blocks.length) {
-    blocks.push(`<div class="ch-block"><h4>Status</h4><div class="v">No additional pipeline metadata available.</div></div>`);
-  }
-
-  m.innerHTML = `
-    <div class="ch-card">
-      <h2 id="chTitle">Data pipeline changelog</h2>
-      <div class="sub">Automatic updates from /api/data/refresh_status</div>
-      ${blocks.join('')}
-      <div style="margin-top:20px;text-align:right">
-        <button id="chClose" style="padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--ink);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Close</button>
-      </div>
-    </div>`;
-  document.body.appendChild(m);
-  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
-  $('#chClose', m).addEventListener('click', () => m.remove());
-}
-
 function maybeShowTour() {
   try {
     if (localStorage.getItem('uhri_v2_tour_done')) return;
@@ -9333,9 +9261,6 @@ async function boot() {
 
   // Deep-link: if URL has ?sel=<id>, fetch that record + open reader
   handleSelParam();
-
-  // Changelog badge — pulses if pipeline refreshed since last visit
-  initChangelog();
 
   // First-visit onboarding tour (dismissible, shown once)
   maybeShowTour();
