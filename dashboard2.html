@@ -1239,9 +1239,16 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .mobile-menu-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;font-size:16px;min-width:44px;min-height:44px}
   /* On mobile: keep the status chip (dot + size) visible, hide the rest
      of the header meta clutter. The chip itself drops the numeric size
-     on narrow viewports so only the pulsing dot remains. */
-  .meta > span:not(.status-chip),.meta > a:nth-of-type(n+2){display:none}
+     on narrow viewports so only the pulsing dot remains. !important
+     needed because .ds-pill-wrap carries an inline style="display:
+     inline-block" that out-specifies the class selector otherwise. */
+  .meta > span:not(.status-chip),.meta > a{display:none!important}
   .meta .status-chip #datasetSize{display:none}
+  /* Brand "/ analytics (preview)" took 3 lines when UHRI pushed it to a
+     narrow column. Hide the subtitle; the word UHRI + the LIVE dot +
+     the THEME button already identify the app. Page title (selected tab)
+     stays below in the tabs strip. */
+  .brand .b-sub{display:none}
   .ov-grid{grid-template-columns:1fr}
   .p-map,.p-top-countries,.p-top-themes,.p-time,.p-sankey{grid-column:1;grid-row:auto}
   .cp-head{grid-template-columns:1fr}
