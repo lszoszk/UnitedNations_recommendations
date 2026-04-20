@@ -696,9 +696,10 @@ a{color:inherit;text-decoration:none}
 .cp-rail-note .lbl{color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
 .cp-rail-note button{margin-left:auto;padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
 .cp-rail-note button:hover{border-color:var(--ink);background:var(--paper-2)}
-.cp-picker{display:flex;flex-direction:column;gap:4px;font-size:11px;min-width:180px}
+.cp-picker{display:flex;flex-direction:column;gap:4px;font-size:11px;min-width:180px;max-width:360px}
+.cp-picker > div{max-width:360px}
 .cp-picker label{color:var(--dim);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
-.cp-picker select{padding:6px 8px;border:1px solid var(--ink);background:var(--paper);font-family:var(--mono);font-size:11px;color:var(--ink)}
+.cp-picker select{padding:6px 8px;border:1px solid var(--ink);background:var(--paper);font-family:var(--mono);font-size:11px;color:var(--ink);max-width:360px;width:100%;box-sizing:border-box}
 .cp-body{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
 .cp-body .panel{padding:14px 18px}
 .cp-sample{padding:10px 40px 10px 10px;background:var(--paper-2);border-left:2px solid var(--accent);cursor:pointer;font-family:var(--serif);font-size:14px;line-height:1.45;position:relative;transition:background .15s,transform .15s}
