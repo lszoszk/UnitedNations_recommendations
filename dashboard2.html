@@ -555,6 +555,18 @@ a{color:inherit;text-decoration:none}
 .mech-scope button.on{background:var(--ink);color:var(--paper)}
 .mech-scope button.on:hover{background:var(--ink)}
 
+/* Timeline stack toggle — slim two-button segmented control that sits in
+   panel-actions next to the legend in each profile's FIG.A. Lets the user
+   flip between family (default, 3 coloured layers) and by-body (top 6 in
+   greyscale) without adding a new row. Same visual language as mech-scope
+   but scaled down for inline use. */
+.tl-stack-toggle{display:inline-flex;border:1px solid var(--line);background:var(--paper-2);font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-right:8px;vertical-align:middle}
+.tl-stack-toggle button{border:0;background:transparent;padding:3px 8px;color:var(--dim);cursor:pointer;font-family:inherit;font-size:inherit;letter-spacing:inherit;text-transform:inherit;border-right:1px solid var(--line)}
+.tl-stack-toggle button:last-child{border-right:0}
+.tl-stack-toggle button:hover{background:var(--paper);color:var(--ink)}
+.tl-stack-toggle button.on{background:var(--ink);color:var(--paper)}
+.tl-stack-toggle button.on:hover{background:var(--ink)}
+
 /* Family accent in the Mechanism-profile header (left-border + eyebrow
    colour) so the user instantly recognises which family they're in. */
 .cp-family-header{border-left:4px solid var(--mp-color,var(--line));padding-left:14px}
@@ -1891,6 +1903,11 @@ const state = {
   focusMechanism: null, // recommending body, e.g. "CCPR" (scope=single)
   focusFamily: null,    // mechanism family key, e.g. "treaty"    (scope=family)
   mechScope: 'single',  // 'single' | 'family' | 'compare' (Mechanism tab mode)
+  // Timeline stack mode for drill-down profile timelines (Country / Theme /
+  // Group / SDG FIG.A). Default 'family' so Country profile reads like
+  // Overview (3 coloured layers); users who want the per-body granularity
+  // flip to 'body' via the per-profile toggle (session-scoped, not persisted).
+  profileStackBy: 'family',
   cmpA: null, cmpB: null,
   facets: null,         // will be populated from /api/data/facets
   analytics: null,      // last global analytics
@@ -4595,6 +4612,26 @@ function _wireTimelineTooltip(container, ctx) {
   svg.onmouseleave = () => { tip.style.display = 'none'; };
 }
 
+/* Render the family/body stack toggle into a panel-actions slot and wire
+   click handlers. Reused by every profile tab that has a FIG.A timeline.
+   `hostEl` is the span we reserved in panel-actions; `currentMode` is the
+   active stackBy; `onChange` re-renders the timeline with the new mode.
+   Uses .onclick (not addEventListener) so repeated wires don't stack. */
+function _renderStackToggle(hostEl, currentMode, onChange) {
+  if (!hostEl) return;
+  hostEl.className = 'tl-stack-toggle';
+  hostEl.innerHTML = `
+    <button data-mode="family" class="${currentMode==='family'?'on':''}" title="Stack by mechanism family (UPR · Treaty Bodies · Special Procedures)">Family</button>
+    <button data-mode="body" class="${currentMode==='body'?'on':''}" title="Stack by individual recommending body (top 6)">By body</button>
+  `;
+  hostEl.querySelectorAll('button').forEach(btn => {
+    btn.onclick = () => {
+      const next = btn.dataset.mode;
+      if (next !== currentMode) onChange(next);
+    };
+  });
+}
+
 /* =========================================================================
    VIEW: OVERVIEW
    ========================================================================= */
@@ -4945,7 +4982,7 @@ async function renderCountry() {
       </div>
     </div>
     <div class="cp-body">
-      <div class="panel" style="grid-column:1 / -1"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume by year</span></div><div class="panel-actions" id="cpLegend"></div></div><div class="tl-wrap" id="cpTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / -1"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume by year</span></div><div class="panel-actions"><span id="cpStackToggle"></span><span id="cpLegend"></span></div></div><div class="tl-wrap" id="cpTime"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Themes</span></div></div><div class="row-list" id="cpThemes"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Recommending bodies</span></div></div><div class="row-list" id="cpBodies"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="cpGroups"><div class="panel-loading">loading</div></div></div>
@@ -4995,7 +5032,17 @@ async function renderCountry() {
     _renderRailNoteInto($('#cpRailNote'), 'country');
     root.classList.toggle('stale', !!opts.stale);
 
-    renderTimeline($('#cpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#cpLegend'), interactive: false });
+    // B+C: profile timeline defaults to family (Overview-style narrative)
+    // with a tiny [Family] [By body] toggle in the panel-actions slot.
+    // Toggle state is session-scoped in state.profileStackBy and shared
+    // across Country/Theme/Group/SDG profiles so flipping once is sticky
+    // while the user explores — resets to family on page reload.
+    const _cpRenderTl = () => {
+      const mode = state.profileStackBy || 'family';
+      renderTimeline($('#cpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#cpLegend'), interactive: false, stackBy: mode });
+      _renderStackToggle($('#cpStackToggle'), mode, (next) => { state.profileStackBy = next; _cpRenderTl(); });
+    };
+    _cpRenderTl();
     renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
     const bodyRows = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).map(([k,v]) => ({ key:k, label:k, v }));
     renderRowList($('#cpBodies'), bodyRows, { facet:'body', sparklines: _bodySparklines });
@@ -5061,7 +5108,7 @@ async function renderTheme() {
         <select id="thSelect">${opts}</select></div>
     </div>
     <div class="cp-body">
-      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="thLegend"></div></div><div class="tl-wrap" id="thTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions"><span id="thStackToggle"></span><span id="thLegend"></span></div></div><div class="tl-wrap" id="thTime"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="thCountries"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Co-occurring themes</span></div></div><div class="row-list" id="thThemes"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="thGroups"><div class="panel-loading">loading</div></div></div>
@@ -5102,7 +5149,12 @@ async function renderTheme() {
     _renderRailNoteInto($('#thRailNote'), 'theme');
     root.classList.toggle('stale', !!opts.stale);
 
-    renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false });
+    const _thRenderTl = () => {
+      const mode = state.profileStackBy || 'family';
+      renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false, stackBy: mode });
+      _renderStackToggle($('#thStackToggle'), mode, (next) => { state.profileStackBy = next; _thRenderTl(); });
+    };
+    _thRenderTl();
     renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
     const themes = (analytics?.themes?.theme_counts || []).filter(t => t.theme !== name).slice(0,12);
     renderRowList($('#thThemes'), themes.map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
@@ -5166,7 +5218,7 @@ async function renderGroup() {
       <div class="cp-picker"><label>Switch group</label><select id="gpSelect">${opts}</select></div>
     </div>
     <div class="cp-body">
-      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="gpLegend"></div></div><div class="tl-wrap" id="gpTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions"><span id="gpStackToggle"></span><span id="gpLegend"></span></div></div><div class="tl-wrap" id="gpTime"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="gpCountries"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Top themes</span></div></div><div class="row-list" id="gpThemes"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Co-occurring groups</span></div></div><div class="row-list" id="gpGroups"><div class="panel-loading">loading</div></div></div>
@@ -5202,7 +5254,12 @@ async function renderGroup() {
     root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
     _renderRailNoteInto($('#gpRailNote'), 'group');
     root.classList.toggle('stale', !!opts.stale);
-    renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false });
+    const _gpRenderTl = () => {
+      const mode = state.profileStackBy || 'family';
+      renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false, stackBy: mode });
+      _renderStackToggle($('#gpStackToggle'), mode, (next) => { state.profileStackBy = next; _gpRenderTl(); });
+    };
+    _gpRenderTl();
     renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
     renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
     const coGroups = (analytics?.text?.affected_person_counts || []).filter(g => g.affected_person !== name).slice(0,12);
@@ -5290,7 +5347,7 @@ async function renderSDG() {
       </div>
     </div>
     <div class="cp-body">
-      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions" id="spLegend"></div></div><div class="tl-wrap" id="spTime"><div class="panel-loading">loading</div></div></div>
+      <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions"><span id="spStackToggle"></span><span id="spLegend"></span></div></div><div class="tl-wrap" id="spTime"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.B</span><span class="t">Top countries</span></div></div><div class="row-list" id="spCountries"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.C</span><span class="t">Top themes</span></div></div><div class="row-list" id="spThemes"><div class="panel-loading">loading</div></div></div>
       <div class="panel"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.D</span><span class="t">Concerned groups</span></div></div><div class="row-list" id="spGroups"><div class="panel-loading">loading</div></div></div>
@@ -5434,7 +5491,12 @@ async function renderSDG() {
     root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
     _renderRailNoteInto($('#spRailNote'), 'sdg');
     root.classList.toggle('stale', !!opts.stale);
-    renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false });
+    const _spRenderTl = () => {
+      const mode = state.profileStackBy || 'family';
+      renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false, stackBy: mode });
+      _renderStackToggle($('#spStackToggle'), mode, (next) => { state.profileStackBy = next; _spRenderTl(); });
+    };
+    _spRenderTl();
     renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
     renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
     renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
