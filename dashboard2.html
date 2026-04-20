@@ -237,6 +237,7 @@ a{color:inherit;text-decoration:none}
 .tab.active::after{content:"";position:absolute;left:0;bottom:-1px;height:2px;width:100%;background:var(--accent)}
 .tab .t-idx{font-size:9px;letter-spacing:.14em;color:var(--dimmer)}
 .tab .t-lbl{font-size:11px;font-weight:500}
+.tab-beta{display:inline-block;margin-left:4px;padding:0 4px;font-size:8px;letter-spacing:.1em;color:#b88400;background:color-mix(in oklab,#eab308 12%, var(--paper));border:1px solid color-mix(in oklab,#eab308 30%, var(--paper));border-radius:2px;text-transform:uppercase;font-weight:700;vertical-align:text-top}
 .tab .t-ctx{font-size:11px;color:var(--dim);font-family:var(--serif);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
 
 .view{padding:0}
@@ -1053,6 +1054,24 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 .lab-banner button{margin-top:8px;padding:6px 12px;background:var(--ink);color:var(--paper);border:0;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
 .lab-banner button:hover{background:var(--accent)}
 
+/* Labels intro panel — shown only when no categories defined yet */
+.lab-intro{border:1px solid var(--line);background:var(--paper-2);padding:18px 20px;margin-bottom:18px}
+.lab-intro-head{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.lab-intro-head h2{margin:0;font-family:var(--serif);font-weight:400;font-size:22px;line-height:1.1;color:var(--ink)}
+.lab-intro-lead{font-size:12.5px;line-height:1.55;color:var(--ink);margin:0 0 14px}
+.lab-use-cases{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 14px}
+.lab-use-case{background:var(--paper);border:1px solid var(--line);border-left:2px solid var(--accent);padding:10px 12px;font-size:11.5px;line-height:1.5}
+.lab-use-case strong{display:block;margin-bottom:4px;font-size:10px;color:var(--accent);font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.lab-use-case p{margin:0;color:var(--dim);font-family:var(--serif);font-size:13px;line-height:1.45}
+.lab-intro-limits{font-size:11.5px;line-height:1.5;color:var(--dim);padding-top:12px;border-top:1px dashed var(--line);margin:0}
+.lab-intro-limits strong{color:var(--ink);font-weight:700}
+.lab-intro-limits a{color:var(--accent)}
+@media(max-width:960px){
+  .lab-intro{padding:14px 14px}
+  .lab-use-cases{grid-template-columns:1fr;gap:6px}
+  .lab-intro-head h2{font-size:18px}
+}
+
 .lab-cat-row{display:flex;gap:6px;margin-bottom:10px}
 .lab-cat-row input{flex:1;padding:8px 10px;border:1px solid var(--line);background:var(--paper);font:12px var(--mono);color:var(--ink)}
 .lab-cat-row input:focus{outline:none;border-color:var(--ink)}
@@ -1564,7 +1583,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1" title="Recommending-body profile"><span class="t-idx">07</span><span class="t-lbl">Mechanism</span><span class="t-ctx" id="tabMechanism">—</span></a>
       <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1" title="Full-text search results"><span class="t-idx">08</span><span class="t-lbl">Search</span><span class="t-ctx" id="tabSearch">—</span></a>
       <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1" title="Bookmarked records"><span class="t-idx">09</span><span class="t-lbl">★ Saved</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Train your own classifier"><span class="t-idx">10</span><span class="t-lbl">Labels</span><span class="t-ctx" id="tabLabels">—</span></a>
+      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Train your own classifier — experimental TF-IDF baseline, see Methodology for known limits"><span class="t-idx">10</span><span class="t-lbl">Labels <span class="tab-beta" aria-label="experimental feature">β</span></span><span class="t-ctx" id="tabLabels">—</span></a>
       <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1" title="Dataset notes & caveats"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
     </nav>
     <button class="tabs-chevron" id="tabsChevron" aria-label="Scroll tabs right" type="button">›</button>
@@ -7454,6 +7473,30 @@ function renderLabels() {
 
   root.innerHTML = `
     <div class="lab-wrap">
+      ${(!hasCats && !lab.predictions && !lab.model) ? `
+        <div class="lab-intro">
+          <div class="lab-intro-head">
+            <h2>Train your own classifier</h2>
+            <span class="tab-beta" aria-label="experimental feature">β</span>
+          </div>
+          <p class="lab-intro-lead">Hand-label 20–50 recommendations with categories of your choosing, the browser fits a lightweight classifier from your tags, then predicts labels across the full dataset. Useful when OHCHR's built-in themes are too coarse — or off-axis — for your analysis.</p>
+          <div class="lab-use-cases">
+            <div class="lab-use-case">
+              <strong>Literature review</strong>
+              <p>Define 4–6 categories for a paper, tag 80 samples in 30 min, export to CSV for NVivo / Atlas.ti / Excel.</p>
+            </div>
+            <div class="lab-use-case">
+              <strong>Hypothesis probing</strong>
+              <p>"I'm interested in <em>judicial-independence</em> mentions." Tag 50 recs, model surfaces ~300 candidates — read each, cite the strong ones.</p>
+            </div>
+            <div class="lab-use-case">
+              <strong>Team coding schema</strong>
+              <p>Build a label set, save it, share JSON export with a co-coder. Align on definitions before a full-dataset review.</p>
+            </div>
+          </div>
+          <p class="lab-intro-limits"><strong>Known limits.</strong> TF-IDF baseline — expect 60–75 % agreement on typical tasks, useful as exploratory scaffolding rather than publication-grade ground truth. Needs <strong>Instant Mode</strong> to classify beyond already-loaded records (browser holds the full dataset). Everything runs locally; nothing leaves your machine. <a href="#" data-nav="methodology">See methodology</a> for details.</p>
+        </div>` : ''}
+
       ${!instantOn ? `
         <div class="lab-banner">
           <strong>⚡ Instant Mode makes this workspace fly.</strong><br>
@@ -7987,6 +8030,17 @@ function renderMethodology() {
 
       <h2>Citation</h2>
       <p>Szoszkiewicz, L. (2026). <em>UN Human Rights Analytics Dashboard — Cleaned UHRI Dataset v2026.04</em>. Built on OHCHR UHRI data. Supported by re:constitution (Forum Transregionale Studien) and HURIDOCS.</p>
+
+      <h2>Labels workspace <em style="color:#b88400">· β</em></h2>
+      <p>Tab 10 (<strong>Labels</strong>) lets you define your own taxonomy, hand-label a sample of recommendations, and train a lightweight classifier that predicts labels across the full dataset. It is flagged <strong>β (experimental)</strong> deliberately: the implementation uses a TF-IDF + linear-similarity baseline rather than a modern transformer, and the results should be read as <em>exploratory scaffolding</em>, not ground truth.</p>
+      <ul>
+        <li><strong>Classifier.</strong> Pure-JavaScript TF-IDF vectoriser (<code>l2</code>-normalised, English stopword list, 1-gram) with cosine-similarity nearest-centroid scoring. Runs entirely in the browser — nothing leaves your machine.</li>
+        <li><strong>Expected accuracy.</strong> On a coarse 4–6 category taxonomy with 30+ clean examples per class, expect <strong>60–75 % agreement</strong> with a human re-coder. Performance degrades sharply on subtle distinctions (e.g. "judicial independence" vs "rule of law"), multilingual mixes, and imbalanced classes with fewer than ~15 examples.</li>
+        <li><strong>Instant Mode dependency.</strong> Tagging works on any filtered slice, but classifying <em>beyond already-loaded records</em> requires Instant Mode — the button triggers a one-time ~300 MB dataset download into your browser. Without it, the "Classify full dataset" action is disabled.</li>
+        <li><strong>Suitable for.</strong> Literature-review scaffolding, first-pass triage of a few hundred candidates for a paper, team-alignment exercises before a joint coding task, exploratory "what does 'X' look like in UHRI?" probes.</li>
+        <li><strong>Not suitable for.</strong> Publication-grade classification, legally consequential categorisation, anything requiring calibrated probabilities. A modern few-shot classifier (e.g. SetFit, sentence-transformers) would improve agreement to the mid-80s % range — we have an archived prototype (<code>setfit_backend/</code>) but it is not wired into this build; the planned replacement is a deterministic <strong>boolean FTS5 rule builder</strong> that trades a bit of recall for full explainability.</li>
+        <li><strong>Persistence.</strong> Saved label sets live in your browser's <code>localStorage</code> per origin — clear cache and they are gone. Use <strong>Export JSON (labels)</strong> for durable copies and team sharing.</li>
+      </ul>
 
       <h2>Preview build</h2>
       <p>This v2 dashboard is an <strong>experimental preview</strong> alongside the <a href="https://lszoszk.github.io/UnitedNations_recommendations/" target="_blank" rel="noopener">production dashboard</a>. It reuses the same data and API but reorganises the UX. For features not yet re-implemented here (upload your own data, feedback reporting) use the production build.</p>
@@ -10497,7 +10551,14 @@ async function boot() {
     } catch {}
   })();
 
-  $$('[data-nav]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.nav); }));
+  // Delegated click — works for boot-time links AND for data-nav emitted
+  // by views rendered later (e.g. "see methodology" link inside renderLabels)
+  document.addEventListener('click', (e) => {
+    const nav = e.target.closest('[data-nav]');
+    if (!nav) return;
+    e.preventDefault();
+    navigate(nav.dataset.nav);
+  });
 
   // Unified tag-click delegation — every chip with data-tag-kind / value
   // opens the drawer list for that tag (click-to-read contract). Theme /
