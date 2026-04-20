@@ -1743,7 +1743,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1" title="Recommending-body profile"><span class="t-idx">07</span><span class="t-lbl">Mechanism</span><span class="t-ctx" id="tabMechanism">—</span></a>
       <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1" title="Full-text search results"><span class="t-idx">08</span><span class="t-lbl">Search</span><span class="t-ctx" id="tabSearch">—</span></a>
       <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1" title="Bookmarked records"><span class="t-idx">09</span><span class="t-lbl">★ Saved</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Train your own classifier — experimental TF-IDF baseline, see Methodology for known limits"><span class="t-idx">10</span><span class="t-lbl">Labels <span class="tab-beta" aria-label="experimental feature">β</span></span><span class="t-ctx" id="tabLabels">—</span></a>
+      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Define your own labels as boolean FTS5 queries — deterministic, explainable, server-side (experimental)"><span class="t-idx">10</span><span class="t-lbl">Labels <span class="tab-beta" aria-label="experimental feature">β</span></span><span class="t-ctx" id="tabLabels">—</span></a>
       <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1" title="Dataset notes & caveats"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
     </nav>
     <button class="tabs-chevron" id="tabsChevron" aria-label="Scroll tabs right" type="button">›</button>
@@ -7938,12 +7938,14 @@ function rulesAddRule(name) {
     notes: '',
   };
   state.rules.rules.push(r);
+  _rulesInvalidateCoverage();
   return r;
 }
 function rulesDeleteRule(id) {
   state.rules.rules = state.rules.rules.filter(r => r.id !== id);
   delete state.rules.counts[id];
   delete state.rules._peekOpen[id];
+  _rulesInvalidateCoverage();
 }
 function rulesFindById(id) { return state.rules.rules.find(r => r.id === id); }
 function rulesAddTerm(rule, bucket, raw) {
@@ -7954,9 +7956,146 @@ function rulesAddTerm(rule, bucket, raw) {
     .filter(Boolean);
   const existing = new Set(rule[bucket]);
   for (const t of incoming) if (!existing.has(t)) { rule[bucket].push(t); existing.add(t); }
+  _rulesInvalidateCoverage();
 }
 function rulesRemoveTerm(rule, bucket, term) {
   rule[bucket] = rule[bucket].filter(t => t !== term);
+  _rulesInvalidateCoverage();
+}
+
+/* ------------- Coverage (union / overlap / orphans across rules) ------------- */
+/* state.rules.coverage = { stale:bool, running:bool, union:int, overlap:int,
+                            perRule:{ruleId:Set<id>}, computed_at:ts } */
+function renderCoverageSummary() {
+  const c = state.rules.coverage;
+  if (!c || c.stale) return `Coverage: <strong>—</strong> · <a href="#" id="rulesCoverageCompute">compute</a>`;
+  if (c.running) return `Coverage: <em style="font-style:italic;color:var(--dim)">computing… ${c.progress || 0}%</em>`;
+  if (c.error)   return `Coverage: <strong style="color:#b91c1c">error</strong> · ${sanitize(c.error)}`;
+  const overlap = c.overlap || 0;
+  return `<strong>${fmt(c.union)}</strong> records match 1+ rule${overlap ? ` · <strong>${fmt(overlap)}</strong> match 2+` : ''} · <a href="#" id="rulesCoverageRecompute">refresh</a>`;
+}
+
+async function rulesComputeCoverage() {
+  const rules = (state.rules.rules || []).filter(r => compileRule(r));
+  if (!rules.length) { toast('No rules to count', true, 2000); return; }
+  state.rules.coverage = { running: true, progress: 0, perRule: {}, stale: false };
+  _rulesRepaintCoverage();
+
+  const perRuleIds = {};       // ruleId → Set<annotationId>
+  try {
+    let done = 0;
+    for (const rule of rules) {
+      perRuleIds[rule.id] = await _rulesFetchAllIds(rule);
+      done++;
+      state.rules.coverage.progress = Math.round(done / rules.length * 100);
+      _rulesRepaintCoverage();
+    }
+    // Union + overlap counts
+    const unionSet = new Set();
+    const multi = new Set();        // ids in 2+ rules
+    const countPerId = new Map();
+    for (const ids of Object.values(perRuleIds)) {
+      for (const id of ids) {
+        unionSet.add(id);
+        const n = (countPerId.get(id) || 0) + 1;
+        countPerId.set(id, n);
+        if (n >= 2) multi.add(id);
+      }
+    }
+    state.rules.coverage = {
+      running: false,
+      union: unionSet.size,
+      overlap: multi.size,
+      perRule: perRuleIds,
+      computed_at: Date.now(),
+      stale: false,
+    };
+  } catch (e) {
+    console.warn('[rules] coverage failed:', e);
+    state.rules.coverage = { error: 'API error', running: false, stale: true };
+  }
+  _rulesRepaintCoverage();
+}
+
+function _rulesRepaintCoverage() {
+  const el = $('#rulesCoverageText');
+  if (el) el.innerHTML = renderCoverageSummary();
+  // Rebind the inline <a> click handlers since innerHTML replaced them
+  $('#rulesCoverageCompute')?.addEventListener('click', e => { e.preventDefault(); rulesComputeCoverage(); });
+  $('#rulesCoverageRecompute')?.addEventListener('click', e => { e.preventDefault(); state.rules.coverage = null; rulesComputeCoverage(); });
+}
+
+/* Mark coverage as stale whenever a rule changes — user has to hit
+   "refresh" to recompute. Cheaper than auto-running on every keystroke. */
+function _rulesInvalidateCoverage() {
+  if (state.rules.coverage) state.rules.coverage.stale = true;
+}
+
+/* ------------- Fetch all matching annotation IDs for one rule ------------- */
+/* Paginates /api/data/records at page_size=1000 until exhausted.
+   Respects current rail filter. Cancellable via AbortController on
+   state.rules.coverage._abort (set by caller). Returns Set<string>. */
+async function _rulesFetchAllIds(rule) {
+  const q = compileRule(rule);
+  const ids = new Set();
+  if (!q) return ids;
+  const pageSize = 1000;
+  let page = 1;
+  while (true) {
+    const r = await api.records({ ...state.filters, kw: q }, page, pageSize, { scope: 'rules:idfetch:' + rule.id });
+    for (const rec of (r.records || [])) ids.add(rec.AnnotationId);
+    if (page >= (r.total_pages || 1) || !(r.records || []).length) break;
+    page++;
+    if (page > 300) { console.warn('[rules] id-fetch hit 300-page ceiling'); break; }
+  }
+  return ids;
+}
+
+/* ------------- CSV export — records × rules matrix ------------- */
+async function rulesExportCsv() {
+  const rules = (state.rules.rules || []).filter(r => compileRule(r));
+  if (!rules.length) { toast('No rules to export', true, 2000); return; }
+
+  // If coverage was just computed, reuse its perRule payload — otherwise fetch fresh
+  let perRule = state.rules.coverage?.perRule;
+  if (!perRule || state.rules.coverage?.stale) {
+    toast('Fetching matching records — this can take a few seconds…', false, 3500);
+    await rulesComputeCoverage();
+    perRule = state.rules.coverage?.perRule;
+  }
+  if (!perRule) { toast('Coverage failed — can\'t export', true, 3000); return; }
+
+  // Build id → Set<ruleName>
+  const assign = new Map();
+  for (const rule of rules) {
+    const set = perRule[rule.id] || new Set();
+    for (const id of set) {
+      if (!assign.has(id)) assign.set(id, new Set());
+      assign.get(id).add(rule.name);
+    }
+  }
+  if (!assign.size) { toast('No records match any rule', true, 2500); return; }
+
+  // CSV — one row per record, one column per rule + a joined "labels" column
+  const header = ['AnnotationId', 'labels', ...rules.map(r => r.name)];
+  const escape = (s) => {
+    const str = String(s ?? '');
+    return /[",\n\r]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+  };
+  const lines = [header.map(escape).join(',')];
+  for (const [id, ruleSet] of assign) {
+    const joined = Array.from(ruleSet).join('; ');
+    const cols = rules.map(r => ruleSet.has(r.name) ? '1' : '0');
+    lines.push([id, joined, ...cols].map(escape).join(','));
+  }
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'uhri-rules-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`Exported ${fmt(assign.size)} records.`, false, 2500);
 }
 
 /* ------------- Main render ------------- */
@@ -8030,9 +8169,10 @@ function renderRules() {
         <div class="rules-bottom">
           <button id="rulesSaveSet" class="primary">💾 Save set${activeSet ? ' (overwrite)' : ''}</button>
           <button id="rulesSaveAsNew" ${activeSet ? '' : 'disabled'}>💾 Save as new</button>
+          <button id="rulesComputeCoverage" title="Union / overlap / orphans across all rules (hits the API, can take a few seconds)">📊 Coverage</button>
+          <button id="rulesExportCsv" title="Records × rules assignment matrix (one row per record, one column per rule)">⬇ CSV</button>
           <button id="rulesExportJson">⬇ JSON</button>
-          <button id="rulesExportCsv" title="Records × rules assignment matrix (lands in D3)" disabled>⬇ CSV (D3)</button>
-          <span class="coverage"><span id="rulesCoverageText">Coverage: <strong>—</strong></span><br><span class="dim" id="rulesCoverageSub" style="font-family:var(--mono);font-size:10px;color:var(--dim)">Overlap details coming in D3</span></span>
+          <span class="coverage"><span id="rulesCoverageText">${renderCoverageSummary()}</span></span>
         </div>` : ''}
     </div>`;
 
@@ -8208,6 +8348,15 @@ function rulesBindEvents() {
     a.click();
     URL.revokeObjectURL(url);
   });
+
+  // Coverage button (top-level)
+  $('#rulesComputeCoverage')?.addEventListener('click', () => rulesComputeCoverage());
+  // Coverage inline links inside the coverage summary span
+  $('#rulesCoverageCompute')?.addEventListener('click', e => { e.preventDefault(); rulesComputeCoverage(); });
+  $('#rulesCoverageRecompute')?.addEventListener('click', e => { e.preventDefault(); state.rules.coverage = null; rulesComputeCoverage(); });
+
+  // CSV export
+  $('#rulesExportCsv')?.addEventListener('click', () => rulesExportCsv());
 
   // Add rule
   $('#rulesAddAnother')?.addEventListener('click', () => {
@@ -9194,14 +9343,15 @@ function renderMethodology() {
       <p>Szoszkiewicz, L. (2026). <em>UN Human Rights Analytics Dashboard — Cleaned UHRI Dataset v2026.04</em>. Built on OHCHR UHRI data. Supported by re:constitution (Forum Transregionale Studien) and HURIDOCS.</p>
 
       <h2>Labels workspace <em style="color:#b88400">· β</em></h2>
-      <p>Tab 10 (<strong>Labels</strong>) lets you define your own taxonomy, hand-label a sample of recommendations, and train a lightweight classifier that predicts labels across the full dataset. It is flagged <strong>β (experimental)</strong> deliberately: the implementation uses a TF-IDF + linear-similarity baseline rather than a modern transformer, and the results should be read as <em>exploratory scaffolding</em>, not ground truth.</p>
+      <p>Tab 10 (<strong>Labels</strong>) lets you define your own label taxonomy as explicit <strong>boolean FTS5 queries</strong>. Each label is one query that runs server-side against the same full-text index as the Search tab — <em>deterministic, fully explainable in a methodology section, no 300 MB download required</em>. A TF-IDF term-suggestion helper accelerates query construction by proposing candidate terms from a small sample of tagged examples. The workspace is flagged <strong>β</strong> while we collect feedback on the rule model and term-suggester — core behaviour is stable, edge-cases (CSV export of very broad rules, set-migration corner cases) may still surprise.</p>
       <ul>
-        <li><strong>Classifier.</strong> Pure-JavaScript TF-IDF vectoriser (<code>l2</code>-normalised, English stopword list, 1-gram) with cosine-similarity nearest-centroid scoring. Runs entirely in the browser — nothing leaves your machine.</li>
-        <li><strong>Expected accuracy.</strong> On a coarse 4–6 category taxonomy with 30+ clean examples per class, expect <strong>60–75 % agreement</strong> with a human re-coder. Performance degrades sharply on subtle distinctions (e.g. "judicial independence" vs "rule of law"), multilingual mixes, and imbalanced classes with fewer than ~15 examples.</li>
-        <li><strong>Instant Mode dependency.</strong> Tagging works on any filtered slice, but classifying <em>beyond already-loaded records</em> requires Instant Mode — the button triggers a one-time ~300 MB dataset download into your browser. Without it, the "Classify full dataset" action is disabled.</li>
-        <li><strong>Suitable for.</strong> Literature-review scaffolding, first-pass triage of a few hundred candidates for a paper, team-alignment exercises before a joint coding task, exploratory "what does 'X' look like in UHRI?" probes.</li>
-        <li><strong>Not suitable for.</strong> Publication-grade classification, legally consequential categorisation, anything requiring calibrated probabilities. A modern few-shot classifier (e.g. SetFit, sentence-transformers) would improve agreement to the mid-80s % range — we have an archived prototype (<code>setfit_backend/</code>) but it is not wired into this build; the planned replacement is a deterministic <strong>boolean FTS5 rule builder</strong> that trades a bit of recall for full explainability.</li>
-        <li><strong>Persistence.</strong> Saved label sets live in your browser's <code>localStorage</code> per origin — clear cache and they are gone. Use <strong>Export JSON (labels)</strong> for durable copies and team sharing.</li>
+        <li><strong>Rule model.</strong> Each rule has three term lists: <em>MUST</em> (OR-ed inside, required), <em>AND</em> (OR-ed inside, required when non-empty), <em>NOT</em> (OR-ed inside, excluded). They compile to FTS5 as <code>(must-1 OR must-2) AND (also-1 OR also-2) NOT (not-1)</code>. Stemming, irregular-plural expansion, quoted phrases and <code>*</code> wildcards work exactly as in the Search tab. A per-rule "raw FTS5" escape hatch is available for power users.</li>
+        <li><strong>Evaluation.</strong> Every rule count is a single API call to <code>/api/data/records</code> with the compiled query — same code path as the Search tab, same performance (100–300 ms typical). Counts respect the current rail filter, so a <em>Judicial independence</em> rule on a Country=Poland rail counts Poland records only.</li>
+        <li><strong>⚡ Suggest-terms helper.</strong> Per-rule modal: tag 10–20 records as <em>positive / negative / skip</em>, the browser runs TF-IDF centroid comparison on that small sample (≤50 ms), returns two ranked term lists. Click chips to add picked terms to MUST / AND / NOT. Tagged examples are persisted with the rule so the modal resumes where you left off. No Instant Mode required — the sample comes from the current rail filter (API page 1) or from <code>offline.data</code> if Instant Mode happens to be on.</li>
+        <li><strong>Exports.</strong> <em>JSON</em> — full rule set, re-importable, shareable. <em>CSV</em> — records × rules assignment matrix (one row per record, one 1/0 column per rule plus a joined <code>labels</code> string). <em>Coverage</em> — union count (records matching ≥1 rule) and overlap count (records matching ≥2 rules). CSV / Coverage require one API round-trip per rule plus pagination of matching IDs; typically a few seconds for a 5-rule set with median match sizes.</li>
+        <li><strong>Suitable for.</strong> Literature-review scaffolding with a defensible methodology annex, hypothesis probing ("how many UHRI records mention X AND Y but NOT Z?"), team-shared coding schemas that any collaborator with the UHRI can re-apply by pasting the compiled FTS5 string, reproducible research outputs.</li>
+        <li><strong>Not suitable for.</strong> Fuzzy semantic matching where the target phrase rewrites heavily ("independent judiciary" surfaced as "courts free from political pressure"). Rules match the literal terms you declare — widen them with synonyms via OR, or use the Suggest-terms helper to discover vocabulary you'd missed.</li>
+        <li><strong>Persistence.</strong> Rule sets live in your browser's <code>localStorage</code> per origin — clear cache and they are gone. Use <strong>⬇ JSON</strong> for durable copies and team sharing. Saved sets from the earlier TF-IDF workspace can be converted into rule stubs on first open (your tagged examples seed the Suggest-terms modal so you can bootstrap term lists with one click).</li>
       </ul>
 
       <h2>Preview build</h2>
