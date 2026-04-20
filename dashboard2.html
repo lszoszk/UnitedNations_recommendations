@@ -6776,7 +6776,22 @@ function _renderSearchItem(rec, idx, kw) {
   const typeLabel = (typeRaw && typeRaw !== '—') ? typeRaw : '';
   const symbol = rec.Symbol || '';
   const isLong = fullTxt.length > 520;
-  const snippet = smartSnippet(fullTxt, kw);
+  // Prefer the FTS5 server snippet when the backend produced one (boolean /
+  // wildcard / stemmed matches that the client-side substring highlighter
+  // would miss). It arrives with <mark> tags already wrapped — sanitize()
+  // would strip them, so we substitute the literal tags for delimiters
+  // before sanitizing, then restore them after. The fallback smartSnippet
+  // path stays intact for plain-mode and no-keyword queries.
+  let snippet;
+  if (rec.snippet && kw) {
+    const rawSn = String(rec.snippet);
+    const safeSn = sanitize(rawSn.replace(/<mark>/g, '\u0001MK\u0001').replace(/<\/mark>/g, '\u0001/MK\u0001'))
+      .replace(/\u0001MK\u0001/g, '<mark class="kw-match">')
+      .replace(/\u0001\/MK\u0001/g, '</mark>');
+    snippet = { html: safeSn, isKwic: true, fullLen: fullTxt.length };
+  } else {
+    snippet = smartSnippet(fullTxt, kw);
+  }
   const isSelected = state.searchSelection.has(rec.AnnotationId);
   return `<div class="se-item${isSelected?' selected':''}${snippet.isKwic?' is-kwic':''}" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
     <label class="se-check" title="Select for bulk actions" onclick="event.stopPropagation()"><input type="checkbox" data-bulkcb="${idx}" ${isSelected?'checked':''}></label>
