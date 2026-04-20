@@ -1067,7 +1067,9 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 .rule-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--paper-2)}
 .rule-head .rule-name{flex:1;font-family:var(--serif);font-size:17px;color:var(--ink);background:transparent;border:1px dashed transparent;padding:2px 6px;font-weight:500;min-width:0}
 .rule-head .rule-name:focus{outline:none;border-color:var(--accent);background:var(--paper)}
-.rule-head .rule-count{font:11px var(--mono);letter-spacing:.06em;padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-variant-numeric:tabular-nums;min-width:72px;text-align:center}
+.rule-head .rule-count{font:11px var(--mono);letter-spacing:.06em;padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-variant-numeric:tabular-nums;min-width:72px;text-align:center;cursor:pointer;user-select:none;transition:background .12s,border-color .12s}
+.rule-head .rule-count:hover{border-color:var(--ink);background:var(--paper-2)}
+.rule-head .rule-count:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .rule-head .rule-count.ok{border-color:#16a34a;color:#15803d}
 .rule-head .rule-count.warn{border-color:#ca8a04;color:#a16207}
 .rule-head .rule-count.zero{border-color:#b91c1c;color:#b91c1c}
@@ -7920,7 +7922,7 @@ function renderRuleCard(rule) {
     <div class="rule-card ${errMsg ? 'invalid' : ''} ${state.rules._peekOpen[rule.id] ? 'has-peek' : ''}" data-rule-id="${sanitize(rule.id)}">
       <div class="rule-head">
         <input class="rule-name" type="text" value="${sanitize(rule.name)}" placeholder="Rule name — e.g. Judicial independence" />
-        <span class="rule-count">—</span>
+        <span class="rule-count" data-act="openDrawer" title="Click to browse matching records in the side drawer (stay on this tab)" role="button" tabindex="0">—</span>
         <button class="rule-btn" data-act="peek" title="Show 5 matching records inline">👁</button>
         <button class="rule-btn" data-act="suggest" title="⚡ Suggest terms from tagged examples">⚡</button>
         <button class="rule-btn danger" data-act="delete" title="Delete this rule">×</button>
@@ -7938,9 +7940,11 @@ function renderRuleCard(rule) {
         `}
         ${errMsg ? `<div class="rule-err">${sanitize(errMsg)}</div>` : ''}
         <div class="rule-actions">
+          <button data-act="analyze" title="Apply as rail keyword and go to Overview — see map, timeline, country/body distributions for records matching this rule">📊 Analyze</button>
+          <button data-act="openInSearch" title="Apply as rail keyword and go to Search — full-page list with sort, bulk actions, export">🔎 Search</button>
+          <button data-act="openDrawer" title="Open matching records in the side drawer, without leaving this tab">📜 Browse</button>
           <button data-act="toggleRaw" class="${useRaw ? 'active' : ''}">${useRaw ? '✓ RAW mode' : 'Raw FTS5'}</button>
           <button data-act="copy">📋 Copy query</button>
-          <button data-act="openInSearch">🔎 Open in Search</button>
         </div>
         ${state.rules._peekOpen[rule.id] ? `<div class="rule-peek" data-peek="${sanitize(rule.id)}"><span class="pk-loading">Loading peek…</span></div>` : ''}
       </div>
@@ -8165,9 +8169,10 @@ function rulesBindEvents() {
       });
     }
 
-    // Action buttons
-    card.querySelectorAll('.rule-head .rule-btn, .rule-actions button, a[data-act]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+    // Action buttons — includes the clickable rule-count badge which
+    // has data-act="openDrawer" (same action as the 📜 Browse button).
+    card.querySelectorAll('.rule-head [data-act], .rule-actions button, a[data-act]').forEach(btn => {
+      const trigger = (e) => {
         e.preventDefault();
         const act = btn.dataset.act;
         if (act === 'delete') {
@@ -8195,7 +8200,27 @@ function rulesBindEvents() {
           const q = compileRule(rule);
           if (!q) { toast('Rule is empty', true, 1500); return; }
           state.filters.kw = q;
+          if ($('#kwInput')) $('#kwInput').value = q;
           navigate('search');
+        } else if (act === 'analyze') {
+          // Answer to "what next after I've built a rule": pipe it through
+          // the Overview lens so the user sees geographic distribution,
+          // temporal trends, per-body breakdowns, SDG mappings — all
+          // scoped to records the rule matches. Every tab (Country,
+          // Mechanism, SDG, Compare) will then work as rule-scoped too.
+          const q = compileRule(rule);
+          if (!q) { toast('Rule is empty', true, 1500); return; }
+          state.filters.kw = q;
+          if ($('#kwInput')) $('#kwInput').value = q;
+          toast(`Applied rule as rail keyword — explore across tabs`, false, 2500);
+          navigate('overview');
+        } else if (act === 'openDrawer') {
+          // Hybrid: browse matching records in the side drawer without
+          // leaving the Labels workspace. Drawer list uses the exact
+          // same FTS5 query as the count badge, so the numbers match.
+          const q = compileRule(rule);
+          if (!q) { toast('Rule is empty', true, 1500); return; }
+          openListDrawer('rule', rule.name || 'unnamed rule', { kw: q });
         } else if (act === 'peek') {
           const open = !state.rules._peekOpen[id];
           state.rules._peekOpen[id] = open;
@@ -8204,7 +8229,14 @@ function rulesBindEvents() {
         } else if (act === 'suggest') {
           rulesOpenSuggestModal(rule);
         }
-      });
+      };
+      btn.addEventListener('click', trigger);
+      // Keyboard accessibility for the count-badge "button role"
+      if (btn.getAttribute('role') === 'button') {
+        btn.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') trigger(e);
+        });
+      }
     });
   });
 }
@@ -8720,6 +8752,7 @@ const _LIST_KIND_LABEL = {
   theme: 'THEME', group: 'CONCERNED GROUP', country: 'COUNTRY',
   body: 'RECOMMENDING BODY', sdg: 'SDG',
   selection: '★ YOUR SELECTION',
+  rule: '🏷 LABEL RULE',
 };
 /* Selection drawer mode — shows records the user has ticked in Search as
    a reviewable list in the drawer. Doesn't fetch from API (records are
@@ -8770,6 +8803,11 @@ function listDrawerFilter() {
   else if (kind === 'group')   override.group   = new Set([value]);
   else if (kind === 'country') override.country = new Set([value]);
   else if (kind === 'body')    override.body    = new Set([value]);
+  else if (kind === 'rule') {
+    // Label rule drawer — extraOverride carries {kw: compiledFts5, ruleName}.
+    // Overwrites rail kw (same as rulesFetchCount) so the drawer list
+    // matches exactly the count badge the user clicked on.
+  }
   else if (kind === 'sdg') {
     // Pass the raw label through rawParams on the SDG profile; for drawer
     // list we rely on buildParams converting Set<number> via 'SDG N'.
@@ -8815,7 +8853,12 @@ function renderDrawerListMode() {
   const ctx = state.drawerList;
   if (!ctx) { state.drawerMode = 'record'; return renderDrawer(); }
   const kindLabel = _LIST_KIND_LABEL[ctx.kind] || ctx.kind.toUpperCase();
-  const kw = (state.filters.kw || '').trim();
+  // For rule-kind drawer, highlight the rule's FTS5 query (via
+  // extraOverride.kw) instead of the rail kw — matches what FTS5
+  // actually matched. Other drawer kinds fall back to rail kw.
+  const kw = (ctx.kind === 'rule'
+    ? (ctx.extraOverride?.kw || '')
+    : (state.filters.kw || '')).trim();
   const cards = ctx.records.map((r, i) => {
     const yr = (r.PublicationDate||'').slice(0,4);
     const country = cleanCountryName((r.Countries||[])[0]||'');
@@ -8868,8 +8911,13 @@ function renderDrawerListMode() {
       <div class="n">${fmt(ctx.total)} matching records · showing ${fmt(ctx.records.length)}${kw ? ` · keyword "${sanitize(kw)}"` : ''}</div>
       ${breadcrumb}
       <div class="actions">
-        <button class="primary" id="drListFilter">+ Narrow view by this ${ctx.kind}</button>
-        <button id="drListProfile">Open ${ctx.kind} profile →</button>
+        ${ctx.kind === 'rule' ? `
+          <button class="primary" id="drListAnalyze" title="Apply rule as rail keyword and open Overview (map, timeline, distributions)">📊 Analyze in Overview</button>
+          <button id="drListOpenSearch" title="Apply rule as rail keyword and open Search tab (sortable, exportable)">🔎 Open in Search</button>
+        ` : `
+          <button class="primary" id="drListFilter">+ Narrow view by this ${ctx.kind}</button>
+          <button id="drListProfile">Open ${ctx.kind} profile →</button>
+        `}
         <div class="exp-picker">
           <button id="drListExport" title="Export the recommendations in this list">📥 Export ▾</button>
           <div class="exp-dropdown" id="drListExportMenu">
@@ -8977,6 +9025,26 @@ function renderDrawerListMode() {
       state.focusSdg = ctx.value; const t = $('#tabSdg'); if (t) t.textContent = ctx.value; navigate('sdg');
     }
     closeListDrawer();
+  });
+  // Rule-kind drawer: jump to Overview or Search with the rule as
+  // rail keyword. Mirrors the rule-card's 📊 Analyze / 🔎 Search
+  // buttons so users who drilled deep into the drawer can act on the
+  // rule without closing + finding the rule card again.
+  $('#drListAnalyze')?.addEventListener('click', () => {
+    const q = ctx.extraOverride?.kw || '';
+    if (!q) { toast('Empty rule', true, 1500); return; }
+    state.filters.kw = q;
+    if ($('#kwInput')) $('#kwInput').value = q;
+    closeListDrawer();
+    navigate('overview');
+  });
+  $('#drListOpenSearch')?.addEventListener('click', () => {
+    const q = ctx.extraOverride?.kw || '';
+    if (!q) { toast('Empty rule', true, 1500); return; }
+    state.filters.kw = q;
+    if ($('#kwInput')) $('#kwInput').value = q;
+    closeListDrawer();
+    navigate('search');
   });
   $('#drListClose')?.addEventListener('click', closeListDrawer);
 
