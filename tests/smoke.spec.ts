@@ -126,6 +126,13 @@ test.describe('UHRI Dashboard smoke', () => {
       onFiltersChanged:         typeof onFiltersChanged,
       bindYearSlider:           typeof bindYearSlider,
       _renderYearHistogram:     typeof _renderYearHistogram,
+      renderCountry:            typeof renderCountry,
+      renderTheme:              typeof renderTheme,
+      renderGroup:              typeof renderGroup,
+      renderSDG:                typeof renderSDG,
+      renderMechanism:          typeof renderMechanism,
+      renderCompare:            typeof renderCompare,
+      _resolveCompareDefaults:  typeof _resolveCompareDefaults,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
