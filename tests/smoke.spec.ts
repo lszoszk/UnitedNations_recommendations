@@ -124,6 +124,8 @@ test.describe('UHRI Dashboard smoke', () => {
       renderActiveFilters:      typeof renderActiveFilters,
       refreshHitCount:          typeof refreshHitCount,
       onFiltersChanged:         typeof onFiltersChanged,
+      bindYearSlider:           typeof bindYearSlider,
+      _renderYearHistogram:     typeof _renderYearHistogram,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
