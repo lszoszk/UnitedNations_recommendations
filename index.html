@@ -1226,29 +1226,29 @@
       <div class="how-card">
         <div class="how-n">S1 · WHAT</div>
         <div class="how-t">OCR &amp; HTML cleanup</div>
-        <div class="how-d"><strong>~700 lines of Python, zero AI.</strong> Strips page-break markers, collapses runs of whitespace, unmangles OCR splits like <code>decla ration</code> → <code>declaration</code>, normalises unicode punctuation. Cleans <strong>99.75%</strong> of records.</div>
-        <div class="how-w"><strong>Why:</strong> readable quotes — paste one into a paper and it doesn't carry <code>&lt;p&gt;</code> tags or mid-word line breaks.</div>
+        <div class="how-d"><strong>~700 lines of Python, zero AI.</strong> Cleans <strong>99.75%</strong> of records.</div>
+        <div class="how-w"><strong>Why:</strong> readable quotes — paste into a paper without HTML tags or OCR splits.</div>
       </div>
 
       <div class="how-card">
         <div class="how-n">S2 · WHAT</div>
-        <div class="how-t">LLM residue review</div>
-        <div class="how-d">The remaining <strong>712 records (0.27%)</strong> with hard OCR corruption go through a <strong>bounded Claude prompt</strong> with strict structural validation — same input length / paragraph count / token shape coming out as going in, or the repair is rejected.</div>
-        <div class="how-w"><strong>Why:</strong> language models can rewrite meaning. We only let them touch records where S1 rules couldn't, and we refuse any output that deviates structurally.</div>
+        <div class="how-t">LLM residue repair</div>
+        <div class="how-d">The remaining <strong>0.27%</strong> with hard OCR corruption go through a bounded LLM repair with structural validation.</div>
+        <div class="how-w"><strong>Why:</strong> we let language models touch only what rules couldn't — and reject any output that changes shape.</div>
       </div>
 
       <div class="how-card">
         <div class="how-n">S3 · WHAT</div>
         <div class="how-t">Type normalisation</div>
-        <div class="how-d"><strong>3,294 records</strong> arrived with missing or UUID-coded <code>type</code> fields. A multilingual regex classifier (EN/ES/FR/PT verbs + UPR imperatives) correctly re-labels <strong>2,603 of them (79%)</strong>. Every change audit-tagged in <code>AnnotationTypeSource</code>.</div>
-        <div class="how-w"><strong>Why:</strong> the <em>Recommendation / Observation / Other</em> split is the one distinction every analyst uses first. Without it you can't separate formal calls-to-action from procedural notes.</div>
+        <div class="how-d"><strong>3,294 records</strong> arrived with broken type fields. <strong>79%</strong> recovered by multilingual regex.</div>
+        <div class="how-w"><strong>Why:</strong> without the <em>Recommendation / Observation / Other</em> split you can't separate calls-to-action from procedural notes.</div>
       </div>
 
       <div class="how-card">
         <div class="how-n">S4 · WHAT</div>
         <div class="how-t">Country backfill</div>
-        <div class="how-d"><strong>108 records</strong> arrived with no country metadata despite a country code being literally present in their UN symbol (<code>CEDAW/C/<strong>ALB</strong>/CO/4</code>). A regex + ISO-3 lookup rescues <strong>107 of them</strong> — coverage climbs 99.96% → 99.9996%.</div>
-        <div class="how-w"><strong>Why:</strong> any country-level analysis silently loses those 107 rows otherwise. Getting them back unlocks full-coverage country profiles.</div>
+        <div class="how-d"><strong>107 of 108</strong> country-less records rescued via UN-symbol regex (<code>CEDAW/C/<strong>ALB</strong>/CO/4</code>).</div>
+        <div class="how-w"><strong>Why:</strong> country-level analysis was silently losing those rows.</div>
       </div>
     </div>
 
@@ -1260,24 +1260,23 @@
         <div class="how-src">
           <div class="how-src-lbl">Default</div>
           <div class="how-src-t">Cleaned pipeline</div>
-          <div class="how-src-d">What you'd see if you clicked <strong>Open the dashboard</strong> right now — the 6-stage output, refreshed monthly from the latest OHCHR UHRI export.</div>
+          <div class="how-src-d">Six-stage cleaned output, refreshed monthly from the latest OHCHR UHRI export.</div>
         </div>
         <div class="how-src">
           <div class="how-src-lbl">Toggle</div>
           <div class="how-src-t">Raw upstream UHRI</div>
-          <div class="how-src-d">One click in the header (<code>DATA · cleaned ▾</code>) flips every query, chart and export to the <strong>original OHCHR text</strong> — including the 11 Stage-6 artefacts we usually hide. Shareable via <code>?dataset=raw</code>.</div>
+          <div class="how-src-d">One click in the header flips every query and chart back to the <strong>original OHCHR text</strong>, artefacts included.</div>
         </div>
         <div class="how-src">
           <div class="how-src-lbl">Bring-your-own</div>
           <div class="how-src-t">Upload any UHRI export</div>
-          <div class="how-src-d">Filtered CSV/XLSX/JSON from <a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a> (or any subset you've already prepared) drops into the same dashboard via the <strong>↑ Upload</strong> button. Analyses run client-side — nothing uploaded leaves your browser.</div>
+          <div class="how-src-d">Drop your own CSV/XLSX/JSON from <a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a> — processed entirely in your browser, nothing uploaded leaves your machine.</div>
         </div>
       </div>
     </div>
 
     <p class="how-lede">
-      Every transformation is deterministic, inspectable, and provenance-tagged
-      per record. <a href="./dashboard.html#view=methodology">Full methodology with stage-by-stage stats →</a>
+      Every pipeline stat, the 11 irregular-plural pairs, architecture notes, caveats for citing — all in the <a href="./dashboard.html#view=methodology">Methodology tab →</a>
     </p>
   </div>
 </section>
