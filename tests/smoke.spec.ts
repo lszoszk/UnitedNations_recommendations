@@ -100,6 +100,13 @@ test.describe('UHRI Dashboard smoke', () => {
       renderRules:              typeof renderRules,
       compileRule:              typeof compileRule,
       RULES_STARTER_TEMPLATES:  typeof RULES_STARTER_TEMPLATES,
+      // From dashboard-ui.js — cmdk palette, tweaks (shared TW), and tour.
+      // Inline keydown handlers, topbar buttons, renderDrawer (reads TW),
+      // and the boot sequence all reach back into these.
+      openPalette:              typeof openPalette,
+      TW:                       typeof TW,
+      applyTweaks:              typeof applyTweaks,
+      startTour:                typeof startTour,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
