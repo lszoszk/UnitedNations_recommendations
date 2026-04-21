@@ -5735,7 +5735,7 @@ async function renderCountry() {
     const newName = e.target.value;
     state.focusCountry = NAME_TO_ISO[newName] || newName;
     $('#tabCountry').textContent = newName;
-    renderCountry();
+    navigate('country');
   });
 
   // Profile view intersects the rail with the focused country (Option B).
@@ -5865,7 +5865,7 @@ async function renderTheme() {
   $('#thSelect').addEventListener('change', e => {
     state.focusTheme = e.target.value;
     $('#tabTheme').textContent = e.target.value;
-    renderTheme();
+    navigate('theme');
   });
 
   // Intersect rail filters with the focused theme (Option B).
@@ -5976,7 +5976,7 @@ async function renderGroup() {
   $('#gpSelect').addEventListener('change', e => {
     state.focusGroup = e.target.value;
     $('#tabGroup').textContent = e.target.value;
-    renderGroup();
+    navigate('group');
   });
   const filter = _scopedFilter({ group: new Set([name]) });
 
@@ -6105,7 +6105,7 @@ async function renderSDG() {
   $('#spSelect').addEventListener('change', e => {
     state.focusSdg = e.target.value;
     $('#tabSdg').textContent = e.target.value.replace(/^SDG /, 'SDG ');
-    renderSDG();
+    navigate('sdg');
   });
 
   // Typeahead — shows a visible result panel below the input as the user
@@ -6123,7 +6123,7 @@ async function renderSDG() {
       if (!value) return;
       state.focusSdg = value;
       const tabEl = $('#tabSdg'); if (tabEl) tabEl.textContent = value.replace(/^SDG /, 'SDG ');
-      renderSDG();
+      navigate('sdg');
     };
 
     const highlight = (text, q) => {
@@ -6437,13 +6437,13 @@ async function renderMechanism() {
   $('#mpSelect')?.addEventListener('change', e => {
     state.focusMechanism = e.target.value;
     $('#tabMechanism').textContent = e.target.value;
-    renderMechanism();
+    navigate('mechanism');
   });
   $('#mpFamSelect')?.addEventListener('change', e => {
     state.focusFamily = e.target.value;
     const fam = MECH_FAMILIES.find(f => f.key === e.target.value);
     if (fam) $('#tabMechanism').textContent = fam.full;
-    renderMechanism();
+    navigate('mechanism');
   });
 
   const cacheKey = scope + ':' + target;
@@ -6548,7 +6548,7 @@ function _wireScopeBar(root) {
           tab.textContent = state.focusMechanism;
         }
       }
-      renderMechanism();
+      navigate('mechanism');
     });
   });
 }
@@ -6597,18 +6597,13 @@ function _resolveCompareDefaults() {
 }
 
 function _persistCompareChoice() {
-  // Save current pair to localStorage + keep URL in sync so copy-link
-  // captures the comparison. replaceState — no new history entry.
+  // Save current pair locally, then let the shared hash serializer carry
+  // it for copy-links, saved views, and back/forward.
   try {
     if (state.cmpA) localStorage.setItem(CMP_A_KEY, state.cmpA);
     if (state.cmpB) localStorage.setItem(CMP_B_KEY, state.cmpB);
   } catch {}
-  try {
-    const u = new URL(location.href);
-    if (state.cmpA) u.searchParams.set('compareA', state.cmpA); else u.searchParams.delete('compareA');
-    if (state.cmpB) u.searchParams.set('compareB', state.cmpB); else u.searchParams.delete('compareB');
-    history.replaceState(null, '', u.pathname + u.search + u.hash);
-  } catch {}
+  _pushUrlState();
 }
 
 async function renderCompare() {
@@ -6649,8 +6644,8 @@ async function renderCompare() {
       <div class="panel" style="background:var(--paper-2)"><div class="panel-head"><div class="panel-title"><span class="idx">B</span><span class="t">SDGs</span></div></div><div class="row-list" id="cmpSdgsB"></div></div>
     </div>`;
 
-  $('#cmpSelA').addEventListener('change', e => { state.cmpA = e.target.value; _persistCompareChoice(); renderCompare(); });
-  $('#cmpSelB').addEventListener('change', e => { state.cmpB = e.target.value; _persistCompareChoice(); renderCompare(); });
+  $('#cmpSelA').addEventListener('change', e => { state.cmpA = e.target.value; _persistCompareChoice(); navigate('compare'); });
+  $('#cmpSelB').addEventListener('change', e => { state.cmpB = e.target.value; _persistCompareChoice(); navigate('compare'); });
 
   // C2: shared-Y coordinator. Each side's analytics lands asynchronously;
   // timelines render with their own scale first (so the user sees data
@@ -9575,13 +9570,81 @@ function _pushUrlState() {
   if (state.focusGroup) p.set('fg', state.focusGroup);
   if (state.focusSdg) p.set('fsdg', state.focusSdg);
   if (state.focusMechanism) p.set('fm', state.focusMechanism);
+  if (state.focusFamily) p.set('mf', state.focusFamily);
+  if (state.mechScope && state.mechScope !== 'single') p.set('ms', state.mechScope);
+  if (state.cmpA) p.set('ca', state.cmpA);
+  if (state.cmpB) p.set('cb', state.cmpB);
   const h = p.toString();
   const newHash = h ? '#' + h : '';
-  if (location.hash !== newHash) history.replaceState(null, '', newHash || location.pathname);
+  const base = location.pathname + location.search;
+  if (location.hash !== newHash) history.replaceState(null, '', newHash ? base + newHash : base);
 }
 
-function _restoreUrlState() {
-  const h = location.hash.slice(1);
+function _syncRouteTabLabels() {
+  const countryTab = $('#tabCountry');
+  if (countryTab) countryTab.textContent = state.focusCountry ? (ISO_TO_NAME[state.focusCountry] || state.focusCountry) : '—';
+
+  const themeTab = $('#tabTheme');
+  if (themeTab) themeTab.textContent = state.focusTheme || '—';
+
+  const groupTab = $('#tabGroup');
+  if (groupTab) groupTab.textContent = state.focusGroup || '—';
+
+  const sdgTab = $('#tabSdg');
+  if (sdgTab) sdgTab.textContent = state.focusSdg || '—';
+
+  const mechanismTab = $('#tabMechanism');
+  if (mechanismTab) {
+    if (state.mechScope === 'compare') {
+      mechanismTab.textContent = 'All 3 families';
+    } else if (state.mechScope === 'family') {
+      const fam = MECH_FAMILIES.find(f => f.key === state.focusFamily);
+      mechanismTab.textContent = fam?.full || 'Family rollup';
+    } else {
+      mechanismTab.textContent = state.focusMechanism || '—';
+    }
+  }
+
+  const searchTab = $('#tabSearch');
+  if (searchTab) searchTab.textContent = state.filters.kw || '—';
+}
+
+function _resetRouteState() {
+  state.filters = { ...emptyFilters(), yearA: state.facets?.min_year, yearB: state.facets?.max_year };
+  state.focusCountry = null;
+  state.focusTheme = null;
+  state.focusGroup = null;
+  state.focusSdg = null;
+  state.focusMechanism = null;
+  state.focusFamily = null;
+  state.mechScope = 'single';
+  state.cmpA = null;
+  state.cmpB = null;
+  state.view = 'overview';
+}
+
+async function _applyRouteStateFromHash(hash, opts = {}) {
+  const normalized = String(hash || '').replace(/^#/, '');
+  if (opts.replaceLocation) {
+    const nextHash = normalized ? `#${normalized}` : '';
+    const base = location.pathname + location.search;
+    const nextUrl = nextHash ? base + nextHash : base;
+    const currentUrl = location.pathname + location.search + location.hash;
+    if (currentUrl !== nextUrl) history.replaceState(null, '', nextUrl);
+  }
+
+  _resetRouteState();
+  _restoreUrlState(normalized);
+  ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
+  if ($('#kwInput')) $('#kwInput').value = state.filters.kw || '';
+  _syncRouteTabLabels();
+  renderActiveFilters();
+  refreshHitCount();
+  await navigate(state.view || 'overview');
+}
+
+function _restoreUrlState(hash = location.hash.slice(1)) {
+  const h = String(hash || '').replace(/^#/, '');
   if (!h) return;
   const p = new URLSearchParams(h);
   const f = state.filters;
@@ -9603,12 +9666,22 @@ function _restoreUrlState() {
   if (p.get('fg')) { state.focusGroup = p.get('fg'); $('#tabGroup').textContent = state.focusGroup; }
   if (p.get('fsdg')) { state.focusSdg = p.get('fsdg'); const t = $('#tabSdg'); if (t) t.textContent = state.focusSdg; }
   if (p.get('fm')) { state.focusMechanism = p.get('fm'); const t = $('#tabMechanism'); if (t) t.textContent = state.focusMechanism; }
+  if (p.get('mf')) {
+    const family = p.get('mf');
+    if (MECH_FAMILIES.some(fam => fam.key === family)) state.focusFamily = family;
+  }
+  if (p.get('ms')) {
+    const scope = p.get('ms');
+    if (['single', 'family', 'compare'].includes(scope)) state.mechScope = scope;
+  }
+  if (p.get('ca')) state.cmpA = p.get('ca');
+  if (p.get('cb')) state.cmpB = p.get('cb');
   if (p.get('view')) state.view = p.get('view');
 
   // Sync UI to restored state — handles, rail checkboxes, search tab badge
   if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
   ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
-  $('#tabSearch').textContent = f.kw || '—';
+  _syncRouteTabLabels();
 }
 
 /* =========================================================================
@@ -9810,19 +9883,12 @@ function openSavedViewsModal() {
       render();
     });
     $('#svClose', m).addEventListener('click', () => m.remove());
-    m.querySelectorAll('.sv-item').forEach(item => item.addEventListener('click', e => {
+    m.querySelectorAll('.sv-item').forEach(item => item.addEventListener('click', async e => {
       if (e.target.classList.contains('del')) return;
       const id = item.dataset.id;
       const v = svLoad().find(x => x.id === id);
       if (v) {
-        location.hash = v.hash ? '#' + v.hash : '';
-        // Reset state + reload URL state
-        state.filters = { ...emptyFilters(), yearA: state.facets?.min_year, yearB: state.facets?.max_year };
-        state.focusCountry = null; state.focusTheme = null;
-        _restoreUrlState();
-        renderActiveFilters();
-        refreshHitCount();
-        refreshCurrentView();
+        await _applyRouteStateFromHash(v.hash, { replaceLocation: true });
         m.remove();
         toast(`Loaded view "${v.name}"`, false, 2500);
       }
@@ -11360,10 +11426,10 @@ async function boot() {
       .map(c => cleanCountryName(c.country))
       .filter(n => n && n.length > 2);
     if (!state.focusCountry) state.focusCountry = NAME_TO_ISO[topByVolume[0]] || 'COL';
-    $('#tabCountry').textContent = ISO_TO_NAME[state.focusCountry] || state.focusCountry;
     _resolveCompareDefaults();
 
     _restoreUrlState();
+    _syncRouteTabLabels();
     renderActiveFilters();
     setStatus('live');
     progressBar(60, cachedAnalytics ? 'USING CACHED ANALYTICS' : 'AGGREGATING ANALYTICS (267K RECORDS)');
@@ -11404,15 +11470,7 @@ async function boot() {
   // _restoreUrlState only ran at boot — clicking Back after drilling into
   // a theme profile would update the address bar but leave the view stale.
   window.addEventListener('hashchange', async () => {
-    // Reset filter Sets before re-reading so stale filters don't accumulate
-    state.filters = { ...emptyFilters(), yearA: state.facets?.min_year, yearB: state.facets?.max_year };
-    state.focusCountry = null; state.focusTheme = null; state.focusGroup = null;
-    state.focusSdg = null; state.focusMechanism = null;
-    _restoreUrlState();
-    ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
-    if ($('#kwInput')) $('#kwInput').value = state.filters.kw || '';
-    renderActiveFilters();
-    await navigate(state.view || 'overview');
+    await _applyRouteStateFromHash(location.hash);
   });
 
   // Phase 2: slow analytics in background — user can already interact
