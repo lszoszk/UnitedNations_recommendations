@@ -133,6 +133,8 @@ test.describe('UHRI Dashboard smoke', () => {
       renderMechanism:          typeof renderMechanism,
       renderCompare:            typeof renderCompare,
       _resolveCompareDefaults:  typeof _resolveCompareDefaults,
+      renderFreshnessCard:      typeof renderFreshnessCard,
+      renderMethodology:        typeof renderMethodology,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
