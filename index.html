@@ -71,15 +71,26 @@
     flex-direction: column;
     justify-content: center;
   }
-  /* #how section has enough content (why + scale + 4 cards + closing
-     paragraph + link) to exceed one viewport. justify-content:center
-     would push the top UP past scroll-snap-align:start, hiding the
-     bottom. Switch to flex-start so content fills from the top down
-     and the tail ("Nothing is locked in…") simply overflows into the
-     next section gap, visible on scroll. */
+  /* #how is information-dense. Keep justify-content:center so the
+     whole content column sits in the middle of the viewport, but
+     override the shared `.section-head .t` headline font-size with
+     a tighter clamp so the title doesn't eat ~240 px before the body
+     content even starts. Combined with the inline-scale trick in the
+     why paragraph (no more separate `.how-scale` strip) the whole
+     section now fits on one typical desktop viewport (~880 px). */
   section.band#how {
-    justify-content: flex-start;
-    padding-top: 64px;
+    justify-content: center;
+    padding-top: 48px;
+    padding-bottom: 48px;
+  }
+  section.band#how .section-head .t {
+    /* was clamp(28px, 3.4vw, 48px) — shrunk ~30% so the headline
+       takes ~160 px instead of ~240 px on common viewports. */
+    font-size: clamp(22px, 2.4vw, 34px);
+  }
+  section.band#how .section-head {
+    padding-bottom: 20px;
+    margin-bottom: 20px;
   }
   /* Ticker is part of the hero "page" — no separate snap stop, no min-height
      that would bump it off-screen. It flows right at the bottom of the hero. */
@@ -602,56 +613,16 @@
     padding: 1px 6px;
   }
 
-  /* Scale strip — "~56,000 records had meaningful non-whitespace
-     corrections = 21% of dataset". Sits between the why paragraph and
-     the 4-card grid. Serves as a "these numbers matter" punch before
-     users read the per-stage breakdown. */
-  .how-scale {
-    display: flex;
-    align-items: baseline;
-    gap: 18px;
-    flex-wrap: wrap;
-    padding: 18px 20px;
-    margin: 0 0 28px;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-    background: var(--paper-2);
-  }
-  .how-scale-num {
-    font-family: var(--mono);
-    font-size: 13px;
-    letter-spacing: .04em;
-    color: var(--ink);
-  }
-  .how-scale-num strong {
+  /* Scale stat is now inline inside the why paragraph instead of a
+     separate strip. `.how-why-num` renders "~56,000 records" and
+     "21% of the dataset" with the serif + accent treatment so they
+     still pop visually without eating an extra 100 px of vertical. */
+  .how-why-num {
     font-family: var(--serif);
-    font-weight: 400;
-    font-size: 32px;
+    font-style: italic;
     color: var(--accent);
-    letter-spacing: -.01em;
-    margin-right: 2px;
-  }
-  .how-scale-sub {
-    flex: 1;
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.5;
-    color: var(--ink-2);
-    min-width: 240px;
-  }
-  .how-scale-pct {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--dim);
-    letter-spacing: .04em;
-  }
-  .how-scale-pct strong {
-    font-family: var(--serif);
-    font-weight: 400;
-    font-size: 24px;
-    color: var(--ink);
-    letter-spacing: -.01em;
-    margin: 0 2px;
+    font-size: 1.15em;
+    white-space: nowrap;
   }
   .how-grid {
     display: grid;
@@ -1229,30 +1200,19 @@
     </div>
 
     <!-- Why paragraph — sets the frame before the step cards. The
-         ~56k / 21% scale stat is sourced from a live SQL query across
-         the four stages (S1 HTML/OCR ≥20 chars removed ∪ S2 LLM residue
-         ∪ S3 type normalisation ∪ S4 country backfill), deduped by
-         record id. Whitespace-only cleanups are NOT counted. -->
+         scale stat (~56k records / 21%) is now inlined as the closing
+         sentence, rendered with big accent numerals so it still reads
+         as the "punch line" without needing its own horizontal strip. -->
     <p class="how-why">
       The OHCHR <strong>UHRI export</strong> is a treasure trove, but the raw
       file carries two decades of accumulated OCR fragments, HTML artefacts,
       inconsistent type labels, and records that lost their country
       metadata somewhere along the pipeline. For researchers who want to
       <em>cite</em> this data — not just browse it — that noise matters.
-      We built a <strong>six-stage cleaning pipeline</strong> to fix exactly
-      what could be fixed by rule, documented every transformation, and
-      kept the option to switch back to the raw source one click away.
+      Across four deterministic stages we corrected something
+      non-whitespace in <span class="how-why-num">~56,000 records</span> —
+      <span class="how-why-num">21% of the dataset</span>.
     </p>
-
-    <!-- Scale strip: meaningful corrections (whitespace-only excluded)
-         across all stages, deduped. Shows that this isn't "we added a
-         trim() and called it cleaning" — 1 in 5 records had something
-         substantive fixed. -->
-    <div class="how-scale">
-      <div class="how-scale-num"><strong>~56,000</strong> records</div>
-      <div class="how-scale-sub">had meaningful non-whitespace corrections applied across the pipeline</div>
-      <div class="how-scale-pct">=&nbsp;<strong>21%</strong> of the dataset</div>
-    </div>
 
     <div class="how-grid">
       <div class="how-card">
@@ -1285,10 +1245,7 @@
     </div>
 
     <p class="how-lede">
-      <strong>Nothing is locked in.</strong> The dashboard opens on the cleaned view by default, but a header toggle flips every query and chart back to the <strong>raw OHCHR text</strong>, and any UHRI export (CSV/XLSX/JSON) drops into the same tools via <strong>↑ Upload</strong> — processed entirely in your browser.
-    </p>
-    <p class="how-lede" style="margin-top:16px">
-      Every pipeline stat, the 11 irregular-plural pairs, architecture notes, caveats for citing — all in the <a href="./dashboard.html#view=methodology">Methodology tab →</a>
+      <strong>Nothing is locked in</strong> — a header toggle flips everything back to the <strong>raw OHCHR text</strong>, or drop your own UHRI export via <strong>↑ Upload</strong>. <a href="./dashboard.html#view=methodology">Full methodology — stage-by-stage stats, irregular plurals, citing caveats →</a>
     </p>
   </div>
 </section>
