@@ -529,6 +529,139 @@
     text-wrap: balance;
   }
 
+  /* -------- dot-field click modal (a real record from the clicked year) -------- */
+  .dot-modal {
+    position: fixed; inset: 0;
+    background: color-mix(in oklab, var(--ink) 54%, transparent);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    z-index: 500;
+    animation: dmfade .18s ease;
+  }
+  @keyframes dmfade { from { opacity: 0; } }
+  .dm-card {
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--accent-soft);
+    max-width: 640px; width: 100%;
+    padding: 26px 28px 22px;
+    display: flex; flex-direction: column; gap: 14px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+  .dm-h { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+  .dm-yr {
+    font-family: var(--serif);
+    font-size: 44px; line-height: 1;
+    color: var(--accent);
+  }
+  .dm-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .06em;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+  .dm-tx {
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink);
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  .dm-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    line-height: 1.5;
+  }
+  .dm-kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    font-size: 10px;
+  }
+  .dm-act { display: flex; gap: 10px; flex-wrap: wrap; }
+  .dm-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform .16s;
+  }
+  .dm-btn:hover { transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--accent); }
+  .dm-btn.ghost { background: transparent; color: var(--ink); }
+  .dm-btn.ghost:hover { background: var(--paper-2); }
+
+  /* -------- HOW / methodology excerpt (Fig 05) -------- */
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .how-card {
+    background: var(--paper);
+    padding: 22px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .how-card .how-n {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .how-card .how-t {
+    font-family: var(--serif);
+    font-size: 20px;
+    line-height: 1.15;
+    color: var(--ink);
+    margin: 0;
+  }
+  .how-card .how-d {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    margin: 0;
+  }
+  .how-card .how-d code {
+    background: var(--paper-2);
+    padding: 1px 5px;
+    font-size: 11px;
+  }
+  .how-lede {
+    margin-top: 28px;
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink);
+    max-width: 68ch;
+    text-wrap: balance;
+  }
+  .how-lede a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid var(--accent);
+  }
+  .how-lede a:hover {
+    background: var(--accent-soft);
+  }
+
   /* -------- hex tile map (Fig 03) -------- */
   .hex-regions {
     display: flex; gap: 0; flex-wrap: wrap;
@@ -790,6 +923,28 @@
   @media (max-width: 760px) {
     .section-nav .nav-item .lbl { display: none; }
     .section-nav .nav-item { padding: 4px 7px; }
+    /* Topbar stacks content on narrow screens instead of overlapping.
+       Brand text collapses to just the pulsing dot + short name; the
+       dataset version moves into an abbr-like attribute for tap. */
+    .topbar {
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 8px 12px;
+    }
+    .topbar .left span:nth-child(3),  /* the · separator */
+    .topbar .left span:nth-child(4) { /* "Dataset v2026.04" */
+      display: none;
+    }
+    .topbar .left span:nth-child(2) { font-size: 10px; }  /* UN HUMAN RIGHTS… */
+    .topbar .right { display: none; }                      /* nav does it */
+    .section-nav { grid-column: 1 / -1; justify-self: stretch !important; overflow-x: auto; scrollbar-width: none; }
+    .section-nav::-webkit-scrollbar { display: none; }
+  }
+  @media (max-width: 380px) {
+    /* iPhone SE (375px) and similar: tighten nav further, hide brand */
+    .topbar .left span:nth-child(2) { display: none; }
+    .section-nav { gap: 2px; }
+    .section-nav .nav-item { padding: 4px 5px; font-size: 10px; }
   }
 
   /* responsive */
@@ -800,6 +955,11 @@
     .section-head .ctx { text-align: left; }
     .bar-grid { grid-template-columns: 1fr; gap: 32px; }
     .timeline-callouts { grid-template-columns: 1fr; }
+    .how-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 540px) {
+    .how-grid { grid-template-columns: 1fr; }
+    .how-lede { font-size: 15px; }
   }
 </style>
 </head>
@@ -1003,6 +1163,49 @@
         <div class="txt">—</div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- FIG 05 / HOW — methodology excerpt that builds trust before the CTA.
+     Not in the section-nav (keeps 5 items for mobile). -->
+<section class="band" id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="no">FIG 05 / HOW</div>
+      <div class="t">99.75% cleaned with <em style="color:var(--accent)">deterministic rules</em>, not a language model.</div>
+      <div class="ctx">6-stage pipeline · audit-tagged</div>
+    </div>
+
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-n">S1</div>
+        <div class="how-t">OCR &amp; HTML cleanup</div>
+        <div class="how-d">~700 lines of Python. No AI. Cleans <strong>99.75%</strong> of records.</div>
+      </div>
+      <div class="how-card">
+        <div class="how-n">S2</div>
+        <div class="how-t">LLM residue review</div>
+        <div class="how-d"><strong>Only 0.27%</strong> of records — those with hard OCR corruption — run through a bounded Claude prompt with structural validation.</div>
+      </div>
+      <div class="how-card">
+        <div class="how-n">S3</div>
+        <div class="how-t">Type normalisation</div>
+        <div class="how-d">Multilingual regex classifier (EN/ES/FR/PT) recovers <strong>79%</strong> of missing / UUID-coded <code>type</code> fields. Every change audit-tagged.</div>
+      </div>
+      <div class="how-card">
+        <div class="how-n">S4</div>
+        <div class="how-t">Country backfill</div>
+        <div class="how-d">108 records arrived country-less despite a code in their UN symbol (<code>CEDAW/C/<strong>ALB</strong>/CO/4</code>). A regex + ISO lookup rescues <strong>107</strong>.</div>
+      </div>
+    </div>
+
+    <p class="how-lede">
+      Every transformation is deterministic, inspectable, and provenance-tagged
+      per record. The dashboard lets you toggle between the <strong>cleaned</strong>
+      pipeline output and the <strong>raw upstream</strong> OHCHR export so you
+      can always see what changed.
+      <a href="./dashboard.html#view=methodology">Full methodology →</a>
+    </p>
   </div>
 </section>
 
@@ -1504,6 +1707,91 @@
     }
   });
   fieldEl.addEventListener("mouseleave", () => tipEl.classList.remove("show"));
+
+  /* ---------- click a dot → open a real record from that year ---------- */
+  let _dotModalBusy = false;
+  fieldEl.style.cursor = 'pointer';
+  fieldEl.title = 'Click any dot to read a real recommendation from that year';
+  fieldEl.addEventListener("click", async (e) => {
+    if (_dotModalBusy) return;
+    const r = fieldEl.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    // find nearest dot (same sampling as hover)
+    let best = null, bestD = 1e9;
+    for (let i = 0; i < dots.length; i += 3) {
+      const d = dots[i];
+      const dx = d.x - x, dy = d.y - y;
+      const sd = dx*dx + dy*dy;
+      if (sd < bestD) { bestD = sd; best = d; }
+    }
+    if (!best || bestD >= 900) return;
+    _dotModalBusy = true;
+    const yr = best.yr;
+    _showDotModalLoading(yr);
+    try {
+      /* Fetch a page of 100 Recommendations from that year. Picking
+         random client-side avoids a second round-trip for total_records,
+         and 100 is a large enough pool that even 2020 (partial year,
+         ~8k records) has diverse countries + bodies. */
+      const url = API_BASE + `/api/data/records?year_start=${yr}&year_end=${yr}&annotation_type=Recommendations&page_size=100&page=1&sort_by=publication_date&sort_dir=desc`;
+      const r = await fetch(url).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+      const recs = (r.records || []).filter(x => {
+        const t = (x.TextPlainCleaned || x.Text || '').trim();
+        return t.length >= 80 && t.length <= 600;
+      });
+      if (!recs.length) { _showDotModalEmpty(yr); _dotModalBusy = false; return; }
+      const pick = recs[Math.floor(Math.random() * recs.length)];
+      _showDotModalRecord(yr, pick, r.total_records || recs.length);
+    } catch (err) {
+      _showDotModalError(yr, err.message || String(err));
+    } finally {
+      _dotModalBusy = false;
+    }
+  });
+
+  function _openDotModalShell() {
+    document.querySelector('.dot-modal')?.remove();
+    const m = document.createElement('div');
+    m.className = 'dot-modal';
+    m.innerHTML = '<div class="dm-card"></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    const esc = (e) => { if (e.key === 'Escape') { m.remove(); document.removeEventListener('keydown', esc); } };
+    document.addEventListener('keydown', esc);
+    return m.querySelector('.dm-card');
+  }
+  function _showDotModalLoading(yr) {
+    const card = _openDotModalShell();
+    card.innerHTML = `<div class="dm-h"><div class="dm-yr">${yr}</div><div class="dm-sub">Fetching a real recommendation from this year…</div></div>`;
+  }
+  function _showDotModalEmpty(yr) {
+    const card = _openDotModalShell();
+    card.innerHTML = `<div class="dm-h"><div class="dm-yr">${yr}</div><div class="dm-sub">No Recommendations recorded for ${yr} in the cleaned dataset.</div></div>
+      <div class="dm-act"><a class="dm-btn" href="./dashboard.html#y1=${yr}&y2=${yr}&view=search">Open ${yr} in Search →</a></div>`;
+  }
+  function _showDotModalError(yr, msg) {
+    const card = _openDotModalShell();
+    card.innerHTML = `<div class="dm-h"><div class="dm-yr">${yr}</div><div class="dm-sub">Couldn't load a sample — <code>${msg}</code>.</div></div>
+      <div class="dm-act"><a class="dm-btn" href="./dashboard.html#y1=${yr}&y2=${yr}&view=search">Open ${yr} in Search →</a></div>`;
+  }
+  function _showDotModalRecord(yr, rec, total) {
+    const card = _openDotModalShell();
+    const country = (rec.Countries || [''])[0] || '—';
+    const body = _shortBody(rec.Body || '');
+    const txt = (rec.TextPlainCleaned || rec.Text || '').trim().replace(/^\d+\.\s*/, '');
+    const id = rec.AnnotationId || '';
+    card.innerHTML = `
+      <div class="dm-h">
+        <div class="dm-yr">${yr}</div>
+        <div class="dm-sub">${country} · ${body}${rec.PublicationDate ? ' · ' + rec.PublicationDate.slice(0,10) : ''}</div>
+      </div>
+      <div class="dm-tx">${txt.length > 600 ? txt.slice(0, 598) + '…' : txt}</div>
+      <div class="dm-meta">One of ${fmt(total)} recommendations recorded in ${yr}. <span class="dm-kbd">Esc</span> to close.</div>
+      <div class="dm-act">
+        <a class="dm-btn" href="./dashboard.html#sel=${encodeURIComponent(id)}">Open this record →</a>
+        <a class="dm-btn ghost" href="./dashboard.html#y1=${yr}&y2=${yr}&view=search">Browse all ${yr} →</a>
+      </div>`;
+  }
 
   window.addEventListener("resize", () => {
     clearTimeout(window.__rT);
