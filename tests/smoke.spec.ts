@@ -9,6 +9,7 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *   3. hashRouting — dashboard-route.js fails to expose its routing API
  *   4. landingSearch — index.html hero search input isn't wired (bec17a1)
  *   5. datasetNumber — hardcoded "267,548" drifts from reality (pre-c87b355)
+ *   6. searchView  — extracted search module no longer renders its shell
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -185,5 +186,29 @@ test.describe('UHRI Dashboard smoke', () => {
     await expect(cmdkHint).not.toContainText('267,548');
     // Methodology tab legitimately mentions the raw-count 267,548 as
     // documentation — so we deliberately don't do a page-wide scan.
+  });
+
+  test('6. searchView — extracted search module renders shell and keyword sort', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    await page.evaluate(async () => {
+      state.filters.kw = 'china';
+      state.searchSort = null;
+      const kw = document.getElementById('kwInput') as HTMLInputElement | null;
+      if (kw) kw.value = 'china';
+      await navigate('search');
+    });
+
+    const searchTab = page.locator('a[role="tab"][data-nav="search"]');
+    await expect(searchTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#view-search .se-head .lbl')).toHaveText('Search results');
+    await expect(page.locator('#view-search .se-head .q')).toHaveText('"china"');
+    await expect(page.locator('#seSort')).toHaveValue('relevance:asc');
+    await expect(page.locator('#seBulkCount')).toHaveText('0 selected');
+    await expect(page.locator('#seSentinel')).toContainText('Loading more');
+
+    expect(errors, `JS errors while rendering search view:\n${errors.join('\n')}`).toEqual([]);
   });
 });
