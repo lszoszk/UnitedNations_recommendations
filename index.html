@@ -1140,13 +1140,13 @@
 
       <p class="lede">
         A single searchable dataset built on the OHCHR Universal Human Rights Index —
-        <span class="hl">267,548 country-specific observations</span> from Treaty Bodies, Special Procedures
+        <span class="hl">267,537 country-specific observations</span> from Treaty Bodies, Special Procedures
         and the Universal Periodic Review, assembled for advocates, researchers and journalists.
       </p>
 
       <div class="kpis">
         <div class="kpi">
-          <div class="num" data-counter="267548">0</div>
+          <div class="num" data-counter="267537">0</div>
           <div class="lbl">Recommendations</div>
         </div>
         <div class="kpi">
@@ -1197,7 +1197,7 @@
     <div>
       <div class="field" id="field">
         <div class="corner tl">FIG 01 / LIVE</div>
-        <div class="corner tr"><span id="fieldCounter">0</span> / 267,548</div>
+        <div class="corner tr"><span id="fieldCounter">0</span> / 267,537</div>
         <div class="corner bl">EACH DOT = ONE RECOMMENDATION</div>
         <div class="corner br">YR <span id="fieldYear">2006</span></div>
         <canvas id="dotCanvas"></canvas>
@@ -1219,7 +1219,7 @@
     <div class="section-head">
       <div class="no">FIG 02 / WHAT</div>
       <div class="t">The recommendations cluster around a handful of persistent themes.</div>
-      <div class="ctx">Top 8 of 412 tags · n=267,548</div>
+      <div class="ctx">Top 10 of 100 tags · n=267,537</div>
     </div>
 
     <div class="bar-grid">
@@ -1606,7 +1606,7 @@
         if (!el || target == null) return;
         el.dataset.counter = String(target);
       };
-      patchCounter('[data-counter="267548"]', facets.total_records);
+      patchCounter('[data-counter="267537"]', facets.total_records);
       patchCounter('[data-counter="199"]',    realCountries.length);
       patchCounter('[data-counter="75"]',     (facets.bodies || []).length);
 
@@ -1993,7 +1993,7 @@
     // draw dots gradually
     const revealPer = 6.0; // dots per ms
     const revealed = Math.min(dots.length, Math.floor(elapsed * revealPer / 3));
-    fieldCounter.textContent = fmt(Math.round(267548 * (revealed / dots.length)));
+    fieldCounter.textContent = fmt(Math.round(267537 * (revealed / dots.length)));
     if (dots.length) {
       const lastYr = dots[Math.min(revealed, dots.length - 1)]?.yr ?? 2006;
       fieldYear.textContent = lastYr;

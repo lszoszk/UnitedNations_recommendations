@@ -1,8 +1,8 @@
 {
   "name": "UHRI Analytics Dashboard v2",
   "short_name": "UHRI v2",
-  "description": "Explore 267,548 UN human rights recommendations — filter, compare, and annotate across Treaty Bodies, Special Procedures, and UPR cycles.",
-  "start_url": "./dashboard2.html",
+  "description": "Explore 267,537 UN human rights recommendations — filter, compare, and annotate across Treaty Bodies, Special Procedures, and UPR cycles.",
+  "start_url": "./dashboard.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
@@ -25,8 +25,8 @@
     }
   ],
   "shortcuts": [
-    { "name": "Search recommendations",  "short_name": "Search",    "description": "Full-text search across the dataset", "url": "./dashboard2.html#view=search" },
-    { "name": "Bookmarks",                "short_name": "Bookmarks", "description": "Your saved recommendations",         "url": "./dashboard2.html#view=bookmarks" },
-    { "name": "Compare countries",        "short_name": "Compare",   "description": "A-vs-B country comparison",          "url": "./dashboard2.html#view=compare" }
+    { "name": "Search recommendations",  "short_name": "Search",    "description": "Full-text search across the dataset", "url": "./dashboard.html#view=search" },
+    { "name": "Bookmarks",                "short_name": "Bookmarks", "description": "Your saved recommendations",         "url": "./dashboard.html#view=bookmarks" },
+    { "name": "Compare countries",        "short_name": "Compare",   "description": "A-vs-B country comparison",          "url": "./dashboard.html#view=compare" }
   ]
 }

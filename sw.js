@@ -4,7 +4,7 @@
  *   /api/data/records (Tier 4a — filter-change instant on repeat visits)
  * - Network-only for /api/feedback/report, /api/data/full
  */
-const SHELL_CACHE  = 'uhri-v2-shell-v25';  // bump to invalidate stale caches on ship
+const SHELL_CACHE  = 'uhri-v2-shell-v26';  // bump to invalidate stale caches on ship
 const DATA_CACHE   = 'uhri-v2-data-v6';    // moot under cross-origin pass-through
 const FONT_CACHE   = 'uhri-v2-font-v2';
 

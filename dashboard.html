@@ -1479,7 +1479,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <button class="cmdk" id="cmdkBtn" aria-label="Open command palette">
     <span class="k cmdk-k-mac">⌘</span><span class="k cmdk-k-mac">K</span>
     <span class="cmdk-k-mobile" aria-hidden="true">🔍</span>
-    <span class="cmdk-hint">Search 267,548 recommendations · jump to country, theme, year…</span>
+    <span class="cmdk-hint">Search 267,537 recommendations · jump to country, theme, year…</span>
   </button>
   <div class="meta">
     <!-- Instant Mode (~300MB IndexedDB download) and Upload (user-supplied
@@ -1708,7 +1708,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <!-- Always-visible footer: credits, methodology link, supporters -->
 <footer class="dash-footer" role="contentinfo">
   <div class="df-left">
-    <span><b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> · 267,548 records · cleaned pipeline</span>
+    <span><b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> · 267,537 records · cleaned pipeline</span>
     <span class="df-sep">·</span>
     <span>Developed by <b style="color:var(--ink);font-weight:500">L. Szoszkiewicz</b></span>
     <span class="df-sep">·</span>
@@ -2242,7 +2242,7 @@ async function refreshHitCount() {
     const r = await api.recordsCount(state.filters);
     state.totalHits = r.total_records;
     $('#hitCount').textContent = fmt(r.total_records);
-    const totalAll = state.facets?.total_records || 267548;
+    const totalAll = state.facets?.total_records || 267537;
     const p = r.total_records / totalAll;
     $('#hitBar').style.width = (p*100) + '%';
     $('#hitPct').textContent = pct(p);
@@ -6195,7 +6195,7 @@ async function loadNextSearchPage() {
       $('#seList').innerHTML = `
         <div class="empty-state">
           <div class="es-title">No records match your filters</div>
-          <div class="es-sub">${hasFilters ? 'Try removing one or two filters, broadening the year range, or using a different keyword.' : 'Hmm, the dataset should have 267,548 records — something went wrong.'}</div>
+          <div class="es-sub">${hasFilters ? 'Try removing one or two filters, broadening the year range, or using a different keyword.' : 'Hmm, the dataset should have 267,537 records — something went wrong.'}</div>
           ${hasFilters ? `
             <button class="primary" onclick="document.getElementById('clearFilters').click()">Clear all filters</button>
             ${state.filters.kw.trim() ? `<button onclick="document.getElementById('kwInput').value='';state.filters.kw='';onFiltersChanged();">Drop keyword "${sanitize(state.filters.kw.trim().slice(0,40))}"</button>` : ''}
@@ -6759,7 +6759,7 @@ function rulesPaintCount(rule) {
   // records matching") else the dataset total.
   const denom = (!_railIsEmpty(state.filters) && state.totalHits)
     ? state.totalHits
-    : 267548;
+    : 267537;
   const pct = (n / denom * 100).toFixed(n < 100 ? 2 : 1);
   el.textContent = `${fmt(n)} (${pct}%)`;
   el.className = 'rule-count ' + (n === 0 ? 'zero' : (n >= 50 && n <= 20000 ? 'ok' : 'warn'));
@@ -7683,7 +7683,7 @@ function renderMethodology() {
   $('#view-methodology').innerHTML = `
     <div class="me">
       <h1>Methodology <em style="color:var(--accent)">·</em> notes & caveats</h1>
-      <p>This dashboard aggregates <strong>267,548 observations and recommendations</strong> addressed to UN Member States by Treaty Bodies, Special Procedures and the Universal Periodic Review, covering the twenty-year period 2006 – 2026.</p>
+      <p>This dashboard aggregates <strong>267,537 observations and recommendations</strong> addressed to UN Member States by Treaty Bodies, Special Procedures and the Universal Periodic Review, covering the twenty-year period 2006 – 2026. The raw OHCHR export carries 267,548 records; the 11-record delta is a set of Stage-6 artefact rows removed during cleaning (see below).</p>
 
       <h2>Data source</h2>
       <p>All records originate from the OHCHR <strong>Universal Human Rights Index</strong> (<a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a>). By default this dashboard shows data processed by our transparent six-stage pipeline (detailed below). You can switch to the <strong>raw upstream text</strong> using the <code>DATA · cleaned ▾</code> pill in the header — raw mode re-includes 11 Stage 6 artefacts and runs search against the original HTML-stripped text. Country, body and theme metadata remain pipeline-canonical in either mode. Share a raw-mode view by appending <code>?dataset=raw</code> to the URL.</p>
@@ -7692,9 +7692,9 @@ function renderMethodology() {
       <p>The pipeline minimises generative AI involvement:</p>
       <ul>
         <li><strong>Stage 1 — rule-based OCR & HTML cleanup.</strong> ~700 lines of Python, no AI. Cleans <strong>99.75 %</strong> of records.</li>
-        <li><strong>Stage 2 — LLM-assisted residue review.</strong> Only ~712 records (0.27 %) with hard OCR corruption go through a bounded Claude Sonnet prompt with structural validation rails.</li>
+        <li><strong>Stage 2 — LLM-assisted residue review.</strong> Only <strong>412 records (0.15 %)</strong> with hard OCR corruption go through a bounded Claude Sonnet prompt with structural validation rails. (Earlier write-ups quoted ~712; that figure was from an older pipeline build before the Stage-1 rule set matured.)</li>
         <li><strong>Stage 3 — deterministic AnnotationType normalisation.</strong> ~3,294 records had missing or UUID-coded <code>type</code> fields. A multilingual regex classifier (EN/ES/FR/PT verbs + UPR imperatives) correctly re-labels <strong>2,603 of them (79 %)</strong>. Every change is audit-tagged in an <code>AnnotationTypeSource</code> field. No AI involved.</li>
-        <li><strong>Stage 4 — country backfill from UN document symbol.</strong> 108 records (0.04 %) arrived with no country metadata despite a country code being literally present in their symbol (<code>CEDAW/C/<strong>ALB</strong>/CO/4</code>, <code>CRPD/C/<strong>AZE</strong>/CO/1</code>). A single regex + data-derived ISO-alpha-3 lookup rescues <strong>107 of them</strong> (mostly Azerbaijan CRPD-2014 + Albania CEDAW-2016 batches); 1 thematic SR report is legitimately country-agnostic. Country coverage: 99.96 % → 99.9996 %. Appends-only, tagged <code>source: inferred:symbol</code> in <code>record_country</code>.</li>
+        <li><strong>Stage 4 — country backfill from UN document symbol.</strong> <strong>104 records</strong> (0.04 %) arrived with no country metadata despite a country code being literally present in their symbol (<code>CEDAW/C/<strong>ALB</strong>/CO/4</code>, <code>CRPD/C/<strong>AZE</strong>/CO/1</code>). A single regex + data-derived ISO-alpha-3 lookup rescues <strong>all 104</strong> (mostly Azerbaijan CRPD-2014 + Albania CEDAW-2016 batches); a handful of thematic SR reports remain legitimately country-agnostic. Appends-only, tagged <code>source: inferred:symbol</code> in <code>record_country</code>.</li>
       </ul>
 
       <h2>Does the cleaning change your results?</h2>
@@ -8638,7 +8638,7 @@ function renderPalette(q) {
     { kind:'VIEW', label:'Mechanism profile', sub:`drill into ${state.focusMechanism||'a recommending body'}`, score: 95.3, action:()=>{closePalette();navigate('mechanism');} },
     { kind:'VIEW', label:'Methodology', sub:'about the dataset', score: 95, action:()=>{closePalette();navigate('methodology');} },
     { kind:'VIEW', label:'Bookmarks', sub:`${bmLoad().length} saved records`, score: 94, action:()=>{closePalette();navigate('bookmarks');} },
-    { kind:'VIEW', label:'Labels workspace', sub:'train your own classifier', score: 93, action:()=>{closePalette();navigate('labels');} },
+    { kind:'VIEW', label:'Labels workspace', sub:'boolean rule builder (β)', score: 93, action:()=>{closePalette();navigate('labels');} },
   ];
 
   // ACTIONS — appearance & layout commands surfaced in palette
@@ -8854,7 +8854,7 @@ const TOUR_STEPS = [
   { target: '#tabs',          title: 'Eleven workspaces',     text: 'Overview · Country / Group / Theme / SDG / Mechanism profiles · Compare two countries · Search · Bookmarks · Labels · Methodology. Shift-click a country / body / theme in the rail to jump straight to its profile.' },
   { target: '#drawer',        title: 'Drawer follows you',    text: 'Click any record in a list, map cell or search result — it opens here. Use <kbd>j</kbd> / <kbd>k</kbd> to flip between results, <kbd>b</kbd> to bookmark.' },
   { target: '#offlineBtn',    title: '⚡ Instant Mode',       text: 'Load the full dataset (~420 MB) into your browser once — filters drop from ~10 s to ~50 ms, works offline, fully private.' },
-  { target: '[data-nav="labels"]', title: 'Train your own classifier', text: 'Define categories, tag a dozen examples, hit Train — the dashboard predicts labels across the full dataset and exports them as CSV / XLSX. Shortcuts <kbd>1</kbd>-<kbd>9</kbd> to tag, <kbd>n</kbd>/<kbd>p</kbd> to navigate.' },
+  { target: '[data-nav="labels"]', title: 'Build your own labels', text: 'Define each label as a boolean FTS5 query — <em>MUST / AND / NOT</em> term lists. Tag 10–20 examples, hit <strong>⚡ Suggest terms</strong>, and the dashboard proposes candidate terms from your tags. Queries are deterministic, explainable, and exportable as CSV × rules matrices.' },
 ];
 
 function startTour() {
