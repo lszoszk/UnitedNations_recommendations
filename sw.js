@@ -1,15 +1,22 @@
 /* UHRI v2 Service Worker
- * - Cache-first for app shell (dashboard2.html, manifest, icons, fonts)
+ * - Cache-first for app shell (dashboard.html, manifest, icons, fonts)
  * - Stale-while-revalidate for /api/data/facets, /api/data/map, /api/data/analytics,
  *   /api/data/records (Tier 4a — filter-change instant on repeat visits)
  * - Network-only for /api/feedback/report, /api/data/full
  */
-const SHELL_CACHE  = 'uhri-v2-shell-v24';  // bump to invalidate stale caches on ship
+const SHELL_CACHE  = 'uhri-v2-shell-v25';  // bump to invalidate stale caches on ship
 const DATA_CACHE   = 'uhri-v2-data-v6';    // moot under cross-origin pass-through
 const FONT_CACHE   = 'uhri-v2-font-v2';
 
+/* Path rename 2026-04-21: dashboard2.html → dashboard.html, index2.html →
+   index.html. Old SW had dashboard2.html in SHELL_ASSETS which 404s after
+   the rename — addAll() rejects the whole install, old SW stays active,
+   and its stale fetch handler served cached cross-origin data instead of
+   network. Bumping SHELL_CACHE + fixing the list forces reinstall with
+   the corrected paths. */
 const SHELL_ASSETS = [
-  './dashboard2.html',
+  './dashboard.html',
+  './index.html',
   './manifest.webmanifest',
   './icon-192.svg',
   './icon-512.svg',

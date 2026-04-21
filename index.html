@@ -1200,15 +1200,20 @@
   async function loadLive() {
     const ac = new AbortController();
     const timeout = setTimeout(() => ac.abort(), LIVE_TIMEOUT_MS);
+    const t0 = performance.now();
     try {
-      const opts = { signal: ac.signal };
+      const opts = { signal: ac.signal, cache: 'no-store' };
+      /* cache: 'no-store' avoids an old SW returning a stale shell that
+         contained fabricated counts. It's free here — the four fetches
+         are tiny JSON blobs, nginx gzips them to ~20 KB total. */
       const [facets, analytics, mapPayload, recs] = await Promise.all([
-        fetch(API_BASE + '/api/data/facets', opts).then(r => r.json()),
-        fetch(API_BASE + '/api/data/analytics', opts).then(r => r.json()),
-        fetch(API_BASE + '/api/data/map', opts).then(r => r.json()),
-        fetch(API_BASE + '/api/data/records?sort_by=publication_date&sort_dir=desc&page_size=120&annotation_type=Recommendations&text_query=recommend', opts).then(r => r.json()),
+        fetch(API_BASE + '/api/data/facets', opts).then(r => r.ok ? r.json() : Promise.reject(new Error('facets: HTTP ' + r.status))),
+        fetch(API_BASE + '/api/data/analytics', opts).then(r => r.ok ? r.json() : Promise.reject(new Error('analytics: HTTP ' + r.status))),
+        fetch(API_BASE + '/api/data/map', opts).then(r => r.ok ? r.json() : Promise.reject(new Error('map: HTTP ' + r.status))),
+        fetch(API_BASE + '/api/data/records?sort_by=publication_date&sort_dir=desc&page_size=120&annotation_type=Recommendations&text_query=recommend', opts).then(r => r.ok ? r.json() : Promise.reject(new Error('records: HTTP ' + r.status))),
       ]);
       clearTimeout(timeout);
+      console.info('[landing] live data loaded in', (performance.now() - t0).toFixed(0), 'ms · total:', facets.total_records);
 
       /* KPIs — overwrite the [data-counter] attrs BEFORE the counter
          observer fires. 267,537 real vs 267,548 fake is a 11-record
@@ -1290,8 +1295,22 @@
       return { isLive: true, facets, analytics, map: mapPayload, recs };
     } catch (e) {
       clearTimeout(timeout);
-      console.warn('[landing] live data unavailable, using fallback:', e && e.message || e);
-      return { isLive: false };
+      const msg = (e && e.message) || String(e);
+      console.warn('[landing] live data unavailable after', (performance.now() - t0).toFixed(0), 'ms — using fallback. Cause:', msg);
+      /* Visible diagnostic chip — makes silent failures obvious. Anchors
+         in the topbar so researchers / NGOs aren't misled by fallback
+         numbers that have drifted from reality. */
+      try {
+        const t = document.querySelector('.topbar .left');
+        if (t) {
+          const chip = document.createElement('span');
+          chip.style.cssText = 'background:#c2410c;color:#fff;padding:2px 6px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-left:8px';
+          chip.title = 'Live API unreachable (' + msg + ') — numbers shown are the last-known fallback snapshot, not current counts.';
+          chip.textContent = '⚠ fallback';
+          t.appendChild(chip);
+        }
+      } catch {}
+      return { isLive: false, error: msg };
     }
   }
 
@@ -2193,11 +2212,35 @@
     });
   }
 
+  /* Wire the landing search NOW (sync), not inside _liveReady.then().
+     Guarantees listeners are attached even if the IIFE throws later or
+     the fetch-then callback never fires. When live data arrives the
+     index gets populated; until then Enter still routes to dashboard
+     full-text search via the `#q=…&view=search` fallback. */
+  _wireLandingSearch();
+
+  /* Seed the search index from the hardcoded fallback arrays so autocomplete
+     shows SOMETHING (top 20 countries + top 8 themes) even if loadLive is
+     still in flight or failed. Replaced wholesale once live data arrives. */
+  _searchIndex = [
+    ...COUNTRIES.map(([iso, name, count]) => ({
+      type: 'country',
+      label: name,
+      key: name.toLowerCase(),
+      count,
+      route: `./dashboard.html#fc=${iso}&view=country`,
+    })),
+    ...THEMES.map(([name, count]) => ({
+      type: 'theme',
+      label: name,
+      key: name.toLowerCase(),
+      count,
+      route: `./dashboard.html#theme=${encodeURIComponent(name)}&view=overview`,
+    })),
+  ];
+
   _liveReady.then(payload => {
     const { isLive, facets, analytics, map } = payload || {};
-    // Wire search regardless — works even offline (empty index → Enter
-    // falls back to `#q=...&view=search`).
-    _wireLandingSearch();
     if (!isLive) return;
     // Build autocomplete index from the facets we just fetched
     _searchIndex = _buildSearchIndex(facets, analytics, map);
