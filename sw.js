@@ -104,7 +104,7 @@ async function cacheFirst(req, cacheName) {
   } catch (err) {
     // Graceful offline shell: return a minimal HTML if the dashboard is requested
     if (req.mode === 'navigate') {
-      const shell = await cache.match('./dashboard2.html');
+      const shell = await cache.match('./dashboard.html');
       if (shell) return shell;
     }
     throw err;

@@ -1906,7 +1906,7 @@ function cleanCountryName(s) {
 function emptyFilters() {
   return {
     kw: '', country: new Set(), body: new Set(), theme: new Set(), group: new Set(),
-    region: new Set(), sdg: new Set(), type: new Set(), yearA: null, yearB: null,
+    region: new Set(), sdg: new Set(), sdgExact: new Set(), type: new Set(), yearA: null, yearB: null,
     themesMatch: 'any', groupsMatch: 'any',
     // Preserve the user's current dataset choice across "clear all" /
     // saved-view loads — raw mode should not silently revert to cleaned
@@ -1931,10 +1931,12 @@ function _scopedFilter(override = {}) {
     group:   new Set(f.group),
     region:  new Set(f.region),
     sdg:     new Set(f.sdg),
+    sdgExact:new Set(f.sdgExact || []),
     type:    new Set(f.type),
     yearA: f.yearA, yearB: f.yearB,
     themesMatch: f.themesMatch || 'any',
     groupsMatch: f.groupsMatch || 'any',
+    dataset: f.dataset || 'cleaned',
   };
   for (const k of Object.keys(override)) out[k] = override[k];
   return out;
@@ -1964,7 +1966,7 @@ function _renderRailNoteInto(hostEl, excludeKey) {
     if (excludeKey !== 'theme') f.theme = new Set();
     if (excludeKey !== 'group') f.group = new Set();
     f.region = new Set();
-    if (excludeKey !== 'sdg') f.sdg = new Set();
+    if (excludeKey !== 'sdg') { f.sdg = new Set(); f.sdgExact = new Set(); }
     f.type = new Set();
     const minY = state.facets?.min_year, maxY = state.facets?.max_year;
     if (minY) f.yearA = minY; if (maxY) f.yearB = maxY;
@@ -2002,9 +2004,11 @@ function _swrCanonicalFilter(f) {
     group:   [...(f.group||[])].sort(),
     region:  [...(f.region||[])].sort(),
     sdg:     [...(f.sdg||[])].map(String).sort(),
+    sdgExact:[...(f.sdgExact||[])].map(String).sort(),
     type:    [...(f.type||[])].sort(),
     yA: f.yearA ?? null, yB: f.yearB ?? null,
     tm: f.themesMatch || 'any', gm: f.groupsMatch || 'any',
+    ds: f.dataset || 'cleaned',
   };
 }
 function _swrKey(scope, filter) {
@@ -2067,6 +2071,10 @@ function _activeRailDescription(excludeKey) {
   if (excludeKey !== 'group' && f.group.size) parts.push(Array.from(f.group).slice(0,2).join(', ') + (f.group.size>2?` +${f.group.size-2}`:''));
   if (f.region.size) parts.push(Array.from(f.region).join(', '));
   if (excludeKey !== 'sdg' && f.sdg.size) parts.push('SDG ' + Array.from(f.sdg).join(', SDG '));
+  if (excludeKey !== 'sdg' && _sdgExactValues(f).length) {
+    const exact = _sdgExactValues(f);
+    parts.push(exact.slice(0, 2).map(formatSdgLabel).join(', ') + (exact.length > 2 ? ` +${exact.length - 2}` : ''));
+  }
   if (f.type.size) parts.push(Array.from(f.type).join(', '));
   const minY = state.facets?.min_year, maxY = state.facets?.max_year;
   if ((minY && f.yearA > minY) || (maxY && f.yearB < maxY)) parts.push(`${f.yearA}–${f.yearB}`);
@@ -2161,6 +2169,7 @@ const state = {
     group: new Set(),
     region: new Set(),
     sdg: new Set(),
+    sdgExact: new Set(),
     type: new Set(),
     yearA: null, yearB: null,
     themesMatch: 'any',
@@ -2205,7 +2214,8 @@ function buildParams(f) {
   if (f.theme   && f.theme.size)   p.set('themes',    Array.from(f.theme).join('|'));
   if (f.group   && f.group.size)   p.set('affected_persons', Array.from(f.group).join('|'));
   if (f.region  && f.region.size)  p.set('regions',   Array.from(f.region).join(','));
-  if (f.sdg     && f.sdg.size)     p.set('sdgs',      Array.from(f.sdg).map(n=>`SDG ${n}`).join('|'));
+  const sdgValues = _sdgParamValues(f);
+  if (sdgValues.length) p.set('sdgs', sdgValues.join('|'));
   if (f.type    && f.type.size)    p.set('annotation_type', Array.from(f.type).join(','));
   if (f.yearA)  p.set('year_start', f.yearA);
   if (f.yearB)  p.set('year_end',   f.yearB);
@@ -2464,9 +2474,8 @@ const offline = {
         if (!ap.some(g => f.group.has(g))) return false;
       }
     }
-    if (f.sdg?.size) {
-      const sdgs = (r.Sdgs || []).map(s => { const m = String(s).match(/(\d+)/); return m ? +m[1] : null; }).filter(Boolean);
-      if (!sdgs.some(n => f.sdg.has(n))) return false;
+    if (_hasSdgFilters(f) && !_recordMatchesSdgFilters(r.Sdgs || [], f)) {
+      return false;
     }
     if (f.yearA || f.yearB) {
       const y = Number((r.PublicationDate || '').slice(0,4));
@@ -3261,7 +3270,7 @@ function buildRail(facets, analytics) {
   }).join('');
   sdgEl.querySelectorAll('.sdg-cell').forEach(c => c.addEventListener('click', () => {
     const k = Number(c.dataset.k);
-    if (state.filters.sdg.has(k)) state.filters.sdg.delete(k); else state.filters.sdg.add(k);
+    _sdgToggleFilter(k);
     c.classList.toggle('on');
     onFiltersChanged();
   }));
@@ -3783,6 +3792,7 @@ function renderActiveFilters() {
   for (const g of f.group)   push('group',   'Group',   g, () => f.group.delete(g));
   for (const r of f.region)  push('region',  'Region',  r, () => f.region.delete(r));
   for (const s of f.sdg)     push('sdg',     'SDG',     'SDG ' + s, () => f.sdg.delete(s));
+  for (const s of _sdgExactValues(f)) push('sdg', 'SDG', formatSdgLabel(s), () => f.sdgExact.delete(s));
   for (const t of f.type)    push('type',    'Type',    t, () => f.type.delete(t));
 
   const minY = state.facets?.min_year;
@@ -3987,12 +3997,18 @@ function _openRowActionSheet(row, opts) {
       if (act === 'read') {
         openListDrawer(facet, key, opts.extraFilter || null);
       } else if (act === 'filter') {
-        const val = facet === 'sdg' ? _sdgToFilterValue(key) : key;
-        const s = state.filters[facet];
-        if (val != null && s) {
-          if (s.has(val)) s.delete(val); else s.add(val);
-          refreshFacetUI(facet);
-          onFiltersChanged();
+        if (facet === 'sdg') {
+          if (_sdgToggleFilter(key)) {
+            refreshFacetUI(facet);
+            onFiltersChanged();
+          }
+        } else {
+          const s = state.filters[facet];
+          if (key != null && s) {
+            if (s.has(key)) s.delete(key); else s.add(key);
+            refreshFacetUI(facet);
+            onFiltersChanged();
+          }
         }
       } else if (act === 'profile') {
         if (facet === 'country') { state.focusCountry = NAME_TO_ISO[key] || key; $('#tabCountry').textContent = key; navigate('country'); }
@@ -4061,10 +4077,13 @@ function renderRowList(el, rows, opts = {}) {
           return;
         }
         if (e.shiftKey) {
-          const val = opts.facet === 'sdg' ? _sdgToFilterValue(k) : k;
-          const s = state.filters[opts.facet];
-          if (val != null) {
-            if (s.has(val)) s.delete(val); else s.add(val);
+          if (opts.facet === 'sdg') {
+            _sdgToggleFilter(k);
+          } else {
+            const s = state.filters[opts.facet];
+            if (k != null) {
+              if (s.has(k)) s.delete(k); else s.add(k);
+            }
           }
           refreshFacetUI(opts.facet);
           onFiltersChanged();
@@ -6257,8 +6276,8 @@ async function renderSDG() {
     const d = await spProfile.fresh;
     paint(d.analytics, d.mapD, d.records, { stale: false });
     $('#spSeeAll')?.addEventListener('click', () => {
-      const m = String(sdg).match(/(\d+)/);
-      if (m) { state.filters.sdg.add(Number(m[1])); refreshFacetUI('sdg'); }
+      _replaceSdgFilters(sdg);
+      refreshFacetUI('sdg');
       navigate('search');
       onFiltersChanged();
     });
@@ -6335,10 +6354,11 @@ async function renderMechanism() {
       const filter = _scopedFilter({ body: new Set(bodies) });
       Promise.all([
         api.analytics(filter, { scope: 'analytics:family:'+f.key }),
+        api.map(filter, { scope: 'map:family:'+f.key }),
         api.recordsCount(filter),
-      ]).then(([analytics, count]) => {
+      ]).then(([analytics, mapD, count]) => {
         const k = $(`#mcKpi-${f.key}`); if (k) k.textContent = fmt(count.total_records);
-        renderRowList($(`#mcCountries-${f.key}`), (analytics?.map?.country_counts || analytics?.countries?.country_counts || []).slice(0,5).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country', extraFilter: { body: new Set(bodies) } });
+        renderRowList($(`#mcCountries-${f.key}`), (mapD?.country_counts || []).slice(0,5).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country', extraFilter: { body: new Set(bodies) } });
         renderRowList($(`#mcThemes-${f.key}`),    (analytics?.themes?.theme_counts || []).slice(0,5).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme',   extraFilter: { body: new Set(bodies) } });
         renderRowList($(`#mcGroups-${f.key}`),    (analytics?.text?.affected_person_counts || []).slice(0,5).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', extraFilter: { body: new Set(bodies) } });
       }).catch(err => {
@@ -7112,7 +7132,7 @@ async function loadNextSearchPage() {
         state.searchExhausted = true;
         return;
       }
-      const hasFilters = state.filters.country.size || state.filters.body.size || state.filters.theme.size || state.filters.group.size || state.filters.region.size || state.filters.sdg.size || state.filters.type.size || state.filters.kw.trim() || (state.facets && (state.filters.yearA > state.facets.min_year || state.filters.yearB < state.facets.max_year));
+      const hasFilters = state.filters.country.size || state.filters.body.size || state.filters.theme.size || state.filters.group.size || state.filters.region.size || _hasSdgFilters(state.filters) || state.filters.type.size || state.filters.kw.trim() || (state.facets && (state.filters.yearA > state.facets.min_year || state.filters.yearB < state.facets.max_year));
       $('#seList').innerHTML = `
         <div class="empty-state">
           <div class="es-title">No records match your filters</div>
@@ -7592,9 +7612,8 @@ function labBuildSampleRows(max = 120) {
         const rg = r.Regions || [];
         if (!rg.some(rr => f.region.has(rr))) return false;
       }
-      if (f.sdg.size) {
-        const sd = r.Sdgs || [];
-        if (!sd.some(s => { const m = /SDG\s*(\d+)/i.exec(String(s)); return m && f.sdg.has(Number(m[1])); })) return false;
+      if (_hasSdgFilters(f) && !_recordMatchesSdgFilters(r.Sdgs || [], f)) {
+        return false;
       }
       if (f.type.size && !f.type.has(r.AnnotationType)) return false;
       if (f.yearA || f.yearB) {
@@ -8819,8 +8838,91 @@ function refreshSelectionDrawer() {
    filter expects a numeric goal. Returns null if we can't parse — caller
    should skip the toggle rather than poisoning state.filters.sdg. */
 function _sdgToFilterValue(label) {
-  const m = String(label || '').match(/^\s*(\d{1,2})/);
+  const m = String(label || '').match(/^\s*(?:SDG\s*)?(\d{1,2})/i);
   return m ? Number(m[1]) : null;
+}
+
+function _sdgTargetKey(label) {
+  const m = String(label || '').match(/^\s*(?:SDG\s*)?(\d{1,2}(?:\.\d+)+)/i);
+  return m ? m[1] : '';
+}
+
+function _sdgCanonicalExactValue(rawValue) {
+  const raw = String(rawValue || '').trim();
+  const target = _sdgTargetKey(raw);
+  return target ? `SDG ${target}` : raw;
+}
+
+function _sdgExactValues(f = state.filters) {
+  return [...new Set([...(f?.sdgExact || [])].map(_sdgCanonicalExactValue).filter(Boolean))];
+}
+
+function _sdgParamValues(f = state.filters) {
+  return [
+    [...(f?.sdg || [])].map(n => `SDG ${n}`),
+    _sdgExactValues(f),
+  ].flat();
+}
+
+function _hasSdgFilters(f = state.filters) {
+  return !!((f?.sdg && f.sdg.size) || _sdgExactValues(f).length);
+}
+
+function _sdgMatchesExactFilter(selected, candidate) {
+  const candidateNorm = String(candidate || '').trim().toLowerCase();
+  const candidateTarget = _sdgTargetKey(candidate);
+  return selected.some(value => {
+    const norm = String(value || '').trim().toLowerCase();
+    if (norm && norm === candidateNorm) return true;
+    const target = _sdgTargetKey(value);
+    return !!(target && candidateTarget && target === candidateTarget);
+  });
+}
+
+function _recordMatchesSdgFilters(recordSdgs, f = state.filters) {
+  const values = (recordSdgs || []).map(v => String(v || '').trim()).filter(Boolean);
+  if (!_hasSdgFilters(f)) return true;
+  if (f?.sdg?.size) {
+    const numeric = values.map(_sdgToFilterValue).filter(v => v != null);
+    if (numeric.some(n => f.sdg.has(n))) return true;
+  }
+  const exact = _sdgExactValues(f);
+  if (exact.length && values.some(v => _sdgMatchesExactFilter(exact, v))) return true;
+  return false;
+}
+
+function _sdgToggleFilter(rawValue) {
+  const raw = String(rawValue || '').trim();
+  if (!raw) return false;
+  const target = _sdgTargetKey(raw);
+  if (target) {
+    const canonical = _sdgCanonicalExactValue(raw);
+    const exact = new Set(_sdgExactValues());
+    if (exact.has(canonical)) exact.delete(canonical); else exact.add(canonical);
+    state.filters.sdgExact = exact;
+    return true;
+  }
+  const n = _sdgToFilterValue(raw);
+  if (n == null) return false;
+  if (state.filters.sdg.has(n)) state.filters.sdg.delete(n); else state.filters.sdg.add(n);
+  return true;
+}
+
+function _sdgOverrideForValue(rawValue) {
+  const raw = String(rawValue || '').trim();
+  const target = _sdgTargetKey(raw);
+  if (target) {
+    const canonical = _sdgCanonicalExactValue(raw);
+    return { sdg: new Set(), sdgExact: canonical ? new Set([canonical]) : new Set() };
+  }
+  const n = _sdgToFilterValue(raw);
+  return { sdg: n == null ? new Set() : new Set([n]), sdgExact: new Set() };
+}
+
+function _replaceSdgFilters(rawValue) {
+  const next = _sdgOverrideForValue(rawValue);
+  state.filters.sdg = next.sdg;
+  state.filters.sdgExact = next.sdgExact;
 }
 
 function listDrawerFilter() {
@@ -8840,10 +8942,7 @@ function listDrawerFilter() {
     // matches exactly the count badge the user clicked on.
   }
   else if (kind === 'sdg') {
-    // Pass the raw label through rawParams on the SDG profile; for drawer
-    // list we rely on buildParams converting Set<number> via 'SDG N'.
-    const n = _sdgToFilterValue(value);
-    if (n != null) override.sdg = new Set([n]);
+    Object.assign(override, _sdgOverrideForValue(value));
   }
   if (extraOverride && typeof extraOverride === 'object') {
     Object.assign(override, extraOverride);
@@ -9036,8 +9135,7 @@ function renderDrawerListMode() {
     else if (kind === 'country') { state.filters.country.add(value); refreshFacetUI('country'); state.hexRegion = 'world'; }
     else if (kind === 'body')    { state.filters.body.add(value);    refreshFacetUI('body'); }
     else if (kind === 'sdg') {
-      const n = _sdgToFilterValue(value);
-      if (n != null) { state.filters.sdg.add(n); refreshFacetUI('sdg'); }
+      if (_sdgToggleFilter(value)) refreshFacetUI('sdg');
     }
     onFiltersChanged();
     toast(`Added "${value}" to filter`, false, 2500);
@@ -9562,6 +9660,7 @@ function _pushUrlState() {
   if (f.group.size) p.set('group', Array.from(f.group).join('|'));
   if (f.region.size) p.set('region', Array.from(f.region).join(','));
   if (f.sdg.size) p.set('sdg', Array.from(f.sdg).join(','));
+  if (_sdgExactValues(f).length) p.set('sdgx', _sdgExactValues(f).sort().join('|'));
   if (f.type.size) p.set('type', Array.from(f.type).join(','));
   if (f.yearA && state.facets && f.yearA !== state.facets.min_year) p.set('y1', f.yearA);
   if (f.yearB && state.facets && f.yearB !== state.facets.max_year) p.set('y2', f.yearB);
@@ -9654,7 +9753,8 @@ function _restoreUrlState(hash = location.hash.slice(1)) {
   if (p.get('theme')) p.get('theme').split('|').forEach(v => f.theme.add(v));
   if (p.get('group')) p.get('group').split('|').forEach(v => f.group.add(v));
   if (p.get('region')) p.get('region').split(',').forEach(v => f.region.add(v));
-  if (p.get('sdg')) p.get('sdg').split(',').forEach(v => f.sdg.add(Number(v)));
+  if (p.get('sdg')) p.get('sdg').split(',').forEach(v => { const n = Number(v); if (!Number.isNaN(n)) f.sdg.add(n); });
+  if (p.get('sdgx')) p.get('sdgx').split('|').forEach(v => { const raw = _sdgCanonicalExactValue(v); if (raw) f.sdgExact.add(raw); });
   if (p.get('type')) p.get('type').split(',').forEach(v => f.type.add(v));
   if (p.get('y1')) f.yearA = Number(p.get('y1'));
   if (p.get('y2')) f.yearB = Number(p.get('y2'));
@@ -9842,6 +9942,7 @@ function describeCurrentState() {
   if (f.group.size) bits.push(`${f.group.size} groups`);
   if (f.region.size) bits.push(`${f.region.size} regions`);
   if (f.sdg.size) bits.push(`${f.sdg.size} SDGs`);
+  if (_sdgExactValues(f).length) bits.push(_sdgExactValues(f).length === 1 ? formatSdgLabel(_sdgExactValues(f)[0]) : `${_sdgExactValues(f).length} SDG targets`);
   if (state.facets && (f.yearA > state.facets.min_year || f.yearB < state.facets.max_year))
     bits.push(`${f.yearA}–${f.yearB}`);
   if (state.view && state.view !== 'overview') bits.push(state.view);
@@ -10366,7 +10467,7 @@ function preloadEntityOnHover(kind, value) {
   else if (kind === 'sdg') {
     // SDG rows pass the full label ("16.3 - Promote…"). Feed it straight
     // to the API via raw params to match the SDG profile's request shape.
-    const f = _scopedFilter({ sdg: new Set() });
+    const f = _scopedFilter({ sdg: new Set(), sdgExact: new Set() });
     const p = buildParams(f);
     p.set('sdgs', value);
     apiGet(E.analytics, p, { scope: 'preload-analytics:sdg-' + value }).catch(()=>{});
@@ -10708,13 +10809,12 @@ function renderBookmarks() {
 }
 
 /* =========================================================================
-   RECORD DEEP-LINK (#18) — ?sel=<id> opens a record in the reader modal
+   RECORD DEEP-LINK (#18) — ?sel=<id> or #sel=<id> opens a record directly
    =========================================================================
-   Supports three data-source paths:
+   Supports two data-source paths:
    1. Offline mode — find locally in offline.data (instant)
    2. VM mode — fetch from /api/data/record/{id} (single-record endpoint)
-   3. Fallback — if the new endpoint is absent (older VM), try /records
-      with text_query scan; if that also fails, show a toast and ignore. */
+   Older backends without that endpoint fail gracefully with a toast. */
 async function fetchRecordById(id) {
   if (!id) return null;
   if (offline.enabled && offline.data) {
@@ -10726,13 +10826,14 @@ async function fetchRecordById(id) {
       const d = await res.json();
       return d.record || null;
     }
-  } catch (e) { /* try fallback */ }
+  } catch (e) { /* ignore */ }
   return null;
 }
 
 async function handleSelParam() {
-  const p = new URLSearchParams(location.hash.slice(1));
-  const id = p.get('sel');
+  const searchParams = new URLSearchParams(location.search);
+  const hashParams = new URLSearchParams(location.hash.slice(1));
+  const id = searchParams.get('sel') || hashParams.get('sel');
   if (!id) return;
   const rec = await fetchRecordById(id);
   if (!rec) {
@@ -10850,6 +10951,7 @@ function startTour() {
     try { localStorage.setItem('uhri_v2_tour_done', '1'); } catch {}
     backdrop.remove(); spot.remove(); pop.remove();
     document.removeEventListener('keydown', keyHandler);
+    window.removeEventListener('resize', render);
   }
   function keyHandler(e) {
     if (e.key === 'Escape') finish();
@@ -11527,7 +11629,7 @@ async function boot() {
 
   state.bootstrapDone = true;
 
-  // Deep-link: if URL has ?sel=<id>, fetch that record + open reader
+  // Deep-link: if URL has ?sel=<id> or legacy #sel=<id>, open that record
   handleSelParam();
 
   // First-visit onboarding tour (dismissible, shown once)
