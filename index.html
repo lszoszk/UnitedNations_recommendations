@@ -1372,6 +1372,8 @@
     ["Migrants & refugees",               9004],
     ["LGBTI+ persons",                    6520],
     ["Indigenous peoples",                5140],
+    ["Older persons",                     3600],
+    ["Human rights defenders",            3200],
   ];
 
   let COUNTRIES = [
@@ -1489,16 +1491,18 @@
       patchCounter('[data-counter="199"]',    (facets.countries || []).length);
       patchCounter('[data-counter="75"]',     (facets.bodies || []).length);
 
-      /* THEMES — top 8 by count, same shape as hardcoded [[name, count]] */
+      /* THEMES — top 10 by count, same shape as hardcoded [[name, count]].
+         renderBars still slices to BARS_MAX (=10) on display, so we
+         keep the loadLive cap in sync. */
       const themeCounts = analytics?.themes?.theme_counts || [];
       if (themeCounts.length) {
-        THEMES = themeCounts.slice(0, 8).map(t => [t.theme, t.count]);
+        THEMES = themeCounts.slice(0, 10).map(t => [t.theme, t.count]);
       }
 
       /* GROUPS — concerned groups (affected_persons) from text analytics */
       const apCounts = analytics?.text?.affected_person_counts || [];
       if (apCounts.length) {
-        GROUPS = apCounts.slice(0, 8).map(g => [g.affected_person, g.count]);
+        GROUPS = apCounts.slice(0, 10).map(g => [g.affected_person, g.count]);
       }
 
       /* COUNTRIES — top 20 from /api/data/map (keyed for hex coloring) */
@@ -2037,11 +2041,18 @@
   renderTicker();
 
   /* ---------- theme / group lists ---------- */
+  /* Display cap on the FIG 02 bar lists. The fallback THEMES array
+     has 20 entries (for search autocomplete) but we only want the
+     top-N on the landing — otherwise a failing loadLive reveals all
+     20 to the user. Slice explicitly here so both the initial render
+     and the applyLiveData re-render are capped. */
+  const BARS_MAX = 10;
   function renderBars(listEl, data, maxLabel = true) {
     if (!data || !data.length) return;
     /* Idempotent: clear previous data rows (keep the <h3> header) so
        applyLiveData() can call us again without duplicating rows. */
     listEl.querySelectorAll('.row').forEach(r => r.remove());
+    data = data.slice(0, BARS_MAX);
     const top = data[0][1];
     const html = data.map(([name, val], i) => {
       const pct = (val / top) * 100;
