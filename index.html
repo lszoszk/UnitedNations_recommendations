@@ -487,47 +487,8 @@
     display: flex; justify-content: space-between;
   }
 
-  /* -------- timeline -------- */
-  .timeline {
-    position: relative;
-    height: 260px;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-  }
-  .timeline svg { display: block; width: 100%; height: 100%; }
-  .timeline .yr-axis {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 8px;
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--dim);
-    letter-spacing: .06em;
-  }
-  .timeline-callouts {
-    display: grid;
-    grid-template-columns: repeat(3,1fr);
-    gap: 24px;
-    margin-top: 24px;
-  }
-  .callout {
-    border-left: 2px solid var(--accent);
-    padding: 6px 14px;
-  }
-  .callout .yr {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: .12em;
-    color: var(--accent);
-    text-transform: uppercase;
-  }
-  .callout .txt {
-    font-family: var(--serif);
-    font-size: 18px;
-    line-height: 1.3;
-    margin-top: 4px;
-    text-wrap: balance;
-  }
+  /* Timeline CSS (.timeline, .yr-axis, .timeline-callouts, .callout)
+     removed 2026-04-21 along with the WHEN section. */
 
   /* -------- dot-field click modal (a real record from the clicked year) -------- */
   .dot-modal {
@@ -603,7 +564,23 @@
   .dm-btn.ghost { background: transparent; color: var(--ink); }
   .dm-btn.ghost:hover { background: var(--paper-2); }
 
-  /* -------- HOW / methodology excerpt (Fig 05) -------- */
+  /* -------- HOW / methodology excerpt (Fig 04) -------- */
+  .how-why {
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink);
+    max-width: 68ch;
+    margin: 0 0 28px;
+    text-wrap: balance;
+  }
+  .how-why em { color: var(--accent); font-style: italic; }
+  .how-why code {
+    font-family: var(--mono);
+    font-size: 15px;
+    background: var(--paper-2);
+    padding: 1px 6px;
+  }
   .how-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -644,6 +621,81 @@
     padding: 1px 5px;
     font-size: 11px;
   }
+  .how-card .how-w {
+    font-family: var(--serif);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--dim);
+    margin: 6px 0 0;
+    padding-top: 10px;
+    border-top: 1px dotted var(--line);
+    font-style: italic;
+  }
+  .how-card .how-w strong {
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 10px;
+    letter-spacing: .14em;
+    color: var(--ink);
+    text-transform: uppercase;
+  }
+
+  /* Three-source panel — Cleaned / Raw / Upload */
+  .how-sources {
+    margin-top: 40px;
+    padding-top: 32px;
+    border-top: 1px solid var(--line);
+  }
+  .how-sources h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin: 0 0 20px;
+    font-weight: 500;
+  }
+  .how-sources-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .how-src {
+    background: var(--paper);
+    padding: 22px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .how-src-lbl {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .14em;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .how-src-t {
+    font-family: var(--serif);
+    font-size: 20px;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  .how-src-d {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  .how-src-d a { color: var(--accent); }
+  .how-src-d code {
+    background: var(--paper-2);
+    padding: 1px 5px;
+    font-size: 11px;
+  }
+
   .how-lede {
     margin-top: 28px;
     font-family: var(--serif);
@@ -954,12 +1006,14 @@
     .section-head { grid-template-columns: 1fr; }
     .section-head .ctx { text-align: left; }
     .bar-grid { grid-template-columns: 1fr; gap: 32px; }
-    .timeline-callouts { grid-template-columns: 1fr; }
     .how-grid { grid-template-columns: repeat(2, 1fr); }
+    .how-sources-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 540px) {
     .how-grid { grid-template-columns: 1fr; }
+    .how-sources-grid { grid-template-columns: 1fr; }
     .how-lede { font-size: 15px; }
+    .how-why { font-size: 16px; }
   }
 </style>
 </head>
@@ -978,7 +1032,7 @@
     <button class="nav-item active" data-to="#hero">      <span class="n">01</span><span class="lbl">Hero</span></button>
     <button class="nav-item"        data-to="#themes">    <span class="n">02</span><span class="lbl">What</span></button>
     <button class="nav-item"        data-to="#countries"> <span class="n">03</span><span class="lbl">Where</span></button>
-    <button class="nav-item"        data-to="#timeline">  <span class="n">04</span><span class="lbl">When</span></button>
+    <button class="nav-item"        data-to="#how">       <span class="n">04</span><span class="lbl">How</span></button>
     <button class="nav-item"        data-to="#dashboard"> <span class="n">05</span><span class="lbl">Open</span></button>
   </nav>
   <div class="right">
@@ -1031,27 +1085,31 @@
         <a class="btn" href="./dashboard.html">
           Open the dashboard <span class="arrow">→</span>
         </a>
-        <a class="btn ghost" id="ruleOfLawCta" href="./dashboard.html#theme=Rule+of+law+%26+impunity&view=overview">
-          <span>▶</span> <span id="ruleOfLawCtaLabel">Rule-of-law demo (11,834 records)</span>
+        <a class="btn ghost" href="./dashboard.html#view=methodology">
+          <span>☰</span> Methodology
         </a>
       </div>
 
       <!-- Landing search: autocomplete-on-type over countries / themes /
            mechanisms. Picks route the user straight to the right profile
-           tab on the dashboard. Plain-text queries become FTS5 boolean
-           keywords. Backed by /api/data/facets (fetched during
-           loadLive() so this shares the same request). -->
-      <div class="landing-search" role="search">
+           tab on the dashboard. Wrapped in a <form> so Enter-without-JS
+           still works — browser default form submission redirects to the
+           dashboard's Search tab via location.hash. The enhanced JS
+           handler (autocomplete + arrow-key navigation) preventDefault's
+           on interactive picks. -->
+      <form class="landing-search" role="search" id="landingSearchForm"
+            action="./dashboard.html" method="get"
+            onsubmit="event.preventDefault(); var q=this.q.value.trim(); if(q) location.href='./dashboard.html#q='+encodeURIComponent(q)+'&view=search'; return false;">
         <div class="ls-box">
           <span class="ls-ico" aria-hidden="true">⌕</span>
-          <input id="landingSearch" type="search" autocomplete="off"
+          <input id="landingSearch" name="q" type="search" autocomplete="off"
                  placeholder="Jump to country, theme, mechanism — or search 267K recommendations…"
                  aria-label="Search the dataset or jump to a profile"
                  aria-controls="landingSearchDropdown" aria-expanded="false" />
           <kbd class="ls-kbd">↵</kbd>
         </div>
         <div class="ls-dropdown" id="landingSearchDropdown" role="listbox" hidden></div>
-      </div>
+      </form>
     </div>
 
     <div>
@@ -1132,79 +1190,94 @@
   </div>
 </section>
 
-<!-- FIG 04: timeline -->
-<section class="band" id="timeline">
-  <div class="wrap">
-    <div class="section-head">
-      <div class="no">FIG 04 / WHEN</div>
-      <div class="t">Two decades of review cycles, visible as a single line.</div>
-      <div class="ctx">Annual volume · 2006 — 2026</div>
-    </div>
+<!-- FIG 04 / WHEN section removed 2026-04-21 — replaced by the
+     expanded methodology section (FIG 04 / HOW) below. The annual-volume
+     chart was adding surface area without insight; the cleaning story
+     is the part researchers actually need before trusting the data. -->
 
-    <div class="timeline">
-      <svg id="tlSvg" viewBox="0 0 1000 260" preserveAspectRatio="none"></svg>
-    </div>
-    <div class="yr-axis" id="yrAxis"></div>
-
-    <!-- Callouts are populated by renderTimelineCallouts() from the real
-         yearly_counts (peak / trough / latest). Fallback values shown
-         until loadLive() resolves. -->
-    <div class="timeline-callouts" id="timelineCallouts">
-      <div class="callout" data-cl="peak">
-        <div class="yr">Peak · —</div>
-        <div class="txt">—</div>
-      </div>
-      <div class="callout" data-cl="trough">
-        <div class="yr">Trough · —</div>
-        <div class="txt">—</div>
-      </div>
-      <div class="callout" data-cl="latest">
-        <div class="yr">Latest · —</div>
-        <div class="txt">—</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- FIG 05 / HOW — methodology excerpt that builds trust before the CTA.
-     Not in the section-nav (keeps 5 items for mobile). -->
+<!-- FIG 04 / HOW — methodology section. Replaces the earlier timeline
+     band. Builds trust before the open-dashboard CTA by showing (a) what
+     we did to the upstream UHRI export, (b) why each cleaning pass was
+     necessary, and (c) that nothing is locked in — the dashboard can
+     flip back to the raw UHRI at any time, and it also ingests any
+     UHRI export you uploaded. -->
 <section class="band" id="how">
   <div class="wrap">
     <div class="section-head">
-      <div class="no">FIG 05 / HOW</div>
-      <div class="t">99.75% cleaned with <em style="color:var(--accent)">deterministic rules</em>, not a language model.</div>
-      <div class="ctx">6-stage pipeline · audit-tagged</div>
+      <div class="no">FIG 04 / HOW</div>
+      <div class="t">Cleaned with <em style="color:var(--accent)">deterministic rules</em>, not a language model — so every row is defensible in a paper.</div>
+      <div class="ctx">6-stage pipeline · audit-tagged · reversible</div>
     </div>
+
+    <!-- Why paragraph — sets the frame before the step cards -->
+    <p class="how-why">
+      The OHCHR <strong>UHRI export</strong> is a treasure trove, but the raw
+      file carries two decades of accumulated OCR fragments, HTML artefacts,
+      inconsistent type labels, and records that lost their country
+      metadata somewhere along the pipeline. For researchers, activists and
+      journalists who want to <em>cite</em> this data — not just browse it —
+      that noise matters. We built a <strong>six-stage cleaning pipeline</strong>
+      to fix exactly what could be fixed by rule, documented every
+      transformation, and kept the option to switch back to the raw source
+      one click away.
+    </p>
 
     <div class="how-grid">
       <div class="how-card">
-        <div class="how-n">S1</div>
+        <div class="how-n">S1 · WHAT</div>
         <div class="how-t">OCR &amp; HTML cleanup</div>
-        <div class="how-d">~700 lines of Python. No AI. Cleans <strong>99.75%</strong> of records.</div>
+        <div class="how-d"><strong>~700 lines of Python, zero AI.</strong> Strips page-break markers, collapses runs of whitespace, unmangles OCR splits like <code>decla ration</code> → <code>declaration</code>, normalises unicode punctuation. Cleans <strong>99.75%</strong> of records.</div>
+        <div class="how-w"><strong>Why:</strong> readable quotes — paste one into a paper and it doesn't carry <code>&lt;p&gt;</code> tags or mid-word line breaks.</div>
       </div>
+
       <div class="how-card">
-        <div class="how-n">S2</div>
+        <div class="how-n">S2 · WHAT</div>
         <div class="how-t">LLM residue review</div>
-        <div class="how-d"><strong>Only 0.27%</strong> of records — those with hard OCR corruption — run through a bounded Claude prompt with structural validation.</div>
+        <div class="how-d">The remaining <strong>712 records (0.27%)</strong> with hard OCR corruption go through a <strong>bounded Claude prompt</strong> with strict structural validation — same input length / paragraph count / token shape coming out as going in, or the repair is rejected.</div>
+        <div class="how-w"><strong>Why:</strong> language models can rewrite meaning. We only let them touch records where S1 rules couldn't, and we refuse any output that deviates structurally.</div>
       </div>
+
       <div class="how-card">
-        <div class="how-n">S3</div>
+        <div class="how-n">S3 · WHAT</div>
         <div class="how-t">Type normalisation</div>
-        <div class="how-d">Multilingual regex classifier (EN/ES/FR/PT) recovers <strong>79%</strong> of missing / UUID-coded <code>type</code> fields. Every change audit-tagged.</div>
+        <div class="how-d"><strong>3,294 records</strong> arrived with missing or UUID-coded <code>type</code> fields. A multilingual regex classifier (EN/ES/FR/PT verbs + UPR imperatives) correctly re-labels <strong>2,603 of them (79%)</strong>. Every change audit-tagged in <code>AnnotationTypeSource</code>.</div>
+        <div class="how-w"><strong>Why:</strong> the <em>Recommendation / Observation / Other</em> split is the one distinction every analyst uses first. Without it you can't separate formal calls-to-action from procedural notes.</div>
       </div>
+
       <div class="how-card">
-        <div class="how-n">S4</div>
+        <div class="how-n">S4 · WHAT</div>
         <div class="how-t">Country backfill</div>
-        <div class="how-d">108 records arrived country-less despite a code in their UN symbol (<code>CEDAW/C/<strong>ALB</strong>/CO/4</code>). A regex + ISO lookup rescues <strong>107</strong>.</div>
+        <div class="how-d"><strong>108 records</strong> arrived with no country metadata despite a country code being literally present in their UN symbol (<code>CEDAW/C/<strong>ALB</strong>/CO/4</code>). A regex + ISO-3 lookup rescues <strong>107 of them</strong> — coverage climbs 99.96% → 99.9996%.</div>
+        <div class="how-w"><strong>Why:</strong> any country-level analysis silently loses those 107 rows otherwise. Getting them back unlocks full-coverage country profiles.</div>
+      </div>
+    </div>
+
+    <!-- Dataset sources panel — makes the reversibility + upload story
+         explicit so visitors don't think they're locked into our version. -->
+    <div class="how-sources">
+      <h3>Three ways to load the data into the dashboard</h3>
+      <div class="how-sources-grid">
+        <div class="how-src">
+          <div class="how-src-lbl">Default</div>
+          <div class="how-src-t">Cleaned pipeline</div>
+          <div class="how-src-d">What you'd see if you clicked <strong>Open the dashboard</strong> right now — the 6-stage output, refreshed monthly from the latest OHCHR UHRI export.</div>
+        </div>
+        <div class="how-src">
+          <div class="how-src-lbl">Toggle</div>
+          <div class="how-src-t">Raw upstream UHRI</div>
+          <div class="how-src-d">One click in the header (<code>DATA · cleaned ▾</code>) flips every query, chart and export to the <strong>original OHCHR text</strong> — including the 11 Stage-6 artefacts we usually hide. Shareable via <code>?dataset=raw</code>.</div>
+        </div>
+        <div class="how-src">
+          <div class="how-src-lbl">Bring-your-own</div>
+          <div class="how-src-t">Upload any UHRI export</div>
+          <div class="how-src-d">Filtered CSV/XLSX/JSON from <a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a> (or any subset you've already prepared) drops into the same dashboard via the <strong>↑ Upload</strong> button. Analyses run client-side — nothing uploaded leaves your browser.</div>
+        </div>
       </div>
     </div>
 
     <p class="how-lede">
       Every transformation is deterministic, inspectable, and provenance-tagged
-      per record. The dashboard lets you toggle between the <strong>cleaned</strong>
-      pipeline output and the <strong>raw upstream</strong> OHCHR export so you
-      can always see what changed.
-      <a href="./dashboard.html#view=methodology">Full methodology →</a>
+      per record. <a href="./dashboard.html#view=methodology">Full methodology with stage-by-stage stats →</a>
     </p>
   </div>
 </section>
@@ -1356,7 +1429,7 @@
      bodies counts for the hero KPIs), /api/data/analytics (theme counts,
      yearly counts) + /api/data/map (country breakdowns for the hex map)
      + /api/data/records (recent Recommendations for the ticker). On
-     success we overwrite THEMES / GROUPS / COUNTRIES / RECS / tlData +
+     success we overwrite THEMES / GROUPS / COUNTRIES / RECS +
      patch the hero [data-counter] attributes in place, so the counter
      observer (defined below) animates to the live totals instead of the
      fallback ones. On timeout or network error we keep the hardcoded
@@ -1457,13 +1530,6 @@
         const iso = _nameToIso3(c.country);
         if (iso) window.__LIVE_COUNTRY_BY_ISO3[iso] = c.count;
       });
-
-      /* TIMELINE — yearly counts, [[year, count]] shape */
-      const yc = analytics?.trends?.yearly_counts || [];
-      if (yc.length) {
-        tlData = yc.filter(y => y.year >= 2006 && y.year <= 2026)
-                   .map(y => [y.year, y.count]);
-      }
 
       /* TICKER — real recommendations, diversified by (country, body, year)
          to avoid 10 sequential paragraphs from the same report. Skip
@@ -2080,123 +2146,9 @@
   requestAnimationFrame(() => renderHex('world'));
   window.addEventListener('resize', () => renderHex(document.querySelector('#hexRegions button.active')?.dataset.r || 'world'));
 
-  /* ---------- timeline ---------- */
-  const tlSvg = document.getElementById("tlSvg");
-  const yrAxis = document.getElementById("yrAxis");
-  let tlData = [
-    [2006, 7200],[2007, 7900],[2008, 8800],[2009, 9400],[2010, 10800],
-    [2011, 12400],[2012, 17100],[2013, 18600],[2014, 16200],[2015, 14900],
-    [2016, 14100],[2017, 14800],[2018, 11800],[2019, 15400],[2020, 8100],
-    [2021, 12200],[2022, 17600],[2023, 19100],[2024, 23410],[2025, 21200],
-    [2026, 18600]
-  ];
-  function drawTimeline() {
-    const W = 1000, H = 260;
-    const maxV = Math.max(...tlData.map(d => d[1]));
-    const pad = { l: 24, r: 24, t: 30, b: 30 };
-    const step = (W - pad.l - pad.r) / (tlData.length - 1);
-    const yOf = v => pad.t + (H - pad.t - pad.b) * (1 - v / maxV);
-
-    const areaPts = tlData.map(([y, v], i) => `${pad.l + i*step},${yOf(v)}`).join(" ");
-    const areaD = `M ${pad.l},${H - pad.b} L ${areaPts.split(" ").join(" L ")} L ${pad.l + (tlData.length-1)*step},${H - pad.b} Z`;
-    const lineD = `M ${tlData.map(([y, v], i) => `${pad.l + i*step},${yOf(v)}`).join(" L ")}`;
-
-    const accent = getCSSVar("--accent") || "oklch(0.62 0.17 27)";
-    const ink = getCSSVar("--ink") || "#0F0F10";
-
-    // horizontal grid lines
-    const gridLines = [0, 0.25, 0.5, 0.75, 1].map(p => {
-      const y = pad.t + (H - pad.t - pad.b) * (1 - p);
-      return `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="${ink}" stroke-opacity=".07"/>`;
-    }).join("");
-
-    // dots at each year
-    const pts = tlData.map(([y, v], i) => {
-      const cx = pad.l + i*step, cy = yOf(v);
-      return `<circle cx="${cx}" cy="${cy}" r="3" fill="${ink}"/>`;
-    }).join("");
-
-    // callout year markers — data-driven: peak, trough, and latest year.
-    // Drawn with open circles + a dashed drop-line to the x-axis.
-    const peakIdx = tlData.reduce((best, d, i) => d[1] > tlData[best][1] ? i : best, 0);
-    const troughIdx = tlData.reduce((worst, d, i) => d[1] < tlData[worst][1] ? i : worst, 0);
-    const latestIdx = tlData.length - 1;
-    const markerIdxs = Array.from(new Set([peakIdx, troughIdx, latestIdx]));
-    const markers = markerIdxs.map(i => {
-      const cx = pad.l + i*step, cy = yOf(tlData[i][1]);
-      return `<circle cx="${cx}" cy="${cy}" r="7" fill="none" stroke="${accent}" stroke-width="2"/>
-              <line x1="${cx}" y1="${cy+10}" x2="${cx}" y2="${H - pad.b + 4}" stroke="${accent}" stroke-opacity=".4"/>`;
-    }).join("");
-    /* Publish callout metadata for renderTimelineCallouts() below to
-       consume — keeps the SVG markers + the text callouts in sync. */
-    window.__TL_CALLOUTS__ = {
-      peak:   { year: tlData[peakIdx][0],   count: tlData[peakIdx][1] },
-      trough: { year: tlData[troughIdx][0], count: tlData[troughIdx][1] },
-      latest: { year: tlData[latestIdx][0], count: tlData[latestIdx][1] },
-    };
-
-    tlSvg.innerHTML = `
-      <defs>
-        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="${accent}" stop-opacity=".28"/>
-          <stop offset="1" stop-color="${accent}" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      ${gridLines}
-      <path d="${areaD}" fill="url(#areaGrad)" />
-      <path d="${lineD}" fill="none" stroke="${ink}" stroke-width="1.5"
-            stroke-dasharray="3000" stroke-dashoffset="3000">
-        <animate attributeName="stroke-dashoffset" from="3000" to="0" dur="1.6s" fill="freeze" begin="indefinite" id="tlAnim"/>
-      </path>
-      ${pts}
-      ${markers}
-    `;
-
-    const tlObs = new IntersectionObserver((ents) => {
-      ents.forEach(e => {
-        if (e.isIntersecting) {
-          document.getElementById("tlAnim")?.beginElement?.();
-          tlObs.disconnect();
-        }
-      });
-    }, { threshold: 0.3 });
-    tlObs.observe(tlSvg);
-
-    yrAxis.innerHTML = tlData
-      .map(([y], i) => (i % 2 === 0) ? `<span>${y}</span>` : `<span style="opacity:.35">·</span>`)
-      .join("");
-
-    renderTimelineCallouts();
-  }
-
-  /* Populates the three callouts under the timeline from the same peak /
-     trough / latest indices used for the SVG marker circles. Runs after
-     drawTimeline() so window.__TL_CALLOUTS__ is set. Idempotent — called
-     again by applyLiveData() when the fetch completes. */
-  function renderTimelineCallouts() {
-    const cl = window.__TL_CALLOUTS__;
-    if (!cl) return;
-    const wrap = document.getElementById('timelineCallouts');
-    if (!wrap) return;
-    const total = tlData.reduce((s, d) => s + d[1], 0);
-    const pctOf = v => total > 0 ? Math.round(v / total * 1000) / 10 : 0;
-    const set = (sel, label, txt) => {
-      const el = wrap.querySelector(`[data-cl="${sel}"]`);
-      if (!el) return;
-      el.querySelector('.yr').textContent = label;
-      el.querySelector('.txt').textContent = txt;
-    };
-    set('peak',
-        `${cl.peak.year} · peak`,
-        `${fmt(cl.peak.count)} recommendations recorded — ${pctOf(cl.peak.count)}% of two decades in one year.`);
-    set('trough',
-        `${cl.trough.year} · low`,
-        `Only ${fmt(cl.trough.count)} recommendations — likely reflects session suspensions or incomplete-year collection.`);
-    set('latest',
-        `${cl.latest.year} · latest`,
-        `${fmt(cl.latest.count)} recommendations recorded in the most recent year of the dataset.`);
-  }
-  drawTimeline();
+  /* FIG 04 / WHEN timeline removed 2026-04-21 — replaced by FIG 04 / HOW
+     methodology excerpt below. tlData + drawTimeline +
+     renderTimelineCallouts + tlSvg/yrAxis DOM refs deleted. */
 
   /* ---------- tweaks ---------- */
   function applyTweaks() {
@@ -2213,7 +2165,6 @@
     document.getElementById("tickerWrap").style.display = tw.showTicker ? "" : "none";
 
     // redraw things that depend on CSS vars
-    drawTimeline();
     initField();
   }
 
@@ -2532,17 +2483,6 @@
     if (!isLive) return;
     // Build autocomplete index from the facets we just fetched
     _searchIndex = _buildSearchIndex(facets, analytics, map);
-    // Update Rule-of-law demo CTA with the live theme count. If the
-    // theme rename between dataset versions (rare), the hardcoded
-    // fallback stays — users still get a working link.
-    const rolTheme = (analytics?.themes?.theme_counts || [])
-      .find(t => /rule of law/i.test(t.theme));
-    if (rolTheme) {
-      const cta = document.getElementById('ruleOfLawCta');
-      const lbl = document.getElementById('ruleOfLawCtaLabel');
-      if (lbl) lbl.textContent = `${rolTheme.theme} demo (${fmt(rolTheme.count)} records)`;
-      if (cta) cta.href = `./dashboard.html#theme=${encodeURIComponent(rolTheme.theme)}&view=overview`;
-    }
     // KPI counters: re-fire for any counter whose textContent is
     // currently "0" (observer hasn't reached it yet → data-counter attr
     // is already patched, next fire uses live value). For counters that
@@ -2563,8 +2503,6 @@
     _rebuildCountByIso();
     const activeRegion = document.querySelector('#hexRegions button.active')?.dataset.r || 'world';
     renderHex(activeRegion);
-    // Timeline — drawTimeline() reads tlData which has been swapped
-    drawTimeline();
     // Ticker — renderTicker() uses RECS which is now live recommendations
     renderTicker();
   });
