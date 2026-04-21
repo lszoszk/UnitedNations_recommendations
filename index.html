@@ -259,8 +259,11 @@
     transition: background .1s;
   }
   .ls-item:last-child { border-bottom: 0; }
-  .ls-item:hover, .ls-item.active {
+  .ls-item:hover { background: var(--paper-2); }
+  .ls-item.active {
     background: var(--paper-2);
+    border-left: 3px solid var(--accent);
+    padding-left: 11px;  /* compensate for the 3px border */
   }
   .ls-item .kind {
     font-size: 9px;
@@ -1093,13 +1096,13 @@
       <!-- Landing search: autocomplete-on-type over countries / themes /
            mechanisms. Picks route the user straight to the right profile
            tab on the dashboard. Wrapped in a <form> so Enter-without-JS
-           still works — browser default form submission redirects to the
-           dashboard's Search tab via location.hash. The enhanced JS
-           handler (autocomplete + arrow-key navigation) preventDefault's
-           on interactive picks. -->
+           still works — and even if JS partially runs, the onsubmit
+           fallback here routes to the currently-active suggestion
+           (same semantics as the keydown handler) before falling back
+           to full-text keyword search. -->
       <form class="landing-search" role="search" id="landingSearchForm"
             action="./dashboard.html" method="get"
-            onsubmit="event.preventDefault(); var q=this.q.value.trim(); if(q) location.href='./dashboard.html#q='+encodeURIComponent(q)+'&view=search'; return false;">
+            onsubmit="event.preventDefault(); var dd=document.getElementById('landingSearchDropdown'); var pick=dd&&dd.querySelector('.ls-item.active')||dd&&dd.querySelector('.ls-item'); if(pick&&pick.dataset.route){location.href=pick.dataset.route;return false;} var q=this.q.value.trim(); if(q)location.href='./dashboard.html#q='+encodeURIComponent(q)+'&view=search'; return false;">
         <div class="ls-box">
           <span class="ls-ico" aria-hidden="true">⌕</span>
           <input id="landingSearch" name="q" type="search" autocomplete="off"
@@ -2389,13 +2392,14 @@
             <span class="n">${countStr}</span>
           </div>`;
         }).join('')
-      : `<div class="ls-empty">No match. Press <kbd>Enter</kbd> to search records for "${query}".</div>`;
-    // Always offer a "search all records" escape hatch at the bottom
-    const searchAll = `<div class="ls-hint">
-      Press <strong>Enter</strong> to search all 267K recommendations for <strong>${query}</strong>, or
-      <kbd>↑</kbd> <kbd>↓</kbd> to pick a suggestion above.
-    </div>`;
-    dd.innerHTML = html + searchAll;
+      : `<div class="ls-empty">No jump-to match. Press <kbd>Enter</kbd> to search all records for "${query}".</div>`;
+    // Hint line under the suggestions — wording reflects that the first
+    // item is pre-selected so Enter goes straight to it. Full-text
+    // fallback on ArrowUp-to-minus-1 is advanced usage, not advertised.
+    const hintText = scored.length
+      ? `<div class="ls-hint">Press <kbd>↵</kbd> to jump to the top match, or <kbd>↑</kbd> <kbd>↓</kbd> to pick another.</div>`
+      : `<div class="ls-hint">No suggestions — <kbd>↵</kbd> runs a full-text search instead.</div>`;
+    dd.innerHTML = html + hintText;
     dd.hidden = false;
     inp?.setAttribute('aria-expanded', 'true');
   }
@@ -2405,11 +2409,20 @@
     const dd = document.getElementById('landingSearchDropdown');
     if (!inp || !dd) return;
     inp.addEventListener('input', () => {
-      _searchActive = -1;
+      /* Pre-select the FIRST suggestion whenever the query changes so
+         Enter has an obvious target without requiring ArrowDown first.
+         "Type china → Enter → China profile" is the UX every search box
+         in the wild does (Google, GitHub, command palettes). If the
+         user explicitly arrows up to -1 they can still fall back to
+         full-text search via the hint line. */
+      _searchActive = inp.value.trim() ? 0 : -1;
       _renderSearchDropdown(inp.value);
     });
     inp.addEventListener('focus', () => {
-      if (inp.value) _renderSearchDropdown(inp.value);
+      if (inp.value) {
+        _searchActive = 0;
+        _renderSearchDropdown(inp.value);
+      }
     });
     inp.addEventListener('blur', () => {
       // Defer hide so clicking an item still fires
@@ -2423,14 +2436,20 @@
         _renderSearchDropdown(inp.value);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
+        // -1 is "no selection → fallback to full-text search on Enter"
         _searchActive = Math.max(-1, _searchActive - 1);
         _renderSearchDropdown(inp.value);
       } else if (e.key === 'Enter') {
         e.preventDefault();
+        /* Priority:
+           1. User arrow-picked a suggestion → use it
+           2. Dropdown has suggestions → use first (pre-selected) one
+           3. No matches at all → fall back to full-text keyword search */
         if (_searchActive >= 0 && items[_searchActive]) {
           window.location.href = items[_searchActive].dataset.route;
+        } else if (items.length) {
+          window.location.href = items[0].dataset.route;
         } else if (inp.value.trim()) {
-          // Fallback: full-text search on the Search tab
           window.location.href = `./dashboard.html#q=${encodeURIComponent(inp.value.trim())}&view=search`;
         }
       } else if (e.key === 'Escape') {
