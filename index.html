@@ -707,13 +707,32 @@
   }
 
   /* -------- hex tile map (Fig 03) -------- */
+  /* 2-column layout: hex map + top-5 leaderboard. Grid gives us an
+     exact split without needing inline-block / float tricks, and the
+     `fr 320px` template pins the leaderboard at a fixed comfortable
+     width while the map takes whatever space is left. */
+  .hex-with-leaders {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 32px;
+    align-items: start;
+  }
+  .hex-map-col {
+    min-width: 0;  /* let SVG shrink inside the grid column */
+  }
+  /* inline-flex auto-sizes the tab row to content width instead of
+     stretching to fill its grid cell — fixes the "Oceania tab very
+     long and mostly empty" complaint. The max-width cap stays as a
+     safety net for viewports wider than the natural tab row width. */
   .hex-regions {
-    display: flex; gap: 0; flex-wrap: wrap;
+    display: inline-flex;
+    flex-wrap: wrap;
     border: 1px solid var(--line);
     margin-bottom: 14px;
-    max-width: 700px;
+    max-width: 100%;
   }
   .hex-regions button {
+    flex: 0 0 auto;
     font: inherit; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
     padding: 8px 14px;
     background: var(--paper); border: 0; border-right: 1px solid var(--line);
@@ -723,6 +742,79 @@
   .hex-regions button:last-child { border-right: 0; }
   .hex-regions button:hover { color: var(--ink); background: var(--paper-2); }
   .hex-regions button.active { background: var(--ink); color: var(--paper); }
+
+  /* Top-5 leaderboard (complement to the hex map) */
+  .hex-leaders {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    padding: 20px 22px;
+  }
+  .hex-leaders h4 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin: 0 0 16px;
+    font-weight: 500;
+  }
+  .leader-list {
+    list-style: none;
+    padding: 0; margin: 0 0 18px;
+    counter-reset: leader;
+    display: flex; flex-direction: column;
+    gap: 2px;
+  }
+  .leader-list li {
+    counter-increment: leader;
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px dotted var(--line);
+    cursor: pointer;
+    transition: background .1s;
+  }
+  .leader-list li:last-child { border-bottom: 0; }
+  .leader-list li:hover { background: var(--paper-2); }
+  .leader-list li::before {
+    content: counter(leader);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: .04em;
+  }
+  .leader-list .lname {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .leader-list .lcount {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .leader-more {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    text-decoration: none;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    width: 100%;
+  }
+  .leader-more:hover { color: var(--ink); }
+  @media (max-width: 900px) {
+    .hex-with-leaders { grid-template-columns: 1fr; gap: 20px; }
+  }
 
   .hex-wrap {
     position: relative;
@@ -1150,32 +1242,52 @@
       <div class="ctx">199 states · color = volume</div>
     </div>
 
-    <div class="hex-regions" id="hexRegions">
-      <button data-r="world" class="active">World</button>
-      <button data-r="americas">Americas</button>
-      <button data-r="europe">Europe</button>
-      <button data-r="mena">MENA</button>
-      <button data-r="africa">Africa</button>
-      <button data-r="asia">Asia</button>
-      <button data-r="oceania">Oceania</button>
-    </div>
+    <!-- 2-column layout: hex map (wide, left) + top-5 leaderboard
+         (narrow, right). Stacks to 1 column on <900px viewports so
+         mobile users see the leaderboard below the map. -->
+    <div class="hex-with-leaders">
+      <div class="hex-map-col">
+        <div class="hex-regions" id="hexRegions">
+          <button data-r="world" class="active">World</button>
+          <button data-r="americas">Americas</button>
+          <button data-r="europe">Europe</button>
+          <button data-r="mena">MENA</button>
+          <button data-r="africa">Africa</button>
+          <button data-r="asia">Asia</button>
+          <button data-r="oceania">Oceania</button>
+        </div>
 
-    <div class="hex-wrap">
-      <svg id="hexSvg" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid meet"></svg>
-      <div class="hex-tip" id="hexTip"></div>
-    </div>
+        <div class="hex-wrap">
+          <svg id="hexSvg" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="hex-tip" id="hexTip"></div>
+        </div>
 
-    <div class="hex-scale">
-      <span>0</span>
-      <div class="scale">
-        <span class="s" style="background:color-mix(in oklab, var(--accent) 8%, var(--paper-2))"></span>
-        <span class="s" style="background:color-mix(in oklab, var(--accent) 24%, var(--paper-2))"></span>
-        <span class="s" style="background:color-mix(in oklab, var(--accent) 44%, var(--paper-2))"></span>
-        <span class="s" style="background:color-mix(in oklab, var(--accent) 65%, var(--paper-2))"></span>
-        <span class="s" style="background:color-mix(in oklab, var(--accent) 92%, var(--paper-2))"></span>
+        <div class="hex-scale">
+          <span>0</span>
+          <div class="scale">
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 8%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 24%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 44%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 65%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 92%, var(--paper-2))"></span>
+          </div>
+          <span id="hexScaleMax">3,218</span>
+          <span class="hint">each hex = one state · click any hex to open its country profile</span>
+        </div>
       </div>
-      <span id="hexScaleMax">3,218</span>
-      <span class="hint">each hex = one state · color = recommendation volume · click any hex to open its country profile</span>
+
+      <!-- Top-5 leaderboard. Complements the hex map (which says
+           "all countries equal") by answering "but who gets flagged
+           most often?" — the data-forward companion. Populated from
+           window.__LIVE_TOP5_COUNTRIES by renderLeaderboard() once
+           loadLive resolves; fallback uses hardcoded COUNTRIES[0:5]. -->
+      <aside class="hex-leaders" id="hexLeaders">
+        <h4>Top 5 by volume</h4>
+        <ol class="leader-list" id="leaderList">
+          <!-- Populated by renderLeaderboard() -->
+        </ol>
+        <a class="leader-more" href="./dashboard.html#view=country">Browse all 199 <span aria-hidden="true">→</span></a>
+      </aside>
     </div>
   </div>
 </section>
@@ -1480,15 +1592,22 @@
       console.info('[landing] live data loaded in', (performance.now() - t0).toFixed(0), 'ms · total:', facets.total_records);
 
       /* KPIs — overwrite the [data-counter] attrs BEFORE the counter
-         observer fires. 267,537 real vs 267,548 fake is a 11-record
-         difference (Stage 6 artefacts removed during cleaning). */
+         observer fires. 267,537 real vs 267,548 fake is an 11-record
+         difference (Stage 6 artefacts removed during cleaning).
+         Country count: the facets endpoint returns 212 entries, but
+         13 of those are bogus 2-letter ISO codes (AU/CO/CZ/ES/ET/GH/
+         ID/IQ/MV/MY/PK/SG/SV) that duplicate proper country names
+         already present. Strip them so users see 199 sovereign
+         entities — same number we shipped the landing with. */
+      const _looksLikeIso2 = (n) => typeof n === 'string' && n.length === 2 && n === n.toUpperCase();
+      const realCountries = (facets.countries || []).filter(n => !_looksLikeIso2(n));
       const patchCounter = (selector, target) => {
         const el = document.querySelector(selector);
         if (!el || target == null) return;
         el.dataset.counter = String(target);
       };
       patchCounter('[data-counter="267548"]', facets.total_records);
-      patchCounter('[data-counter="199"]',    (facets.countries || []).length);
+      patchCounter('[data-counter="199"]',    realCountries.length);
       patchCounter('[data-counter="75"]',     (facets.bodies || []).length);
 
       /* THEMES — top 10 by count, same shape as hardcoded [[name, count]].
@@ -1505,16 +1624,31 @@
         GROUPS = apCounts.slice(0, 10).map(g => [g.affected_person, g.count]);
       }
 
-      /* COUNTRIES — top 20 from /api/data/map (keyed for hex coloring) */
-      const cc = mapPayload?.country_counts || [];
+      /* COUNTRIES — top 20 from /api/data/map, skipping the 2-letter
+         ISO duplicates. Those stray entries (AU/CO/CZ/ES/ET/GH/ID/IQ/
+         MV/MY/PK/SG/SV, ~768 records collectively) surface alongside
+         their proper-named twins (Australia, Colombia, …) in the raw
+         facets list — a pipeline hiccup that nothing downstream should
+         ever consume. `_looksLikeIso2` is defined above in the KPI
+         patch block. */
+      const cc = (mapPayload?.country_counts || []).filter(c => !_looksLikeIso2(c.country));
       if (cc.length) {
         COUNTRIES = cc.slice(0, 20)
           .map(c => [_nameToIso3(c.country) || c.country.slice(0, 3).toUpperCase(), c.country, c.count]);
       }
 
-      /* Full country lookup used by the hex map — every country in the
-         map endpoint, keyed by ISO3. Enables correct coloring of all 212
-         countries, not just the top 20 we use for the hero summary. */
+      /* Top-5 leaderboard for the new hex-with-leaders layout. Same
+         source as COUNTRIES, just capped to 5 + normalised shape for
+         the renderer below. */
+      window.__LIVE_TOP5_COUNTRIES = cc.slice(0, 5).map(c => ({
+        name: c.country,
+        iso: _nameToIso3(c.country),
+        count: c.count,
+      }));
+
+      /* Full country lookup used by the hex map — every real country
+         keyed by ISO3. Enables correct coloring of all ~199 sovereign
+         entities, not just the top 20 we use for the hero summary. */
       window.__LIVE_COUNTRY_BY_ISO3 = {};
       cc.forEach(c => {
         const iso = _nameToIso3(c.country);
@@ -2313,6 +2447,29 @@
   requestAnimationFrame(() => renderHex('world'));
   window.addEventListener('resize', () => renderHex(document.querySelector('#hexRegions button.active')?.dataset.r || 'world'));
 
+  /* Top-5 leaderboard renderer. Reads from window.__LIVE_TOP5_COUNTRIES
+     (populated by loadLive) or falls back to the first 5 of the
+     hardcoded COUNTRIES array. Each row deep-links to the dashboard's
+     Country profile via #fc=ISO3. Idempotent — safe to re-render. */
+  function renderLeaderboard() {
+    const list = document.getElementById('leaderList');
+    if (!list) return;
+    const top5 = (window.__LIVE_TOP5_COUNTRIES && window.__LIVE_TOP5_COUNTRIES.length
+      ? window.__LIVE_TOP5_COUNTRIES
+      : COUNTRIES.slice(0, 5).map(([iso, name, count]) => ({ iso, name, count })));
+    list.innerHTML = top5.map(c => {
+      const href = c.iso
+        ? `./dashboard.html#fc=${encodeURIComponent(c.iso)}&view=country`
+        : `./dashboard.html#country=${encodeURIComponent(c.name)}&view=overview`;
+      return `<li onclick="window.location.href='${href}'" role="link" tabindex="0"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='${href}'}">
+        <span class="lname" title="${c.name}">${c.name}</span>
+        <span class="lcount">${fmt(c.count)}</span>
+      </li>`;
+    }).join('');
+  }
+  renderLeaderboard();  // initial render with fallback data
+
   /* FIG 04 / WHEN timeline removed 2026-04-21 — replaced by FIG 04 / HOW
      methodology excerpt below. tlData + drawTimeline +
      renderTimelineCallouts + tlSvg/yrAxis DOM refs deleted. */
@@ -2491,6 +2648,8 @@
     _rebuildCountByIso();
     const activeRegion = document.querySelector('#hexRegions button.active')?.dataset.r || 'world';
     renderHex(activeRegion);
+    // Top-5 leaderboard — picks up window.__LIVE_TOP5_COUNTRIES
+    renderLeaderboard();
     // Ticker — renderTicker() uses RECS which is now live recommendations
     renderTicker();
   });
