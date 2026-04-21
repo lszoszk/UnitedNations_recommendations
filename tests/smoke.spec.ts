@@ -95,6 +95,11 @@ test.describe('UHRI Dashboard smoke', () => {
       state:                    typeof state,
       api:                      typeof api,
       offline:                  typeof offline,
+      // From dashboard-labels.js — renderRules is the cross-module call
+      // surface (inline's navigate() dispatches here for the Labels tab).
+      renderRules:              typeof renderRules,
+      compileRule:              typeof compileRule,
+      RULES_STARTER_TEMPLATES:  typeof RULES_STARTER_TEMPLATES,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
