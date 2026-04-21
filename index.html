@@ -2602,15 +2602,6 @@
     }
   });
 
-  // Keyboard arrow support
-  document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'ArrowDown' && !navDown.disabled) { e.preventDefault(); goToSection(currentSection + 1); }
-    if (e.key === 'ArrowUp'   && !navUp.disabled)   { e.preventDefault(); goToSection(currentSection - 1); }
-  });
-
-  updateNavState();
-
   /* boot */
   syncTweaksUI();
   applyTweaks();

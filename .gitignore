@@ -1,2 +1,8 @@
 .DS_Store
 .claude/
+
+# Playwright dev-time test harness — not served, not deployed
+node_modules/
+test-results/
+playwright-report/
+playwright/.cache/
