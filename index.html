@@ -237,11 +237,18 @@
     flex-shrink: 0;
   }
   .ls-dropdown {
+    /* Opens UPWARD so the dropdown's bottom edge sits flush with the
+       input's top edge. The hero above has ~500 px of breathing room
+       (KPIs + lede + headline) and happily accepts a 380 px popup,
+       while below the search the LIVE EXCERPTS ticker is only ~150 px
+       away — opening down clips into it. Flipping removes the overlap
+       without needing position:fixed tricks on the ticker. */
     position: absolute;
-    top: calc(100% + 4px); left: 0; right: 0;
+    bottom: calc(100% + 4px); left: 0; right: 0;
     background: var(--paper);
     border: 1px solid var(--ink);
-    box-shadow: 3px 3px 0 var(--accent-soft);
+    /* Shadow mirrors the opening direction — up-right. */
+    box-shadow: 3px -3px 0 var(--accent-soft);
     max-height: 380px;
     overflow-y: auto;
     z-index: 50;
@@ -1295,15 +1302,33 @@
      endpoints respond we overwrite them with fresh real counts + live UN
      recommendation excerpts. The structure stays identical so all the
      render functions below work with either source. */
+  /* THEMES fallback — real OHCHR labels + approximate counts so the
+     autocomplete can answer "justice", "women", "education" etc. even
+     if loadLive hasn't resolved yet. Matches the top 20 themes from
+     /api/data/analytics so the overlap with live data is 100%
+     (overwritten wholesale once live arrives, so the slight drift in
+     absolute counts between fallback and live is invisible to users). */
   let THEMES = [
-    ["Women's rights / gender",          23812],
-    ["Children's rights",                21440],
-    ["Torture & ill-treatment",          18920],
-    ["Freedom of expression",            16088],
-    ["Rule of law / judiciary",          15220],
-    ["Non-discrimination",               13905],
-    ["Right to education",               11610],
-    ["Health & social security",         10488],
+    ["Reservations",                                                80595],
+    ["Constitutional & legislative framework",                      52703],
+    ["Legal & institutional reform",                                39980],
+    ["Equality & non-discrimination",                               38260],
+    ["Discrimination against women",                                31133],
+    ["Access to justice & remedy",                                  26662],
+    ["Human rights education, trainings & awareness raising",       25780],
+    ["Prohibition of torture & ill-treatment",                      23339],
+    ["Right to health",                                             22854],
+    ["Ratification of & accession to international instruments",    22569],
+    ["Children: definition; general principles; protection",        21827],
+    ["Administration of justice & fair trial",                      20484],
+    ["Right to education",                                          19674],
+    ["Data collection & research",                                  19502],
+    ["Violence against women",                                      19100],
+    ["Rule of law & impunity",                                      11834],
+    ["Freedom of expression",                                       10200],
+    ["Minorities",                                                   9800],
+    ["Persons with disabilities",                                    9400],
+    ["Migrants & refugees",                                          9000],
   ];
 
   let GROUPS = [
