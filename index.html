@@ -643,61 +643,10 @@
     text-transform: uppercase;
   }
 
-  /* Three-source panel — Cleaned / Raw / Upload */
-  .how-sources {
-    margin-top: 40px;
-    padding-top: 32px;
-    border-top: 1px solid var(--line);
-  }
-  .how-sources h3 {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: .16em;
-    text-transform: uppercase;
-    color: var(--dim);
-    margin: 0 0 20px;
-    font-weight: 500;
-  }
-  .how-sources-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1px;
-    background: var(--line);
-    border: 1px solid var(--line);
-  }
-  .how-src {
-    background: var(--paper);
-    padding: 22px 22px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .how-src-lbl {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: .14em;
-    color: var(--accent);
-    text-transform: uppercase;
-    font-weight: 700;
-  }
-  .how-src-t {
-    font-family: var(--serif);
-    font-size: 20px;
-    line-height: 1.2;
-    color: var(--ink);
-  }
-  .how-src-d {
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.6;
-    color: var(--ink-2);
-  }
-  .how-src-d a { color: var(--accent); }
-  .how-src-d code {
-    background: var(--paper-2);
-    padding: 1px 5px;
-    font-size: 11px;
-  }
+  /* .how-sources panel removed 2026-04-21 — the "Cleaned / Raw / Upload"
+     reassurance message was inlined into the closing .how-lede below
+     because the 3-card grid felt visually cramped between the step
+     cards and the next section. */
 
   .how-lede {
     margin-top: 28px;
@@ -1010,11 +959,9 @@
     .section-head .ctx { text-align: left; }
     .bar-grid { grid-template-columns: 1fr; gap: 32px; }
     .how-grid { grid-template-columns: repeat(2, 1fr); }
-    .how-sources-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 540px) {
     .how-grid { grid-template-columns: 1fr; }
-    .how-sources-grid { grid-template-columns: 1fr; }
     .how-lede { font-size: 15px; }
     .how-why { font-size: 16px; }
   }
@@ -1255,30 +1202,10 @@
       </div>
     </div>
 
-    <!-- Dataset sources panel — makes the reversibility + upload story
-         explicit so visitors don't think they're locked into our version. -->
-    <div class="how-sources">
-      <h3>Three ways to load the data into the dashboard</h3>
-      <div class="how-sources-grid">
-        <div class="how-src">
-          <div class="how-src-lbl">Default</div>
-          <div class="how-src-t">Cleaned pipeline</div>
-          <div class="how-src-d">Six-stage cleaned output, refreshed monthly from the latest OHCHR UHRI export.</div>
-        </div>
-        <div class="how-src">
-          <div class="how-src-lbl">Toggle</div>
-          <div class="how-src-t">Raw upstream UHRI</div>
-          <div class="how-src-d">One click in the header flips every query and chart back to the <strong>original OHCHR text</strong>, artefacts included.</div>
-        </div>
-        <div class="how-src">
-          <div class="how-src-lbl">Bring-your-own</div>
-          <div class="how-src-t">Upload any UHRI export</div>
-          <div class="how-src-d">Drop your own CSV/XLSX/JSON from <a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a> — processed entirely in your browser, nothing uploaded leaves your machine.</div>
-        </div>
-      </div>
-    </div>
-
     <p class="how-lede">
+      <strong>Nothing is locked in.</strong> The dashboard opens on the cleaned view by default, but a header toggle flips every query and chart back to the <strong>raw OHCHR text</strong>, and any UHRI export (CSV/XLSX/JSON) drops into the same tools via <strong>↑ Upload</strong> — processed entirely in your browser.
+    </p>
+    <p class="how-lede" style="margin-top:16px">
       Every pipeline stat, the 11 irregular-plural pairs, architecture notes, caveats for citing — all in the <a href="./dashboard.html#view=methodology">Methodology tab →</a>
     </p>
   </div>
