@@ -112,6 +112,13 @@ test.describe('UHRI Dashboard smoke', () => {
       renderTimeline:           typeof renderTimeline,
       _renderStackToggle:       typeof _renderStackToggle,
       getTimelineMode:          typeof getTimelineMode,
+      // From dashboard-map.js — renderMap is the main FIG.01 entry point,
+      // getMapMode/setMapMode persist user preference, exportMapAsSVG is
+      // bound by the overview shell's ⬇ SVG button.
+      renderMap:                typeof renderMap,
+      getMapMode:               typeof getMapMode,
+      setMapMode:               typeof setMapMode,
+      exportMapAsSVG:           typeof exportMapAsSVG,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
@@ -137,11 +144,16 @@ test.describe('UHRI Dashboard smoke', () => {
     //
     // `[data-nav=...]` matches multiple links (tab + footer + inline prose),
     // so we scope to the tab by combining with role="tab".
-    await page.waitForTimeout(500);      // let boot finish wiring click handlers
+    //
+    // Under SW warm-up / dynamic map-lib imports / full-suite load, boot
+    // wiring can take >500ms. Poll for `navigate` to be defined instead of
+    // a fixed wait — that's the last thing the inline IIFE attaches and is
+    // the proper signal that click handlers are live.
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
     const methodologyTab = page.locator('a[role="tab"][data-nav="methodology"]');
     const overviewTab    = page.locator('a[role="tab"][data-nav="overview"]');
     await methodologyTab.click();
-    await expect(methodologyTab).toHaveAttribute('aria-selected', 'true', { timeout: 2000 });
+    await expect(methodologyTab).toHaveAttribute('aria-selected', 'true', { timeout: 3000 });
     await expect(overviewTab).toHaveAttribute('aria-selected', 'false');
   });
 
