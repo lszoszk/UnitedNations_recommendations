@@ -998,9 +998,9 @@ async function renderCompare() {
   const _reconcileSharedY = () => {
     if (!cmpState.A || !cmpState.B) return;
     const yearlyMax = (an) => {
-      const yc = an?.trends?.yearly_body_counts || {};
-      const totals = Object.values(yc).map(m => {
-        if (m && typeof m === 'object') return Object.values(m).reduce((a,b) => a + (+b||0), 0);
+      const yc = _normalizeYearlyBodyCounts(an?.trends?.yearly_body_counts || {});
+      const totals = Object.values(yc).map(byBody => {
+        if (byBody && typeof byBody === 'object') return Object.values(byBody).reduce((a, b) => a + (+b || 0), 0);
         return 0;
       });
       return totals.length ? Math.max(...totals) : 0;

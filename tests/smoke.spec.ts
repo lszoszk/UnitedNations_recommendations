@@ -11,6 +11,7 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *   5. datasetNumber — hardcoded "267,548" drifts from reality (pre-c87b355)
  *   6. searchView  — extracted search module no longer renders its shell
  *   7. readerDrawer — extracted reader module still renders record chrome
+ *   8. compareScale — shared Y scale in Compare must normalize API row arrays
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -185,7 +186,7 @@ test.describe('UHRI Dashboard smoke', () => {
 
   test('4. landingSearch — index.html hero search input is wired and opens dropdown', async ({ page }) => {
     const errors = collectConsoleErrors(page);
-    await page.goto('/index.html');
+    await page.goto('/index.html', { waitUntil: 'commit' });
     const input = page.locator('#landingSearch');
     await expect(input).toBeVisible();
     await input.fill('china');
@@ -198,7 +199,7 @@ test.describe('UHRI Dashboard smoke', () => {
   });
 
   test('5. datasetNumber — "267,537" appears in footer and cmdk hint', async ({ page }) => {
-    await page.goto('/dashboard.html', { waitUntil: 'domcontentloaded' });
+    await page.goto('/dashboard.html', { waitUntil: 'commit' });
     // Footer and cmdk hint are both in static HTML — always present regardless
     // of data load. They're the canonical surfaces where the dataset number
     // is visible to users on every view.
@@ -272,5 +273,69 @@ test.describe('UHRI Dashboard smoke', () => {
     await expect(page.locator('#reader:not(.hidden) #readerBody')).toContainText('CAT/C/XYZ/1');
 
     expect(errors, `JS errors while rendering drawer/reader:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('8. compareScale — compare timelines share a normalized annual max', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    await page.evaluate(async () => {
+      state.facets = {
+        ...(state.facets || {}),
+        min_year: 2006,
+        max_year: 2026,
+        countries: ['Aland', 'Borland'],
+      };
+
+      const mk = (rows: Array<{ year: number; body: string; count: number }>) => ({
+        trends: { yearly_body_counts: rows },
+        themes: { theme_counts: [] },
+        text: { affected_person_counts: [], sdg_counts: [] },
+      });
+
+      const analyticsByCountry: Record<string, any> = {
+        Aland: mk([
+          { year: 2010, body: 'UPR', count: 120 },
+          { year: 2010, body: 'CCPR', count: 30 },
+        ]),
+        Borland: mk([
+          { year: 2011, body: 'UPR', count: 80 },
+        ]),
+      };
+
+      api.analytics = async (filter: any) => {
+        const country = Array.from(filter?.country || [])[0];
+        return analyticsByCountry[country] || mk([]);
+      };
+      api.records = async () => ({ total_records: 1, records: [] });
+
+      state.cmpA = 'Aland';
+      state.cmpB = 'Borland';
+      await renderCompare();
+    });
+
+    await page.waitForFunction(() => {
+      const subA = document.querySelector('#cmpSubA')?.textContent || '';
+      const subB = document.querySelector('#cmpSubB')?.textContent || '';
+      return subA.includes('1 recs') && subB.includes('1 recs');
+    }, null, { timeout: 5000 });
+
+    const { maxA, maxB } = await page.evaluate(() => {
+      const readMax = (selector: string) => {
+        const nums = Array.from(document.querySelectorAll(selector))
+          .map(el => Number((el.textContent || '').replace(/,/g, '')))
+          .filter(n => Number.isFinite(n));
+        return nums.length ? Math.max(...nums) : 0;
+      };
+      return {
+        maxA: readMax('#cmpTimeA .tl-svg text'),
+        maxB: readMax('#cmpTimeB .tl-svg text'),
+      };
+    });
+
+    expect(maxA).toBe(150);
+    expect(maxB).toBe(150);
+    expect(errors, `JS errors while rendering compare view:\n${errors.join('\n')}`).toEqual([]);
   });
 });
