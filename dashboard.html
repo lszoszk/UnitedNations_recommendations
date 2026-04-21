@@ -1766,6 +1766,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <script src="./dashboard-timeline.js"></script>
 <script src="./dashboard-map.js"></script>
 <script src="./dashboard-search.js"></script>
+<script src="./dashboard-filters.js"></script>
 <script>
 /* =========================================================================
    UHRI Analytics Dashboard — information-dense analyst UX
@@ -2023,32 +2024,7 @@ function setStatus(kind, lbl) {
   }
 }
 
-/* ---------- HIT COUNT ----------
-   Keep the previous number visible while loading — only swap when new data
-   arrives. Avoids jarring ? / — flashes. Abort-safe: stale responses are
-   dropped by the api.js sequence guard. */
-async function refreshHitCount() {
-  const el = $('#filterResult');
-  el.classList.add('fr-loading');
-  try {
-    const r = await api.recordsCount(state.filters);
-    state.totalHits = r.total_records;
-    $('#hitCount').textContent = fmt(r.total_records);
-    const totalAll = state.facets?.total_records || 267537;
-    const p = r.total_records / totalAll;
-    $('#hitBar').style.width = (p*100) + '%';
-    $('#hitPct').textContent = pct(p);
-    el.classList.remove('fr-loading');
-    // Backend v5: refresh the synonym-expansion hint chip row. Done here
-    // (rather than only in Search view) so every profile tab also shows
-    // "Also matching: women" when the keyword triggered an expansion.
-    renderKwSyns(r.search_expansions || []);
-  } catch (err) {
-    if (err.name === 'AbortError') return;  // stale — newer call took over
-    console.warn('hit count failed', err);
-    el.classList.remove('fr-loading');
-  }
-}
+/* Hit-count refresh moved to dashboard-filters.js. */
 
 /* Render the synonym-expansion chip row under the keyword input.
    Each chip reads like "woman → women". No-op if input is empty; hidden
@@ -2609,161 +2585,7 @@ function bindKwInput() {
   });
 }
 
-/* ---------- Active-filter chip strip (#1) ----------
-   Shows every non-default filter above the view. Click × to remove just
-   that one; click "clear all" to reset. Kept in sync with rail via
-   refreshFacetUI on change. */
-function renderActiveFilters() {
-  const f = state.filters;
-  const chips = [];
-  const push = (kind, label, value, remove) => chips.push({ kind, label, value, remove });
-
-  if (f.kw && f.kw.trim()) push('kw', 'Q', f.kw, () => { f.kw = ''; $('#kwInput').value = ''; });
-
-  for (const c of f.country) push('country', 'Country', c, () => f.country.delete(c));
-  for (const b of f.body)    push('body',    'Body',    b, () => f.body.delete(b));
-  for (const t of f.theme)   push('theme',   'Theme',   t, () => f.theme.delete(t));
-  for (const g of f.group)   push('group',   'Group',   g, () => f.group.delete(g));
-  for (const r of f.region)  push('region',  'Region',  r, () => f.region.delete(r));
-  for (const s of f.sdg)     push('sdg',     'SDG',     'SDG ' + s, () => f.sdg.delete(s));
-  for (const s of _sdgExactValues(f)) push('sdg', 'SDG', formatSdgLabel(s), () => f.sdgExact.delete(s));
-  for (const t of f.type)    push('type',    'Type',    t, () => f.type.delete(t));
-
-  const minY = state.facets?.min_year;
-  const maxY = state.facets?.max_year;
-  if ((minY && f.yearA > minY) || (maxY && f.yearB < maxY)) {
-    push('year', 'Years', `${f.yearA}–${f.yearB}`,
-      () => { f.yearA = minY; f.yearB = maxY; if (typeof window._syncYearSlider === 'function') window._syncYearSlider(); });
-  }
-
-  const bar = $('#activeFilters');
-  if (!chips.length) { bar.classList.remove('on'); bar.innerHTML = ''; return; }
-  bar.classList.add('on');
-  // Fix: when the user adds "All Treaty Bodies" (12 chips) or "All
-  // Special Procedures" (~40 chips), the bar grows to a full screen of
-  // stacked chips — especially on mobile. Collapse after 6 with a
-  // "…+N more" toggle that expands in place.
-  const COLLAPSE_AT = 6;
-  const expanded = !!state._afExpanded;
-  const shown = (expanded || chips.length <= COLLAPSE_AT) ? chips : chips.slice(0, COLLAPSE_AT);
-  const hidden = chips.length - shown.length;
-  const chipHtml = (c, i) => `
-    <span class="af-chip kind-${c.kind}">
-      <span class="k">${sanitize(c.label)}</span>
-      <span class="v" title="${sanitize(c.value)}">${sanitize(c.value)}</span>
-      <button class="x" data-i="${i}" aria-label="Remove filter">×</button>
-    </span>`;
-  bar.innerHTML =
-    '<span class="af-label">filtering</span>' +
-    shown.map(chipHtml).join('') +
-    (hidden > 0 ? `<button class="af-more" id="afMore">…+${hidden} more</button>` : '') +
-    (expanded && chips.length > COLLAPSE_AT ? `<button class="af-more" id="afLess">show less</button>` : '') +
-    '<button class="af-clear" id="afClearAll">clear all ×</button>';
-
-  bar.querySelectorAll('.af-chip .x').forEach(btn => btn.addEventListener('click', () => {
-    const i = Number(btn.dataset.i);
-    chips[i].remove();
-    // Sync rail + UI
-    refreshFacetUI(chips[i].kind === 'group' ? 'group'
-                 : chips[i].kind === 'kw' || chips[i].kind === 'year' ? null
-                 : chips[i].kind);
-    if (chips[i].kind === 'kw') $('#tabSearch').textContent = '—';
-    // A country chip removed → snap hex map back to World
-    if (chips[i].kind === 'country') state.hexRegion = 'world';
-    onFiltersChanged();
-  }));
-  $('#afMore')?.addEventListener('click', () => { state._afExpanded = true; renderActiveFilters(); });
-  $('#afLess')?.addEventListener('click', () => { state._afExpanded = false; renderActiveFilters(); });
-  $('#afClearAll').addEventListener('click', () => $('#clearFilters').click());
-}
-
-/* ---------- Filter-changed pipeline ----------
-   - Hit count runs on every click (fast, debounced lightly)
-   - Heavy view re-render waits 650ms of silence before firing, so rapid
-     checkbox toggles batch into a single request
-   - AbortController (in apiGet) cancels in-flight stale requests when
-     a fresher one starts */
-const debouncedHit = debounce(() => refreshHitCount(), 200);
-const debouncedRefresh = debounce(() => refreshCurrentView(), 650);
-function onFiltersChanged() {
-  renderActiveFilters();
-  debouncedHit();
-  debouncedRefresh();
-  _pushUrlState();
-  _announceHit();
-}
-
-async function refreshCurrentView() {
-  // Profile views now intersect the rail (Option B) so a rail-filter change
-  // must re-fetch them just like Overview/Search.
-  // Visual slow-load chip — if the render doesn't finish in 2s, show a
-  // prominent banner so user knows we're working + offer a direct .xlsx
-  // download bypass.
-  _slowLoadSchedule();
-  try {
-    if (state.view === 'overview') await renderOverview({ keepPrevious: true });
-    else if (state.view === 'search') await renderSearch();
-    else if (state.view === 'country') await renderCountry();
-    else if (state.view === 'theme')   await renderTheme();
-    else if (state.view === 'group')   await renderGroup();
-    else if (state.view === 'sdg')     await renderSDG();
-    else if (state.view === 'mechanism') await renderMechanism();
-    else if (state.view === 'compare') await renderCompare();
-  } finally {
-    _slowLoadClear();
-  }
-}
-
-/* ---------- Slow-load banner ----------
-   Shows a visible chip when a filter refresh takes > 2s. Lets heavy users
-   bypass the render and download the filtered dataset directly as .xlsx
-   via the backend's /api/data/export endpoint. */
-let _slowLoadTimer = null;
-function _slowLoadSchedule() {
-  _slowLoadClear();
-  _slowLoadTimer = setTimeout(() => {
-    _slowLoadShow();
-  }, 2000);
-}
-function _slowLoadClear() {
-  if (_slowLoadTimer) { clearTimeout(_slowLoadTimer); _slowLoadTimer = null; }
-  document.getElementById('slowLoadBanner')?.remove();
-}
-function _slowLoadShow() {
-  let el = document.getElementById('slowLoadBanner');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'slowLoadBanner';
-    el.className = 'slow-load-banner';
-    document.body.appendChild(el);
-  }
-  const hits = state.totalHits != null ? fmt(state.totalHits) : '…';
-  el.innerHTML = `
-    <div class="sl-left">
-      <div class="sl-spinner"></div>
-      <div class="sl-text">
-        <div class="sl-title">Building analytics for ${hits} records</div>
-        <div class="sl-sub">This filter hasn't been computed before — first hit takes ~10–15 s. Next hit will be instant.</div>
-      </div>
-    </div>
-    <button class="sl-export" id="slowLoadExport" title="Skip the render and download the matching records as .xlsx">↓ Download .xlsx while we wait</button>
-    <button class="sl-close" id="slowLoadClose" title="Dismiss">×</button>`;
-  document.getElementById('slowLoadClose').addEventListener('click', _slowLoadClear);
-  document.getElementById('slowLoadExport').addEventListener('click', () => {
-    const p = buildParams(state.filters);
-    const url = API_BASE + '/api/data/export?' + p.toString();
-    window.open(url, '_blank');
-    toast('Download started (check the browser download tray).', false, 2400);
-  });
-}
-
-// Announce hit-count updates to screen readers
-const _announceHit = debounce(() => {
-  const n = state.totalHits;
-  if (n != null && state.facets) {
-    announce(`${fmt(n)} of ${fmt(state.facets.total_records)} records match current filters`);
-  }
-}, 800);
+/* Active-filter strip + hit-count pipeline moved to dashboard-filters.js. */
 
 /* =========================================================================
    CHART HELPERS

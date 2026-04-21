@@ -120,6 +120,10 @@ test.describe('UHRI Dashboard smoke', () => {
       getMapMode:               typeof getMapMode,
       setMapMode:               typeof setMapMode,
       exportMapAsSVG:           typeof exportMapAsSVG,
+      renderSearch:             typeof renderSearch,
+      renderActiveFilters:      typeof renderActiveFilters,
+      refreshHitCount:          typeof refreshHitCount,
+      onFiltersChanged:         typeof onFiltersChanged,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
