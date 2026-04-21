@@ -2271,7 +2271,13 @@ async function apiGet(path, params, opts = {}) {
   const promise = (async () => {
     try {
       const res = await fetch(url, { signal: ctrl.signal });
-      if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
+      if (!res.ok) {
+        const err = new Error(`${path} → HTTP ${res.status}`);
+        err.status = res.status;
+        err.path = path;
+        err.url = url;
+        throw err;
+      }
       const data = await res.json();
       memSet(key, data);
       return data;
@@ -2324,6 +2330,20 @@ const api = {
   },
 };
 
+// Some deployments still expose the older analytics/map/records surface but
+// not the newer bundled /api/data/profile endpoint. Learn that once, then
+// avoid retrying the missing route on every profile navigation.
+let _bundledProfileEndpointAvailable = null;
+
+function _isBundledProfileUnavailable(err) {
+  const status = Number(
+    err?.status
+    || String(err?.message || '').match(/HTTP\s+(\d+)/)?.[1]
+    || 0
+  );
+  return status === 404 || status === 405 || status === 501;
+}
+
 /* O6 helper: true when the rail carries no filters that would narrow
    a profile below its "show everything for this entity" default. When
    empty, the profile renderers can use the bundled /profile endpoint;
@@ -2352,22 +2372,38 @@ function _loadProfile(entityType, entityValue, scopeOverride) {
   const railEmpty = _railIsEmpty();
   const norm = d => d ? { analytics: d.analytics, mapD: d.map, records: d.records_sample || d.records } : null;
 
-  if (railEmpty) {
+  const loadSplitProfile = () => {
+    const anSwr = swr(`analytics:${entityType}:${entityValue}`, filter, () => api.analytics(filter));
+    const mpSwr = swr(`map:${entityType}:${entityValue}`, filter, () => api.map(filter));
+    const rcSwr = swr(`records:${entityType}:${entityValue}`, filter, () => api.records(filter, 1, 5));
+    const combine = (a, m, r) => ({ analytics: a, mapD: m, records: r });
+    return {
+      stale: (anSwr.stale && mpSwr.stale && rcSwr.stale) ? combine(anSwr.stale, mpSwr.stale, rcSwr.stale) : null,
+      fresh: Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]).then(([a, m, r]) => combine(a, m, r)),
+    };
+  };
+
+  if (railEmpty && _bundledProfileEndpointAvailable !== false) {
     const pSwr = swr(`profile:${entityType}:${entityValue}`, filter, () => api.profile(entityType, entityValue));
     return {
       stale: norm(pSwr.stale),
-      fresh: pSwr.fresh.then(norm),
+      fresh: pSwr.fresh
+        .then(d => {
+          _bundledProfileEndpointAvailable = true;
+          return norm(d);
+        })
+        .catch(err => {
+          if (_isBundledProfileUnavailable(err)) {
+            _bundledProfileEndpointAvailable = false;
+            console.warn('Bundled profile endpoint unavailable; falling back to analytics/map/records.', err);
+            return loadSplitProfile().fresh;
+          }
+          throw err;
+        }),
     };
   }
 
-  const anSwr = swr(`analytics:${entityType}:${entityValue}`, filter, () => api.analytics(filter));
-  const mpSwr = swr(`map:${entityType}:${entityValue}`, filter, () => api.map(filter));
-  const rcSwr = swr(`records:${entityType}:${entityValue}`, filter, () => api.records(filter, 1, 5));
-  const combine = (a, m, r) => ({ analytics: a, mapD: m, records: r });
-  return {
-    stale: (anSwr.stale && mpSwr.stale && rcSwr.stale) ? combine(anSwr.stale, mpSwr.stale, rcSwr.stale) : null,
-    fresh: Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]).then(([a, m, r]) => combine(a, m, r)),
-  };
+  return loadSplitProfile();
 }
 
 /* =========================================================================
