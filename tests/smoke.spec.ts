@@ -10,6 +10,7 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *   4. landingSearch — index.html hero search input isn't wired (bec17a1)
  *   5. datasetNumber — hardcoded "267,548" drifts from reality (pre-c87b355)
  *   6. searchView  — extracted search module no longer renders its shell
+ *   7. readerDrawer — extracted reader module still renders record chrome
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -70,8 +71,7 @@ test.describe('UHRI Dashboard smoke', () => {
   });
 
   test('2. loadOrder — helper globals and module globals are all defined', async ({ page }) => {
-    await page.goto('/dashboard.html');
-    await page.waitForLoadState('domcontentloaded');
+    await page.goto('/dashboard.html', { waitUntil: 'domcontentloaded' });
     // Top-level `const` bindings DON'T attach to window — but they ARE
     // visible to bare-name lookup in other scripts in the same realm.
     // page.evaluate() runs a synthesized script in that same realm, so
@@ -135,6 +135,16 @@ test.describe('UHRI Dashboard smoke', () => {
       _resolveCompareDefaults:  typeof _resolveCompareDefaults,
       renderFreshnessCard:      typeof renderFreshnessCard,
       renderMethodology:        typeof renderMethodology,
+      openListDrawer:           typeof openListDrawer,
+      openSelectionDrawer:      typeof openSelectionDrawer,
+      refreshSelectionDrawer:   typeof refreshSelectionDrawer,
+      loadMoreListDrawer:       typeof loadMoreListDrawer,
+      closeListDrawer:          typeof closeListDrawer,
+      renderDrawerListMode:     typeof renderDrawerListMode,
+      citeAPA:                  typeof citeAPA,
+      navigateRec:              typeof navigateRec,
+      renderDrawer:             typeof renderDrawer,
+      openReader:               typeof openReader,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
@@ -188,7 +198,7 @@ test.describe('UHRI Dashboard smoke', () => {
   });
 
   test('5. datasetNumber — "267,537" appears in footer and cmdk hint', async ({ page }) => {
-    await page.goto('/dashboard.html');
+    await page.goto('/dashboard.html', { waitUntil: 'domcontentloaded' });
     // Footer and cmdk hint are both in static HTML — always present regardless
     // of data load. They're the canonical surfaces where the dataset number
     // is visible to users on every view.
@@ -225,5 +235,42 @@ test.describe('UHRI Dashboard smoke', () => {
     await expect(page.locator('#seSentinel')).toContainText('Loading more');
 
     expect(errors, `JS errors while rendering search view:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('7. readerDrawer — extracted reader module renders a synthetic record', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    await page.evaluate(() => {
+      const rec = {
+        AnnotationId: 'smoke-reader-1',
+        PublicationDate: '2024-02-03',
+        Countries: ['China'],
+        Regions: ['Asia'],
+        Body: 'Committee against Torture',
+        Themes: ['Liberty and security of person'],
+        AffectedPersons: ['Women'],
+        Sdgs: ['SDG 16.3'],
+        Symbol: 'CAT/C/XYZ/1',
+        AnnotationType: 'Concluding observations',
+        SectionHeadings: ['Synthetic smoke-test record'],
+        TextPlainCleaned: 'Synthetic smoke-test record text about detention, due process, and remedies.',
+      };
+      state.selectedRec = rec;
+      state.currentResultList = [rec];
+      state.currentResultIndex = 0;
+      state.drawerMode = 'record';
+      state.drawerList = null;
+      renderDrawer();
+      openReader(rec);
+    });
+
+    await expect(page.locator('#drawerBody #drOpen')).toBeVisible();
+    await expect(page.locator('#drawerBody')).toContainText('smoke-reader-1');
+    await expect(page.locator('#reader:not(.hidden) #readerBody .rd-title')).toContainText('Synthetic smoke-test record');
+    await expect(page.locator('#reader:not(.hidden) #readerBody')).toContainText('CAT/C/XYZ/1');
+
+    expect(errors, `JS errors while rendering drawer/reader:\n${errors.join('\n')}`).toEqual([]);
   });
 });
