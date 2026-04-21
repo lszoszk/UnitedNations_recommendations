@@ -71,6 +71,16 @@
     flex-direction: column;
     justify-content: center;
   }
+  /* #how section has enough content (why + scale + 4 cards + closing
+     paragraph + link) to exceed one viewport. justify-content:center
+     would push the top UP past scroll-snap-align:start, hiding the
+     bottom. Switch to flex-start so content fills from the top down
+     and the tail ("Nothing is locked in…") simply overflows into the
+     next section gap, visible on scroll. */
+  section.band#how {
+    justify-content: flex-start;
+    padding-top: 64px;
+  }
   /* Ticker is part of the hero "page" — no separate snap stop, no min-height
      that would bump it off-screen. It flows right at the bottom of the hero. */
   .ticker-wrap { scroll-snap-align: none; }
@@ -590,6 +600,58 @@
     font-size: 15px;
     background: var(--paper-2);
     padding: 1px 6px;
+  }
+
+  /* Scale strip — "~56,000 records had meaningful non-whitespace
+     corrections = 21% of dataset". Sits between the why paragraph and
+     the 4-card grid. Serves as a "these numbers matter" punch before
+     users read the per-stage breakdown. */
+  .how-scale {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 18px 20px;
+    margin: 0 0 28px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--paper-2);
+  }
+  .how-scale-num {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .04em;
+    color: var(--ink);
+  }
+  .how-scale-num strong {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 32px;
+    color: var(--accent);
+    letter-spacing: -.01em;
+    margin-right: 2px;
+  }
+  .how-scale-sub {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    min-width: 240px;
+  }
+  .how-scale-pct {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--dim);
+    letter-spacing: .04em;
+  }
+  .how-scale-pct strong {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 24px;
+    color: var(--ink);
+    letter-spacing: -.01em;
+    margin: 0 2px;
   }
   .how-grid {
     display: grid;
@@ -1162,22 +1224,35 @@
   <div class="wrap">
     <div class="section-head">
       <div class="no">FIG 04 / HOW</div>
-      <div class="t">Cleaned with <em style="color:var(--accent)">deterministic rules</em>, not a language model — so every row is defensible in a paper.</div>
+      <div class="t"><em style="color:var(--accent)">Cleaned UHRI dataset</em> with deterministic rules, not a language model — so every row is defensible in a paper.</div>
       <div class="ctx">6-stage pipeline · audit-tagged · reversible</div>
     </div>
 
-    <!-- Why paragraph — sets the frame before the step cards -->
+    <!-- Why paragraph — sets the frame before the step cards. The
+         ~56k / 21% scale stat is sourced from a live SQL query across
+         the four stages (S1 HTML/OCR ≥20 chars removed ∪ S2 LLM residue
+         ∪ S3 type normalisation ∪ S4 country backfill), deduped by
+         record id. Whitespace-only cleanups are NOT counted. -->
     <p class="how-why">
       The OHCHR <strong>UHRI export</strong> is a treasure trove, but the raw
       file carries two decades of accumulated OCR fragments, HTML artefacts,
       inconsistent type labels, and records that lost their country
-      metadata somewhere along the pipeline. For researchers, activists and
-      journalists who want to <em>cite</em> this data — not just browse it —
-      that noise matters. We built a <strong>six-stage cleaning pipeline</strong>
-      to fix exactly what could be fixed by rule, documented every
-      transformation, and kept the option to switch back to the raw source
-      one click away.
+      metadata somewhere along the pipeline. For researchers who want to
+      <em>cite</em> this data — not just browse it — that noise matters.
+      We built a <strong>six-stage cleaning pipeline</strong> to fix exactly
+      what could be fixed by rule, documented every transformation, and
+      kept the option to switch back to the raw source one click away.
     </p>
+
+    <!-- Scale strip: meaningful corrections (whitespace-only excluded)
+         across all stages, deduped. Shows that this isn't "we added a
+         trim() and called it cleaning" — 1 in 5 records had something
+         substantive fixed. -->
+    <div class="how-scale">
+      <div class="how-scale-num"><strong>~56,000</strong> records</div>
+      <div class="how-scale-sub">had meaningful non-whitespace corrections applied across the pipeline</div>
+      <div class="how-scale-pct">=&nbsp;<strong>21%</strong> of the dataset</div>
+    </div>
 
     <div class="how-grid">
       <div class="how-card">
