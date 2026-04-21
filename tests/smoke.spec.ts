@@ -107,6 +107,11 @@ test.describe('UHRI Dashboard smoke', () => {
       TW:                       typeof TW,
       applyTweaks:              typeof applyTweaks,
       startTour:                typeof startTour,
+      // From dashboard-timeline.js — renderTimeline is called from 7+
+      // profile renderers in inline, plus the overview FIG.04 panel.
+      renderTimeline:           typeof renderTimeline,
+      _renderStackToggle:       typeof _renderStackToggle,
+      getTimelineMode:          typeof getTimelineMode,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
