@@ -1553,6 +1553,176 @@
   }, { threshold: 0.2 });
   document.querySelectorAll(".kpis").forEach(el => io.observe(el));
 
+  /* ---------- landing search (wired EARLY) ----------
+     Declarations + function definitions + the wire call all live here,
+     *before* the dot-field / ticker / hex / bar renders that come below.
+     If any of those later calls throws, the search input is already
+     listening — user can still type and get autocomplete. Search
+     function definitions themselves are hoisted (function declarations)
+     so the call-before-definition below works. */
+  let _searchIndex = [];
+  let _searchActive = -1;
+
+  function _buildSearchIndex(facets, analytics, map) {
+    const idx = [];
+    const countryCounts = new Map();
+    (map?.country_counts || []).forEach(c => countryCounts.set(c.country, c.count));
+    (facets?.countries || []).forEach(name => {
+      const iso = _nameToIso3(name);
+      const count = countryCounts.get(name) || 0;
+      idx.push({
+        type: 'country',
+        label: name,
+        key: name.toLowerCase(),
+        count,
+        route: iso
+          ? `./dashboard.html#fc=${iso}&view=country`
+          : `./dashboard.html#country=${encodeURIComponent(name)}&view=overview`,
+      });
+    });
+    (analytics?.themes?.theme_counts || []).forEach(t => {
+      idx.push({
+        type: 'theme',
+        label: t.theme,
+        key: t.theme.toLowerCase(),
+        count: t.count,
+        route: `./dashboard.html#theme=${encodeURIComponent(t.theme)}&view=overview`,
+      });
+    });
+    (facets?.bodies || []).forEach(name => {
+      const clean = String(name).replace(/^-\s*/, '').trim();
+      if (!clean || clean === '-') return;
+      idx.push({
+        type: 'body',
+        label: clean,
+        key: clean.toLowerCase(),
+        count: 0,
+        route: `./dashboard.html#fm=${encodeURIComponent(clean)}&view=mechanism`,
+      });
+    });
+    return idx;
+  }
+
+  function _scoreSearchMatch(q, item) {
+    if (!q) return 0;
+    const k = item.key;
+    if (k === q) return 1000;
+    if (k.startsWith(q)) return 500 + q.length;
+    const words = k.split(/\s+/);
+    if (words.some(w => w.startsWith(q))) return 300 + q.length;
+    if (k.includes(q)) return 100 + q.length;
+    return 0;
+  }
+
+  function _renderSearchDropdown(q) {
+    const dd = document.getElementById('landingSearchDropdown');
+    const inp = document.getElementById('landingSearch');
+    if (!dd) return;
+    const query = (q || '').toLowerCase().trim();
+    if (!query) {
+      dd.hidden = true;
+      inp?.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    const scored = _searchIndex
+      .map(it => ({ it, s: _scoreSearchMatch(query, it) }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s || b.it.count - a.it.count)
+      .slice(0, 12);
+    const html = scored.length
+      ? scored.map((x, i) => {
+          const it = x.it;
+          const kindLbl = { country: 'COUNTRY', theme: 'THEME', body: 'BODY' }[it.type] || it.type.toUpperCase();
+          const countStr = it.count ? fmt(it.count) : '';
+          return `<div class="ls-item${i === _searchActive ? ' active' : ''}" data-route="${it.route}" role="option" aria-selected="${i === _searchActive ? 'true' : 'false'}">
+            <span class="kind">${kindLbl}</span>
+            <span class="lbl">${it.label}</span>
+            <span class="n">${countStr}</span>
+          </div>`;
+        }).join('')
+      : `<div class="ls-empty">No jump-to match. Press <kbd>Enter</kbd> to search all records for "${query}".</div>`;
+    const hintText = scored.length
+      ? `<div class="ls-hint">Press <kbd>↵</kbd> to jump to the top match, or <kbd>↑</kbd> <kbd>↓</kbd> to pick another.</div>`
+      : `<div class="ls-hint">No suggestions — <kbd>↵</kbd> runs a full-text search instead.</div>`;
+    dd.innerHTML = html + hintText;
+    dd.hidden = false;
+    inp?.setAttribute('aria-expanded', 'true');
+  }
+
+  let _searchWired = false;
+  function _wireLandingSearch() {
+    if (_searchWired) return;
+    const inp = document.getElementById('landingSearch');
+    const dd = document.getElementById('landingSearchDropdown');
+    if (!inp || !dd) return;
+    _searchWired = true;
+    inp.addEventListener('input', () => {
+      _searchActive = inp.value.trim() ? 0 : -1;
+      _renderSearchDropdown(inp.value);
+    });
+    inp.addEventListener('focus', () => {
+      if (inp.value) {
+        _searchActive = 0;
+        _renderSearchDropdown(inp.value);
+      }
+    });
+    inp.addEventListener('blur', () => {
+      setTimeout(() => { dd.hidden = true; }, 180);
+    });
+    inp.addEventListener('keydown', e => {
+      const items = dd.querySelectorAll('.ls-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _searchActive = Math.min(items.length - 1, _searchActive + 1);
+        _renderSearchDropdown(inp.value);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _searchActive = Math.max(-1, _searchActive - 1);
+        _renderSearchDropdown(inp.value);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (_searchActive >= 0 && items[_searchActive]) {
+          window.location.href = items[_searchActive].dataset.route;
+        } else if (items.length) {
+          window.location.href = items[0].dataset.route;
+        } else if (inp.value.trim()) {
+          window.location.href = `./dashboard.html#q=${encodeURIComponent(inp.value.trim())}&view=search`;
+        }
+      } else if (e.key === 'Escape') {
+        inp.value = '';
+        _searchActive = -1;
+        dd.hidden = true;
+      }
+    });
+    dd.addEventListener('click', e => {
+      const it = e.target.closest('.ls-item');
+      if (it && it.dataset.route) window.location.href = it.dataset.route;
+    });
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === '/') { e.preventDefault(); inp.focus(); }
+    });
+  }
+
+  /* Wire + seed NOW — before any later inline render throws. */
+  _wireLandingSearch();
+  _searchIndex = [
+    ...COUNTRIES.map(([iso, name, count]) => ({
+      type: 'country',
+      label: name,
+      key: name.toLowerCase(),
+      count,
+      route: `./dashboard.html#fc=${iso}&view=country`,
+    })),
+    ...THEMES.map(([name, count]) => ({
+      type: 'theme',
+      label: name,
+      key: name.toLowerCase(),
+      count,
+      route: `./dashboard.html#theme=${encodeURIComponent(name)}&view=overview`,
+    })),
+  ];
+
   /* ---------- dot field canvas ---------- */
   const canvas = document.getElementById("dotCanvas");
   const ctx = canvas.getContext("2d");
@@ -2227,201 +2397,6 @@
      hex map rebuilds COUNT_BY_ISO, timeline swaps SVG. For counters we
      either update the textContent (if the observer already fired) or
      rely on the patched data-counter attr (if it fires after). */
-  /* Index used by the landing search autocomplete. Populated by
-     applyLiveData() from the facets + theme counts — covers countries,
-     themes and recommending bodies in one list. Each item has a type,
-     a display label, a search key (for matching), a count (for the
-     right-aligned total), and a route (the dashboard hash to navigate
-     to on select). */
-  let _searchIndex = [];
-  let _searchActive = -1;
-
-  function _buildSearchIndex(facets, analytics, map) {
-    const idx = [];
-    // Countries — deep-link to the country profile. ISO3 only works if
-    // _nameToIso3 knows the name; otherwise we fall back to filtering.
-    const countryCounts = new Map();
-    (map?.country_counts || []).forEach(c => countryCounts.set(c.country, c.count));
-    (facets?.countries || []).forEach(name => {
-      const iso = _nameToIso3(name);
-      const count = countryCounts.get(name) || 0;
-      idx.push({
-        type: 'country',
-        label: name,
-        key: name.toLowerCase(),
-        count,
-        route: iso
-          ? `./dashboard.html#fc=${iso}&view=country`
-          : `./dashboard.html#country=${encodeURIComponent(name)}&view=overview`,
-      });
-    });
-    // Themes — navigate to Overview pre-filtered by the theme
-    (analytics?.themes?.theme_counts || []).forEach(t => {
-      idx.push({
-        type: 'theme',
-        label: t.theme,
-        key: t.theme.toLowerCase(),
-        count: t.count,
-        route: `./dashboard.html#theme=${encodeURIComponent(t.theme)}&view=overview`,
-      });
-    });
-    // Bodies (recommending mechanisms) — deep-link to the Mechanism
-    // profile so the user sees body-specific charts + records.
-    (facets?.bodies || []).forEach(name => {
-      const clean = String(name).replace(/^-\s*/, '').trim();
-      if (!clean || clean === '-') return;
-      idx.push({
-        type: 'body',
-        label: clean,
-        key: clean.toLowerCase(),
-        count: 0,  // no per-body count in facets; left blank
-        route: `./dashboard.html#fm=${encodeURIComponent(clean)}&view=mechanism`,
-      });
-    });
-    return idx;
-  }
-
-  function _scoreSearchMatch(q, item) {
-    if (!q) return 0;
-    const k = item.key;
-    if (k === q) return 1000;                         // exact
-    if (k.startsWith(q)) return 500 + q.length;       // prefix
-    const words = k.split(/\s+/);
-    if (words.some(w => w.startsWith(q))) return 300 + q.length;  // word-prefix
-    if (k.includes(q)) return 100 + q.length;         // substring
-    return 0;
-  }
-
-  function _renderSearchDropdown(q) {
-    const dd = document.getElementById('landingSearchDropdown');
-    const inp = document.getElementById('landingSearch');
-    if (!dd) return;
-    const query = (q || '').toLowerCase().trim();
-    if (!query) {
-      dd.hidden = true;
-      inp?.setAttribute('aria-expanded', 'false');
-      return;
-    }
-    // Score + sort + top 12
-    const scored = _searchIndex
-      .map(it => ({ it, s: _scoreSearchMatch(query, it) }))
-      .filter(x => x.s > 0)
-      .sort((a, b) => b.s - a.s || b.it.count - a.it.count)
-      .slice(0, 12);
-    const html = scored.length
-      ? scored.map((x, i) => {
-          const it = x.it;
-          const kindLbl = { country: 'COUNTRY', theme: 'THEME', body: 'BODY' }[it.type] || it.type.toUpperCase();
-          const countStr = it.count ? fmt(it.count) : '';
-          return `<div class="ls-item${i === _searchActive ? ' active' : ''}" data-route="${it.route}" role="option" aria-selected="${i === _searchActive ? 'true' : 'false'}">
-            <span class="kind">${kindLbl}</span>
-            <span class="lbl">${it.label}</span>
-            <span class="n">${countStr}</span>
-          </div>`;
-        }).join('')
-      : `<div class="ls-empty">No jump-to match. Press <kbd>Enter</kbd> to search all records for "${query}".</div>`;
-    // Hint line under the suggestions — wording reflects that the first
-    // item is pre-selected so Enter goes straight to it. Full-text
-    // fallback on ArrowUp-to-minus-1 is advanced usage, not advertised.
-    const hintText = scored.length
-      ? `<div class="ls-hint">Press <kbd>↵</kbd> to jump to the top match, or <kbd>↑</kbd> <kbd>↓</kbd> to pick another.</div>`
-      : `<div class="ls-hint">No suggestions — <kbd>↵</kbd> runs a full-text search instead.</div>`;
-    dd.innerHTML = html + hintText;
-    dd.hidden = false;
-    inp?.setAttribute('aria-expanded', 'true');
-  }
-
-  function _wireLandingSearch() {
-    const inp = document.getElementById('landingSearch');
-    const dd = document.getElementById('landingSearchDropdown');
-    if (!inp || !dd) return;
-    inp.addEventListener('input', () => {
-      /* Pre-select the FIRST suggestion whenever the query changes so
-         Enter has an obvious target without requiring ArrowDown first.
-         "Type china → Enter → China profile" is the UX every search box
-         in the wild does (Google, GitHub, command palettes). If the
-         user explicitly arrows up to -1 they can still fall back to
-         full-text search via the hint line. */
-      _searchActive = inp.value.trim() ? 0 : -1;
-      _renderSearchDropdown(inp.value);
-    });
-    inp.addEventListener('focus', () => {
-      if (inp.value) {
-        _searchActive = 0;
-        _renderSearchDropdown(inp.value);
-      }
-    });
-    inp.addEventListener('blur', () => {
-      // Defer hide so clicking an item still fires
-      setTimeout(() => { dd.hidden = true; }, 180);
-    });
-    inp.addEventListener('keydown', e => {
-      const items = dd.querySelectorAll('.ls-item');
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        _searchActive = Math.min(items.length - 1, _searchActive + 1);
-        _renderSearchDropdown(inp.value);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        // -1 is "no selection → fallback to full-text search on Enter"
-        _searchActive = Math.max(-1, _searchActive - 1);
-        _renderSearchDropdown(inp.value);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        /* Priority:
-           1. User arrow-picked a suggestion → use it
-           2. Dropdown has suggestions → use first (pre-selected) one
-           3. No matches at all → fall back to full-text keyword search */
-        if (_searchActive >= 0 && items[_searchActive]) {
-          window.location.href = items[_searchActive].dataset.route;
-        } else if (items.length) {
-          window.location.href = items[0].dataset.route;
-        } else if (inp.value.trim()) {
-          window.location.href = `./dashboard.html#q=${encodeURIComponent(inp.value.trim())}&view=search`;
-        }
-      } else if (e.key === 'Escape') {
-        inp.value = '';
-        _searchActive = -1;
-        dd.hidden = true;
-      }
-    });
-    dd.addEventListener('click', e => {
-      const it = e.target.closest('.ls-item');
-      if (it && it.dataset.route) window.location.href = it.dataset.route;
-    });
-    // Keyboard shortcut: `/` focuses the search (mirrors the dashboard)
-    document.addEventListener('keydown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      if (e.key === '/') { e.preventDefault(); inp.focus(); }
-    });
-  }
-
-  /* Wire the landing search NOW (sync), not inside _liveReady.then().
-     Guarantees listeners are attached even if the IIFE throws later or
-     the fetch-then callback never fires. When live data arrives the
-     index gets populated; until then Enter still routes to dashboard
-     full-text search via the `#q=…&view=search` fallback. */
-  _wireLandingSearch();
-
-  /* Seed the search index from the hardcoded fallback arrays so autocomplete
-     shows SOMETHING (top 20 countries + top 8 themes) even if loadLive is
-     still in flight or failed. Replaced wholesale once live data arrives. */
-  _searchIndex = [
-    ...COUNTRIES.map(([iso, name, count]) => ({
-      type: 'country',
-      label: name,
-      key: name.toLowerCase(),
-      count,
-      route: `./dashboard.html#fc=${iso}&view=country`,
-    })),
-    ...THEMES.map(([name, count]) => ({
-      type: 'theme',
-      label: name,
-      key: name.toLowerCase(),
-      count,
-      route: `./dashboard.html#theme=${encodeURIComponent(name)}&view=overview`,
-    })),
-  ];
 
   _liveReady.then(payload => {
     const { isLive, facets, analytics, map } = payload || {};
