@@ -3,7 +3,7 @@
 A map of the vanilla-JS, zero-build, module-per-file dashboard that ships
 as `gh-pages`.
 
-Last updated: 2026-04-22 (commit `7f089d5`).
+Last updated: 2026-04-22 (commit after `c658225`).
 
 ---
 
@@ -16,7 +16,7 @@ realm by bare-name lookup, which is the seam that makes the
 extraction work without an `import/export` graph.
 
 ```
-dashboard.html (3743 lines)
+dashboard.html (3244 lines)
 ├── <style> ..............................  ~1150 lines CSS
 ├── <body> ...............................    DOM shell
 ├── <script src="./dashboard-helpers.js">      ─┐
@@ -24,6 +24,7 @@ dashboard.html (3743 lines)
 ├── <script src="./dashboard-route.js">        │
 ├── <script src="./dashboard-offline.js">      │
 ├── <script src="./dashboard-utils.js">        │
+├── <script src="./dashboard-rail.js">         │
 ├── <script src="./dashboard-labels.js">       │
 ├── <script src="./dashboard-ui.js">           │ load order
 ├── <script src="./dashboard-timeline.js">     │ matters for
@@ -35,12 +36,12 @@ dashboard.html (3743 lines)
 ├── <script src="./dashboard-methodology.js">  │
 ├── <script src="./dashboard-drawer-list.js">  │
 ├── <script src="./dashboard-reader.js">       ─┘
-└── <script> ... inline spine ... </script>   ~1965 lines JS
+└── <script> ... inline spine ... </script>   ~1465 lines JS
 ```
 
 History: `dashboard.html` was 9638 lines inline in early April 2026;
-a series of seam-splits (P1..P3, commits `a08ce4a` → `7f089d5`)
-dropped it to **3743 lines (-61 %)** across 16 external modules.
+a series of seam-splits (P1..P3, commits `a08ce4a` → rail extraction)
+dropped it to **3244 lines (-66 %)** across 17 external modules.
 
 ---
 
@@ -76,19 +77,20 @@ later (and to anything that references them *lazily* from anywhere).
 | 3 | `dashboard-route.js` | 143 | 1, 2 |
 | 4 | `dashboard-offline.js` | 562 | 1, 2 |
 | 5 | `dashboard-utils.js` | 928 | 1, 2 |
-| 6 | `dashboard-labels.js` | 1305 | 1, 2, 4, 5 |
-| 7 | `dashboard-ui.js` | 393 | 1, 2 |
-| 8 | `dashboard-timeline.js` | 520 | 1, 2 |
-| 9 | `dashboard-map.js` | 833 | 1, 2 |
-| 10 | `dashboard-search.js` | 540 | 1, 2, 5 |
-| 11 | `dashboard-filters.js` | 160 | 1, 2 |
-| 12 | `dashboard-years.js` | 66 | 1, 2 |
-| 13 | `dashboard-profiles.js` | 1067 | 1, 2, 5, 8, 9 |
-| 14 | `dashboard-methodology.js` | 160 | — (minimal) |
-| 15 | `dashboard-drawer-list.js` | 425 | 1, 2, 5 |
-| 16 | `dashboard-reader.js` | 367 | 1, 2, 5 |
-| — | *inline* `<script>` | ~1965 | everything |
-| | **total** | **~8150** | |
+| 6 | `dashboard-rail.js` | 541 | 1, 2 |
+| 7 | `dashboard-labels.js` | 1305 | 1, 2, 4, 5 |
+| 8 | `dashboard-ui.js` | 393 | 1, 2 |
+| 9 | `dashboard-timeline.js` | 520 | 1, 2 |
+| 10 | `dashboard-map.js` | 833 | 1, 2 |
+| 11 | `dashboard-search.js` | 540 | 1, 2, 5 |
+| 12 | `dashboard-filters.js` | 160 | 1, 2 |
+| 13 | `dashboard-years.js` | 66 | 1, 2 |
+| 14 | `dashboard-profiles.js` | 1067 | 1, 2, 5, 6, 9, 10 |
+| 15 | `dashboard-methodology.js` | 160 | — (minimal) |
+| 16 | `dashboard-drawer-list.js` | 425 | 1, 2, 5 |
+| 17 | `dashboard-reader.js` | 367 | 1, 2, 5, 6 |
+| — | *inline* `<script>` | ~1465 | everything |
+| | **total** | **~8190** | |
 
 Ordering beyond "helpers first, data second" rarely matters at runtime
 because cross-module calls happen inside function bodies (lazy).
@@ -180,6 +182,31 @@ The grab-bag module for anything that persists user intent:
   per-facet caches, `preloadCountryOnHover`, `attachPreloadHover`,
   `backfillCountrySparklines`
 - **XLSX export**: `ensureXLSX` (lazy CDN load), `exportXLSXFromRows`
+
+### `dashboard-rail.js` — left rail + body/mechanism taxonomy + keyword input
+
+The rail is the main filter surface: country / body / theme / group / SDG
+facets + year range + keyword. This module also owns the mechanism-family
+taxonomy (`TREATY_BODY_ACRONYMS` + `classifyBody`) because the same logic
+that groups bodies in the rail's body-facet dropdown also groups them for
+the Overview mechanism tiles (FIG.00), the Mechanism profile scope picker,
+the drawer's at-a-glance mechanism strip, and timeline's family-stacking.
+
+- **Rail construction**: `buildRail`, `buildFacetList`,
+  `buildBodyFacetGrouped`
+- **Keyword input**: `bindKwInput`, `debouncedKw`, `renderKwSyns`
+- **Mechanism family** (shared with overview/profiles/reader/timeline/utils):
+  `TREATY_BODY_ACRONYMS`, `classifyBody`, `aggregateMechanismCounts`,
+  `renderMechTiles`, `bodiesInFamily`, `_computeMechCounts`,
+  `_openFamilyListDrawer`
+- **Profile dropdown helpers** (used by profile scope pickers):
+  `_dropdownOptionsWithCount`, `_bodyDropdownGroupedOptions`,
+  `_bodyTotalsFromAnalytics`
+
+Cross-module: loaded early (after `utils`) because multiple later modules
+(profiles, timeline, reader, utils) lazy-call `classifyBody` /
+`renderMechTiles` / `_computeMechCounts` / `bodiesInFamily` /
+`_openFamilyListDrawer` / the dropdown helpers.
 
 ### `dashboard-labels.js` — 🧪 Labels workspace (boolean FTS5 rule builder)
 
@@ -304,7 +331,7 @@ Surface: `renderDrawer`, `openReader`, `navigateRec`,
 
 ## What's still inline in `dashboard.html`
 
-The ~1965-line inline `<script>` is the remaining spine — things that
+The ~1465-line inline `<script>` is the remaining spine — things that
 either (a) wire the boot sequence, (b) own a piece of shared UI state
 that multiple modules read/write, or (c) are so small that extracting
 them would cost more than it saves.
@@ -313,21 +340,14 @@ them would cost more than it saves.
 1776   Export #26 (doExport, downloadBlob, toCSV)                    ~155
 1931   Accessibility helpers (announce, trapFocus, progressBar)      ~124
        + cache / toast / status-dot plumbing
-2055   Rail build (buildRail, buildFacetList)                        ~146
-2201   Body facet grouped by mechanism family                        ~333
-       (TREATY_BODY_ACRONYMS, classifyBody, aggregateMechanismCounts,
-        renderMechTiles, bodiesInFamily, _computeMechCounts,
-        _openFamilyListDrawer, _bodyDropdownGroupedOptions,
-        _bodyTotalsFromAnalytics, buildBodyFacetGrouped)
-2504   Keyword input (bindKwInput, debouncedKw, renderKwSyns)         ~30
-2534   Chart helpers (renderRowList, _openRowActionSheet,              ~208
+2034   Chart helpers (renderRowList, _openRowActionSheet,            ~208
        _attachLongPress, refreshFacetUI)
-2742   View: Overview (_skelRowList, _skelTimeline, _skelMap,          ~312
+2242   View: Overview (_skelRowList, _skelTimeline, _skelMap,        ~312
        buildOverviewShell, renderOverviewMapOnly, _wireMapModeToggle,
        _wireTimelineModeToggle, renderOverviewAnalytics,
        renderOverview)
-3054   NAV — async navigate(view)  [11-way view dispatcher]            ~33
-3087   BOOT — dataset toggle + initDatasetToggle +                    ~656
+2554   NAV — async navigate(view)  [11-way view dispatcher]           ~33
+2587   BOOT — dataset toggle + initDatasetToggle +                    ~656
        async boot() (mother of all side effects)
 ```
 
@@ -347,25 +367,24 @@ them would cost more than it saves.
   exists after the HTML rendered. It could move to
   `dashboard-boot.js` but the payoff is low: it's called once and
   has no cross-module API.
-- **Rail builders** (`buildRail`, `buildBodyFacetGrouped`, etc.)
-  call `onFiltersChanged` which lives in `dashboard-filters.js`, so
-  extracting them is possible — just a sizeable block (~480 lines
-  across 2055‑2530) that nothing outside calls and that spins off
-  many tiny helpers.
 - **`renderOverview` + overview skeletons** are tightly coupled to
-  `buildRail` (both wire the same rail facets) and to
-  `renderMap` / `renderTimeline` which live in separate modules.
-  Extractable, but would produce a module that is 80 % event
-  wiring.
+  `renderMap` / `renderTimeline` which live in separate modules and
+  to `renderRowList` (still inline below). Extractable, but would
+  produce a module that is 80 % event wiring.
 - **`renderRowList`** is the single most-reused render primitive in
   the app (drawer, profiles, overview tiles, search bulk bar).
   Moving it breaks many forward refs unless we also move its
   consumers — and they are scattered. Needs a dedicated chart-helpers
   seam if/when extracted.
+- **Accessibility + cache + toast + status-dot + export** are each
+  short self-contained chunks that together weigh ~280 lines. Could
+  merge into a `dashboard-shell.js` but the value is marginal and
+  cross-cutting.
 
-In short: the remaining inline is deliberately the spine. Future
-extractions should prefer one-last Rail extraction over trying to
-flatten `boot()`.
+In short: the remaining inline is deliberately the spine. Further
+extractions would give diminishing returns against the cost of
+breaking forward-ref ergonomics in `boot()` and the inline event
+wiring.
 
 ---
 

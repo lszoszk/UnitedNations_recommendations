@@ -146,6 +146,17 @@ test.describe('UHRI Dashboard smoke', () => {
       navigateRec:              typeof navigateRec,
       renderDrawer:             typeof renderDrawer,
       openReader:               typeof openReader,
+      // From dashboard-rail.js — owns the left rail construction + the
+      // mechanism-family taxonomy reached into by profiles, timeline,
+      // utils, reader.
+      buildRail:                typeof buildRail,
+      buildBodyFacetGrouped:    typeof buildBodyFacetGrouped,
+      classifyBody:             typeof classifyBody,
+      renderMechTiles:          typeof renderMechTiles,
+      _computeMechCounts:       typeof _computeMechCounts,
+      bindKwInput:              typeof bindKwInput,
+      renderKwSyns:             typeof renderKwSyns,
+      TREATY_BODY_ACRONYMS:     typeof TREATY_BODY_ACRONYMS,
     }));
     for (const [name, type] of Object.entries(globals)) {
       expect(type, `\`${name}\` should not be undefined — load order broken?`).not.toBe('undefined');
