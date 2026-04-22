@@ -2,8 +2,14 @@
 
 Static dashboard build prepared for GitHub Pages deployment.
 
+> **For engineering orientation see [ARCHITECTURE.md](ARCHITECTURE.md)** —
+> module map, load order, cross-module surface, extraction conventions.
+
 ## What is included
-- `index.html`: dashboard application
+- `index.html`: landing page
+- `dashboard.html`: main dashboard + 16 sibling `dashboard-*.js` modules
+- `sw.js`: service worker (app shell cache)
+- `tests/smoke.spec.ts`: Playwright smoke tests (8 scenarios)
 - `sample-data/search-4_2_2026_739_labelled.xlsx`: bundled labelled sample dataset
 
 ## Use online
