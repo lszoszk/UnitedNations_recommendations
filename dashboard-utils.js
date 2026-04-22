@@ -268,8 +268,12 @@ function triggerUpload() {
         Load your own UHRI-format JSON export — or paste an <code style="background:var(--paper-2);padding:1px 4px;font-size:12px">uhri.ohchr.org</code> search URL to apply its filters to the dashboard.
       </p>
 
-      <label style="display:block;font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">JSON file</label>
-      <input type="file" id="uplFile" accept=".json,application/json" style="width:100%;padding:8px;border:1px dashed var(--line);font-family:var(--mono);font-size:11px;margin-bottom:14px;background:var(--paper-2)" />
+      <label style="display:block;font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">UHRI export (.xlsx or .json)</label>
+      <input type="file" id="uplFile" accept=".json,application/json,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="width:100%;padding:8px;border:1px dashed var(--line);font-family:var(--mono);font-size:11px;margin-bottom:6px;background:var(--paper-2)" />
+      <div style="font:10px var(--mono);color:var(--dim);margin-bottom:14px;line-height:1.5">
+        <strong style="color:var(--ink-2)">.xlsx</strong> — the standard UHRI download.
+        <strong style="color:var(--ink-2)">.json</strong> — our canonical shape (same fields as the live API).
+      </div>
 
       <label style="display:block;font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">OHCHR UHRI URL</label>
       <div style="display:flex;gap:6px;margin-bottom:4px">
@@ -287,7 +291,7 @@ function triggerUpload() {
   m.addEventListener('click', e => { if (e.target === m) close(); });
   $('#uplCancel', m).addEventListener('click', close);
 
-  // File path
+  // File path — JSON (canonical shape) or XLSX (UHRI standard download)
   $('#uplFile', m).addEventListener('change', async e => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -295,15 +299,13 @@ function triggerUpload() {
       toast('File too large (>700 MB). Uploads are held in memory.', true, 6000);
       return;
     }
-    const tEl = $('#uplUrlHint', m); tEl.textContent = `Reading ${file.name} (${(file.size/1024/1024).toFixed(0)} MB)…`;
+    const tEl = $('#uplUrlHint', m);
+    tEl.style.color = '';
+    tEl.textContent = `Reading ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)…`;
     try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed) || !parsed.length) throw new Error('Expected a non-empty JSON array of records');
-      const sample = parsed[0];
-      if (!sample.AnnotationId && !sample.annotation_id) {
-        throw new Error('Records must have an AnnotationId field (UHRI JSON format)');
-      }
+      const isXlsx = /\.xlsx$/i.test(file.name);
+      const parsed = isXlsx ? await parseUhriXlsx(file) : await parseUhriJson(file);
+      if (!parsed.length) throw new Error('Parsed 0 records — is this an empty export?');
       offline.data = parsed;
       offline.enable();
       document.body.classList.add('uploaded-mode');
@@ -314,7 +316,8 @@ function triggerUpload() {
       close();
       refreshCurrentView(); refreshHitCount();
     } catch (err) {
-      $('#uplUrlHint', m).textContent = 'Upload failed: ' + err.message;
+      tEl.style.color = '#b91c1c';
+      tEl.textContent = 'Upload failed: ' + err.message;
     }
   });
 
@@ -346,6 +349,103 @@ function triggerUpload() {
       toast('No filters to apply from that URL', true);
     }
   });
+}
+
+/* =========================================================================
+   UHRI upload — JSON (canonical) + XLSX (standard OHCHR download)
+   =========================================================================
+   JSON: our on-disk shape, same fields as the live API — straight load.
+   XLSX: parsed with SheetJS, mapped through a UHRI-column alias table.
+   UHRI exports carry several OHCHR-internal quirks we normalise here:
+     * "Reccomending Body" (double c, their typo) → Body
+     * Multi-value cells are line-separated with "- " prefixes
+     * Date fields are Excel serials (days since 1900 w/ leap bug)
+     * Type labels carry "- " prefix; countries too
+   The output record shape matches what the dashboard's offline layer
+   expects (Countries/Body/Themes/Sdgs/Regions/AffectedPersons arrays +
+   AnnotationType/AnnotationId/PublicationDate/Symbol/Text). */
+async function parseUhriJson(file) {
+  const text = await file.text();
+  const parsed = JSON.parse(text);
+  if (!Array.isArray(parsed) || !parsed.length) {
+    throw new Error('Expected a non-empty JSON array of records');
+  }
+  const sample = parsed[0];
+  if (!sample.AnnotationId && !sample.annotation_id) {
+    throw new Error('Records must have an AnnotationId field (UHRI JSON format)');
+  }
+  return parsed;
+}
+
+async function parseUhriXlsx(file) {
+  const XLSX = await ensureXLSX();
+  const ab = await file.arrayBuffer();
+  const wb = XLSX.read(ab, { type: 'array' });
+  if (!wb.SheetNames.length) throw new Error('Workbook has no sheets');
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  if (!rows.length) throw new Error('First sheet has no data rows');
+  // Sanity-check: the UHRI export has a small set of recognisable column
+  // headers. If NONE of them match, the user uploaded the wrong file.
+  const sampleKeys = Object.keys(rows[0]).map(k => k.toLowerCase());
+  const hasUhri = sampleKeys.some(k => /annotation|reccomend|themes|countries/.test(k));
+  if (!hasUhri) {
+    throw new Error('Columns don\'t look like a UHRI export — expected "Countries Concerned", "Reccomending Body", "Themes", "OHCHR Annotation Id"');
+  }
+  return rows.map(_uhriRowToRecord);
+}
+
+/* UHRI row → canonical record shape.  Handles the list of aliases UHRI
+   uses across export versions (some have "Recommending Body" corrected,
+   others keep the historical typo "Reccomending Body").  Case- and
+   whitespace-insensitive match so we accept either. */
+function _uhriRowToRecord(row) {
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const rowNorm = {};
+  for (const [k, v] of Object.entries(row)) rowNorm[norm(k)] = v;
+  const get = (...aliases) => {
+    for (const a of aliases) {
+      const key = norm(a);
+      if (rowNorm[key] != null && rowNorm[key] !== '') return rowNorm[key];
+    }
+    return '';
+  };
+  const stripDash = (s) => String(s || '').replace(/^[-\s]+/, '').trim();
+  const parseList = (v) => String(v || '')
+    .split(/\r?\n/)
+    .map(s => stripDash(s))
+    .filter(Boolean);
+  // Excel date serial → ISO-YYYY-MM-DD.  Epoch Dec 30 1899 handles the
+  // well-known 1900 leap-year bug Excel never fixed.  Non-numeric falls
+  // through unchanged (some exports already pre-format as ISO).
+  const excelDate = (v) => {
+    if (!v) return '';
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 10000) {
+      const epochMs = Date.UTC(1899, 11, 30);
+      return new Date(epochMs + n * 86400000).toISOString().slice(0, 10);
+    }
+    return String(v);
+  };
+  const text = String(get('Text') || '');
+  return {
+    AnnotationId:       String(get('OHCHR Annotation Id', 'AnnotationId', 'Annotation Id') || ''),
+    Symbol:             String(get('Document Symbol', 'Symbol') || ''),
+    PublicationDate:    excelDate(get('Document Publication Date', 'PublicationDate', 'Publication Date')),
+    Body:               stripDash(get('Reccomending Body', 'Recommending Body', 'Body')),
+    AnnotationType:     stripDash(get('Type', 'AnnotationType', 'Annotation Type')),
+    Countries:          parseList(get('Countries Concerned', 'Countries')),
+    Regions:            parseList(get('Regions Concerned', 'Regions')),
+    Themes:             parseList(get('Themes')),
+    AffectedPersons:    parseList(get('Affected Persons', 'AffectedPersons')),
+    Sdgs:               parseList(get('Sdgs', 'SDGs')),
+    Text:               text,
+    TextPlainCleaned:   text,
+    SectionHeadings:    [],
+    UprSession:         stripDash(get('UPR Session')) || null,
+    UprRecommendingStates: parseList(get('UPR Reccomending States', 'UPR Recommending States')),
+    UprPosition:        stripDash(get('UPR Position')) || null,
+  };
 }
 
 /* =========================================================================

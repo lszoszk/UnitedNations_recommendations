@@ -13,7 +13,7 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *   7. readerDrawer — extracted reader module still renders record chrome
  *   8. compareScale — shared Y scale in Compare must normalize API row arrays
  *
- * Scenario tests (9-14) go one layer up — they exercise user-visible flows:
+ * Scenario tests (9-15) go one layer up — they exercise user-visible flows:
  *   9. hashFocusRestore     — deep-link URL restores focus country/theme
  *  10. cmdPalette           — ⌘K opens, typing filters, click navigates
  *  11. railFilterChip       — rail change surfaces chip + hit-count updates
@@ -22,6 +22,9 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *  14. m49RegionLookup      — rail REGION filter uses M49 5-region, the
  *                             lookup correctly maps to country names (this
  *                             is how we bridge M49 UI ↔ Treaty Body server)
+ *  15. uhriXlsxMapper       — upload pipeline's UHRI xlsx row → canonical
+ *                             record shape, covering the "- " prefix strip,
+ *                             \n-separated arrays, and Excel date serials
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -602,6 +605,60 @@ test.describe('UHRI Dashboard smoke', () => {
     await expect(page.locator('#view-overview')).toHaveClass(/hidden/);
 
     expect(errors, `JS errors while rendering country profile:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('15. uhriXlsxMapper — UHRI xlsx row → canonical record shape', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any)._uhriRowToRecord === 'function', null, { timeout: 5000 });
+
+    // Hand-crafted row mimicking an actual UHRI xlsx export — same column
+    // names (including the "Reccomending Body" typo), "- " prefixes,
+    // \n-separated multi-values, Excel-date-serial in the date fields.
+    // This is the smallest reliable fixture that exercises every quirk
+    // of the UHRI xlsx format our parser claims to handle.
+    const out = await page.evaluate(() => {
+      const mockRow = {
+        'Text': 'Rural women 49.The Committee notes with concern',
+        'Countries Concerned': '- Iraq',
+        'Reccomending Body': '- CEDAW',
+        'Document Symbol': 'CEDAW/C/IRQ/CO/8',
+        'Themes': '- Equality & non-discrimination\n- Discrimination against women\n- Land & property rights',
+        'Affected Persons': '- Persons living in rural areas\n- Women & girls',
+        'Sdgs': '- 1.4 - Equal rights to economic resources\n- 16.3 - Promote the rule of law',
+        'Document Publication Date': '46078',     // Excel date serial
+        'UPR Reccomending States': '',
+        'UPR Position': '',
+        'Type': '- Concerns/Observations',
+        'OHCHR Annotation Id': 'b4288060-6633-478d-9a9a-df1978d336c3',
+        'UPR Session': '',
+        'Regions Concerned': '- Asia-Pacific',
+        'Recommending Regions': '',
+        'Date of publication on UHRI': '46125.4996282407',
+      };
+      return _uhriRowToRecord(mockRow);
+    });
+
+    // Core identifiers + primitives:
+    expect(out.AnnotationId).toBe('b4288060-6633-478d-9a9a-df1978d336c3');
+    expect(out.Symbol).toBe('CEDAW/C/IRQ/CO/8');
+    // "- " prefix stripped on single-value fields:
+    expect(out.Body).toBe('CEDAW');
+    expect(out.AnnotationType).toBe('Concerns/Observations');
+    // Array fields: \n-split + "- " stripped + empty filtered:
+    expect(out.Countries).toEqual(['Iraq']);
+    expect(out.Themes).toEqual(['Equality & non-discrimination', 'Discrimination against women', 'Land & property rights']);
+    expect(out.AffectedPersons).toEqual(['Persons living in rural areas', 'Women & girls']);
+    expect(out.Sdgs).toEqual(['1.4 - Equal rights to economic resources', '16.3 - Promote the rule of law']);
+    expect(out.Regions).toEqual(['Asia-Pacific']);
+    // Excel date serial → ISO — 46078 ≈ March 2026:
+    expect(out.PublicationDate).toMatch(/^2026-\d\d-\d\d$/);
+    // Text is duplicated into both Text and TextPlainCleaned (dashboard
+    // readers consult either).
+    expect(out.Text).toContain('Rural women');
+    expect(out.TextPlainCleaned).toContain('Rural women');
+
+    expect(errors, `JS errors during UHRI xlsx mapper probe:\n${errors.join('\n')}`).toEqual([]);
   });
 
 });

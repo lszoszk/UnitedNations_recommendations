@@ -90,19 +90,29 @@ function renderMethodology() {
   $('#view-methodology').innerHTML = `
     <div class="me">
       <h1>Methodology <em style="color:var(--accent)">·</em> notes & caveats</h1>
-      <p>This dashboard aggregates <strong>267,537 observations and recommendations</strong> addressed to UN Member States by Treaty Bodies, Special Procedures and the Universal Periodic Review, covering the twenty-year period 2006 – 2026. The raw OHCHR export carries 267,548 records; the 11-record delta is a set of Stage-6 artefact rows removed during cleaning (see below).</p>
+      <p>This dashboard aggregates <strong>267,537 observations and recommendations</strong> addressed to UN Member States by Treaty Bodies, Special Procedures and the Universal Periodic Review, covering the twenty-year period 2006 – 2026. The raw OHCHR export carries 267,548 records; we drop 11 of them as content-free artefacts (see the <em>Deleted records</em> note below). Across the remaining 267,537, our four-stage content-cleaning pipeline made at least one non-whitespace edit to <strong>~56,000 records (≈21 % of the dataset)</strong>; the rest passed through unchanged.</p>
 
       <h2>Data source</h2>
-      <p>All records originate from the OHCHR <strong>Universal Human Rights Index</strong> (<a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a>). By default this dashboard shows data processed by our transparent six-stage pipeline (detailed below). You can switch to the <strong>raw upstream text</strong> using the <code>DATA · cleaned ▾</code> pill in the header — raw mode re-includes 11 Stage 6 artefacts and runs search against the original HTML-stripped text. Country, body and theme metadata remain pipeline-canonical in either mode. Share a raw-mode view by appending <code>?dataset=raw</code> to the URL.</p>
+      <p>All records originate from the OHCHR <strong>Universal Human Rights Index</strong> (<a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a>). By default this dashboard shows data processed by our transparent <strong>four-stage content-cleaning pipeline</strong> (detailed below). You can switch to the <strong>raw upstream text</strong> using the <code>DATA · cleaned ▾</code> pill in the header — raw mode re-includes the 11 artefact rows and runs search against the original HTML-stripped text. Country, body and theme metadata remain pipeline-canonical in either mode. Share a raw-mode view by appending <code>?dataset=raw</code> to the URL.</p>
 
       <h2>Cleanup approach — deterministic first</h2>
-      <p>The pipeline minimises generative AI involvement:</p>
+      <p>Across the dataset, the pipeline touched ~56,000 records in one or more of these four stages. Generative AI was used sparingly, only where rules couldn't recover the content:</p>
       <ul>
-        <li><strong>Stage 1 — rule-based OCR & HTML cleanup.</strong> ~700 lines of Python, no AI. Cleans <strong>99.75 %</strong> of records.</li>
+        <li><strong>Stage 1 — rule-based OCR & HTML cleanup.</strong> ~700 lines of Python, no AI. Cleans <strong>99.75 %</strong> of records — stripping stray HTML tags, repairing mid-word OCR splits ("develop\u00ADment" → "development"), collapsing whitespace, reconstructing quoted citations.</li>
         <li><strong>Stage 2 — LLM-assisted residue review.</strong> Only <strong>412 records (0.15 %)</strong> with hard OCR corruption go through a bounded Claude Sonnet prompt with structural validation rails. (Earlier write-ups quoted ~712; that figure was from an older pipeline build before the Stage-1 rule set matured.)</li>
         <li><strong>Stage 3 — deterministic AnnotationType normalisation.</strong> ~3,294 records had missing or UUID-coded <code>type</code> fields. A multilingual regex classifier (EN/ES/FR/PT verbs + UPR imperatives) correctly re-labels <strong>2,603 of them (79 %)</strong>. Every change is audit-tagged in an <code>AnnotationTypeSource</code> field. No AI involved.</li>
         <li><strong>Stage 4 — country backfill from UN document symbol.</strong> <strong>104 records</strong> (0.04 %) arrived with no country metadata despite a country code being literally present in their symbol (<code>CEDAW/C/<strong>ALB</strong>/CO/4</code>, <code>CRPD/C/<strong>AZE</strong>/CO/1</code>). A single regex + data-derived ISO-alpha-3 lookup rescues <strong>all 104</strong> (mostly Azerbaijan CRPD-2014 + Albania CEDAW-2016 batches); a handful of thematic SR reports remain legitimately country-agnostic. Appends-only, tagged <code>source: inferred:symbol</code> in <code>record_country</code>.</li>
       </ul>
+
+      <h2>Deleted records (raw 267,548 → cleaned 267,537)</h2>
+      <p>Eleven rows from the raw OHCHR export are dropped from the cleaned dataset because they contain no citable content. They fall into three categories:</p>
+      <ul>
+        <li><strong>Empty-text placeholders</strong> — rows whose <code>Text</code> field is blank after HTML strip and whitespace collapse; typically section-header stubs the OHCHR exporter emits as separators between paragraphs.</li>
+        <li><strong>Duplicate annotation IDs</strong> — a small number of records that share an <code>AnnotationId</code> with another row (upstream re-export collision). We keep the one with richer metadata and drop the stub.</li>
+        <li><strong>HTML-only scaffolding</strong> — rows whose entire text content was table/figure markup that survived to the export; after Stage 1 cleanup they carry nothing meaningful.</li>
+      </ul>
+      <p style="color:var(--dim);font-size:12px;margin-top:-6px">None of the 11 dropped rows have a Treaty Body/SP/UPR recommendation or observation attached; they were always unusable upstream. The full list of dropped <code>AnnotationId</code>s is available on request for anyone reproducing the pipeline.</p>
+      <p style="color:var(--dim);font-size:12px;margin-top:-6px"><strong>If you need the full 267,548</strong> — flip the header toggle to <code>DATA · raw</code>. The deleted artefacts come back along with the original HTML-ridden text for every other record. Most researchers prefer cleaned; the raw toggle exists for reproducibility + for anyone auditing the pipeline against the upstream export.</p>
 
       <h2>Does the cleaning change your results?</h2>
       <p>For large-trend analysis — top themes, country counts, 2006–2026 timelines, cross-region comparisons — cleaned and upstream datasets are functionally identical. The cleaning matters for narrow questions where Stage 3 concentrates, notably UPR second-cycle longitudinal work, the 2026 CRC/CEDAW/CMW batch, and Latin-American Spanish-language Special-Procedure visits. Full methodology available on request.</p>
@@ -132,8 +142,6 @@ function renderMethodology() {
         <li><strong>M49 is statistical, not political.</strong> It classifies geography and is deliberately apolitical — it doesn't speak to sovereignty disputes, recognition, or membership in UN bodies.</li>
         <li><strong>The UN Human Rights machinery runs on different groupings.</strong> Treaty Body elections and Human Rights Council membership use <em>regional electoral groups</em> — African (54), Asia-Pacific (54), Eastern European (23), Latin American & Caribbean / GRULAC (33), Western European and Others / WEOG (29). Those cut across M49 lines (e.g. Australia, Canada, New Zealand, USA are WEOG despite sitting in Oceania/Americas geographically). This dashboard doesn't currently expose electoral groups as a filter — they're on the roadmap.</li>
       </ul>
-      <p style="color:var(--dim);font-size:12px;margin-top:-6px"><strong>History:</strong> before April 2026 this dashboard used an ad-hoc 6-region split with a separate "MENA" bucket. That was visualization-friendly but not UN-aligned. The April 2026 migration redistributes MENA — Northern Africa (Egypt/Libya/Morocco/Algeria/Tunisia/Sudan) back into Africa, Western Asia (Turkey/Israel/Saudi/Lebanon/etc.) into Asia — matching M49 exactly. Iran sits in Southern Asia per M49, alongside India/Pakistan/Afghanistan/Bangladesh.</p>
-
       <h2>Glossary</h2>
       <dl class="grid-def">
         <dt>Recommending body</dt><dd>The UN mechanism that issued the paragraph (UPR, Treaty Body, or Special Procedure).</dd>
