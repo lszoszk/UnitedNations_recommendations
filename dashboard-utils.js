@@ -822,7 +822,6 @@ function noteSet(id, text) {
   }
   notesSave(all);
 }
-function noteCount() { return Object.keys(notesLoad()).length; }
 function updateBookmarkCount() {
   const n = bmLoad().length;
   const badge = $('#tabBookmarks');

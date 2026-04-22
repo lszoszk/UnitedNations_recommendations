@@ -151,16 +151,6 @@ function rulesSnapshotCurrent(name) {
   try { localStorage.setItem(RULES_ACTIVE_KEY, id); } catch {}
   return id;
 }
-function rulesDeleteSet(id) {
-  rulesSaveSets(rulesLoadSets().filter(s => s.id !== id));
-  if (state.rules.active === id) {
-    state.rules.active = null;
-    state.rules.rules = [];
-    state.rules.counts = {};
-    try { localStorage.removeItem(RULES_ACTIVE_KEY); } catch {}
-  }
-}
-
 /* ------------- Migration from v1 TF-IDF sets ------------- */
 function rulesDetectMigrationNeeded() {
   // Only prompt once per browser — once user picks done/skipped, leave them alone

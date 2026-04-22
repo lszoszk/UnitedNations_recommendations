@@ -1776,12 +1776,14 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <script>
 /* =========================================================================
    UHRI Analytics Dashboard — information-dense analyst UX
-   ========================================================================= */
-
-/* NAME_TO_ISO / ISO_TO_NAME / ISO2_TO_NAME / MAP_LAYOUT,
-   $/$$/fmt/pct/cssVar/debounce/sanitize/escapeRegex/cleanCountryList,
-   cleanLabel/cleanAnnotationType/inferAnnotationType/cleanCountryName,
-   emptyFilters — all moved to dashboard-helpers.js (loaded first). */
+   =========================================================================
+   Layer-by-layer map of this inline spine + the 17 external modules lives
+   in ARCHITECTURE.md. Short version: this inline <script> retains only the
+   cross-cutting glue (navigate dispatcher, boot, overview shell, chart
+   helpers, accessibility + cache + toast + export + dataset toggle). Every
+   view renderer, every self-contained feature, and every facet widget has
+   been pulled into a dashboard-*.js sibling — see the <script src=…> tags
+   a few lines up for the load order. */
 
 /* Build a filter object that intersects the current rail with a profile
    scope. The override wins for its dimension (e.g. a Country profile for
@@ -1844,8 +1846,6 @@ function _renderRailNoteInto(hostEl, excludeKey) {
   });
 }
 
-/* Infrastructure moved to dashboard-data.js */
-
 /* Describe which rail filters (other than the profile's own scope) are
    currently applied. Used by profile headers to show a one-line summary
    like "filtered by: CCPR · 2020–2024" with a [clear] shortcut. */
@@ -1868,12 +1868,6 @@ function _activeRailDescription(excludeKey) {
   if ((minY && f.yearA > minY) || (maxY && f.yearB < maxY)) parts.push(`${f.yearA}–${f.yearB}`);
   return parts.join(' · ');
 }
-
-/* SDG_NAMES / SDG_TARGET_NAMES / formatSdgLabel moved to dashboard-helpers.js. */
-
-/* Data/state/profile infrastructure moved to dashboard-data.js */
-
-/* Offline infrastructure moved to dashboard-offline.js */
 
 /* ---------- EXPORT (#26) — wire to /api/data/export ---------- */
 function doExport(format) {
@@ -1937,30 +1931,6 @@ function announce(msg) {
   // Clear then set so repeats are announced
   el.textContent = '';
   setTimeout(() => { el.textContent = msg; }, 50);
-}
-
-/* Simple focus trap for modals — cycles focus between first/last focusable
-   elements inside `el`. Returns a cleanup function. */
-function trapFocus(el) {
-  if (!el) return () => {};
-  const sel = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-  const getFocusable = () => Array.from(el.querySelectorAll(sel)).filter(n => !n.disabled && n.offsetParent !== null);
-  const first = () => getFocusable()[0];
-  const last = () => { const f = getFocusable(); return f[f.length - 1]; };
-  const onKey = (e) => {
-    if (e.key !== 'Tab') return;
-    const f = first(); const l = last();
-    if (!f || !l) return;
-    if (e.shiftKey && document.activeElement === f) { e.preventDefault(); l.focus(); }
-    else if (!e.shiftKey && document.activeElement === l) { e.preventDefault(); f.focus(); }
-  };
-  el.addEventListener('keydown', onKey);
-  const prevFocus = document.activeElement;
-  setTimeout(() => { first()?.focus(); }, 10);
-  return () => {
-    el.removeEventListener('keydown', onKey);
-    try { prevFocus?.focus(); } catch {}
-  };
 }
 
 /* ---------- TOP PROGRESS BAR ---------- */
@@ -2029,13 +1999,6 @@ function setStatus(kind, lbl) {
     c.title = size && size !== '—' ? `${base} · ${size}` : base;
   }
 }
-
-/* Hit-count refresh moved to dashboard-filters.js. */
-
-/* Rail (buildRail, buildFacetList, buildBodyFacetGrouped, mechanism-family
-   helpers, keyword input) moved to dashboard-rail.js. That module also
-   owns the shared classifyBody / renderMechTiles / _computeMechCounts
-   surface reached into by profiles, timeline, utils, reader. */
 
 /* =========================================================================
    CHART HELPERS
@@ -2540,26 +2503,13 @@ async function renderOverview(opts = {}) {
   root.classList.remove('updating');
 }
 
-/* Profile, mechanism, and compare views moved to dashboard-profiles.js. */
-
-/* VIEW: SEARCH RESULTS (infinite scroll + KWIC + bulk ops) — moved to
-   dashboard-search.js. navigate('search') and onFiltersChanged() both call
-   renderSearch() which now lives in that module. */
-
-/* VIEW: 🧪 LABELS — boolean rule builder — moved to dashboard-labels.js.
-   navigate('labels') calls renderRules() which now comes from that module. */
-
-/* Methodology tab + freshness card moved to dashboard-methodology.js. */
-
-/* Reader / drawer / citations moved to dashboard-reader.js. */
-
-/* Command palette (⌘K) moved to dashboard-ui.js. */
-
-/* Route-state infrastructure moved to dashboard-route.js */
-
 /* =========================================================================
    NAV
-   ========================================================================= */
+   =========================================================================
+   View dispatcher. Each branch below calls a renderer that lives in a
+   dashboard-*.js sibling (see ARCHITECTURE.md for the module map). This
+   function stays inline because it's the one seam that touches every view
+   — extracting it would only move the giant if-chain, not simplify it. */
 async function navigate(view) {
   state.view = view;
   $$('.tab').forEach(t => {
@@ -2584,11 +2534,10 @@ async function navigate(view) {
   else if (view === 'methodology') renderMethodology();
 }
 
-/* Utility layers moved to dashboard-utils.js */
-
-/* Tweaks (palette/density/rail/drawer/reading) and onboarding tour moved
-   to dashboard-ui.js. TW is the shared mutable state object exported by
-   that module — inline renderDrawer etc. mutate TW.drawer directly. */
+/* TW (palette/density/rail/drawer/reading) lives in dashboard-ui.js but is
+   a shared mutable object — renderDrawer etc. below mutate TW.drawer
+   directly. Cross-script `const` bindings in classic <script> land share
+   one slot per realm, so `TW.drawer = true` from here works fine. */
 
 /* =========================================================================
    BOOT
