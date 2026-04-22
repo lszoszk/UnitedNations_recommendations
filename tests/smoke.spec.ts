@@ -4,14 +4,21 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  * UHRI Dashboard smoke tests.
  *
  * These exist to catch specific classes of regression we've been hit by:
- *   1. boot        — inline IIFE halts partway (drawTimeline threw, 2026-04-20)
- *   2. loadOrder   — script extraction breaks a forward-ref global
- *   3. hashRouting — dashboard-route.js fails to expose its routing API
+ *   1. boot         — inline IIFE halts partway (drawTimeline threw, 2026-04-20)
+ *   2. loadOrder    — script extraction breaks a forward-ref global
+ *   3. hashRouting  — dashboard-route.js fails to expose its routing API
  *   4. landingSearch — index.html hero search input isn't wired (bec17a1)
  *   5. datasetNumber — hardcoded "267,548" drifts from reality (pre-c87b355)
- *   6. searchView  — extracted search module no longer renders its shell
+ *   6. searchView   — extracted search module no longer renders its shell
  *   7. readerDrawer — extracted reader module still renders record chrome
  *   8. compareScale — shared Y scale in Compare must normalize API row arrays
+ *
+ * Scenario tests (9-13) go one layer up — they exercise user-visible flows:
+ *   9. hashFocusRestore     — deep-link URL restores focus country/theme
+ *  10. cmdPalette           — ⌘K opens, typing filters, click navigates
+ *  11. railFilterChip       — rail change surfaces chip + hit-count updates
+ *  12. savedViewPersistence — svSave → reload → svLoad round-trip intact
+ *  13. countryProfile       — navigate('country') switches tab + view section
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -349,4 +356,209 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(maxB).toBe(150);
     expect(errors, `JS errors while rendering compare view:\n${errors.join('\n')}`).toEqual([]);
   });
+
+  // ===========================================================================
+  // SCENARIO TESTS (9-13) — exercise actual user flows, not just module wiring.
+  // These catch regressions the unit/smoke layer above can't see: URL hash
+  // restore, cmdk navigation, rail feedback, saved-view persistence, profile
+  // rendering. Each one mocks the VM API just enough to avoid network and
+  // asserts observable UI state.
+  // ===========================================================================
+
+  test('9. hashFocusRestore — /dashboard.html#view=country&fc=DEU opens Germany profile', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+
+    // Boot's Phase 1 (facets + map + analytics) fires synchronously before the
+    // hash restoration finishes. If those VM calls fail, boot's catch branch
+    // renders "Can't reach the VM" and never calls navigate() — so the country
+    // tab stays inactive. We intercept `fetch` at the network layer so the
+    // boot path gets valid-enough shapes and navigate('country') fires.
+    await page.addInitScript(() => {
+      const realFetch = window.fetch;
+      const stubs: Record<string, unknown> = {
+        '/api/data/facets': {
+          countries: ['Germany'], bodies: [], themes: [], groups: [], sdgs: [],
+          min_year: 2006, max_year: 2026, total_records: 0,
+        },
+        '/api/data/map':       { country_counts: [] },
+        '/api/data/analytics': {
+          trends: { yearly_body_counts: [] },
+          themes: { theme_counts: [], body_counts: [] },
+          text:   { affected_person_counts: [], sdg_counts: [] },
+        },
+        '/api/data/records':   { total_records: 0, records: [] },
+        '/api/data/recordsCount': { total_records: 0 },
+        '/api/data/health':    { modified_at: new Date().toISOString() },
+      };
+      (window as any).fetch = async (input: RequestInfo, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        for (const [path, body] of Object.entries(stubs)) {
+          if (url.includes(path)) {
+            return new Response(JSON.stringify(body), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+        }
+        return realFetch(input, init);
+      };
+    });
+
+    await page.goto('/dashboard.html#view=country&fc=DEU');
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+    await expect(page.locator('a[role="tab"][data-nav="country"]')).toHaveAttribute('aria-selected', 'true', { timeout: 5000 });
+    const focus = await page.evaluate(() => ({
+      focusCountry: state.focusCountry,
+      view: state.view,
+      tabCountryLabel: document.getElementById('tabCountry')?.textContent || '',
+    }));
+    expect(focus.focusCountry).toBe('DEU');
+    expect(focus.view).toBe('country');
+    expect(focus.tabCountryLabel).toContain('Germany');
+
+    expect(errors, `JS errors during hash deep-link restore:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('10. cmdPalette — ⌘K opens palette, typing filters, Enter navigates', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    // Palette starts hidden.
+    const palette = page.locator('#cmdPalette');
+    await expect(palette).toHaveClass(/hidden/);
+
+    // ⌘K / Ctrl+K — inline boot wires this keydown listener on document.
+    // Use Meta+K (macOS convention used by the app; Control+K also works but
+    // we want to exercise the primary binding).
+    await page.keyboard.press('Meta+K');
+    await expect(palette).not.toHaveClass(/hidden/, { timeout: 2000 });
+    await expect(page.locator('#cmdInput')).toBeFocused();
+
+    // Typing filters results. With empty facets state, VIEW + ACTION rows
+    // are still populated — typing 'methodology' should match the
+    // Methodology view tile.
+    await page.keyboard.type('methodology');
+    await expect(page.locator('#cmdResults .cmd-result')).toHaveCount(1, { timeout: 2000 });
+
+    // Clicking the first (focused) result runs its action — which calls
+    // closePalette() and navigate(...). We click instead of pressing Enter
+    // because the Enter handler is inline's keydown on document, and it
+    // reads `window.__cmdResults[0].action()` — clicking is the simpler path.
+    await page.locator('#cmdResults .cmd-result').first().click();
+
+    await expect(palette).toHaveClass(/hidden/, { timeout: 2000 });
+    await expect(page.locator('a[role="tab"][data-nav="methodology"]')).toHaveAttribute('aria-selected', 'true', { timeout: 2000 });
+
+    expect(errors, `JS errors during cmdk flow:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('11. railFilterChip — adding a country filter renders an active-filter chip', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    // Seed a filter directly and call the pipeline that updates UI. This
+    // mirrors what the rail's country-facet onclick does: mutate
+    // state.filters.country, then onFiltersChanged() → renderActiveFilters().
+    await page.evaluate(() => {
+      state.filters.country.add('Germany');
+      // refreshHitCount reads from api.recordsCount (not api.records — that's
+      // the paginated endpoint). Stub both in case boot primes something.
+      api.recordsCount = async () => ({ total_records: 42, search_expansions: [] });
+      api.records      = async () => ({ total_records: 42, records: [] });
+      renderActiveFilters();
+      return refreshHitCount();
+    });
+
+    const chipStrip = page.locator('#activeFilters');
+    await expect(chipStrip).toContainText('Germany');
+    // Stubbed recordsCount returns 42 — the visible user feedback we're after.
+    await expect(page.locator('#hitCount')).toHaveText('42', { timeout: 2500 });
+
+    expect(errors, `JS errors while updating rail chips:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('12. savedViewPersistence — svSave entry survives a reload', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+
+    // Step 1: boot the app once to get svSave/svLoad on the realm, then
+    // seed a saved view directly into localStorage under uhri_v2_saved_views.
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).svLoad === 'function', null, { timeout: 5000 });
+
+    const entry = await page.evaluate(() => {
+      const v = {
+        id: 'sv_test_' + Date.now(),
+        name: 'Smoke test · Germany country profile',
+        created_at: Date.now(),
+        hash: 'view=country&fc=DEU',
+      };
+      svSave([v]);
+      return v;
+    });
+
+    // Step 2: reload without any hash. svLoad() on the new page should see
+    // the entry we just persisted — that's the localStorage round-trip.
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).svLoad === 'function', null, { timeout: 5000 });
+    const persisted = await page.evaluate(() => svLoad());
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].id).toBe(entry.id);
+    expect(persisted[0].name).toBe(entry.name);
+    expect(persisted[0].hash).toBe(entry.hash);
+
+    // Step 3: applying the saved-view hash should restore focus + tab —
+    // this is the user-visible payoff of persistence.
+    await page.evaluate(async (hash) => {
+      // Stub analytics so applying the hash (which ends with navigate) doesn't hang.
+      api.analytics = async () => ({
+        trends: { yearly_body_counts: [] },
+        themes: { theme_counts: [], body_counts: [] },
+        text:   { affected_person_counts: [], sdg_counts: [] },
+      });
+      api.records = async () => ({ total_records: 0, records: [] });
+      await _applyRouteStateFromHash(hash, { replaceLocation: true });
+    }, entry.hash);
+    await expect(page.locator('a[role="tab"][data-nav="country"]')).toHaveAttribute('aria-selected', 'true', { timeout: 3000 });
+    const focusCountry = await page.evaluate(() => state.focusCountry);
+    expect(focusCountry).toBe('DEU');
+
+    expect(errors, `JS errors during saved-view persistence:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('13. countryProfile — navigate("country") renders the profile view shell', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    // Seed focus + stub analytics so renderCountry has something to chew on
+    // without reaching the VM. Analytics mock returns the minimum shape that
+    // every profile-rendering code path reads (trends / themes / text).
+    await page.evaluate(async () => {
+      state.focusCountry = 'USA';
+      const tab = document.getElementById('tabCountry');
+      if (tab) tab.textContent = 'United States of America';
+      api.analytics = async () => ({
+        trends: { yearly_body_counts: [{ year: 2020, body: 'UPR', count: 10 }] },
+        themes: { theme_counts: [{ theme: 'Torture', count: 5 }], body_counts: [] },
+        text:   {
+          affected_person_counts: [{ affected_person: 'Women', count: 3 }],
+          sdg_counts: [{ sdg: 'SDG 16', count: 2 }],
+        },
+      });
+      api.records = async () => ({ total_records: 1, records: [] });
+      await navigate('country');
+    });
+
+    // The country tab becomes active + the view-country section becomes visible.
+    // We don't assert granular panel contents — they depend on renderRowList
+    // internals. The SHELL rendering is what we care about here.
+    await expect(page.locator('a[role="tab"][data-nav="country"]')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#view-country')).not.toHaveClass(/hidden/, { timeout: 3000 });
+    await expect(page.locator('#view-overview')).toHaveClass(/hidden/);
+
+    expect(errors, `JS errors while rendering country profile:\n${errors.join('\n')}`).toEqual([]);
+  });
+
 });

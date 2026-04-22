@@ -427,8 +427,10 @@ returning users keep serving stale modules from the SW cache.
 
 ## Testing
 
-Playwright smoke tests live in `tests/smoke.spec.ts`. 8 scenarios,
-~20s runtime against a local `python3 -m http.server`:
+Playwright smoke tests live in `tests/smoke.spec.ts`. 13 scenarios,
+~18s runtime against a local `python3 -m http.server`:
+
+**Smoke (1-8)** — fast wiring checks, most catch a specific bug we've hit:
 
 1. **boot** — dashboard.html renders tabs, no unexpected JS errors
 2. **loadOrder** — every module-level global is defined
@@ -439,11 +441,25 @@ Playwright smoke tests live in `tests/smoke.spec.ts`. 8 scenarios,
 7. **readerDrawer** — extracted reader renders a synthetic record
 8. **compareScale** — compare timelines share normalized annual max
 
+**Scenario (9-13)** — user flows, one layer deeper:
+
+9. **hashFocusRestore** — deep-link URL restores focus country + tab
+10. **cmdPalette** — ⌘K opens, typing filters, click navigates
+11. **railFilterChip** — rail change surfaces chip + hit-count updates
+12. **savedViewPersistence** — svSave → reload → svLoad round-trip intact
+13. **countryProfile** — navigate('country') switches tab + view section
+
 Run: `npx playwright test --reporter=list`.
 
 Test #2 (`loadOrder`) is the canary for extractions: when a new
 module is added, extend it with that module's top-level exports.
 A broken forward-ref surfaces here first.
+
+Test #9 (`hashFocusRestore`) installs a `fetch` stub via
+`addInitScript` so boot's Phase 1 VM calls resolve before the
+hash-restoration runs. This pattern is the recommended way to test
+anything that depends on boot completing — the VM at
+`150.254.115.204` is the wrong layer to depend on in CI.
 
 ---
 
