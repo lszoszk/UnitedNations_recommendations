@@ -35,6 +35,8 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *  18. readingModeResize    — A-/A+ changes drawer text size in read mode
  *  19. methodologyToc       — methodology jump-nav renders and removed copy
  *                             stays removed
+ *  20. readingModeRailRestore — legacy saved tweak snapshots from old
+ *                             reading-mode logic still restore the rail
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -831,6 +833,66 @@ test.describe('UHRI Dashboard smoke', () => {
     }, null, { timeout: 4000 });
 
     expect(errors, `JS errors during methodology TOC flow:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('20. readingModeRailRestore — exiting read mode restores rail even from legacy saved tweaks', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.addInitScript(() => {
+      localStorage.setItem('uhri_v2_tw', JSON.stringify({
+        palette: 'archive',
+        density: 'tight',
+        rail: false,
+        drawer: true,
+        _preReadingRail: true,
+      }));
+    });
+    await page.goto('/dashboard.html', { waitUntil: 'commit' });
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    await page.evaluate(() => {
+      const rec = {
+        AnnotationId: 'smoke-reading-rail-restore',
+        PublicationDate: '2025-01-15',
+        Countries: ['Poland'],
+        Regions: ['Eastern Europe'],
+        Body: 'Human Rights Committee',
+        Themes: ['Access to justice & remedy'],
+        AffectedPersons: ['Women'],
+        Sdgs: ['SDG 16.3'],
+        Symbol: 'CCPR/C/XYZ/1',
+        AnnotationType: 'Recommendations',
+        TextPlainCleaned: 'Reading mode should hide the rail temporarily and restore it when exiting.',
+      };
+      state.selectedRec = rec;
+      state.currentResultList = [rec];
+      state.currentResultIndex = 0;
+      state.drawerMode = 'record';
+      state.drawerList = null;
+      renderDrawer();
+    });
+
+    await page.locator('#drawerReadingMode').click();
+    await expect(page.locator('#app')).toHaveClass(/reading-mode/);
+    await page.locator('#drawerReadingMode').click();
+    await expect(page.locator('#app')).not.toHaveClass(/reading-mode/);
+
+    const railState = await page.evaluate(() => {
+      const app = document.getElementById('app');
+      const saved = JSON.parse(localStorage.getItem('uhri_v2_tw') || '{}');
+      return {
+        appClass: app?.className || '',
+        railClosed: !!app?.classList.contains('rail-closed'),
+        railToggleText: document.getElementById('railTog')?.textContent || '',
+        savedRail: saved.rail,
+        savedPreReadingRail: saved._preReadingRail,
+      };
+    });
+
+    expect(railState.railClosed).toBe(false);
+    expect(railState.railToggleText).toContain('ON');
+    expect(railState.savedRail).toBe(true);
+    expect(railState.savedPreReadingRail).toBeUndefined();
+    expect(errors, `JS errors during reading-mode rail restore:\n${errors.join('\n')}`).toEqual([]);
   });
 
 });

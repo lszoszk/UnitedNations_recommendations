@@ -166,22 +166,48 @@ const TW = { palette: 'archive', density: 'tight', rail: true, drawer: !_firstVi
 const PALETTES = ['archive', 'terminal', 'ink'];
 const PALETTE_PREVIEW = { archive: '#F2EFE8', terminal: '#0b0d0b', ink: '#ffffff' };
 
+function _persistTweaks() {
+  const persisted = {
+    palette: TW.palette,
+    density: TW.density,
+    rail: !!TW.rail,
+    drawer: !!TW.drawer,
+  };
+  try { localStorage.setItem('uhri_v2_tw', JSON.stringify(persisted)); } catch {}
+}
+
 function applyTweaks() {
+  const app = $('#app');
+  const reading = !!app?.classList.contains('reading-mode');
+  const railVisible = reading ? false : !!TW.rail;
   document.body.dataset.palette = TW.palette;
   document.body.dataset.density = TW.density;
-  $('#app').classList.toggle('rail-closed', !TW.rail);
-  $('#app').classList.toggle('drawer-closed', !TW.drawer);
-  const railTog = $('#railTog'); if (railTog) { railTog.classList.toggle('on', TW.rail); railTog.textContent = TW.rail?'ON':'OFF'; }
+  app?.classList.toggle('rail-closed', !railVisible);
+  app?.classList.toggle('drawer-closed', !TW.drawer);
+  const railTog = $('#railTog'); if (railTog) { railTog.classList.toggle('on', railVisible); railTog.textContent = railVisible?'ON':'OFF'; }
   const drawTog = $('#drawerTog'); if (drawTog) { drawTog.classList.toggle('on', TW.drawer); drawTog.textContent = TW.drawer?'ON':'OFF'; }
   const dSel = $('#densitySel'); if (dSel) dSel.value = TW.density;
   $$('#swPalette .sw').forEach(s => s.classList.toggle('active', s.dataset.pal === TW.palette));
   // Topbar preview swatch — shows current palette at a glance
   const preview = $('#twPreview'); if (preview) preview.style.background = PALETTE_PREVIEW[TW.palette] || '#ccc';
-  try { localStorage.setItem('uhri_v2_tw', JSON.stringify(TW)); } catch {}
+  _persistTweaks();
 }
 
 function loadTweaks() {
-  try { const s = localStorage.getItem('uhri_v2_tw'); if (s) Object.assign(TW, JSON.parse(s)); } catch {}
+  try {
+    const s = localStorage.getItem('uhri_v2_tw');
+    if (!s) return;
+    const saved = JSON.parse(s);
+    if (!saved || typeof saved !== 'object') return;
+    if (saved.palette) TW.palette = saved.palette;
+    if (saved.density) TW.density = saved.density;
+    if (typeof saved.rail === 'boolean') TW.rail = saved.rail;
+    if (typeof saved.drawer === 'boolean') TW.drawer = saved.drawer;
+    // Migrate legacy snapshots written while reading mode was active. Those
+    // used to persist `_preReadingRail` plus `rail:false`, which could leave
+    // the left rail hidden forever after pressing R to exit.
+    if (typeof saved._preReadingRail === 'boolean') TW.rail = saved._preReadingRail;
+  } catch {}
 }
 
 function setPalette(p) { if (PALETTES.includes(p)) { TW.palette = p; applyTweaks(); toast('Palette → ' + p, false, 1800); } }
@@ -216,16 +242,12 @@ function toggleReadingMode() {
   const app = $('#app') || document.body;
   const on = !app.classList.contains('reading-mode');
   if (on) {
-    TW._preReadingRail = TW.rail;
-    TW.rail = false;
     if (!TW.drawer) TW.drawer = true;
     // Restore persisted font size
     try {
       const saved = parseInt(localStorage.getItem(READING_FS_KEY) || '');
       if (saved) _applyReadingFontSize(saved);
     } catch {}
-  } else {
-    if (TW._preReadingRail !== undefined) { TW.rail = TW._preReadingRail; delete TW._preReadingRail; }
   }
   app.classList.toggle('reading-mode', on);
   applyTweaks();
