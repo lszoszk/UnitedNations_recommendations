@@ -13,7 +13,7 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *   7. readerDrawer — extracted reader module still renders record chrome
  *   8. compareScale — shared Y scale in Compare must normalize API row arrays
  *
- * Scenario tests (9-15) go one layer up — they exercise user-visible flows:
+ * Scenario tests (9-16) go one layer up — they exercise user-visible flows:
  *   9. hashFocusRestore     — deep-link URL restores focus country/theme
  *  10. cmdPalette           — ⌘K opens, typing filters, click navigates
  *  11. railFilterChip       — rail change surfaces chip + hit-count updates
@@ -25,6 +25,9 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *  15. uhriXlsxMapper       — upload pipeline's UHRI xlsx row → canonical
  *                             record shape, covering the "- " prefix strip,
  *                             \n-separated arrays, and Excel date serials
+ *  16. rawModeBanner        — toggling RAW upstream mode doesn't collapse
+ *                             the 3-column grid (banner spans row 1 full
+ *                             width, rail / main / drawer stay in row 2)
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -605,6 +608,56 @@ test.describe('UHRI Dashboard smoke', () => {
     await expect(page.locator('#view-overview')).toHaveClass(/hidden/);
 
     expect(errors, `JS errors while rendering country profile:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('16. rawModeBanner — RAW toggle doesn\'t collapse the grid layout', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    /* The raw-mode banner used to steal the first grid column from the
+       rail (it's a direct child of .app, which is `grid-template-columns:
+       rail-w 1fr drawer-w`).  Toggling RAW-upstream mode pushed the
+       rail / main / drawer to wrong slots and the whole layout looked
+       broken.  Regression test: enter raw-mode, assert rail/main/drawer
+       all start at x=0, x=rail-end, and x=main-end respectively — i.e.
+       the banner spans row 1 and the three real columns fall into row 2
+       intact. */
+    const boxes = await page.evaluate(() => {
+      document.getElementById('app')?.classList.add('raw-mode');
+      const rail   = document.getElementById('rail')?.getBoundingClientRect();
+      const main   = document.querySelector('.main')?.getBoundingClientRect();
+      const drawer = document.querySelector('.drawer')?.getBoundingClientRect();
+      const banner = document.querySelector('.raw-banner')?.getBoundingClientRect();
+      return {
+        rail:   rail   ? { x: rail.x,   y: rail.y,   w: rail.width,   h: rail.height }   : null,
+        main:   main   ? { x: main.x,   y: main.y,   w: main.width,   h: main.height }   : null,
+        drawer: drawer ? { x: drawer.x, y: drawer.y, w: drawer.width, h: drawer.height } : null,
+        banner: banner ? { x: banner.x, y: banner.y, w: banner.width, h: banner.height } : null,
+      };
+    });
+
+    expect(boxes.rail).not.toBeNull();
+    expect(boxes.main).not.toBeNull();
+    expect(boxes.drawer).not.toBeNull();
+    expect(boxes.banner).not.toBeNull();
+
+    // Banner is a full-width row at the top.
+    const banner = boxes.banner!;
+    expect(banner.w).toBeGreaterThan(600);   // spans most of viewport
+    expect(banner.h).toBeLessThan(60);       // thin strip, not a column
+
+    // Rail, main, drawer are in the SECOND row — all below the banner.
+    const rail = boxes.rail!, main = boxes.main!, drawer = boxes.drawer!;
+    expect(rail.y).toBeGreaterThanOrEqual(banner.y + banner.h - 1);
+    expect(main.y).toBeCloseTo(rail.y, 0);     // main aligned with rail top
+    expect(drawer.y).toBeCloseTo(rail.y, 0);   // drawer too
+
+    // Columns ordered left-to-right: rail, main, drawer.
+    expect(main.x).toBeGreaterThan(rail.x + rail.w - 2);
+    expect(drawer.x).toBeGreaterThan(main.x + main.w - 2);
+
+    expect(errors, `JS errors in raw-mode layout probe:\n${errors.join('\n')}`).toEqual([]);
   });
 
   test('15. uhriXlsxMapper — UHRI xlsx row → canonical record shape', async ({ page }) => {

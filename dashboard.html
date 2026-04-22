@@ -1266,11 +1266,16 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
    applied to .app via toggle class `.raw-mode`. Avoids loud colours so
    it isn't distracting during long research sessions, but stays visible
    in peripheral vision. */
-.raw-banner{display:none;padding:6px 20px;background:color-mix(in oklab,#eab308 18%, var(--paper));border-bottom:1px solid #b88400;font:11px var(--mono);color:#854d0e;letter-spacing:.02em;line-height:1.45;text-align:center}
+/* .app is a 3-column grid (rail | main | drawer); without an explicit
+   span the banner would take just the first cell and look like a stray
+   sidebar, squashing the rail.  grid-column:1/-1 makes it stretch the
+   full width and auto-flow the rest onto the next row. */
+.raw-banner{display:none;grid-column:1 / -1;grid-row:1;padding:6px 20px;background:color-mix(in oklab,#eab308 18%, var(--paper));border-bottom:1px solid #b88400;font:11px var(--mono);color:#854d0e;letter-spacing:.02em;line-height:1.45;text-align:center}
 .raw-banner strong{color:#713f12;font-weight:700}
 .raw-banner a{color:#854d0e;text-decoration:underline}
 .app.raw-mode .raw-banner{display:block}
 .app.raw-mode{outline:2px dashed #b88400;outline-offset:-2px}
+.app.raw-mode{grid-template-rows:auto 1fr}
 
 
 /* Onboarding tour — first-visit spotlight */
