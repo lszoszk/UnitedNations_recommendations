@@ -2471,13 +2471,15 @@
     } else {
       COUNTRIES.forEach(([iso,name,v]) => { COUNT_BY_ISO[iso] = v; });
     }
+    /* Any country without a recorded count (neither live nor COUNTRIES
+       fallback) stays at 0 — renders as neutral grey, same as post-live
+       zero-record countries.  Previously we filled these with a random
+       80–600 "decoration" value, which made the initial render look
+       busy-and-colourful but the post-loadLive swap looked like half the
+       map had disappeared.  Both states now match shape: only countries
+       with actual data are coloured; unknown countries stay grey. */
     HEX_LAYOUT.forEach(([c,r,iso]) => {
-      if (COUNT_BY_ISO[iso] == null) {
-        /* For hex cells with no recorded recommendations in either live
-           nor fallback data, use a small deterministic shade so the map
-           never has visibly "empty" cells that look like bugs. */
-        COUNT_BY_ISO[iso] = live ? 0 : (80 + Math.round(Math.pow(Math.random(), 2.6) * 520));
-      }
+      if (COUNT_BY_ISO[iso] == null) COUNT_BY_ISO[iso] = 0;
     });
     HEX_MAX = Math.max(1, ...Object.values(COUNT_BY_ISO));
     document.querySelectorAll('[data-hex-scale-max]').forEach(el => {
@@ -2552,14 +2554,16 @@
     const topPad = region === 'world' ? pad + HEX_SIZE * 0.7 : pad;
     minX -= pad; maxX += pad; maxY += pad;
     minY -= topPad;
-    // Aspect-fit to container
+    // Aspect-fit to container.  Vertical slack goes at the BOTTOM so the
+    // first hex row sits flush with the region-button row above (no empty
+    // gap after returning from a region zoom back to world view).
     const wrect = hexWrap.getBoundingClientRect();
     const ca = wrect.width && wrect.height ? wrect.width / wrect.height : 5/3;
     let natW = maxX - minX, natH = maxY - minY;
     let vbX = minX, vbY = minY;
     const naturalA = natW / natH;
     if (naturalA > ca) {
-      const tH = natW / ca; vbY -= (tH - natH)/2; natH = tH;
+      const tH = natW / ca; natH = tH;  // pad natH downward, vbY unchanged
     } else {
       const tW = natH * ca; vbX -= (tW - natW)/2; natW = tW;
     }

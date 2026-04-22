@@ -193,7 +193,12 @@ async function renderChoroplethMap(container, countryCounts) {
   const gratPath = graticule ? pathGen(graticule) : '';
   const spherePath = pathGen({type:'Sphere'});
 
-  const regions = ['world','americas','europe','mena','africa','asia','oceania'];
+  /* Region buttons aligned with the hex map's M49 5-region set.  The old
+     ad-hoc MENA bucket is gone; Northern Africa is part of `africa`,
+     Western Asia part of `asia`, matching the hex map tabs + rail
+     filter.  getRegionByTopoName() builds the name→region lookup from
+     HEX_LAYOUT so both map modes stay in sync by construction. */
+  const regions = ['world','africa','americas','asia','europe','oceania'];
   const currentRegion = state.geoRegion || 'world';
   const regionBtnsHtml = regions.map(r =>
     `<button data-region="${r}" class="${r === currentRegion ? 'on' : ''}">${r === 'world' ? 'World' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
@@ -272,26 +277,38 @@ async function renderChoroplethMap(container, countryCounts) {
       setVB(...initialVB);
     } else {
       const regionMap = getRegionByTopoName();
-      const hit = features.filter(f => regionMap[f.properties.name] === region);
+      let hit = features.filter(f => regionMap[f.properties.name] === region);
       if (!hit.length) return;
-      const bounds = pathGen.bounds({ type: 'FeatureCollection', features: hit });
+      /* Europe special case — Russia spans from Kaliningrad (20°E) to
+         Kamchatka (180°E) as a single TopoJSON polygon.  Including it
+         when computing bounds stretches the viewBox across all of
+         Siberia and squishes actual Europe.  We compute bounds WITHOUT
+         Russia, then extend the eastern edge a bit so Moscow / St
+         Petersburg (~40°E) remain comfortably inside the frame — user
+         can still click on European Russia, they just don't see the
+         whole country body. */
+      let boundsFeatures = hit;
+      if (region === 'europe') {
+        boundsFeatures = hit.filter(f => f.properties.name !== 'Russia');
+      }
+      const bounds = pathGen.bounds({ type: 'FeatureCollection', features: boundsFeatures });
       let x0 = bounds[0][0], y0 = bounds[0][1];
       let x1 = bounds[1][0], y1 = bounds[1][1];
+      if (region === 'europe') {
+        // Extend east to include roughly Moscow longitude (~40°E).
+        const baseW = x1 - x0;
+        x1 += baseW * 0.28;
+      }
       let rawW = x1 - x0, rawH = y1 - y0;
-      // Aspect-match the container so the region sits CENTERED without the
-      // viewBox being squished — this is why Europe / Oceania looked "off".
       const rect = svg.getBoundingClientRect();
       const containerAspect = (rect.width && rect.height) ? (rect.width / rect.height) : 2;
       const contentAspect = rawW / rawH;
       let vbW, vbH;
       if (contentAspect > containerAspect) {
-        // Content is wider than container → grow height
         vbW = rawW; vbH = rawW / containerAspect;
       } else {
-        // Content narrower → grow width
         vbH = rawH; vbW = rawH * containerAspect;
       }
-      // Very small safety padding — users can scroll-zoom out if they want more context
       const padFactor = 1.03;
       vbW *= padFactor; vbH *= padFactor;
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
@@ -796,19 +813,21 @@ function renderHexMap(container, countryCounts) {
   let natW = maxX - minX + pad * 2;
   let natH = maxY - minY + pad + topPad;
 
-  // Match container aspect so content stays CENTERED regardless of region size.
-  // Without this, Oceania (5 hexes, narrow+tall viewBox) or Europe (wider)
-  // scales inconsistently inside the fixed-aspect container.
+  // Match container aspect.  Horizontal padding centers L/R (visually
+  // natural); vertical padding anchors to TOP instead of centering so
+  // there's no empty gap between the region-button row and the first
+  // hex row.  (Previously: returning from a region zoom to the world
+  // view left a wide empty band at the top because the content got
+  // vertically centered in a taller viewBox.)
   const rect = container.getBoundingClientRect();
   const containerAspect = (rect.width && rect.height) ? (rect.width / rect.height) : 2.2;
   const naturalAspect = natW / natH;
   if (naturalAspect > containerAspect) {
-    // Content is wider than container → expand natH so aspect matches
+    // Content wider than container → pad natH at the BOTTOM only.
     const targetH = natW / containerAspect;
-    natY -= (targetH - natH) / 2;
-    natH = targetH;
+    natH = targetH;  // natY stays at minY - topPad
   } else {
-    // Content is narrower → expand natW so aspect matches (centers horizontally)
+    // Content narrower → expand natW so aspect matches (center horizontally)
     const targetW = natH * containerAspect;
     natX -= (targetW - natW) / 2;
     natW = targetW;
@@ -1015,10 +1034,13 @@ function renderHexMap(container, countryCounts) {
   });
 }
 
-/* Map-mode dispatcher — the user's choice (hex | choropleth | grid) is
-   persisted in localStorage. Hex is the default. */
+/* Map-mode dispatcher — the user's choice (choropleth | hex | grid) is
+   persisted in localStorage.  Default is `choropleth` (GEO): real-world
+   geography is the more immediately legible default; hex is available
+   via the toggle for users who want visual fairness (one equal-sized
+   tile per state). */
 function getMapMode() {
-  try { return localStorage.getItem('uhri_v2_map_mode') || 'hex'; } catch { return 'hex'; }
+  try { return localStorage.getItem('uhri_v2_map_mode') || 'choropleth'; } catch { return 'choropleth'; }
 }
 function setMapMode(m) {
   try { localStorage.setItem('uhri_v2_map_mode', m); } catch {}
