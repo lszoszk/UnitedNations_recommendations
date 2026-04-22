@@ -50,7 +50,7 @@
    from CDN (~50KB d3-geo + ~10KB topojson + ~100KB world-atlas). */
 
 /* Reconciler: API country names (long-form, UN style) → world-atlas names
-   (short). Most of the 199 are identical; list only divergent cases. */
+   (short). Most of the 198 are identical; list only divergent cases. */
 const NAME_RECONCILER = {
   "United Kingdom of Great Britain and Northern Ireland": "United Kingdom",
   "United States of America": "United States of America",
@@ -522,7 +522,6 @@ const HEX_LAYOUT = [
   [ 3,  6,'PAN','Panama','americas','centralAmerica'],
   [ 2,  4,'SLV','El Salvador','americas','centralAmerica'],
   /* americas / northernAmerica */
-  [ 3,  1,'BMU','Bermuda','americas','northernAmerica'],
   [ 1,  0,'CAN','Canada','americas','northernAmerica'],
   [ 2,  1,'USA','United States of America','americas','northernAmerica'],
   /* americas / southAmerica */
@@ -621,6 +620,7 @@ const HEX_LAYOUT = [
   [13,  8,'GRC','Greece','europe','southernEurope'],
   [11,  6,'HRV','Croatia','europe','southernEurope'],
   [10,  5,'ITA','Italy','europe','southernEurope'],
+  [15,  3,'XKX','Kosovo','europe','southernEurope'],
   [12,  8,'MKD','North Macedonia','europe','southernEurope'],
   [14,  6,'MLT','Malta','europe','southernEurope'],
   [13,  9,'MNE','Montenegro','europe','southernEurope'],
@@ -629,6 +629,8 @@ const HEX_LAYOUT = [
   [12,  7,'SRB','Serbia','europe','southernEurope'],
   [11,  5,'SVN','Slovenia','europe','southernEurope'],
   [ 9,  7,'VAT','Holy See','europe','southernEurope'],
+  /* europe / regionalBloc — not a sovereign state; excluded from country count */
+  [10,  0,'EUU','European Union','europe','regionalBloc'],
   /* europe / westernEurope */
   [11,  4,'AUT','Austria','europe','westernEurope'],
   [ 9,  4,'BEL','Belgium','europe','westernEurope'],
@@ -873,13 +875,15 @@ function renderHexMap(container, countryCounts) {
     melanesia: 'Melanesia',
     micronesia: 'Micronesia',
     polynesia: 'Polynesia',
+    regionalBloc: 'Regional bloc',
   };
 
   const hexes = shownHexes.map(([c, r, iso, name, _region, hexSub]) => {
     const [cx, cy] = hexCenter(c, r);
     const n = byIso[iso] || 0;
     const on = state.filters.country.has(name);
-    const cls = 'hex' + (isLight(n) ? ' light' : '') + (n === 0 ? ' empty' : '') + (on ? ' on' : '');
+    const isBloc = hexSub === 'regionalBloc';
+    const cls = 'hex' + (isLight(n) ? ' light' : '') + (n === 0 ? ' empty' : '') + (on ? ' on' : '') + (isBloc ? ' bloc' : '');
     const subLabel = SUBREGION_LABELS[hexSub] || hexSub || '';
     return `<g class="${cls}" data-iso="${iso}" data-name="${sanitize(name)}" data-count="${n}" data-subregion="${sanitize(subLabel)}" role="button" tabindex="0" aria-label="${sanitize(name)}: ${fmt(n)} records, ${sanitize(subLabel)}">
       <polygon points="${hexPoints(cx, cy)}" fill="${colorFor(n)}" stroke="var(--paper)" stroke-width="1.5"/>
@@ -896,7 +900,7 @@ function renderHexMap(container, countryCounts) {
      Each hex still carries a sub-region field (22 M49 sub-regions — see
      SUBREGION_LABELS below) shown in the hex tooltip. */
   const regionBtns = ['world','africa','americas','asia','europe','oceania'].map(r =>
-    `<button data-region="${r}" class="${r === region ? 'on' : ''}" title="Zoom to ${r === 'world' ? 'all 199 states' : r}">${r === 'world' ? 'World' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
+    `<button data-region="${r}" class="${r === region ? 'on' : ''}" title="Zoom to ${r === 'world' ? 'all 198 states + EU' : r}">${r === 'world' ? 'World' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
   ).join('');
 
   /* Taxonomy disclaimer popover.  Previously used the native title

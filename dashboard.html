@@ -458,7 +458,7 @@ a{color:inherit;text-decoration:none}
 .skel-tl-area{position:absolute;left:40px;right:20px;top:40px;bottom:30px}
 .skel-tl-axis{position:absolute;left:40px;right:20px;bottom:18px;height:2px;background:var(--paper-3)}
 .skel-map{height:100%;display:flex;align-items:center;justify-content:center;position:relative}
-.skel-map::before{content:"rendering 199 countries";color:var(--dim);font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;opacity:.6}
+.skel-map::before{content:"rendering 198 countries";color:var(--dim);font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;opacity:.6}
 
 .p-map{grid-column:1;grid-row:1 / span 2}
 .p-time{grid-column:1;grid-row:3}
@@ -466,7 +466,7 @@ a{color:inherit;text-decoration:none}
 .p-top-themes{grid-column:2;grid-row:2}
 .p-sankey{grid-column:2;grid-row:3}
 
-/* Real choropleth (TopoJSON) — all 199 countries */
+/* Real choropleth (TopoJSON) — all 198 countries */
 .map-wrap{position:relative;height:auto;min-height:400px;overflow:visible}
 .map-wrap svg{width:100%;height:100%;display:block}
 .map-wrap .country{cursor:pointer;transition:stroke-width .1s,filter .1s;stroke:var(--line);stroke-width:0.4}
@@ -527,6 +527,12 @@ a{color:inherit;text-decoration:none}
 .region-tax-caption{font-size:10px;color:var(--dim);line-height:1.35;margin:0 0 8px;padding:0 2px;font-style:italic}
 
 .hex-svg{display:block;width:100%;height:520px;transition:opacity .2s}
+/* Regional-bloc hex (European Union).  Dashed outline + lighter fill so
+   users can tell it apart from sovereign-state hexes — it's not a country
+   in the conventional sense, so don't pretend it is.  Excluded from the
+   "countries covered" count but still clickable → records-about-EU drawer. */
+.hex.bloc polygon{stroke-dasharray:3 2;stroke-width:2;stroke:var(--ink)}
+.hex.bloc text{font-size:8px;letter-spacing:0}
 .hex{cursor:pointer;transition:transform .12s,filter .12s}
 .hex:hover{transform:translateY(-2px);filter:drop-shadow(0 2px 0 rgba(0,0,0,.18))}
 .hex polygon{transition:fill .2s,stroke .12s,stroke-width .12s}

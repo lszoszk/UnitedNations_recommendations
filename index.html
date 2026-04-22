@@ -771,6 +771,10 @@
   .hx.on polygon { stroke: var(--ink); stroke-width: 2.5; }
   .hx text { font-family: var(--mono); font-size: 9px; letter-spacing: .02em; fill: var(--ink); pointer-events: none; font-weight: 500; }
   .hx.light text { fill: var(--paper); }
+  /* Regional-bloc tile (EU) — dashed stroke + smaller label so it reads
+     as "not a state" without disrupting the rest of the grid. */
+  .hx.bloc polygon { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 3 2; }
+  .hx.bloc text { font-size: 8px; letter-spacing: 0; }
   .region-lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; fill: var(--dim); font-weight: 500; }
 
   .hex-tip {
@@ -1150,7 +1154,7 @@
           <div class="lbl">Recommendations</div>
         </div>
         <div class="kpi">
-          <div class="num" data-counter="199">0</div>
+          <div class="num" data-counter="198">0</div>
           <div class="lbl">Countries</div>
         </div>
         <div class="kpi">
@@ -1241,7 +1245,7 @@
     <div class="section-head">
       <div class="no">FIG 03 / WHERE</div>
       <div class="t">One hex per country. <em style="color:var(--accent)">No country is bigger than another.</em></div>
-      <div class="ctx">199 states · color = record volume</div>
+      <div class="ctx">198 states + EU · color = record volume</div>
     </div>
 
     <div class="hex-only">
@@ -1295,21 +1299,21 @@
     </div>
 
     <!-- Why paragraph — sets the frame before the step cards. The
-         scale stat (~56k records / 21%) is now inlined as the closing
-         sentence, rendered with big accent numerals so it still reads
-         as the "punch line" without needing its own horizontal strip. -->
+         scale stat (~56k records / 21%) stays as the punch-line
+         numeral. Previously carried an 11-row artefact-drop breakdown
+         that, against 267k, felt like form over substance; moved to
+         Methodology Stage 5 where auditors who care can read it. -->
     <p class="how-why">
       The OHCHR <strong>UHRI export</strong> is a treasure trove, but the raw
       file carries two decades of accumulated OCR fragments, HTML artefacts,
       inconsistent type labels, and records that lost their country
       metadata somewhere along the pipeline. For researchers who want to
       <em>cite</em> this data — not just browse it — that noise matters.
-      Across four deterministic stages we edited something non-whitespace in
+      Across five deterministic stages we edited something non-whitespace in
       <span class="how-why-num">~56,000 records</span> —
-      <span class="how-why-num">21 % of the dataset</span> — and dropped
-      <span class="how-why-num">11 rows</span> as content-free artefacts
-      (duplicates, empty-text placeholders, HTML-only scaffolding). Raw
-      counts: 267,548 → cleaned 267,537.
+      <span class="how-why-num">21 % of the dataset</span>.
+      The pipeline re-runs <strong>every month</strong> so the cleaned dataset
+      tracks the upstream OHCHR export as it grows.
       <a href="./dashboard.html#view=methodology" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none">Full breakdown in Methodology →</a>
     </p>
 
@@ -1636,17 +1640,20 @@
          Country count: the facets endpoint returns 212 entries, but
          13 of those are bogus 2-letter ISO codes (AU/CO/CZ/ES/ET/GH/
          ID/IQ/MV/MY/PK/SG/SV) that duplicate proper country names
-         already present. Strip them so users see 199 sovereign
-         entities — same number we shipped the landing with. */
+         already present. We also drop "European Union" — it shows on
+         the hex map as a regional-bloc tile (dashed border) but is
+         not a sovereign state, so it must not inflate the country
+         counter. Result: 198 sovereign entities + 1 bloc hex. */
       const _looksLikeIso2 = (n) => typeof n === 'string' && n.length === 2 && n === n.toUpperCase();
-      const realCountries = (facets.countries || []).filter(n => !_looksLikeIso2(n));
+      const realCountries = (facets.countries || [])
+        .filter(n => !_looksLikeIso2(n) && n !== 'European Union');
       const patchCounter = (selector, target) => {
         const el = document.querySelector(selector);
         if (!el || target == null) return;
         el.dataset.counter = String(target);
       };
       patchCounter('[data-counter="267537"]', facets.total_records);
-      patchCounter('[data-counter="199"]',    realCountries.length);
+      patchCounter('[data-counter="198"]',    realCountries.length);
       patchCounter('[data-counter="75"]',     (facets.bodies || []).length);
 
       /* THEMES — top 10 by count, same shape as hardcoded [[name, count]].
@@ -1686,8 +1693,9 @@
       }));
 
       /* Full country lookup used by the hex map — every real country
-         keyed by ISO3. Enables correct coloring of all ~199 sovereign
-         entities, not just the top 20 we use for the hero summary. */
+         keyed by ISO3. Enables correct coloring of all ~198 sovereign
+         entities (plus the EU regional-bloc tile), not just the top 20
+         we use for the hero summary. */
       window.__LIVE_COUNTRY_BY_ISO3 = {};
       cc.forEach(c => {
         const iso = _nameToIso3(c.country);
@@ -2348,7 +2356,6 @@
     [ 3,  6,'PAN','Panama','americas','centralAmerica'],
     [ 2,  4,'SLV','El Salvador','americas','centralAmerica'],
     /* americas / northernAmerica */
-    [ 3,  1,'BMU','Bermuda','americas','northernAmerica'],
     [ 1,  0,'CAN','Canada','americas','northernAmerica'],
     [ 2,  1,'USA','United States of America','americas','northernAmerica'],
     /* americas / southAmerica */
@@ -2447,6 +2454,7 @@
     [13,  8,'GRC','Greece','europe','southernEurope'],
     [11,  6,'HRV','Croatia','europe','southernEurope'],
     [10,  5,'ITA','Italy','europe','southernEurope'],
+    [15,  3,'XKX','Kosovo','europe','southernEurope'],
     [12,  8,'MKD','North Macedonia','europe','southernEurope'],
     [14,  6,'MLT','Malta','europe','southernEurope'],
     [13,  9,'MNE','Montenegro','europe','southernEurope'],
@@ -2455,6 +2463,8 @@
     [12,  7,'SRB','Serbia','europe','southernEurope'],
     [11,  5,'SVN','Slovenia','europe','southernEurope'],
     [ 9,  7,'VAT','Holy See','europe','southernEurope'],
+    /* europe / regionalBloc — not a sovereign state; excluded from country count */
+    [10,  0,'EUU','European Union','europe','regionalBloc'],
     /* europe / westernEurope */
     [11,  4,'AUT','Austria','europe','westernEurope'],
     [ 9,  4,'BEL','Belgium','europe','westernEurope'],
@@ -2610,10 +2620,11 @@
       return `<text class="region-lbl" text-anchor="middle" x="${x}" y="${y - HEX_SIZE - 10}">${t}</text>`;
     }).join('') : '';
 
-    const markup = hexes.map(([c,r,iso,name]) => {
+    const markup = hexes.map(([c,r,iso,name,_reg,sub]) => {
       const [cx,cy] = hexCenter(c,r);
       const n = COUNT_BY_ISO[iso] || 0;
-      const cls = 'hx' + (hexLight(n) ? ' light' : '');
+      const isBloc = sub === 'regionalBloc';
+      const cls = 'hx' + (hexLight(n) ? ' light' : '') + (isBloc ? ' bloc' : '');
       return `<g class="${cls}" data-iso="${iso}" data-name="${name}" data-count="${n}">
         <polygon points="${hexPoints(cx,cy)}" fill="${hexColor(n)}" stroke="var(--paper)" stroke-width="1.5"/>
         <text x="${cx}" y="${cy+3}" text-anchor="middle">${iso}</text>
