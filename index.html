@@ -723,18 +723,48 @@
      exact split without needing inline-block / float tricks, and the
      `fr 320px` template pins the leaderboard at a fixed comfortable
      width while the map takes whatever space is left. */
-  /* Hybrid layout (April 2026): side-by-side only on genuinely wide
-     monitors where there's room for both map AND leaderboard at a
-     readable size.  On typical laptops (1280–1400px) the map was
-     getting squeezed to ~1080px, making hexes tiny and region labels
-     clip.  Now stacks under 1400px so the map gets the full container
-     width (~1400px → ~1680px on 1920 screens minus rail padding).  The
-     composition still looks premium on >1400px desktops; laptops get
-     a usable map, mobile stays stacked as before. */
+  /* Variant-comparison banner (temporary, shown while user picks A/B).  Sits
+     between the previous section and the first FIG 03 variant. */
+  .variant-banner {
+    max-width: 960px;
+    margin: 32px auto 8px;
+    padding: 14px 20px;
+    background: color-mix(in oklab, var(--accent) 10%, var(--paper));
+    border: 1px solid var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    letter-spacing: .02em;
+  }
+  .variant-banner strong {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0;
+    margin-right: 6px;
+  }
+
+  /* Variant-specific top label — small chip inside each section-head. */
+  .hex-variant .section-head .no {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .18em;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+
+  /* Hybrid layout: side-by-side only on wide monitors (≥1600px).  On
+     typical laptops (1280–1600px) the map was getting squeezed and
+     hexes tiny; stacks below that so map gets full container width.
+     Leaderboard width tightened 320px → 240px to squeeze a bit more
+     space for the map when side-by-side. */
   .hex-with-leaders {
     display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: 32px;
+    grid-template-columns: 1fr 240px;
+    gap: 24px;
     align-items: start;
   }
   .hex-map-col {
@@ -832,17 +862,99 @@
     width: 100%;
   }
   .leader-more:hover { color: var(--ink); }
-  /* Stack at <1400px so laptops get the full horizontal budget for the
-     map.  The leaderboard sits underneath as a full-width card on those
-     screens; on mobile (<900px) it flows below normally.  On very wide
-     monitors (≥1400px) the two-column composition stays. */
-  @media (max-width: 1400px) {
+  /* Stack at <1600px (was 1400px in the previous tune).  Typical
+     laptops (1280–1600px) now get a full-width map; only wide desktop
+     monitors stay side-by-side. */
+  @media (max-width: 1600px) {
     .hex-with-leaders { grid-template-columns: 1fr; gap: 28px; }
     .hex-leaders { max-width: 720px; margin: 0 auto; }
   }
   @media (max-width: 900px) {
     .hex-with-leaders { gap: 20px; }
     .hex-leaders { max-width: none; }
+  }
+
+  /* ----- Variant B — full-width map + horizontal top-5 strip ----- */
+  .hex-map-full { display: block; }
+  .hex-wrap-full {
+    aspect-ratio: 16 / 9;  /* wider aspect pays off when map has full width */
+  }
+  .hex-leaders-horiz {
+    margin-top: 20px;
+    padding: 18px 22px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .hex-leaders-horiz .leaders-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .hex-leaders-horiz .leaders-head h4 {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--dim);
+    font-weight: 500;
+  }
+  .hex-leaders-horiz .leaders-head .leader-more {
+    width: auto;
+    border: 0;
+    padding: 0;
+  }
+  .leader-list-horiz {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+  }
+  .leader-list-horiz li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    background: var(--paper-2);
+    cursor: pointer;
+    transition: background .1s, border-color .1s;
+  }
+  .leader-list-horiz li:hover {
+    background: color-mix(in oklab, var(--accent) 8%, var(--paper));
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--line));
+  }
+  .leader-list-horiz li .rank {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: .04em;
+  }
+  .leader-list-horiz li .lname {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .leader-list-horiz li .lcount {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 1100px) {
+    .leader-list-horiz { grid-template-columns: repeat(3, 1fr); }
+    .leader-list-horiz li:nth-child(n+4) { display: none; }  /* show top 3 */
+  }
+  @media (max-width: 560px) {
+    .leader-list-horiz { grid-template-columns: 1fr; gap: 8px; }
+    .leader-list-horiz li:nth-child(n+4) { display: grid; }
   }
 
   /* Aspect ratio — grid's natural content is roughly 30 cols × 19 rows
@@ -1300,24 +1412,33 @@
   </div>
 </section>
 
-<!-- FIG 03: hex tile map — one hex per state party, visual-fairness layout -->
-<section class="band" id="countries">
+<!-- ==========================================================
+     FIG 03 (A/B COMPARISON — temporary).  Two landing-page variants of
+     the hex map are rendered back-to-back so the user can pick which
+     layout ships.  Both share the same data, colour scale (quantile),
+     and region tabs (synced across variants).  After the pick, the
+     other section gets deleted.  Banner above each section labels it.
+     ========================================================== -->
+<div class="variant-banner" role="note" aria-label="Variant comparison notice">
+  <strong>Hex map · comparing two layouts.</strong>
+  Scroll through the two versions below and pick the one you prefer — the
+  loser gets deleted. Region tabs are synced across both.
+</div>
+
+<!-- FIG 03 / VARIANT A — side-by-side (tightened).  Original layout but
+     with a slimmer leaderboard (320px → 240px) and a higher stacking
+     breakpoint (1400px → 1600px) so laptops get a full-width map while
+     desktop monitors keep the elegant side-by-side. -->
+<section class="band hex-variant hex-variant-a" id="countries">
   <div class="wrap" style="max-width:none">
     <div class="section-head">
-      <div class="no">FIG 03 / WHERE</div>
+      <div class="no">FIG 03 / VARIANT A · side-by-side (tight)</div>
       <div class="t">One hex per country. <em style="color:var(--accent)">No country is bigger than another.</em></div>
-      <div class="ctx">199 states · color = volume</div>
+      <div class="ctx">199 states · color = volume quintile</div>
     </div>
 
-    <!-- 2-column layout: hex map (wide, left) + top-5 leaderboard
-         (narrow, right). Stacks to 1 column on <900px viewports so
-         mobile users see the leaderboard below the map. -->
     <div class="hex-with-leaders">
       <div class="hex-map-col">
-        <!-- Region tabs use UN M49 top-level regions (post-April 2026
-             migration; see Methodology for the rationale). The old MENA
-             bucket is dissolved — Northern Africa rolls up into Africa,
-             Western Asia into Asia. -->
         <div class="hex-regions" id="hexRegions">
           <button data-r="world" class="active">World</button>
           <button data-r="africa">Africa</button>
@@ -1341,16 +1462,11 @@
             <span class="s" style="background:color-mix(in oklab, var(--accent) 72%, var(--paper-2))"></span>
             <span class="s" style="background:color-mix(in oklab, var(--accent) 92%, var(--paper-2))"></span>
           </div>
-          <span id="hexScaleMax">3,218</span>
-          <span class="hint">each hex = one state · click any hex to open its country profile</span>
+          <span data-hex-scale-max>—</span>
+          <span class="hint">each hex = one state · click any hex to open its country profile · 5 quintile buckets</span>
         </div>
       </div>
 
-      <!-- Top-5 leaderboard. Complements the hex map (which says
-           "all countries equal") by answering "but who gets flagged
-           most often?" — the data-forward companion. Populated from
-           window.__LIVE_TOP5_COUNTRIES by renderLeaderboard() once
-           loadLive resolves; fallback uses hardcoded COUNTRIES[0:5]. -->
       <aside class="hex-leaders" id="hexLeaders">
         <h4>Top 5 by volume</h4>
         <ol class="leader-list" id="leaderList">
@@ -1358,6 +1474,63 @@
         </ol>
         <a class="leader-more" href="./dashboard.html#view=country">Browse all 199 <span aria-hidden="true">→</span></a>
       </aside>
+    </div>
+  </div>
+</section>
+
+<!-- FIG 03 / VARIANT B — map-first (full width + horizontal top-5).
+     Always stacked: the map gets the entire viewport width.  Top-5 ranks
+     as a horizontal strip BELOW the map, so no vertical space is
+     sacrificed for leaderboard real estate.  Region tabs synced with
+     Variant A above. -->
+<section class="band hex-variant hex-variant-b" id="countries-b">
+  <div class="wrap" style="max-width:none">
+    <div class="section-head">
+      <div class="no">FIG 03 / VARIANT B · map-first</div>
+      <div class="t">One hex per country. <em style="color:var(--accent)">No country is bigger than another.</em></div>
+      <div class="ctx">199 states · color = volume quintile</div>
+    </div>
+
+    <div class="hex-map-full">
+      <div class="hex-regions" id="hexRegions-b">
+        <button data-r="world" class="active">World</button>
+        <button data-r="africa">Africa</button>
+        <button data-r="americas">Americas</button>
+        <button data-r="asia">Asia</button>
+        <button data-r="europe">Europe</button>
+        <button data-r="oceania">Oceania</button>
+      </div>
+
+      <div class="hex-wrap hex-wrap-full">
+        <svg id="hexSvg-b" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="hex-tip" id="hexTip-b"></div>
+      </div>
+
+      <div class="hex-scale">
+        <span>0</span>
+        <div class="scale">
+          <span class="s" style="background:color-mix(in oklab, var(--accent) 15%, var(--paper-2))"></span>
+          <span class="s" style="background:color-mix(in oklab, var(--accent) 32%, var(--paper-2))"></span>
+          <span class="s" style="background:color-mix(in oklab, var(--accent) 52%, var(--paper-2))"></span>
+          <span class="s" style="background:color-mix(in oklab, var(--accent) 72%, var(--paper-2))"></span>
+          <span class="s" style="background:color-mix(in oklab, var(--accent) 92%, var(--paper-2))"></span>
+        </div>
+        <span data-hex-scale-max>—</span>
+        <span class="hint">each hex = one state · click any hex to open its country profile · 5 quintile buckets</span>
+      </div>
+
+      <!-- Horizontal top-5 strip — replaces the side-column leaderboard
+           of Variant A.  5 mini-cards in a row, equal-weight with the
+           map's width.  Scrolls horizontally below ~560px viewports. -->
+      <div class="hex-leaders-horiz" id="hexLeadersHoriz">
+        <div class="leaders-head">
+          <h4>Top 5 by volume</h4>
+          <a class="leader-more" href="./dashboard.html#view=country">Browse all 199 <span aria-hidden="true">→</span></a>
+        </div>
+        <ol class="leader-list-horiz" id="leaderListHoriz">
+          <!-- Populated by renderLeaderboard() -->
+        </ol>
+      </div>
     </div>
   </div>
 </section>
@@ -2563,14 +2736,33 @@
       }
     });
     HEX_MAX = Math.max(1, ...Object.values(COUNT_BY_ISO));
-    const scaleEl = document.getElementById('hexScaleMax');
-    if (scaleEl) scaleEl.textContent = fmt(HEX_MAX);
+    document.querySelectorAll('[data-hex-scale-max]').forEach(el => {
+      el.textContent = fmt(HEX_MAX);
+    });
+    /* Quantile boundaries for the colour scale.  Previously we used a
+       sqrt-scaled n/MAX mapped into 5 uniform buckets — but for this
+       dataset (top 5 bunched in 2,300–2,540, many middle countries in
+       500–2,000) sqrt sends most countries into the top two buckets and
+       they all look the same dark red.  Quantile binning divides the
+       countries into 5 quintiles of EQUAL COUNT instead of equal value:
+       every bucket gets ~20 % of the countries, so visual distinction is
+       maximised regardless of the underlying distribution.  Standard
+       cartographic technique (Jenks-ish). */
+    const values = Object.values(COUNT_BY_ISO).filter(v => v > 0).sort((a, b) => a - b);
+    if (values.length >= 5) {
+      QUANTILE_BOUNDS = [
+        values[Math.floor(values.length * 0.20)],
+        values[Math.floor(values.length * 0.40)],
+        values[Math.floor(values.length * 0.60)],
+        values[Math.floor(values.length * 0.80)],
+      ];
+    } else {
+      QUANTILE_BOUNDS = [1, 2, 3, 4];
+    }
   }
+  let QUANTILE_BOUNDS = [1, 2, 3, 4];
   _rebuildCountByIso();
 
-  const hexSvg = document.getElementById('hexSvg');
-  const hexTip = document.getElementById('hexTip');
-  const hexWrap = hexSvg.parentElement;
   const HEX_SIZE = 22;
   function hexCenter(col, row) {
     const w = Math.sqrt(3) * HEX_SIZE;
@@ -2585,20 +2777,39 @@
     }
     return p.trim();
   }
-  /* Colour scale — matches dashboard-map.js (see ARCHITECTURE.md §Map).
-     Linear n/MAX washes out middle-volume countries; sqrt scaling
-     compresses the long tail of top-performers and lifts the bulk of
-     states into visible range.  Non-zero floor of 0.15 guarantees every
-     state with at least one record shows up as coloured, not blank. */
+  const HEX_STEPS = [0.15, 0.32, 0.52, 0.72, 0.92];
+  /* Quantile-based colour — see QUANTILE_BOUNDS comment above.  Zero
+     records still render as paper-2 (muted grey) so inactive states
+     are unambiguously distinct from the lowest quintile. */
   function hexColor(n) {
     if (!n) return 'var(--paper-2)';
-    const t = Math.sqrt(Math.min(1, n / HEX_MAX));
-    const step = t < 0.22 ? 0.15 : t < 0.40 ? 0.32 : t < 0.60 ? 0.52 : t < 0.80 ? 0.72 : 0.92;
-    return `color-mix(in oklab, var(--accent) ${Math.round(step * 100)}%, var(--paper-2))`;
+    let bucket = 0;
+    if (n >= QUANTILE_BOUNDS[3]) bucket = 4;
+    else if (n >= QUANTILE_BOUNDS[2]) bucket = 3;
+    else if (n >= QUANTILE_BOUNDS[1]) bucket = 2;
+    else if (n >= QUANTILE_BOUNDS[0]) bucket = 1;
+    return `color-mix(in oklab, var(--accent) ${Math.round(HEX_STEPS[bucket] * 100)}%, var(--paper-2))`;
   }
-  const hexLight = n => n && Math.sqrt(n / HEX_MAX) >= 0.40;
+  /* "light" = text on the hex should switch to light colour (bucket ≥ 3
+     means the background is dark enough that dark text would have low
+     contrast). */
+  const hexLight = n => {
+    if (!n) return false;
+    return n >= QUANTILE_BOUNDS[2];
+  };
 
-  function renderHex(region) {
+  /* Render hex map into a given container suffix.  We support two
+     landing-page variants side by side (A + B) so the user can compare
+     layouts; both share COUNT_BY_ISO + QUANTILE_BOUNDS, only the DOM
+     containers differ.  Suffix '' = Variant A (side-by-side with
+     leaderboard column); '-b' = Variant B (full-width map with
+     horizontal leaderboard underneath). */
+  function renderHex(region, suffix) {
+    suffix = suffix || '';
+    const hexSvg = document.getElementById('hexSvg' + suffix);
+    if (!hexSvg) return;
+    const hexTip = document.getElementById('hexTip' + suffix);
+    const hexWrap = hexSvg.parentElement;
     region = region || 'world';
     const hexes = region === 'world' ? HEX_LAYOUT : HEX_LAYOUT.filter(h => h[4] === region);
     let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
@@ -2663,61 +2874,98 @@
         const r = hexWrap.getBoundingClientRect();
         const relX = e.clientX - r.left;
         const relY = e.clientY - r.top;
-        // Reset transform so we can measure, then flip position if tip would
-        // overflow the container on either axis. Offset 12px away from cursor.
         hexTip.style.transform = 'translate(12px, 12px)';
         hexTip.style.left = relX + 'px';
         hexTip.style.top = relY + 'px';
         hexTip.classList.add('show');
-        // Now measure and flip if needed
         const tipRect = hexTip.getBoundingClientRect();
         let dx = 12, dy = 12;
         if (tipRect.right > r.right - 4) dx = -tipRect.width - 12;
         if (tipRect.bottom > r.bottom - 4) dy = -tipRect.height - 12;
-        if (relX + dx < 4) dx = 12;  // don't flip past the left edge
+        if (relX + dx < 4) dx = 12;
         if (relY + dy < 4) dy = 12;
         hexTip.style.transform = `translate(${dx}px, ${dy}px)`;
       });
       g.addEventListener('mouseleave', () => hexTip.classList.remove('show'));
       g.addEventListener('click', () => {
-        // Deep-link to dashboard2 with this country's profile
         const iso = g.dataset.iso;
         window.location.href = `./dashboard.html#fc=${iso}&view=country`;
       });
     });
   }
 
-  // Region buttons
-  document.getElementById('hexRegions').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    document.querySelectorAll('#hexRegions button').forEach(x => x.classList.toggle('active', x === b));
-    renderHex(b.dataset.r);
+  /* Variants discovered at init — each one has a `#hexRegions`/`#hexRegions-b`
+     container, a `#hexSvg`/`#hexSvg-b` target, etc.  Adding a third variant
+     is a matter of cloning the section HTML with a new suffix; no JS change. */
+  const HEX_VARIANTS = [
+    { suffix: '',   regionsId: 'hexRegions' },
+    { suffix: '-b', regionsId: 'hexRegions-b' },
+  ].filter(v => document.getElementById(v.regionsId));
+
+  /* Region button clicks are SYNCED across variants — user clicking
+     "Europe" in Variant A also flips Variant B to Europe, so the two
+     layouts can be compared under identical data conditions. */
+  function handleRegionClick(clickedBtn) {
+    const region = clickedBtn.dataset.r;
+    HEX_VARIANTS.forEach(v => {
+      document.querySelectorAll(`#${v.regionsId} button`).forEach(x => {
+        x.classList.toggle('active', x.dataset.r === region);
+      });
+      renderHex(region, v.suffix);
+    });
+  }
+  HEX_VARIANTS.forEach(v => {
+    document.getElementById(v.regionsId).addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      handleRegionClick(b);
+    });
   });
 
-  // Initial render — defer a tick so the container has width
-  requestAnimationFrame(() => renderHex('world'));
-  window.addEventListener('resize', () => renderHex(document.querySelector('#hexRegions button.active')?.dataset.r || 'world'));
+  // Initial render for all variants — defer a tick so containers have width
+  requestAnimationFrame(() => {
+    HEX_VARIANTS.forEach(v => renderHex('world', v.suffix));
+  });
+  window.addEventListener('resize', () => {
+    const activeRegion = document.querySelector(`#${HEX_VARIANTS[0]?.regionsId || 'hexRegions'} button.active`)?.dataset.r || 'world';
+    HEX_VARIANTS.forEach(v => renderHex(activeRegion, v.suffix));
+  });
 
   /* Top-5 leaderboard renderer. Reads from window.__LIVE_TOP5_COUNTRIES
      (populated by loadLive) or falls back to the first 5 of the
      hardcoded COUNTRIES array. Each row deep-links to the dashboard's
      Country profile via #fc=ISO3. Idempotent — safe to re-render. */
   function renderLeaderboard() {
-    const list = document.getElementById('leaderList');
-    if (!list) return;
     const top5 = (window.__LIVE_TOP5_COUNTRIES && window.__LIVE_TOP5_COUNTRIES.length
       ? window.__LIVE_TOP5_COUNTRIES
       : COUNTRIES.slice(0, 5).map(([iso, name, count]) => ({ iso, name, count })));
-    list.innerHTML = top5.map(c => {
-      const href = c.iso
-        ? `./dashboard.html#fc=${encodeURIComponent(c.iso)}&view=country`
-        : `./dashboard.html#country=${encodeURIComponent(c.name)}&view=overview`;
-      return `<li onclick="window.location.href='${href}'" role="link" tabindex="0"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='${href}'}">
-        <span class="lname" title="${c.name}">${c.name}</span>
-        <span class="lcount">${fmt(c.count)}</span>
-      </li>`;
-    }).join('');
+    const mkHref = c => c.iso
+      ? `./dashboard.html#fc=${encodeURIComponent(c.iso)}&view=country`
+      : `./dashboard.html#country=${encodeURIComponent(c.name)}&view=overview`;
+    // Variant A — vertical list (side column)
+    const list = document.getElementById('leaderList');
+    if (list) {
+      list.innerHTML = top5.map(c => {
+        const href = mkHref(c);
+        return `<li onclick="window.location.href='${href}'" role="link" tabindex="0"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='${href}'}">
+          <span class="lname" title="${c.name}">${c.name}</span>
+          <span class="lcount">${fmt(c.count)}</span>
+        </li>`;
+      }).join('');
+    }
+    // Variant B — horizontal strip (mini-cards in a row below map)
+    const listH = document.getElementById('leaderListHoriz');
+    if (listH) {
+      listH.innerHTML = top5.map((c, i) => {
+        const href = mkHref(c);
+        return `<li onclick="window.location.href='${href}'" role="link" tabindex="0"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='${href}'}">
+          <span class="rank">${i + 1}</span>
+          <span class="lname" title="${c.name}">${c.name}</span>
+          <span class="lcount">${fmt(c.count)}</span>
+        </li>`;
+      }).join('');
+    }
   }
   renderLeaderboard();  // initial render with fallback data
 
