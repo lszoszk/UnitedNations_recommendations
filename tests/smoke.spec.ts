@@ -631,12 +631,15 @@ test.describe('UHRI Dashboard smoke', () => {
       const plain = ['Albania','Argentina','Benin','Nepal','Fiji','Andorra','Barbados','Kenya','Egypt','Ghana'];
       // Known variant forms that must still resolve (shorter / alt spellings):
       const variants = ['Russia','Turkey','United States','Moldova','Tanzania','Vietnam'];
+      // Observer-state asterisks (OHCHR decoration — must be stripped before lookup):
+      const asterisks = ['State of Palestine*', 'Kosovo*'];
       // Deliberately unknown name → null
       const unknown = ['Atlantis','Westeros'];
       const mk = (names: string[]) => names.map(n => [n, (window as any).__nameToIso3(n)]);
       return {
         plain: mk(plain),
         variants: mk(variants),
+        asterisks: mk(asterisks),
         unknown: mk(unknown),
       };
     });
@@ -648,6 +651,9 @@ test.describe('UHRI Dashboard smoke', () => {
     for (const [name, iso] of probe.variants) {
       expect(iso, `variant "${name}" should resolve`).toBeTruthy();
     }
+    // Asterisk stripping — Palestine must map to PSE even with the OHCHR "*"
+    const pseEntry = probe.asterisks.find(([n]) => n === 'State of Palestine*')!;
+    expect(pseEntry[1], 'State of Palestine* should resolve to PSE').toBe('PSE');
     for (const [name, iso] of probe.unknown) {
       expect(iso, `unknown "${name}" should return null`).toBeNull();
     }

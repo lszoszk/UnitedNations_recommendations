@@ -1586,10 +1586,19 @@
       });
     }
     if (_fullNameIndex && _fullNameIndex[name]) return _fullNameIndex[name];
-    // Last resort: strip a parenthetical disambiguator and retry.
-    const base = name.replace(/\s*\([^)]+\)\s*$/, '').trim();
-    if (MECH_NAME_TO_ISO3[base]) return MECH_NAME_TO_ISO3[base];
-    if (_fullNameIndex && _fullNameIndex[base]) return _fullNameIndex[base];
+    /* Last-resort normalisation: OHCHR decorates observer states with a
+       trailing asterisk ("State of Palestine*", "Kosovo*") and sometimes
+       attaches a parenthetical disambiguator ("Iran (Islamic Republic
+       of)").  Neither of those appear in HEX_LAYOUT / MECH_NAME_TO_ISO3,
+       so strip both and retry before giving up. */
+    const base = name
+      .replace(/\s*\([^)]+\)\s*$/, '')   // drop "(Islamic Republic of)"
+      .replace(/\*+\s*$/, '')            // drop trailing "*"
+      .trim();
+    if (base !== name) {
+      if (MECH_NAME_TO_ISO3[base]) return MECH_NAME_TO_ISO3[base];
+      if (_fullNameIndex && _fullNameIndex[base]) return _fullNameIndex[base];
+    }
     return null;
   }
   // Expose for regression tests (test #17) — no production code reads this.

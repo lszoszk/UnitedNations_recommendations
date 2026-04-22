@@ -153,7 +153,18 @@ const ISO2_TO_NAME = {
   PK:'Pakistan', SG:'Singapore', SV:'El Salvador',
 };
 function cleanCountryName(s) {
-  const v = (s==null?'':String(s)).trim();
+  /* Normalises a country name from the API or upload to the form our
+     lookups (NAME_TO_ISO / HEX_LAYOUT canonical names) key on.  Two
+     transforms:
+       * 2-letter stray ISOs ("PK", "CZ") → full name via ISO2_TO_NAME —
+         the OHCHR facets payload occasionally carries these alongside
+         their proper-named twins; without this fold they'd each end up
+         as separate "countries" with a few records apiece.
+       * Trailing OHCHR observer-state asterisk (e.g. "State of
+         Palestine*", "Kosovo*") → stripped.  HEX_LAYOUT stores these
+         without the decorator; leaving it on would make the lookup miss
+         and drop the country from the hex map colouring. */
+  let v = (s==null?'':String(s)).trim().replace(/\*+\s*$/, '').trim();
   if (ISO2_TO_NAME[v]) return ISO2_TO_NAME[v];
   return v;
 }
