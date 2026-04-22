@@ -90,8 +90,14 @@ function buildRail(facets, analytics) {
   buildFacetList('group', groups, 'group');
   $('#n-group').textContent = groups.length;
 
-  // --- REGION ---
-  const regions = (facets.regions || []).map(r => ({ key: r, label: r }));
+  // --- REGION --- (UN M49 5-region, client-side only; see dashboard-map.js
+  // for the country-expansion logic used to reconcile with the server API).
+  // We deliberately IGNORE facets.regions here — the VM returns Treaty
+  // Body electoral groups (African / Asia-Pacific / Eastern European /
+  // GRULAC / WEOG) which DON'T match the hex map's M49 taxonomy.
+  // Presenting them side-by-side in the UI confused users; the M49
+  // 5-region split is what the map shows, so it's what the rail shows too.
+  const regions = M49_REGION_KEYS.map(r => ({ key: r, label: M49_REGION_LABELS[r] }));
   buildFacetList('region', regions, 'region');
   $('#n-region').textContent = regions.length;
 

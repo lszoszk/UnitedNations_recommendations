@@ -13,12 +13,15 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *   7. readerDrawer — extracted reader module still renders record chrome
  *   8. compareScale — shared Y scale in Compare must normalize API row arrays
  *
- * Scenario tests (9-13) go one layer up — they exercise user-visible flows:
+ * Scenario tests (9-14) go one layer up — they exercise user-visible flows:
  *   9. hashFocusRestore     — deep-link URL restores focus country/theme
  *  10. cmdPalette           — ⌘K opens, typing filters, click navigates
  *  11. railFilterChip       — rail change surfaces chip + hit-count updates
  *  12. savedViewPersistence — svSave → reload → svLoad round-trip intact
  *  13. countryProfile       — navigate('country') switches tab + view section
+ *  14. m49RegionLookup      — rail REGION filter uses M49 5-region, the
+ *                             lookup correctly maps to country names (this
+ *                             is how we bridge M49 UI ↔ Treaty Body server)
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -525,6 +528,46 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(focusCountry).toBe('DEU');
 
     expect(errors, `JS errors during saved-view persistence:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('14. m49RegionLookup — expandM49RegionsToCountries maps UN M49 regions to country names', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).expandM49RegionsToCountries === 'function', null, { timeout: 5000 });
+
+    // The lookup is the keystone of the rail REGION filter — it's what lets
+    // us show M49 5-region in the rail while the VM API speaks Treaty Body
+    // electoral groups. A regression here silently breaks the filter (either
+    // everything or nothing matches, depending on the bug). Spot-check a
+    // handful of anchor countries across all 5 regions.
+    const probe = await page.evaluate(() => {
+      const expand = (keys: string[]) => {
+        const out = expandM49RegionsToCountries(new Set(keys));
+        return out ? Array.from(out) : null;
+      };
+      return {
+        africa:   expand(['africa'])!.sort(),
+        europe:   expand(['europe'])!.sort(),
+        oceania:  expand(['oceania'])!.sort(),
+        multi:    expand(['asia', 'oceania'])!.length,
+        empty:    expand([]),
+        unknown:  expand(['GRULAC'])!.length,   // stale Treaty Body key → empty bucket
+      };
+    });
+    // Known anchors:
+    expect(probe.africa).toContain('Kenya');
+    expect(probe.africa).toContain('Egypt');            // Northern Africa now in Africa
+    expect(probe.africa.length).toBeGreaterThanOrEqual(50);
+    expect(probe.europe).toContain('Germany');
+    expect(probe.europe).not.toContain('Turkey');       // Türkiye is M49 Western Asia
+    expect(probe.europe.length).toBeGreaterThanOrEqual(40);
+    expect(probe.oceania).toContain('Fiji');
+    expect(probe.oceania).toContain('Samoa');           // Polynesia now covered
+    expect(probe.multi).toBeGreaterThan(probe.oceania.length);  // asia + oceania > just oceania
+    expect(probe.empty).toBeNull();                     // empty Set → null ("no filter")
+    expect(probe.unknown).toBe(0);                      // unknown keys silently drop
+
+    expect(errors, `JS errors during M49 probe:\n${errors.join('\n')}`).toEqual([]);
   });
 
   test('13. countryProfile — navigate("country") renders the profile view shell', async ({ page }) => {

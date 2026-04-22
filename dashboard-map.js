@@ -657,6 +657,47 @@ function getHexNameToIso() {
   return _hexNameToIso;
 }
 
+/* M49 region membership — {africa: Set<countryName>, americas: Set<…>, …}.
+   Built lazily from HEX_LAYOUT on first use.  Rail uses this to render the
+   5 M49 region options and to expand a region filter into the list of
+   country names we actually send to the server (the VM's `regions` param
+   speaks Treaty Body electoral groups, not M49; we bypass it and filter
+   by country instead).  Exposes UN M49 top-level categories as a first-
+   class rail filter. */
+const M49_REGION_KEYS = ['africa', 'americas', 'asia', 'europe', 'oceania'];
+const M49_REGION_LABELS = {
+  africa:   'Africa',
+  americas: 'Americas',
+  asia:     'Asia',
+  europe:   'Europe',
+  oceania:  'Oceania',
+};
+let _m49ByRegion = null;
+function getM49RegionCountries() {
+  if (_m49ByRegion) return _m49ByRegion;
+  _m49ByRegion = {};
+  M49_REGION_KEYS.forEach(k => { _m49ByRegion[k] = new Set(); });
+  HEX_LAYOUT.forEach(([c, r, iso, name, region]) => {
+    if (_m49ByRegion[region]) _m49ByRegion[region].add(name);
+  });
+  return _m49ByRegion;
+}
+/* Expand a region filter Set (from state.filters.region) to the union of
+   country names it represents under M49.  Unknown region keys are skipped,
+   so a stale server-side region ("GRULAC") from a saved view is ignored
+   rather than breaking the filter.  Returns null if the region filter is
+   empty (meaning: don't constrain by region at all). */
+function expandM49RegionsToCountries(regionSet) {
+  if (!regionSet || !regionSet.size) return null;
+  const buckets = getM49RegionCountries();
+  const out = new Set();
+  regionSet.forEach(r => {
+    const bucket = buckets[r];
+    if (bucket) bucket.forEach(name => out.add(name));
+  });
+  return out;
+}
+
 function renderHexMap(container, countryCounts) {
   const nameToIso = getHexNameToIso();
   // Count lookup by ISO3
@@ -668,10 +709,6 @@ function renderHexMap(container, countryCounts) {
   });
   const MAX = Math.max(1, ...Object.values(byIso));
   const region = state.hexRegion || 'world';
-  /* Sub-region filter (persisted in state.hexSubregion). Only meaningful
-     when a main region is active. Clearing the main region clears this
-     too so the world view never filters below the top level. */
-  const subregion = (region !== 'world' && state.hexSubregion) ? state.hexSubregion : null;
 
   // Base hex size; zoomed regions use a bigger base so each hex reads larger
   // when there are fewer of them on screen. Auto-shrink further when a
@@ -719,12 +756,8 @@ function renderHexMap(container, countryCounts) {
   };
   const isLight = n => n && Math.sqrt(n / MAX) >= 0.40;
 
-  /* Filter hexes by region (world = all). If a sub-region is also active
-     we narrow to it; the excluded peers stay rendered as "muted" so the
-     user keeps spatial context of the parent region. */
-  const inRegion = (h) => region === 'world' ? true : h[4] === region;
-  const inSubregion = (h) => !subregion ? true : h[5] === subregion;
-  const shownHexes = HEX_LAYOUT.filter(inRegion);
+  // Filter hexes by region (world = all)
+  const shownHexes = region === 'world' ? HEX_LAYOUT : HEX_LAYOUT.filter(h => h[4] === region);
 
   // Compute natural content extent
   let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
@@ -804,18 +837,10 @@ function renderHexMap(container, countryCounts) {
     const [cx, cy] = hexCenter(c, r);
     const n = byIso[iso] || 0;
     const on = state.filters.country.has(name);
-    /* Muted = in-region but NOT in active sub-region. Kept visible so
-       the user can see geographic context ("I'm looking at Western Asia,
-       these faded hexes are the other parts of Asia"). */
-    const muted = subregion && hexSub !== subregion;
-    const cls = 'hex'
-      + (isLight(n) ? ' light' : '')
-      + (n === 0 ? ' empty' : '')
-      + (on ? ' on' : '')
-      + (muted ? ' muted' : '');
+    const cls = 'hex' + (isLight(n) ? ' light' : '') + (n === 0 ? ' empty' : '') + (on ? ' on' : '');
     const subLabel = SUBREGION_LABELS[hexSub] || hexSub || '';
     return `<g class="${cls}" data-iso="${iso}" data-name="${sanitize(name)}" data-count="${n}" data-subregion="${sanitize(subLabel)}" role="button" tabindex="0" aria-label="${sanitize(name)}: ${fmt(n)} records, ${sanitize(subLabel)}">
-      <polygon points="${hexPoints(cx, cy)}" fill="${muted ? 'var(--paper-2)' : colorFor(n)}" stroke="var(--paper)" stroke-width="1.5"/>
+      <polygon points="${hexPoints(cx, cy)}" fill="${colorFor(n)}" stroke="var(--paper)" stroke-width="1.5"/>
       <text x="${cx}" y="${cy + 3}" text-anchor="middle">${iso}</text>
     </g>`;
   }).join('');
@@ -831,29 +856,6 @@ function renderHexMap(container, countryCounts) {
   const regionBtns = ['world','africa','americas','asia','europe','oceania'].map(r =>
     `<button data-region="${r}" class="${r === region ? 'on' : ''}" title="Zoom to ${r === 'world' ? 'all 199 states' : r}">${r === 'world' ? 'World' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
   ).join('');
-
-  /* Secondary sub-region row.  Only appears when a main region is active
-     (not 'world').  Lists the M49 sub-regions that actually have hexes
-     under the current region — e.g. Asia shows Central / Eastern / South-
-     eastern / Southern / Western, Europe shows Eastern / Northern /
-     Southern / Western.  Clicking narrows the hex highlight to that
-     sub-region; hexes outside the sub-region are rendered muted so the
-     geographic context is preserved.  Clicking "All" (or the active
-     sub-region again) clears the filter. */
-  const subregionBtns = (() => {
-    if (region === 'world') return '';
-    const subsInRegion = [...new Set(shownHexes.map(h => h[5]).filter(Boolean))];
-    if (subsInRegion.length <= 1) return '';  // nothing to sub-filter
-    const labelFor = (s) => SUBREGION_LABELS[s] || s;
-    // Order by M49 convention — alphabetic by visible label:
-    subsInRegion.sort((a, b) => labelFor(a).localeCompare(labelFor(b)));
-    const allBtn = `<button data-subregion="" class="${!subregion ? 'on' : ''}" title="Show every sub-region in ${region}">All</button>`;
-    const subBtns = subsInRegion.map(s => {
-      const count = shownHexes.filter(h => h[5] === s).length;
-      return `<button data-subregion="${s}" class="${subregion === s ? 'on' : ''}" title="${labelFor(s)} — ${count} state${count === 1 ? '' : 's'}">${labelFor(s)}</button>`;
-    }).join('');
-    return `<div class="map-subregions" id="hexSubregions" role="group" aria-label="Filter by sub-region">${allBtn}${subBtns}</div>`;
-  })();
 
   /* Taxonomy disclaimer.  We now align with UN M49 at the top level, but
      M49 is statistical — not political — and is not the only UN
@@ -872,39 +874,22 @@ function renderHexMap(container, countryCounts) {
     'the full rationale.'
   );
   const hasCountryFilter = state.filters.country.size > 0;
-  const activeSubCount = subregion ? shownHexes.filter(h => h[5] === subregion).length : shownHexes.length;
   container.innerHTML = `
     <div class="map-regions" id="hexRegions" role="group" aria-label="Zoom to region">${regionBtns}<span class="map-regions-info" tabindex="0" role="button" aria-label="About this regional classification" title="${regionInfoTip}">ⓘ</span></div>
-    ${subregionBtns}
-    <svg class="hex-svg${hasCountryFilter?' has-filter':''}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Hex-tile map — ${region}${subregion ? ' — ' + (SUBREGION_LABELS[subregion] || subregion) : ''} — one hex per state party">${labels}${hexes}</svg>
+    <svg class="hex-svg${hasCountryFilter?' has-filter':''}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Hex-tile map — ${region} — one hex per state party">${labels}${hexes}</svg>
     <div class="hex-tip" id="hexTip" role="tooltip"></div>
     <div class="map-scale" style="margin-top:6px">
       <span>0</span>
       ${[0.15,0.32,0.52,0.72,0.92].map(v => `<span class="s" style="background:color-mix(in oklab, var(--accent) ${Math.round(v*100)}%, var(--paper-2))"></span>`).join('')}
       <span>${fmt(MAX)}</span>
-      <span style="margin-left:auto;color:var(--dim);font-size:10px">${subregion
-        ? `${activeSubCount} in ${SUBREGION_LABELS[subregion] || subregion} · click = filter · dblclick = profile`
-        : `${shownHexes.length} ${region === 'world' ? 'states' : 'in region'} · click = filter · dblclick = profile`}</span>
+      <span style="margin-left:auto;color:var(--dim);font-size:10px">${shownHexes.length} ${region === 'world' ? 'states' : 'in region'} · click = filter · dblclick = profile</span>
     </div>`;
 
-  // Region zoom buttons — changing region resets the sub-region filter
+  // Region zoom buttons
   container.querySelectorAll('#hexRegions button').forEach(b => b.addEventListener('click', () => {
     state.hexRegion = b.dataset.region;
-    state.hexSubregion = null;
     renderHexMap(container, countryCounts);
     announce('Zoomed to ' + b.dataset.region);
-  }));
-
-  /* Sub-region buttons — narrow within the current region.  Clicking the
-     active sub-region clears the filter (toggle). "All" also clears. */
-  container.querySelectorAll('#hexSubregions button').forEach(b => b.addEventListener('click', () => {
-    const next = b.dataset.subregion || null;
-    state.hexSubregion = (next && state.hexSubregion !== next) ? next : null;
-    renderHexMap(container, countryCounts);
-    const lbl = state.hexSubregion
-      ? (SUBREGION_LABELS[state.hexSubregion] || state.hexSubregion)
-      : `all of ${region}`;
-    announce('Filtered to ' + lbl);
   }));
 
   const tip = container.querySelector('#hexTip');

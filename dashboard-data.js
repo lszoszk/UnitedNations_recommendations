@@ -130,11 +130,35 @@ window.__state = state;
 function buildParams(f) {
   const p = new URLSearchParams();
   if (f.kw && f.kw.trim()) p.set('text_query', f.kw.trim());
-  if (f.country && f.country.size) p.set('countries', Array.from(f.country).join(','));
+  /* Region filter → resolved to country list client-side.
+     Background: the VM's `regions` param uses Treaty Body electoral groups
+     (African / Asia-Pacific / Eastern European / GRULAC / WEOG).  The rail
+     now shows UN M49 5-region instead (matching the hex map), so we
+     expand the region filter to its M49 country membership and send via
+     `countries` param.  If the user ALSO has an explicit country filter,
+     intersect the two sets — both conditions must hold.  See dashboard-
+     map.js#expandM49RegionsToCountries for the lookup. */
+  let effectiveCountries = f.country && f.country.size ? new Set(f.country) : null;
+  if (f.region && f.region.size && typeof expandM49RegionsToCountries === 'function') {
+    const regionCountries = expandM49RegionsToCountries(f.region);
+    if (regionCountries) {
+      if (effectiveCountries) {
+        // Intersect: keep only names present in both sets
+        effectiveCountries = new Set([...effectiveCountries].filter(c => regionCountries.has(c)));
+      } else {
+        effectiveCountries = regionCountries;
+      }
+    }
+  }
+  if (effectiveCountries && effectiveCountries.size) {
+    p.set('countries', Array.from(effectiveCountries).join(','));
+  }
   if (f.body && f.body.size) p.set('bodies', Array.from(f.body).join(','));
   if (f.theme && f.theme.size) p.set('themes', Array.from(f.theme).join('|'));
   if (f.group && f.group.size) p.set('affected_persons', Array.from(f.group).join('|'));
-  if (f.region && f.region.size) p.set('regions', Array.from(f.region).join(','));
+  // NOTE: we deliberately DON'T forward f.region to the server via the
+  // `regions` param anymore — that would speak the wrong taxonomy.  The
+  // country-expansion above covers the M49 case correctly.
   const sdgValues = _sdgParamValues(f);
   if (sdgValues.length) p.set('sdgs', sdgValues.join('|'));
   if (f.type && f.type.size) p.set('annotation_type', Array.from(f.type).join(','));

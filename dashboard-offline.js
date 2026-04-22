@@ -21,8 +21,16 @@ const offline = {
       const matches = Array.from(f.body).some(b => recBody === b || recBody === cleanLabel(b));
       if (!matches) return false;
     }
-    if (f.region?.size) {
-      if (!(r.Regions || []).some(rg => f.region.has(rg))) return false;
+    /* Region filter uses M49 5-region (matching the hex map) instead of
+       the Treaty Body electoral groups stored in r.Regions.  We look up
+       each record's country in the M49 membership map built from
+       HEX_LAYOUT (see dashboard-map.js#expandM49RegionsToCountries). */
+    if (f.region?.size && typeof expandM49RegionsToCountries === 'function') {
+      const regionCountries = expandM49RegionsToCountries(f.region);
+      if (regionCountries) {
+        const recCountries = (r.Countries || []).map(c => cleanCountryName(c));
+        if (!recCountries.some(c => regionCountries.has(c))) return false;
+      }
     }
     if (f.type?.size) {
       const t = cleanLabel(r.AnnotationType || '');

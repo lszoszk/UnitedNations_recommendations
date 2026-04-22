@@ -502,24 +502,6 @@ a{color:inherit;text-decoration:none}
 .map-regions-info{display:inline-flex;align-items:center;justify-content:center;padding:5px 9px;background:var(--paper);color:var(--dim);font-size:12px;line-height:1;cursor:help;user-select:none;margin-left:auto;border-left:1px solid var(--line)}
 .map-regions-info:hover,.map-regions-info:focus{color:var(--ink);background:var(--paper-2);outline:0}
 
-/* Sub-region selector — second button row under the main region pills.
-   Only rendered when a main region is active and contains more than one
-   M49 sub-region.  Visually subordinate to the main pills: smaller, more
-   muted baseline, active state inverts to accent (not full ink). */
-.map-subregions{display:flex;gap:0;border:1px solid var(--line);margin:-6px 0 10px;flex-wrap:wrap;align-items:stretch;background:var(--paper)}
-.map-subregions button{font:inherit;font-size:10px;letter-spacing:.06em;padding:4px 8px;background:transparent;border:0;border-right:1px solid var(--line);color:var(--dim);cursor:pointer;transition:background .12s,color .12s;text-transform:none}
-.map-subregions button:last-child{border-right:0}
-.map-subregions button:hover{color:var(--ink);background:var(--paper-2)}
-.map-subregions button.on{background:color-mix(in oklab,var(--accent) 18%,var(--paper));color:var(--ink);font-weight:500}
-/* Hexes outside the active sub-region render muted — still visible so
-   the user sees "here are Asia's other sub-regions" but low-contrast so
-   the active subset pops.  Fill is already overridden to paper-2 in JS;
-   this just dims the text label + removes drop-shadow hover. */
-.hex.muted polygon{stroke-opacity:.55}
-.hex.muted text{opacity:.35}
-.hex.muted{pointer-events:auto}
-.hex.muted:hover{transform:none;filter:none}
-
 .hex-svg{display:block;width:100%;height:520px;transition:opacity .2s}
 .hex{cursor:pointer;transition:transform .12s,filter .12s}
 .hex:hover{transform:translateY(-2px);filter:drop-shadow(0 2px 0 rgba(0,0,0,.18))}
