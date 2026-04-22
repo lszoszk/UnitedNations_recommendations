@@ -197,14 +197,18 @@ function toggleDrawer() { TW.drawer = !TW.drawer; applyTweaks(); toast('Drawer '
 const READING_FS_KEY = 'uhri_v2_reading_fs_px';
 function _applyReadingFontSize(px) {
   const clamped = Math.max(13, Math.min(28, px));
-  document.documentElement.style.setProperty('--reading-fs', clamped + 'px');
+  // Reading-mode CSS resolves --reading-fs from the .app container, so
+  // writing it there (not on :root) ensures A-/A+ actually changes the
+  // live drawer text instead of being shadowed by the fallback on .app.
+  const host = $('#app') || document.documentElement;
+  host.style.setProperty('--reading-fs', clamped + 'px');
   try { localStorage.setItem(READING_FS_KEY, String(clamped)); } catch {}
   return clamped;
 }
 function bumpReadingFontSize(delta) {
   const app = $('#app') || document.body;
   if (!app.classList.contains('reading-mode')) return;
-  const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--reading-fs')) || 17;
+  const cur = parseInt(getComputedStyle(app).getPropertyValue('--reading-fs')) || 17;
   const next = _applyReadingFontSize(cur + delta);
   toast(`Text size: ${next}px`, false, 1200);
 }

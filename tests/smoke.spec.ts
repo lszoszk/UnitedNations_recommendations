@@ -32,6 +32,9 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *                             resolves via _nameToIso3 (previously only
  *                             ~40 variant forms did; 150+ plain-English
  *                             names silently failed and stayed grey)
+ *  18. readingModeResize    — A-/A+ changes drawer text size in read mode
+ *  19. methodologyToc       — methodology jump-nav renders and removed copy
+ *                             stays removed
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -763,6 +766,71 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(out.TextPlainCleaned).toContain('Rural women');
 
     expect(errors, `JS errors during UHRI xlsx mapper probe:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('18. readingModeResize — A-/A+ changes drawer text size in read mode', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    await page.evaluate(() => {
+      const rec = {
+        AnnotationId: 'smoke-reading-size-1',
+        PublicationDate: '2025-01-15',
+        Countries: ['Poland'],
+        Regions: ['Eastern Europe'],
+        Body: 'Human Rights Committee',
+        Themes: ['Access to justice & remedy'],
+        AffectedPersons: ['Women'],
+        Sdgs: ['SDG 16.3'],
+        Symbol: 'CCPR/C/XYZ/1',
+        AnnotationType: 'Recommendations',
+        TextPlainCleaned: 'This is a long enough paragraph to make drawer reading mode meaningful and to expose the effective font size on the live .dr-text node.',
+      };
+      state.selectedRec = rec;
+      state.currentResultList = [rec];
+      state.currentResultIndex = 0;
+      state.drawerMode = 'record';
+      state.drawerList = null;
+      renderDrawer();
+    });
+
+    const sizeBefore = await page.locator('#drawerBody .dr-text').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    await page.locator('#drawerReadingMode').click();
+    await page.locator('#drFontUp').click();
+    const sizeAfterUp = await page.locator('#drawerBody .dr-text').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    await page.locator('#drFontDown').click();
+    const sizeAfterDown = await page.locator('#drawerBody .dr-text').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+
+    expect(sizeAfterUp).toBeGreaterThan(sizeBefore);
+    expect(sizeAfterDown).toBeLessThanOrEqual(sizeAfterUp);
+    expect(errors, `JS errors during reading-mode resize:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('19. methodologyToc — methodology jump-nav renders and trimmed copy stays gone', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html', { waitUntil: 'commit' });
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    await page.evaluate(async () => {
+      await navigate('methodology');
+    });
+
+    const view = page.locator('#view-methodology');
+    await expect(view.locator('.me-toc')).toBeVisible();
+    await expect(view).not.toContainText('If you need the full 267,548');
+    await expect(view).not.toContainText('experimental preview alongside the production dashboard');
+
+    await view.locator('[data-meto-jump="me-search-semantics"]').click();
+    await page.waitForFunction(() => {
+      const target = document.getElementById('me-search-semantics');
+      const main = document.querySelector('.main');
+      if (!target || !main) return false;
+      const dy = target.getBoundingClientRect().top - main.getBoundingClientRect().top;
+      return dy >= 0 && dy < 160;
+    }, null, { timeout: 4000 });
+
+    expect(errors, `JS errors during methodology TOC flow:\n${errors.join('\n')}`).toEqual([]);
   });
 
 });
