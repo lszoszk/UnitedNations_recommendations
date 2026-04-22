@@ -13,7 +13,7 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *   7. readerDrawer — extracted reader module still renders record chrome
  *   8. compareScale — shared Y scale in Compare must normalize API row arrays
  *
- * Scenario tests (9-16) go one layer up — they exercise user-visible flows:
+ * Scenario tests (9-17) go one layer up — they exercise user-visible flows:
  *   9. hashFocusRestore     — deep-link URL restores focus country/theme
  *  10. cmdPalette           — ⌘K opens, typing filters, click navigates
  *  11. railFilterChip       — rail change surfaces chip + hit-count updates
@@ -28,6 +28,10 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
  *  16. rawModeBanner        — toggling RAW upstream mode doesn't collapse
  *                             the 3-column grid (banner spans row 1 full
  *                             width, rail / main / drawer stay in row 2)
+ *  17. landingNameToIso3    — every canonical HEX_LAYOUT country name
+ *                             resolves via _nameToIso3 (previously only
+ *                             ~40 variant forms did; 150+ plain-English
+ *                             names silently failed and stayed grey)
  *
  * The backend API lives on a cross-origin VM (150.254.115.204) with its own
  * monitoring. These tests DO NOT depend on it — the dashboard is designed
@@ -608,6 +612,47 @@ test.describe('UHRI Dashboard smoke', () => {
     await expect(page.locator('#view-overview')).toHaveClass(/hidden/);
 
     expect(errors, `JS errors while rendering country profile:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('17. landingNameToIso3 — every canonical country name resolves to ISO3', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    /* Regression: landing's _nameToIso3 used to consult only a 40-entry
+       variant dict — any country whose API display-name wasn't in that
+       short list returned null and got DROPPED from the live hex-colour
+       map.  Fix widened the lookup with a lazily-built HEX_LAYOUT index
+       (198 canonical names).  This test confirms a representative
+       selection of previously-failing names resolves, AND that known
+       variant spellings still work via the tight dict. */
+    await page.goto('/index.html');
+    await page.waitForFunction(() => typeof (window as any).__nameToIso3 === 'function', null, { timeout: 5000 });
+
+    const probe = await page.evaluate(() => {
+      // Previously FAILING (plain English, not in the 40-entry dict):
+      const plain = ['Albania','Argentina','Benin','Nepal','Fiji','Andorra','Barbados','Kenya','Egypt','Ghana'];
+      // Known variant forms that must still resolve (shorter / alt spellings):
+      const variants = ['Russia','Turkey','United States','Moldova','Tanzania','Vietnam'];
+      // Deliberately unknown name → null
+      const unknown = ['Atlantis','Westeros'];
+      const mk = (names: string[]) => names.map(n => [n, (window as any).__nameToIso3(n)]);
+      return {
+        plain: mk(plain),
+        variants: mk(variants),
+        unknown: mk(unknown),
+      };
+    });
+
+    for (const [name, iso] of probe.plain) {
+      expect(iso, `plain name "${name}" should resolve`).toBeTruthy();
+      expect((iso as string).length).toBe(3);
+    }
+    for (const [name, iso] of probe.variants) {
+      expect(iso, `variant "${name}" should resolve`).toBeTruthy();
+    }
+    for (const [name, iso] of probe.unknown) {
+      expect(iso, `unknown "${name}" should return null`).toBeNull();
+    }
+
+    expect(errors, `JS errors:\n${errors.join('\n')}`).toEqual([]);
   });
 
   test('16. rawModeBanner — RAW toggle doesn\'t collapse the grid layout', async ({ page }) => {

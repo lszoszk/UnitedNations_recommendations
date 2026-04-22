@@ -1545,12 +1545,12 @@
      fallback ones. On timeout or network error we keep the hardcoded
      fallback above — the page stays functional offline. */
   const LIVE_TIMEOUT_MS = 4500;
+  /* Variant-form name → ISO3 dict.  Applied on TOP of the full
+     HEX_LAYOUT-derived lookup (built lazily below) to catch shorter /
+     alt spellings of countries whose canonical names are longer in
+     HEX_LAYOUT (e.g. "Russia" vs "Russian Federation", "Turkey" vs
+     "Türkiye", "United States" vs "United States of America"). */
   const MECH_NAME_TO_ISO3 = {
-    /* OHCHR country_counts returns display names ("China", "United States",
-       "Türkiye") but the HEX_LAYOUT grid is keyed by ISO-alpha-3. Canonical
-       country-name → ISO3 mapping lives in the dashboard's facets payload
-       too, but the landing keeps its own lookup so it can colour hexes
-       even when the dashboard module isn't loaded. */
     "China":"CHN","Mexico":"MEX","Iran":"IRN","Iran (Islamic Republic of)":"IRN",
     "Colombia":"COL","Russia":"RUS","Russian Federation":"RUS","Brazil":"BRA",
     "Türkiye":"TUR","Turkey":"TUR","India":"IND","United States":"USA",
@@ -1567,13 +1567,33 @@
     "DR Congo":"COD","Côte d'Ivoire":"CIV","United Republic of Tanzania":"TZA","Tanzania":"TZA",
     "Cabo Verde":"CPV","Cape Verde":"CPV","Timor-Leste":"TLS","Eswatini":"SWZ","Swaziland":"SWZ",
   };
+  /* Full country → ISO3 lookup, built lazily from HEX_LAYOUT on first
+     call (HEX_LAYOUT is declared AFTER this function in file order).
+     Previously _nameToIso3 only consulted the 40-entry variant dict
+     above — so any country with a plain English name NOT in that list
+     (Albania, Benin, Nepal, Albania, Argentina, …) returned null and
+     got SKIPPED from __LIVE_COUNTRY_BY_ISO3, leaving ~100 of 198 hexes
+     permanently uncoloured even on prod where the API had records for
+     every one of them. */
+  let _fullNameIndex = null;
   function _nameToIso3(name) {
     if (!name) return null;
     if (MECH_NAME_TO_ISO3[name]) return MECH_NAME_TO_ISO3[name];
-    // Try short forms (strip parenthetical disambiguators)
+    if (!_fullNameIndex && typeof HEX_LAYOUT !== 'undefined') {
+      _fullNameIndex = Object.create(null);
+      HEX_LAYOUT.forEach(([c, r, iso, canonicalName]) => {
+        _fullNameIndex[canonicalName] = iso;
+      });
+    }
+    if (_fullNameIndex && _fullNameIndex[name]) return _fullNameIndex[name];
+    // Last resort: strip a parenthetical disambiguator and retry.
     const base = name.replace(/\s*\([^)]+\)\s*$/, '').trim();
-    return MECH_NAME_TO_ISO3[base] || null;
+    if (MECH_NAME_TO_ISO3[base]) return MECH_NAME_TO_ISO3[base];
+    if (_fullNameIndex && _fullNameIndex[base]) return _fullNameIndex[base];
+    return null;
   }
+  // Expose for regression tests (test #17) — no production code reads this.
+  window.__nameToIso3 = _nameToIso3;
   function _shortBody(body) {
     // Strip leading "- " that the raw dataset sometimes carries.
     return String(body || '').replace(/^-\s*/, '').trim();
@@ -2905,8 +2925,9 @@
     _rebuildCountByIso();
     const activeRegion = document.querySelector('#hexRegions button.active')?.dataset.r || 'world';
     renderHex(activeRegion);
-    // Top-5 leaderboard — picks up window.__LIVE_TOP5_COUNTRIES
-    renderLeaderboard();
+    // (Top-5 leaderboard removed April 2026 — the hex tooltip now carries
+    //  per-country rank + theme/group breakdowns, which replaced the
+    //  separate ranked list.)
     // Ticker — renderTicker() uses RECS which is now live recommendations
     renderTicker();
   });
