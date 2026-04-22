@@ -125,6 +125,15 @@ function renderMethodology() {
       <h2>Architecture</h2>
       <p>Three-column analyst layout: rail filters → main content → selected-record drawer. All analytics computed server-side on demand (<code>/api/data/facets</code>, <code>/api/data/analytics</code>, <code>/api/data/records</code>, <code>/api/data/map</code>) with a materialised-view cache on the VM for single-entity profile queries.</p>
 
+      <h2>Regional classification</h2>
+      <p>Top-level regions on the hex map follow <strong>UN M49</strong> — <a href="https://unstats.un.org/unsd/methodology/m49/" target="_blank" rel="noopener">Standard Country or Area Codes for Statistical Use</a>. This gives you five regions — <em>Africa · Americas · Asia · Europe · Oceania</em> — and 22 sub-regions nested underneath (<em>Northern Africa</em>, <em>Western Asia</em>, <em>Caribbean</em>, <em>Melanesia</em>, and so on). The sub-region shows on the hex tooltip; tooltip over the ⓘ on the region row above the map documents the choice in-place.</p>
+      <p style="color:var(--dim);font-size:12px;margin-top:-6px">Two caveats worth flagging:</p>
+      <ul style="margin-top:0">
+        <li><strong>M49 is statistical, not political.</strong> It classifies geography and is deliberately apolitical — it doesn't speak to sovereignty disputes, recognition, or membership in UN bodies.</li>
+        <li><strong>The UN Human Rights machinery runs on different groupings.</strong> Treaty Body elections and Human Rights Council membership use <em>regional electoral groups</em> — African (54), Asia-Pacific (54), Eastern European (23), Latin American & Caribbean / GRULAC (33), Western European and Others / WEOG (29). Those cut across M49 lines (e.g. Australia, Canada, New Zealand, USA are WEOG despite sitting in Oceania/Americas geographically). This dashboard doesn't currently expose electoral groups as a filter — they're on the roadmap.</li>
+      </ul>
+      <p style="color:var(--dim);font-size:12px;margin-top:-6px"><strong>History:</strong> before April 2026 this dashboard used an ad-hoc 6-region split with a separate "MENA" bucket. That was visualization-friendly but not UN-aligned. The April 2026 migration redistributes MENA — Northern Africa (Egypt/Libya/Morocco/Algeria/Tunisia/Sudan) back into Africa, Western Asia (Turkey/Israel/Saudi/Lebanon/etc.) into Asia — matching M49 exactly. Iran sits in Southern Asia per M49, alongside India/Pakistan/Afghanistan/Bangladesh.</p>
+
       <h2>Glossary</h2>
       <dl class="grid-def">
         <dt>Recommending body</dt><dd>The UN mechanism that issued the paragraph (UPR, Treaty Body, or Special Procedure).</dd>
