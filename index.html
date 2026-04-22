@@ -723,6 +723,14 @@
      exact split without needing inline-block / float tricks, and the
      `fr 320px` template pins the leaderboard at a fixed comfortable
      width while the map takes whatever space is left. */
+  /* Hybrid layout (April 2026): side-by-side only on genuinely wide
+     monitors where there's room for both map AND leaderboard at a
+     readable size.  On typical laptops (1280–1400px) the map was
+     getting squeezed to ~1080px, making hexes tiny and region labels
+     clip.  Now stacks under 1400px so the map gets the full container
+     width (~1400px → ~1680px on 1920 screens minus rail padding).  The
+     composition still looks premium on >1400px desktops; laptops get
+     a usable map, mobile stays stacked as before. */
   .hex-with-leaders {
     display: grid;
     grid-template-columns: 1fr 320px;
@@ -824,14 +832,28 @@
     width: 100%;
   }
   .leader-more:hover { color: var(--ink); }
+  /* Stack at <1400px so laptops get the full horizontal budget for the
+     map.  The leaderboard sits underneath as a full-width card on those
+     screens; on mobile (<900px) it flows below normally.  On very wide
+     monitors (≥1400px) the two-column composition stays. */
+  @media (max-width: 1400px) {
+    .hex-with-leaders { grid-template-columns: 1fr; gap: 28px; }
+    .hex-leaders { max-width: 720px; margin: 0 auto; }
+  }
   @media (max-width: 900px) {
-    .hex-with-leaders { grid-template-columns: 1fr; gap: 20px; }
+    .hex-with-leaders { gap: 20px; }
+    .hex-leaders { max-width: none; }
   }
 
+  /* Aspect ratio — grid's natural content is roughly 30 cols × 19 rows
+     after the M49 expansion (more Pacific / Caribbean states).  5/3
+     (1.67) is a middle-ground between the old wide 24/13 (1.85, crushed
+     vertically) and perfectly square.  Gives hexes real breathing room
+     without making the section tower over the viewport. */
   .hex-wrap {
     position: relative;
     width: 100%;
-    aspect-ratio: 24 / 13;
+    aspect-ratio: 5 / 3;
     overflow: hidden;
     border: 1px solid var(--line);
     background: var(--paper);
@@ -1292,13 +1314,16 @@
          mobile users see the leaderboard below the map. -->
     <div class="hex-with-leaders">
       <div class="hex-map-col">
+        <!-- Region tabs use UN M49 top-level regions (post-April 2026
+             migration; see Methodology for the rationale). The old MENA
+             bucket is dissolved — Northern Africa rolls up into Africa,
+             Western Asia into Asia. -->
         <div class="hex-regions" id="hexRegions">
           <button data-r="world" class="active">World</button>
-          <button data-r="americas">Americas</button>
-          <button data-r="europe">Europe</button>
-          <button data-r="mena">MENA</button>
           <button data-r="africa">Africa</button>
+          <button data-r="americas">Americas</button>
           <button data-r="asia">Asia</button>
+          <button data-r="europe">Europe</button>
           <button data-r="oceania">Oceania</button>
         </div>
 
@@ -1310,10 +1335,10 @@
         <div class="hex-scale">
           <span>0</span>
           <div class="scale">
-            <span class="s" style="background:color-mix(in oklab, var(--accent) 8%, var(--paper-2))"></span>
-            <span class="s" style="background:color-mix(in oklab, var(--accent) 24%, var(--paper-2))"></span>
-            <span class="s" style="background:color-mix(in oklab, var(--accent) 44%, var(--paper-2))"></span>
-            <span class="s" style="background:color-mix(in oklab, var(--accent) 65%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 15%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 32%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 52%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 72%, var(--paper-2))"></span>
             <span class="s" style="background:color-mix(in oklab, var(--accent) 92%, var(--paper-2))"></span>
           </div>
           <span id="hexScaleMax">3,218</span>
@@ -2294,84 +2319,226 @@
 
   /* ---------- FIG.03 hex tile map ---------- */
   const HEX_LAYOUT = [
-    [ 1, 0,'CAN','Canada','americas'],[ 2, 1,'USA','United States','americas'],
-    [ 2, 2,'MEX','Mexico','americas'],[ 3, 2,'CUB','Cuba','americas'],
-    [ 3, 3,'JAM','Jamaica','americas'],[ 4, 3,'HTI','Haiti','americas'],
-    [ 4, 2,'DOM','Dominican Rep.','americas'],[ 2, 3,'GTM','Guatemala','americas'],
-    [ 2, 4,'SLV','El Salvador','americas'],[ 3, 4,'HND','Honduras','americas'],
-    [ 3, 5,'NIC','Nicaragua','americas'],[ 2, 5,'CRI','Costa Rica','americas'],
-    [ 3, 6,'PAN','Panama','americas'],[ 4, 5,'COL','Colombia','americas'],
-    [ 5, 5,'VEN','Venezuela','americas'],[ 5, 6,'GUY','Guyana','americas'],
-    [ 4, 6,'ECU','Ecuador','americas'],[ 4, 7,'PER','Peru','americas'],
-    [ 5, 7,'BRA','Brazil','americas'],[ 5, 8,'BOL','Bolivia','americas'],
-    [ 4, 8,'CHL','Chile','americas'],[ 5, 9,'ARG','Argentina','americas'],
-    [ 6, 9,'URY','Uruguay','americas'],[ 6, 8,'PRY','Paraguay','americas'],
-    [ 8, 1,'ISL','Iceland','europe'],[ 9, 1,'NOR','Norway','europe'],
-    [10, 1,'SWE','Sweden','europe'],[11, 1,'FIN','Finland','europe'],
-    [ 9, 2,'GBR','United Kingdom','europe'],[ 8, 2,'IRL','Ireland','europe'],
-    [10, 2,'DNK','Denmark','europe'],[11, 2,'EST','Estonia','europe'],
-    [12, 2,'LVA','Latvia','europe'],[12, 3,'LTU','Lithuania','europe'],
-    [ 9, 3,'NLD','Netherlands','europe'],[ 9, 4,'BEL','Belgium','europe'],
-    [10, 3,'DEU','Germany','europe'],[11, 3,'POL','Poland','europe'],
-    [13, 3,'BLR','Belarus','europe'],[13, 4,'UKR','Ukraine','europe'],
-    [ 9, 5,'FRA','France','europe'],[ 8, 5,'PRT','Portugal','europe'],
-    [ 8, 6,'ESP','Spain','europe'],[10, 4,'CHE','Switzerland','europe'],
-    [10, 5,'ITA','Italy','europe'],[11, 4,'AUT','Austria','europe'],
-    [11, 5,'SVN','Slovenia','europe'],[12, 4,'CZE','Czechia','europe'],
-    [12, 5,'SVK','Slovakia','europe'],[12, 6,'HUN','Hungary','europe'],
-    [11, 6,'HRV','Croatia','europe'],[12, 7,'SRB','Serbia','europe'],
-    [11, 7,'BIH','Bosnia & Herz.','europe'],[11, 8,'ALB','Albania','europe'],
-    [13, 6,'ROU','Romania','europe'],[13, 7,'BGR','Bulgaria','europe'],
-    [12, 8,'MKD','North Macedonia','europe'],[13, 8,'GRC','Greece','europe'],
-    [15, 2,'RUS','Russia','europe'],
-    [14, 5,'TUR','Türkiye','mena'],[14, 7,'LBN','Lebanon','mena'],
-    [14, 8,'SYR','Syria','mena'],[15, 7,'ISR','Israel','mena'],
-    [15, 8,'JOR','Jordan','mena'],[15, 6,'GEO','Georgia','mena'],
-    [16, 6,'ARM','Armenia','mena'],[16, 7,'AZE','Azerbaijan','mena'],
-    [16, 8,'IRQ','Iraq','mena'],[17, 8,'IRN','Iran','mena'],
-    [15, 9,'EGY','Egypt','mena'],[16, 9,'SAU','Saudi Arabia','mena'],
-    [17, 9,'KWT','Kuwait','mena'],[18,10,'QAT','Qatar','mena'],
-    [18,11,'ARE','UAE','mena'],[17,11,'OMN','Oman','mena'],
-    [16,10,'YEM','Yemen','mena'],[17,10,'BHR','Bahrain','mena'],
-    [10, 7,'MAR','Morocco','africa'],[10, 8,'DZA','Algeria','africa'],
-    [11, 9,'TUN','Tunisia','africa'],[12, 9,'LBY','Libya','africa'],
-    [13,10,'SDN','Sudan','africa'],[14, 9,'SSD','South Sudan','africa'],
-    [ 9, 8,'MRT','Mauritania','africa'],[ 9, 9,'SEN','Senegal','africa'],
-    [ 9,10,'GIN','Guinea','africa'],[10, 9,'MLI','Mali','africa'],
-    [11,10,'NER','Niger','africa'],[12,10,'TCD','Chad','africa'],
-    [10,10,'BFA','Burkina Faso','africa'],[10,11,'CIV',"Côte d'Ivoire",'africa'],
-    [ 9,11,'LBR','Liberia','africa'],[ 8,10,'SLE','Sierra Leone','africa'],
-    [11,11,'GHA','Ghana','africa'],[11,12,'TGO','Togo','africa'],
-    [12,11,'BEN','Benin','africa'],[12,12,'NGA','Nigeria','africa'],
-    [13,11,'CMR','Cameroon','africa'],[13,12,'CAF','CAR','africa'],
-    [14,10,'ETH','Ethiopia','africa'],[14,11,'ERI','Eritrea','africa'],
-    [15,10,'SOM','Somalia','africa'],[14,12,'KEN','Kenya','africa'],
-    [13,13,'UGA','Uganda','africa'],[12,13,'COD','DR Congo','africa'],
-    [11,13,'COG','Congo','africa'],[10,13,'GAB','Gabon','africa'],
-    [14,13,'TZA','Tanzania','africa'],[13,14,'RWA','Rwanda','africa'],
-    [14,14,'BDI','Burundi','africa'],[12,14,'AGO','Angola','africa'],
-    [13,15,'ZMB','Zambia','africa'],[14,15,'MWI','Malawi','africa'],
-    [13,16,'ZWE','Zimbabwe','africa'],[14,16,'MOZ','Mozambique','africa'],
-    [12,16,'NAM','Namibia','africa'],[13,17,'BWA','Botswana','africa'],
-    [13,18,'ZAF','South Africa','africa'],[14,18,'LSO','Lesotho','africa'],
-    [14,17,'SWZ','Eswatini','africa'],[15,16,'MDG','Madagascar','africa'],
-    [16, 3,'KAZ','Kazakhstan','asia'],[17, 4,'MNG','Mongolia','asia'],
-    [17, 6,'UZB','Uzbekistan','asia'],[17, 7,'TKM','Turkmenistan','asia'],
-    [18, 5,'KGZ','Kyrgyzstan','asia'],[18, 6,'TJK','Tajikistan','asia'],
-    [18, 7,'AFG','Afghanistan','asia'],[19, 7,'PAK','Pakistan','asia'],
-    [19, 8,'IND','India','asia'],[20, 7,'NPL','Nepal','asia'],
-    [20, 8,'BTN','Bhutan','asia'],[20, 9,'BGD','Bangladesh','asia'],
-    [19, 9,'LKA','Sri Lanka','asia'],[19,10,'MDV','Maldives','asia'],
-    [19, 5,'CHN','China','asia'],[20, 4,'PRK','North Korea','asia'],
-    [20, 5,'KOR','South Korea','asia'],[21, 4,'JPN','Japan','asia'],
-    [21, 7,'MMR','Myanmar','asia'],[21, 8,'THA','Thailand','asia'],
-    [22, 8,'LAO','Laos','asia'],[22, 9,'KHM','Cambodia','asia'],
-    [22, 7,'VNM','Vietnam','asia'],[22,10,'MYS','Malaysia','asia'],
-    [22,11,'SGP','Singapore','asia'],[23, 9,'PHL','Philippines','asia'],
-    [23,11,'IDN','Indonesia','asia'],[23,12,'TLS','Timor-Leste','asia'],
-    [21, 9,'BRN','Brunei','asia'],
-    [24,13,'AUS','Australia','oceania'],[25,12,'PNG','Papua New Guinea','oceania'],
-    [25,14,'NZL','New Zealand','oceania'],[26,12,'FJI','Fiji','oceania'],
+    /* africa / easternAfrica */
+    [14, 14,'BDI','Burundi','africa','easternAfrica'],
+    [15, 12,'COM','Comoros','africa','easternAfrica'],
+    [15, 11,'DJI','Djibouti','africa','easternAfrica'],
+    [14, 11,'ERI','Eritrea','africa','easternAfrica'],
+    [14, 10,'ETH','Ethiopia','africa','easternAfrica'],
+    [14, 12,'KEN','Kenya','africa','easternAfrica'],
+    [15, 16,'MDG','Madagascar','africa','easternAfrica'],
+    [14, 16,'MOZ','Mozambique','africa','easternAfrica'],
+    [16, 14,'MUS','Mauritius','africa','easternAfrica'],
+    [14, 15,'MWI','Malawi','africa','easternAfrica'],
+    [13, 14,'RWA','Rwanda','africa','easternAfrica'],
+    [15, 10,'SOM','Somalia','africa','easternAfrica'],
+    [14,  9,'SSD','South Sudan','africa','easternAfrica'],
+    [16, 13,'SYC','Seychelles','africa','easternAfrica'],
+    [14, 13,'TZA','United Republic of Tanzania','africa','easternAfrica'],
+    [13, 13,'UGA','Uganda','africa','easternAfrica'],
+    [13, 15,'ZMB','Zambia','africa','easternAfrica'],
+    [13, 16,'ZWE','Zimbabwe','africa','easternAfrica'],
+    /* africa / middleAfrica */
+    [12, 14,'AGO','Angola','africa','middleAfrica'],
+    [13, 12,'CAF','Central African Republic','africa','middleAfrica'],
+    [13, 11,'CMR','Cameroon','africa','middleAfrica'],
+    [12, 13,'COD','Democratic Republic of the Congo','africa','middleAfrica'],
+    [11, 13,'COG','Congo','africa','middleAfrica'],
+    [10, 13,'GAB','Gabon','africa','middleAfrica'],
+    [10, 14,'GNQ','Equatorial Guinea','africa','middleAfrica'],
+    [11, 14,'STP','Sao Tome and Principe','africa','middleAfrica'],
+    [12, 10,'TCD','Chad','africa','middleAfrica'],
+    /* africa / northernAfrica */
+    [10,  8,'DZA','Algeria','africa','northernAfrica'],
+    [15,  9,'EGY','Egypt','africa','northernAfrica'],
+    [12,  9,'LBY','Libya','africa','northernAfrica'],
+    [10,  7,'MAR','Morocco','africa','northernAfrica'],
+    [13, 10,'SDN','Sudan','africa','northernAfrica'],
+    [11,  9,'TUN','Tunisia','africa','northernAfrica'],
+    /* africa / southernAfrica */
+    [13, 17,'BWA','Botswana','africa','southernAfrica'],
+    [14, 18,'LSO','Lesotho','africa','southernAfrica'],
+    [12, 16,'NAM','Namibia','africa','southernAfrica'],
+    [14, 17,'SWZ','Eswatini','africa','southernAfrica'],
+    [13, 18,'ZAF','South Africa','africa','southernAfrica'],
+    /* africa / westernAfrica */
+    [12, 11,'BEN','Benin','africa','westernAfrica'],
+    [10, 10,'BFA','Burkina Faso','africa','westernAfrica'],
+    [10, 11,'CIV',"Côte d'Ivoire",'africa','westernAfrica'],
+    [ 8,  8,'CPV','Cabo Verde','africa','westernAfrica'],
+    [11, 11,'GHA','Ghana','africa','westernAfrica'],
+    [ 9, 10,'GIN','Guinea','africa','westernAfrica'],
+    [ 8,  9,'GMB','Gambia','africa','westernAfrica'],
+    [ 7, 10,'GNB','Guinea-Bissau','africa','westernAfrica'],
+    [ 9, 11,'LBR','Liberia','africa','westernAfrica'],
+    [10,  9,'MLI','Mali','africa','westernAfrica'],
+    [ 9,  8,'MRT','Mauritania','africa','westernAfrica'],
+    [11, 10,'NER','Niger','africa','westernAfrica'],
+    [12, 12,'NGA','Nigeria','africa','westernAfrica'],
+    [ 9,  9,'SEN','Senegal','africa','westernAfrica'],
+    [ 8, 10,'SLE','Sierra Leone','africa','westernAfrica'],
+    [11, 12,'TGO','Togo','africa','westernAfrica'],
+    /* americas / caribbean */
+    [ 5,  3,'ATG','Antigua and Barbuda','americas','caribbean'],
+    [ 5,  2,'BHS','Bahamas','americas','caribbean'],
+    [ 6,  5,'BRB','Barbados','americas','caribbean'],
+    [ 3,  2,'CUB','Cuba','americas','caribbean'],
+    [ 5,  4,'DMA','Dominica','americas','caribbean'],
+    [ 4,  2,'DOM','Dominican Republic','americas','caribbean'],
+    [ 7,  5,'GRD','Grenada','americas','caribbean'],
+    [ 4,  3,'HTI','Haiti','americas','caribbean'],
+    [ 3,  3,'JAM','Jamaica','americas','caribbean'],
+    [ 6,  3,'KNA','Saint Kitts and Nevis','americas','caribbean'],
+    [ 6,  4,'LCA','Saint Lucia','americas','caribbean'],
+    [ 7,  6,'TTO','Trinidad and Tobago','americas','caribbean'],
+    [ 7,  4,'VCT','Saint Vincent and the Grenadines','americas','caribbean'],
+    /* americas / centralAmerica */
+    [ 4,  4,'BLZ','Belize','americas','centralAmerica'],
+    [ 2,  5,'CRI','Costa Rica','americas','centralAmerica'],
+    [ 2,  3,'GTM','Guatemala','americas','centralAmerica'],
+    [ 3,  4,'HND','Honduras','americas','centralAmerica'],
+    [ 2,  2,'MEX','Mexico','americas','centralAmerica'],
+    [ 3,  5,'NIC','Nicaragua','americas','centralAmerica'],
+    [ 3,  6,'PAN','Panama','americas','centralAmerica'],
+    [ 2,  4,'SLV','El Salvador','americas','centralAmerica'],
+    /* americas / northernAmerica */
+    [ 3,  1,'BMU','Bermuda','americas','northernAmerica'],
+    [ 1,  0,'CAN','Canada','americas','northernAmerica'],
+    [ 2,  1,'USA','United States of America','americas','northernAmerica'],
+    /* americas / southAmerica */
+    [ 5,  9,'ARG','Argentina','americas','southAmerica'],
+    [ 5,  8,'BOL','Bolivia (Plurinational State of)','americas','southAmerica'],
+    [ 5,  7,'BRA','Brazil','americas','southAmerica'],
+    [ 4,  8,'CHL','Chile','americas','southAmerica'],
+    [ 4,  5,'COL','Colombia','americas','southAmerica'],
+    [ 4,  6,'ECU','Ecuador','americas','southAmerica'],
+    [ 5,  6,'GUY','Guyana','americas','southAmerica'],
+    [ 4,  7,'PER','Peru','americas','southAmerica'],
+    [ 6,  8,'PRY','Paraguay','americas','southAmerica'],
+    [ 6,  6,'SUR','Suriname','americas','southAmerica'],
+    [ 6,  9,'URY','Uruguay','americas','southAmerica'],
+    [ 5,  5,'VEN','Venezuela (Bolivarian Republic of)','americas','southAmerica'],
+    /* asia / centralAsia */
+    [16,  3,'KAZ','Kazakhstan','asia','centralAsia'],
+    [18,  5,'KGZ','Kyrgyzstan','asia','centralAsia'],
+    [18,  6,'TJK','Tajikistan','asia','centralAsia'],
+    [17,  7,'TKM','Turkmenistan','asia','centralAsia'],
+    [17,  6,'UZB','Uzbekistan','asia','centralAsia'],
+    /* asia / easternAsia */
+    [19,  5,'CHN','China','asia','easternAsia'],
+    [21,  4,'JPN','Japan','asia','easternAsia'],
+    [20,  5,'KOR','Republic of Korea','asia','easternAsia'],
+    [17,  4,'MNG','Mongolia','asia','easternAsia'],
+    [20,  4,'PRK',"Democratic People's Republic of Korea",'asia','easternAsia'],
+    /* asia / southeasternAsia */
+    [21,  9,'BRN','Brunei Darussalam','asia','southeasternAsia'],
+    [23, 11,'IDN','Indonesia','asia','southeasternAsia'],
+    [22,  9,'KHM','Cambodia','asia','southeasternAsia'],
+    [22,  8,'LAO',"Lao People's Democratic Republic",'asia','southeasternAsia'],
+    [21,  7,'MMR','Myanmar','asia','southeasternAsia'],
+    [22, 10,'MYS','Malaysia','asia','southeasternAsia'],
+    [23,  9,'PHL','Philippines','asia','southeasternAsia'],
+    [22, 11,'SGP','Singapore','asia','southeasternAsia'],
+    [21,  8,'THA','Thailand','asia','southeasternAsia'],
+    [23, 12,'TLS','Timor-Leste','asia','southeasternAsia'],
+    [22,  7,'VNM','Viet Nam','asia','southeasternAsia'],
+    /* asia / southernAsia */
+    [18,  7,'AFG','Afghanistan','asia','southernAsia'],
+    [20,  9,'BGD','Bangladesh','asia','southernAsia'],
+    [20,  8,'BTN','Bhutan','asia','southernAsia'],
+    [19,  8,'IND','India','asia','southernAsia'],
+    [17,  8,'IRN','Iran (Islamic Republic of)','asia','southernAsia'],
+    [19,  9,'LKA','Sri Lanka','asia','southernAsia'],
+    [19, 10,'MDV','Maldives','asia','southernAsia'],
+    [20,  7,'NPL','Nepal','asia','southernAsia'],
+    [19,  7,'PAK','Pakistan','asia','southernAsia'],
+    /* asia / westernAsia */
+    [18, 11,'ARE','United Arab Emirates','asia','westernAsia'],
+    [16,  6,'ARM','Armenia','asia','westernAsia'],
+    [16,  7,'AZE','Azerbaijan','asia','westernAsia'],
+    [17, 10,'BHR','Bahrain','asia','westernAsia'],
+    [13,  5,'CYP','Cyprus','asia','westernAsia'],
+    [15,  6,'GEO','Georgia','asia','westernAsia'],
+    [16,  8,'IRQ','Iraq','asia','westernAsia'],
+    [15,  7,'ISR','Israel','asia','westernAsia'],
+    [15,  8,'JOR','Jordan','asia','westernAsia'],
+    [17,  9,'KWT','Kuwait','asia','westernAsia'],
+    [14,  7,'LBN','Lebanon','asia','westernAsia'],
+    [17, 11,'OMN','Oman','asia','westernAsia'],
+    [15,  5,'PSE','State of Palestine','asia','westernAsia'],
+    [18, 10,'QAT','Qatar','asia','westernAsia'],
+    [16,  9,'SAU','Saudi Arabia','asia','westernAsia'],
+    [14,  8,'SYR','Syrian Arab Republic','asia','westernAsia'],
+    [14,  5,'TUR','Türkiye','asia','westernAsia'],
+    [16, 10,'YEM','Yemen','asia','westernAsia'],
+    /* europe / easternEurope */
+    [13,  7,'BGR','Bulgaria','europe','easternEurope'],
+    [13,  3,'BLR','Belarus','europe','easternEurope'],
+    [12,  4,'CZE','Czechia','europe','easternEurope'],
+    [12,  6,'HUN','Hungary','europe','easternEurope'],
+    [14,  3,'MDA','Republic of Moldova','europe','easternEurope'],
+    [11,  3,'POL','Poland','europe','easternEurope'],
+    [13,  6,'ROU','Romania','europe','easternEurope'],
+    [15,  2,'RUS','Russian Federation','europe','easternEurope'],
+    [12,  5,'SVK','Slovakia','europe','easternEurope'],
+    [13,  4,'UKR','Ukraine','europe','easternEurope'],
+    /* europe / northernEurope */
+    [10,  2,'DNK','Denmark','europe','northernEurope'],
+    [11,  2,'EST','Estonia','europe','northernEurope'],
+    [11,  1,'FIN','Finland','europe','northernEurope'],
+    [ 9,  2,'GBR','United Kingdom of Great Britain and Northern Ireland','europe','northernEurope'],
+    [ 8,  2,'IRL','Ireland','europe','northernEurope'],
+    [ 8,  1,'ISL','Iceland','europe','northernEurope'],
+    [12,  3,'LTU','Lithuania','europe','northernEurope'],
+    [12,  2,'LVA','Latvia','europe','northernEurope'],
+    [ 9,  1,'NOR','Norway','europe','northernEurope'],
+    [10,  1,'SWE','Sweden','europe','northernEurope'],
+    /* europe / southernEurope */
+    [11,  8,'ALB','Albania','europe','southernEurope'],
+    [ 8,  7,'AND','Andorra','europe','southernEurope'],
+    [11,  7,'BIH','Bosnia and Herzegovina','europe','southernEurope'],
+    [ 8,  6,'ESP','Spain','europe','southernEurope'],
+    [13,  8,'GRC','Greece','europe','southernEurope'],
+    [11,  6,'HRV','Croatia','europe','southernEurope'],
+    [10,  5,'ITA','Italy','europe','southernEurope'],
+    [12,  8,'MKD','North Macedonia','europe','southernEurope'],
+    [14,  6,'MLT','Malta','europe','southernEurope'],
+    [13,  9,'MNE','Montenegro','europe','southernEurope'],
+    [ 8,  5,'PRT','Portugal','europe','southernEurope'],
+    [ 9,  6,'SMR','San Marino','europe','southernEurope'],
+    [12,  7,'SRB','Serbia','europe','southernEurope'],
+    [11,  5,'SVN','Slovenia','europe','southernEurope'],
+    [ 9,  7,'VAT','Holy See','europe','southernEurope'],
+    /* europe / westernEurope */
+    [11,  4,'AUT','Austria','europe','westernEurope'],
+    [ 9,  4,'BEL','Belgium','europe','westernEurope'],
+    [10,  4,'CHE','Switzerland','europe','westernEurope'],
+    [10,  3,'DEU','Germany','europe','westernEurope'],
+    [ 9,  5,'FRA','France','europe','westernEurope'],
+    [14,  4,'LIE','Liechtenstein','europe','westernEurope'],
+    [ 8,  4,'LUX','Luxembourg','europe','westernEurope'],
+    [10,  6,'MCO','Monaco','europe','westernEurope'],
+    [ 9,  3,'NLD','Netherlands','europe','westernEurope'],
+    /* oceania / australiaNz */
+    [24, 13,'AUS','Australia','oceania','australiaNz'],
+    [25, 14,'NZL','New Zealand','oceania','australiaNz'],
+    /* oceania / melanesia */
+    [26, 12,'FJI','Fiji','oceania','melanesia'],
+    [25, 12,'PNG','Papua New Guinea','oceania','melanesia'],
+    [25, 13,'SLB','Solomon Islands','oceania','melanesia'],
+    [26, 13,'VUT','Vanuatu','oceania','melanesia'],
+    /* oceania / micronesia */
+    [26,  9,'FSM','Micronesia (Federated States of)','oceania','micronesia'],
+    [28,  9,'KIR','Kiribati','oceania','micronesia'],
+    [27,  9,'MHL','Marshall Islands','oceania','micronesia'],
+    [26, 11,'NRU','Nauru','oceania','micronesia'],
+    [26, 10,'PLW','Palau','oceania','micronesia'],
+    /* oceania / polynesia */
+    [29, 13,'COK','Cook Islands','oceania','polynesia'],
+    [28, 14,'NIU','Niue','oceania','polynesia'],
+    [27, 14,'TON','Tonga','oceania','polynesia'],
+    [27, 11,'TUV','Tuvalu','oceania','polynesia'],
+    [28, 13,'WSM','Samoa','oceania','polynesia'],
   ];
   /* COUNT_BY_ISO — volume per ISO-alpha-3 for hex coloring.
      Priority: __LIVE_COUNTRY_BY_ISO3 (populated by loadLive from /api/data/map,
@@ -2418,13 +2585,18 @@
     }
     return p.trim();
   }
+  /* Colour scale — matches dashboard-map.js (see ARCHITECTURE.md §Map).
+     Linear n/MAX washes out middle-volume countries; sqrt scaling
+     compresses the long tail of top-performers and lifts the bulk of
+     states into visible range.  Non-zero floor of 0.15 guarantees every
+     state with at least one record shows up as coloured, not blank. */
   function hexColor(n) {
     if (!n) return 'var(--paper-2)';
-    const t = Math.min(1, n / HEX_MAX);
-    const step = t < 0.06 ? 0.08 : t < 0.18 ? 0.24 : t < 0.36 ? 0.44 : t < 0.6 ? 0.65 : 0.92;
+    const t = Math.sqrt(Math.min(1, n / HEX_MAX));
+    const step = t < 0.22 ? 0.15 : t < 0.40 ? 0.32 : t < 0.60 ? 0.52 : t < 0.80 ? 0.72 : 0.92;
     return `color-mix(in oklab, var(--accent) ${Math.round(step * 100)}%, var(--paper-2))`;
   }
-  const hexLight = n => n && (n / HEX_MAX) >= 0.36;
+  const hexLight = n => n && Math.sqrt(n / HEX_MAX) >= 0.40;
 
   function renderHex(region) {
     region = region || 'world';
@@ -2435,9 +2607,16 @@
       minX=Math.min(minX,x-HEX_SIZE); minY=Math.min(minY,y-HEX_SIZE);
       maxX=Math.max(maxX,x+HEX_SIZE); maxY=Math.max(maxY,y+HEX_SIZE);
     });
+    /* Padding — extra head-room above world view for region labels (else
+       AMERI…, AFRI… get clipped by viewBox top edge).  Mirrors the fix in
+       dashboard-map.js where the overview renders cleanly. */
+    const pad = HEX_SIZE * 0.4;
+    const topPad = region === 'world' ? pad + HEX_SIZE * 0.7 : pad;
+    minX -= pad; maxX += pad; maxY += pad;
+    minY -= topPad;
     // Aspect-fit to container
     const wrect = hexWrap.getBoundingClientRect();
-    const ca = wrect.width && wrect.height ? wrect.width / wrect.height : 24/13;
+    const ca = wrect.width && wrect.height ? wrect.width / wrect.height : 5/3;
     let natW = maxX - minX, natH = maxY - minY;
     let vbX = minX, vbY = minY;
     const naturalA = natW / natH;
@@ -2448,12 +2627,16 @@
     }
     const vb = `${vbX} ${vbY} ${natW} ${natH}`;
 
+    /* World-view region labels — M49 top-level regions.  Text-anchor
+       centred so labels stay inside the viewBox regardless of cluster
+       shape.  ASIA moved to col 16 (was 18) because the region now
+       includes Western Asia. */
     const labels = region === 'world' ? [
-      ['AMERICAS', 1, 6], ['EUROPE', 9, 0], ['MENA', 15, 5],
-      ['AFRICA', 10, 17], ['ASIA', 18, 3], ['OCEANIA', 24, 10],
+      ['AMERICAS', 3, 5], ['EUROPE', 10, 0],
+      ['AFRICA', 11, 17], ['ASIA', 17, 3], ['OCEANIA', 26, 11],
     ].map(([t,c,r]) => {
       const [x,y] = hexCenter(c,r);
-      return `<text class="region-lbl" x="${x}" y="${y - HEX_SIZE - 8}">${t}</text>`;
+      return `<text class="region-lbl" text-anchor="middle" x="${x}" y="${y - HEX_SIZE - 10}">${t}</text>`;
     }).join('') : '';
 
     const markup = hexes.map(([c,r,iso,name]) => {
