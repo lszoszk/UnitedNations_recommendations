@@ -707,6 +707,29 @@ function renderHexMap(container, countryCounts) {
     const iso = nameToIso[name];
     if (iso) byIso[iso] = (byIso[iso] || 0) + c.count;
   });
+  /* If the rail has a region filter active, the API returns records that
+     match the filter — but the country_counts aggregation on those records
+     includes every country listed on the record, not just the ones in the
+     filtered region.  A record "USA + Fiji" being pulled in by a rail
+     region=Oceania filter (because Fiji is Oceania) would otherwise light
+     up USA on the world map.  Drop non-region counts after aggregation
+     so the map only colours countries that actually belong to the filtered
+     region(s).  Only applies when the active taxonomy is M49 — the Treaty
+     Body electoral groups have country lists too but we'd need a different
+     lookup to derive them; for now 'unGroups' accepts the cross-listing
+     bleed as a known limitation. */
+  const activeTax = (typeof state !== 'undefined' && state.regionTaxonomy) || 'm49';
+  if (activeTax === 'm49' && state.filters?.region?.size
+      && typeof expandM49RegionsToCountries === 'function') {
+    const allowed = expandM49RegionsToCountries(state.filters.region);
+    if (allowed && allowed.size) {
+      const allowedIsos = new Set();
+      allowed.forEach(n => { const i = nameToIso[n]; if (i) allowedIsos.add(i); });
+      Object.keys(byIso).forEach(iso => {
+        if (!allowedIsos.has(iso)) delete byIso[iso];
+      });
+    }
+  }
   const MAX = Math.max(1, ...Object.values(byIso));
   const region = state.hexRegion || 'world';
 
@@ -857,25 +880,23 @@ function renderHexMap(container, countryCounts) {
     `<button data-region="${r}" class="${r === region ? 'on' : ''}" title="Zoom to ${r === 'world' ? 'all 199 states' : r}">${r === 'world' ? 'World' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
   ).join('');
 
-  /* Taxonomy disclaimer.  We now align with UN M49 at the top level, but
-     M49 is statistical — not political — and is not the only UN
-     classification.  Treaty Body electoral groups (used for HRC membership
-     and Treaty Body elections) cut differently: African / Asia-Pacific /
-     Eastern European / GRULAC / WEOG.  The tooltip surfaces both. */
-  const regionInfoTip = (
-    'Top-level regions follow UN M49 (Standard Country or Area Codes for ' +
-    'Statistical Use): Africa / Americas / Asia / Europe / Oceania. ' +
-    'Each hex carries its M49 sub-region too (22 in total; see tooltip on ' +
-    'hover — e.g. "Northern Africa", "Western Asia", "Caribbean"). ' +
-    'Note: M49 is a statistical classification, not a political one. ' +
-    'For HRC / Treaty Body work the official electoral groups (African, ' +
-    'Asia-Pacific, Eastern European, GRULAC, WEOG) apply instead — ' +
-    'those are not yet surfaced as a filter here. See Methodology for ' +
-    'the full rationale.'
-  );
+  /* Taxonomy disclaimer popover.  Previously used the native title
+     attribute which either didn't appear at all on some browsers or
+     showed as a cramped single-line truncation that nobody reads.
+     Now renders as a proper dismissable popover: click ⓘ to open,
+     click again / Esc / click outside to close. HTML allows line
+     breaks + an Ack. link to Methodology. */
+  const regionInfoHtml = `
+    <h5>About these regions</h5>
+    <p>Top-level regions follow <strong>UN M49</strong> — <em>Standard Country or Area Codes for Statistical Use</em> (UNSD): <strong>Africa · Americas · Asia · Europe · Oceania</strong>.</p>
+    <p>Each hex carries its M49 <strong>sub-region</strong> too (22 in total — e.g. <em>Northern Africa</em>, <em>Western Asia</em>, <em>Caribbean</em>, <em>Melanesia</em>). Hover a hex to see it.</p>
+    <p>Note: M49 is a <strong>statistical</strong> classification, not a political one. For HRC / Treaty Body work the <strong>electoral groups</strong> apply instead (African · Asia-Pacific · Eastern European · GRULAC · WEOG). The rail <em>Region</em> filter now has a toggle to switch between the two.</p>
+    <p><a href="#view=methodology" data-close-popover="1">Full rationale in Methodology ↗</a></p>
+  `.replace(/\s+/g, ' ');
   const hasCountryFilter = state.filters.country.size > 0;
   container.innerHTML = `
-    <div class="map-regions" id="hexRegions" role="group" aria-label="Zoom to region">${regionBtns}<span class="map-regions-info" tabindex="0" role="button" aria-label="About this regional classification" title="${regionInfoTip}">ⓘ</span></div>
+    <div class="map-regions" id="hexRegions" role="group" aria-label="Zoom to region">${regionBtns}<button type="button" class="map-regions-info" id="mapRegionsInfo" aria-label="About this regional classification" aria-expanded="false" aria-controls="mapRegionsInfoPopover">ⓘ</button></div>
+    <div class="map-regions-info-popover hidden" id="mapRegionsInfoPopover" role="dialog" aria-label="About this regional classification">${regionInfoHtml}</div>
     <svg class="hex-svg${hasCountryFilter?' has-filter':''}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Hex-tile map — ${region} — one hex per state party">${labels}${hexes}</svg>
     <div class="hex-tip" id="hexTip" role="tooltip"></div>
     <div class="map-scale" style="margin-top:6px">
@@ -885,12 +906,48 @@ function renderHexMap(container, countryCounts) {
       <span style="margin-left:auto;color:var(--dim);font-size:10px">${shownHexes.length} ${region === 'world' ? 'states' : 'in region'} · click = filter · dblclick = profile</span>
     </div>`;
 
-  // Region zoom buttons
-  container.querySelectorAll('#hexRegions button').forEach(b => b.addEventListener('click', () => {
+  // Region zoom buttons — `[data-region]` so we don't also toggle the
+  // ⓘ info button (which is now a <button> inside the same container).
+  container.querySelectorAll('#hexRegions button[data-region]').forEach(b => b.addEventListener('click', () => {
     state.hexRegion = b.dataset.region;
     renderHexMap(container, countryCounts);
     announce('Zoomed to ' + b.dataset.region);
   }));
+
+  /* ⓘ popover — click to toggle, Esc / outside-click to close.  Replaces
+     the native title attribute that either wasn't showing at all or was
+     truncating to one unreadable line. */
+  const infoBtn = container.querySelector('#mapRegionsInfo');
+  const infoPop = container.querySelector('#mapRegionsInfoPopover');
+  if (infoBtn && infoPop) {
+    const closeInfo = () => {
+      infoPop.classList.add('hidden');
+      infoBtn.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('click', outsideClick, true);
+      document.removeEventListener('keydown', onKey);
+    };
+    function outsideClick(e) {
+      if (!infoPop.contains(e.target) && !infoBtn.contains(e.target)) closeInfo();
+    }
+    function onKey(e) { if (e.key === 'Escape') closeInfo(); }
+    infoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = infoPop.classList.toggle('hidden');
+      infoBtn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      if (!open) {
+        // Opening — attach dismiss listeners once layout settles
+        setTimeout(() => {
+          document.addEventListener('click', outsideClick, true);
+          document.addEventListener('keydown', onKey);
+        }, 0);
+      } else {
+        document.removeEventListener('click', outsideClick, true);
+        document.removeEventListener('keydown', onKey);
+      }
+    });
+    // Clicking the Methodology link inside the popover navigates + closes.
+    infoPop.querySelectorAll('a[data-close-popover]').forEach(a => a.addEventListener('click', closeInfo));
+  }
 
   const tip = container.querySelector('#hexTip');
   container.querySelectorAll('g.hex').forEach(g => {

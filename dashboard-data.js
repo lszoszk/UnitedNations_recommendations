@@ -123,6 +123,10 @@ const state = {
   searchSelection: new Set(),
   totalHits: 0,
   bootstrapDone: false,
+  /* Taxonomy for the rail REGION filter — 'm49' (default, aligns with the
+     hex map) or 'unGroups' (Treaty Body / HRC electoral groups). Toggled
+     from the rail. */
+  regionTaxonomy: 'm49',
 };
 window.__state = state;
 
@@ -130,24 +134,30 @@ window.__state = state;
 function buildParams(f) {
   const p = new URLSearchParams();
   if (f.kw && f.kw.trim()) p.set('text_query', f.kw.trim());
-  /* Region filter → resolved to country list client-side.
-     Background: the VM's `regions` param uses Treaty Body electoral groups
-     (African / Asia-Pacific / Eastern European / GRULAC / WEOG).  The rail
-     now shows UN M49 5-region instead (matching the hex map), so we
-     expand the region filter to its M49 country membership and send via
-     `countries` param.  If the user ALSO has an explicit country filter,
-     intersect the two sets — both conditions must hold.  See dashboard-
-     map.js#expandM49RegionsToCountries for the lookup. */
+  /* Region filter — two taxonomies the user can toggle between:
+       m49:       UN M49 statistical regions; we resolve to country names
+                  client-side (server doesn't speak M49) and send as
+                  `countries=…`, intersected with any explicit country
+                  selection.
+       unGroups:  UN Treaty Body / HRC electoral groups returned by the
+                  server's facets.regions; we forward them to the server
+                  as-is via the `regions=` param (its native taxonomy).
+
+     Default is m49 (matches the hex map).  The `state.regionTaxonomy`
+     flag is set by the rail toggle (see dashboard-rail.js). */
+  const tax = (typeof state !== 'undefined' && state.regionTaxonomy) || 'm49';
   let effectiveCountries = f.country && f.country.size ? new Set(f.country) : null;
-  if (f.region && f.region.size && typeof expandM49RegionsToCountries === 'function') {
-    const regionCountries = expandM49RegionsToCountries(f.region);
-    if (regionCountries) {
-      if (effectiveCountries) {
-        // Intersect: keep only names present in both sets
-        effectiveCountries = new Set([...effectiveCountries].filter(c => regionCountries.has(c)));
-      } else {
-        effectiveCountries = regionCountries;
+  if (f.region && f.region.size) {
+    if (tax === 'm49' && typeof expandM49RegionsToCountries === 'function') {
+      const regionCountries = expandM49RegionsToCountries(f.region);
+      if (regionCountries) {
+        effectiveCountries = effectiveCountries
+          ? new Set([...effectiveCountries].filter(c => regionCountries.has(c)))
+          : regionCountries;
       }
+    } else {
+      // unGroups — pass through to server native `regions` param.
+      p.set('regions', Array.from(f.region).join(','));
     }
   }
   if (effectiveCountries && effectiveCountries.size) {
@@ -156,9 +166,6 @@ function buildParams(f) {
   if (f.body && f.body.size) p.set('bodies', Array.from(f.body).join(','));
   if (f.theme && f.theme.size) p.set('themes', Array.from(f.theme).join('|'));
   if (f.group && f.group.size) p.set('affected_persons', Array.from(f.group).join('|'));
-  // NOTE: we deliberately DON'T forward f.region to the server via the
-  // `regions` param anymore — that would speak the wrong taxonomy.  The
-  // country-expansion above covers the M49 case correctly.
   const sdgValues = _sdgParamValues(f);
   if (sdgValues.length) p.set('sdgs', sdgValues.join('|'));
   if (f.type && f.type.size) p.set('annotation_type', Array.from(f.type).join(','));

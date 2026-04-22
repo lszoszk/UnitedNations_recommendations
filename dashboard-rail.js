@@ -90,16 +90,19 @@ function buildRail(facets, analytics) {
   buildFacetList('group', groups, 'group');
   $('#n-group').textContent = groups.length;
 
-  // --- REGION --- (UN M49 5-region, client-side only; see dashboard-map.js
-  // for the country-expansion logic used to reconcile with the server API).
-  // We deliberately IGNORE facets.regions here — the VM returns Treaty
-  // Body electoral groups (African / Asia-Pacific / Eastern European /
-  // GRULAC / WEOG) which DON'T match the hex map's M49 taxonomy.
-  // Presenting them side-by-side in the UI confused users; the M49
-  // 5-region split is what the map shows, so it's what the rail shows too.
-  const regions = M49_REGION_KEYS.map(r => ({ key: r, label: M49_REGION_LABELS[r] }));
-  buildFacetList('region', regions, 'region');
-  $('#n-region').textContent = regions.length;
+  /* --- REGION --- two classifications the user can toggle between:
+       * UNSD  = UN M49 Standard Country or Area Codes for Statistical Use
+                (5 regions: Africa/Americas/Asia/Europe/Oceania), derived
+                client-side from HEX_LAYOUT — this is what the hex map
+                uses, so it's the default.
+       * UN Groups = Treaty Body / HRC electoral groups (African,
+                Asia-Pacific, Eastern European, GRULAC, WEOG) — 5 groups
+                but different membership (e.g. Australia/NZ sit in
+                WEOG, not Oceania).  Comes straight from the VM facets.
+     Both map to the same `f.region` Set but with different semantics,
+     resolved in dashboard-data.js#buildParams + dashboard-offline.js. */
+  renderRegionFacet(facets);
+
 
   // --- SDG --- (1–17 grid; sum target counts per goal for the tooltip totals)
   const sdgCountsByN = {};
@@ -155,6 +158,103 @@ function buildRail(facets, analytics) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
     h.parentElement.classList.toggle('collapsed');
   }));
+}
+
+/* Region facet render — driven by state.regionTaxonomy ('m49' | 'unGroups').
+   Swapping taxonomies clears the selected region filter (keys differ across
+   the two systems; mixing them produces nonsense).  The toggle UI lives
+   above the checkbox list; each side also carries a one-line caption so the
+   user sees what they're picking without opening Methodology. */
+function renderRegionFacet(facets) {
+  const tax = state.regionTaxonomy || 'm49';
+  const body = $('#f-region');
+  if (!body) return;
+
+  // Options per taxonomy:
+  const m49Items = M49_REGION_KEYS.map(r => ({ key: r, label: M49_REGION_LABELS[r] }));
+  const groupsItems = (facets.regions || []).map(r => ({ key: r, label: r }));
+  const items = tax === 'm49' ? m49Items : groupsItems;
+
+  // Toggle markup — placed above the checkbox list inside #f-region so
+  // that buildFacetList (which innerHTMLs the same element) doesn't wipe it.
+  // We render the toggle, then call buildFacetList which will replace the
+  // body — so we wrap buildFacetList's output in a holder that we control.
+  body.innerHTML = `
+    <div class="region-tax-toggle" role="tablist" aria-label="Regional classification">
+      <button type="button" role="tab" data-tax="m49" class="${tax==='m49'?'on':''}" aria-selected="${tax==='m49'}" title="UN M49 — statistical regions used by UN Statistics Division (UNSD)">UNSD M49</button>
+      <button type="button" role="tab" data-tax="unGroups" class="${tax==='unGroups'?'on':''}" aria-selected="${tax==='unGroups'}" title="UN regional electoral groups used by HRC membership + Treaty Body elections">UN Groups</button>
+    </div>
+    <div class="region-tax-caption">${tax === 'm49'
+      ? 'Geographic statistical regions. Matches the hex map.'
+      : 'UN Treaty Body / HRC electoral groups.'}</div>
+    <div id="f-region-list"></div>
+  `;
+
+  // Render the checkbox list into the inner holder instead of replacing
+  // the whole body. We do this by temporarily swapping the selector:
+  _buildFacetListInto($('#f-region-list'), 'region', items, 'region');
+
+  // Toggle click handlers — clearing f.region when swapping so stale keys
+  // from the other taxonomy don't sit around producing no-op filters.
+  body.querySelectorAll('.region-tax-toggle button').forEach(b => b.addEventListener('click', () => {
+    const next = b.dataset.tax;
+    if (next === state.regionTaxonomy) return;
+    state.regionTaxonomy = next;
+    // Clear any selected regions since keys differ across taxonomies.
+    if (state.filters.region.size) {
+      state.filters.region = new Set();
+      onFiltersChanged();
+    }
+    renderRegionFacet(facets);
+  }));
+
+  $('#n-region').textContent = items.length;
+}
+
+/* Internal: render a facet checkbox list into an explicit container (so
+   we can nest it below the region taxonomy toggle without losing the
+   toggle on every re-render). */
+function _buildFacetListInto(el, facetKey, items, stateKey) {
+  const currentSet = () => state.filters[stateKey];
+  const withSearch = items.length > 15;
+  const searchHtml = withSearch
+    ? `<input class="facet-filter" type="search" placeholder="filter ${items.length}…" data-for="${facetKey}" />`
+    : '';
+  const initialSet = currentSet();
+  const listHtml = items.map(it => {
+    const on = initialSet.has(it.key) ? 'on' : '';
+    return `<div class="opt ${on}" data-k="${sanitize(it.key)}" data-search="${sanitize(String(it.label||'').toLowerCase())}">
+      <span class="box"></span>
+      <span class="txt" title="${sanitize(it.label)}">${sanitize(it.label)}</span>
+      ${it.count != null ? `<span class="n">${fmt(it.count)}</span>` : ''}
+    </div>`;
+  }).join('');
+  el.innerHTML = searchHtml + listHtml;
+  el.querySelectorAll('.opt').forEach(o => o.addEventListener('click', (ev) => {
+    const k = o.dataset.k;
+    if (ev.shiftKey) {
+      if (facetKey === 'body')    { state.focusMechanism = k; $('#tabMechanism').textContent = k; navigate('mechanism'); return; }
+      if (facetKey === 'country') { state.focusCountry = NAME_TO_ISO[k] || k; $('#tabCountry').textContent = k; navigate('country'); return; }
+      if (facetKey === 'theme')   { state.focusTheme = k; $('#tabTheme').textContent = k; navigate('theme'); return; }
+      if (facetKey === 'group')   { state.focusGroup = k; $('#tabGroup').textContent = k; navigate('group'); return; }
+    }
+    const set = currentSet();
+    if (set.has(k)) set.delete(k); else set.add(k);
+    o.classList.toggle('on');
+    if (facetKey === 'country') state.hexRegion = 'world';
+    onFiltersChanged();
+  }));
+  const input = el.querySelector('.facet-filter');
+  if (input) {
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      el.querySelectorAll('.opt').forEach(o => {
+        const match = !q || o.dataset.search.includes(q);
+        o.style.display = match ? '' : 'none';
+      });
+    });
+    input.addEventListener('click', e => e.stopPropagation());
+  }
 }
 
 function buildFacetList(facetKey, items, stateKey) {
