@@ -552,13 +552,22 @@ function renderHexMap(container, countryCounts) {
     }
     return p.trim();
   };
+  /* Colour scale. Linear `n / MAX` produces a map where the top country
+     (typically ~20k recs) washes out the middle and renders most countries
+     nearly invisible. Square-root scaling — standard in cartography for
+     choropleths over skewed counts — lifts the low bins without losing the
+     max ordering. A floor of 0.15 on any non-zero count guarantees every
+     country with at least one record is visibly coloured.
+
+     Before: t=0.05 (1000 recs vs 20000 max) → step 0.08 (barely visible)
+     After:  t=sqrt(0.05)=0.22 → step 0.32 (clearly visible) */
   const colorFor = n => {
     if (!n) return 'var(--paper-2)';
-    const t = Math.min(1, n / MAX);
-    const step = t < 0.06 ? 0.08 : t < 0.18 ? 0.24 : t < 0.36 ? 0.44 : t < 0.6 ? 0.65 : 0.92;
+    const t = Math.sqrt(Math.min(1, n / MAX));
+    const step = t < 0.22 ? 0.15 : t < 0.40 ? 0.32 : t < 0.60 ? 0.52 : t < 0.80 ? 0.72 : 0.92;
     return `color-mix(in oklab, var(--accent) ${Math.round(step * 100)}%, var(--paper-2))`;
   };
-  const isLight = n => n && (n / MAX) >= 0.36;
+  const isLight = n => n && Math.sqrt(n / MAX) >= 0.40;
 
   // Filter hexes by region (world = all)
   const shownHexes = region === 'world' ? HEX_LAYOUT : HEX_LAYOUT.filter(h => h[4] === region);
@@ -619,14 +628,29 @@ function renderHexMap(container, countryCounts) {
     `<button data-region="${r}" class="${r === region ? 'on' : ''}" title="Zoom to ${r === 'world' ? 'all 199 states' : r}">${r === 'world' ? 'World' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
   ).join('');
 
+  /* Taxonomy disclaimer. This is NOT a UN-official classification — it's a
+     pragmatic 6-region split we use internally (Americas / Europe / MENA /
+     Africa / Asia / Oceania) that's closer to OHCHR regional offices than
+     to UN M49 or Treaty Body electoral groups. The info icon below
+     surfaces this caveat on hover so users don't misread the grouping as
+     UN-authoritative. */
+  const regionInfoTip = (
+    'Regions here are a visualisation-oriented split (Americas / Europe / ' +
+    'Middle East + North Africa / Sub-Saharan Africa / Asia / Oceania) ' +
+    "modelled loosely on OHCHR's regional offices. It is NOT a UN-official " +
+    'classification — notably it differs from UN M49 (groups MENA into ' +
+    'Asia + Africa) and from the Treaty Body electoral groups (African / ' +
+    'Asia-Pacific / Eastern European / GRULAC / WEOG). Use profile-level ' +
+    'analytics for officially-aligned aggregates.'
+  );
   const hasCountryFilter = state.filters.country.size > 0;
   container.innerHTML = `
-    <div class="map-regions" id="hexRegions" role="group" aria-label="Zoom to region">${regionBtns}</div>
+    <div class="map-regions" id="hexRegions" role="group" aria-label="Zoom to region">${regionBtns}<span class="map-regions-info" tabindex="0" role="button" aria-label="About this regional classification" title="${regionInfoTip}">ⓘ</span></div>
     <svg class="hex-svg${hasCountryFilter?' has-filter':''}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Hex-tile map — ${region} — one hex per state party">${labels}${hexes}</svg>
     <div class="hex-tip" id="hexTip" role="tooltip"></div>
     <div class="map-scale" style="margin-top:6px">
       <span>0</span>
-      ${[0.08,0.24,0.44,0.65,0.92].map(v => `<span class="s" style="background:color-mix(in oklab, var(--accent) ${Math.round(v*100)}%, var(--paper-2))"></span>`).join('')}
+      ${[0.15,0.32,0.52,0.72,0.92].map(v => `<span class="s" style="background:color-mix(in oklab, var(--accent) ${Math.round(v*100)}%, var(--paper-2))"></span>`).join('')}
       <span>${fmt(MAX)}</span>
       <span style="margin-left:auto;color:var(--dim);font-size:10px">${shownHexes.length} ${region === 'world' ? 'states' : 'in region'} · click = filter · dblclick = profile</span>
     </div>`;

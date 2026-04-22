@@ -490,11 +490,17 @@ a{color:inherit;text-decoration:none}
 .map-modes button.on{background:var(--ink);color:var(--paper)}
 .map-modes button:hover:not(.on){color:var(--ink);background:var(--paper-2)}
 
-.map-regions{display:flex;gap:0;border:1px solid var(--line);margin-bottom:10px;flex-wrap:wrap}
+.map-regions{display:flex;gap:0;border:1px solid var(--line);margin-bottom:10px;flex-wrap:wrap;align-items:stretch}
 .map-regions button{font:inherit;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px;background:var(--paper);border:0;border-right:1px solid var(--line);color:var(--dim);cursor:pointer;transition:background .12s,color .12s}
-.map-regions button:last-child{border-right:0}
+.map-regions button:last-child{border-right:1px solid var(--line)}
 .map-regions button:hover{color:var(--ink);background:var(--paper-2)}
 .map-regions button.on{background:var(--ink);color:var(--paper)}
+/* Info-icon at the tail of the region row — surfaces the taxonomy
+   disclaimer (this is NOT a UN-official classification). Same height as
+   the buttons so it aligns on the baseline. Hover reveals the full text
+   via native `title`. */
+.map-regions-info{display:inline-flex;align-items:center;justify-content:center;padding:5px 9px;background:var(--paper);color:var(--dim);font-size:12px;line-height:1;cursor:help;user-select:none;margin-left:auto;border-left:1px solid var(--line)}
+.map-regions-info:hover,.map-regions-info:focus{color:var(--ink);background:var(--paper-2);outline:0}
 
 .hex-svg{display:block;width:100%;height:520px;transition:opacity .2s}
 .hex{cursor:pointer;transition:transform .12s,filter .12s}
@@ -1705,21 +1711,25 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <div class="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true"></div>
 <a class="sr-only sr-skip" href="#main" id="skipMain">Skip to main content</a>
 
-<!-- Always-visible footer: credits, methodology link, supporters -->
+<!-- Always-visible footer: credits, methodology link, supporters.
+     NOTE: OHCHR appears only as the DATA SOURCE ("built on OHCHR UHRI
+     data"), never as a supporter or endorser — this dashboard is an
+     independent project that reuses their public dataset. The supporters
+     list below is limited to the institutions actually funding / hosting
+     / providing research infrastructure for this work. -->
 <footer class="dash-footer" role="contentinfo">
   <div class="df-left">
-    <span><b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> · 267,537 records · cleaned pipeline</span>
+    <span>Built on <b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> data · 267,537 records · cleaned pipeline</span>
     <span class="df-sep">·</span>
     <span>Developed by <b style="color:var(--ink);font-weight:500">L. Szoszkiewicz</b></span>
     <span class="df-sep">·</span>
-    <span class="df-middle">re:constitution fellowship · Forum Transregionale Studien</span>
-    <span class="df-sep df-middle">·</span>
-    <span class="disclaimer" title="The institutions supporting this project do so in different capacities. This dashboard is an individual project and does not represent their views or endorsement.">about this project</span>
+    <span class="disclaimer" title="This dashboard is an independent project. It uses data published by OHCHR under its Universal Human Rights Index — data use does not imply endorsement. Supporters listed at right fund / host / advise the project; they do not speak for it.">about this project</span>
   </div>
   <div class="df-right">
-    <span class="sup">UN · OHCHR</span>
-    <span class="sup">re:constitution</span>
-    <span class="sup">HURIDOCS</span>
+    <span style="font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-right:4px">Supported by</span>
+    <span class="sup" title="Adam Mickiewicz University, Poznań — research host">Adam Mickiewicz University</span>
+    <span class="sup" title="re:constitution fellowship — funding">re:constitution</span>
+    <span class="sup" title="HURIDOCS — documentation expertise">HURIDOCS</span>
     <a data-nav="methodology">Methodology ↗</a>
   </div>
 </footer>

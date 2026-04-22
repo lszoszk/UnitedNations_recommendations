@@ -40,6 +40,14 @@
   html {
     scroll-behavior: smooth;
     scroll-snap-type: y proximity;  /* soft snap — lets users stop between sections */
+    /* Sticky topbar (.topbar position:sticky) overlays the top ~48px of the
+       viewport. Without this, scroll-snap-align:start on .hero pins the hero's
+       top edge to viewport-top — which means the eyebrow line ("Treaty Bodies
+       · UPR · Special Procedures…") sits BEHIND the semi-transparent topbar
+       and can only be revealed by fighting the snap. `scroll-padding-top`
+       tells the snap engine to treat the scrollport as starting 56px below
+       the top edge, so every section snap-lands below the topbar. */
+    scroll-padding-top: 56px;
   }
   body {
     margin: 0;
@@ -126,7 +134,11 @@
   /* -------- hero -------- */
   .hero {
     position: relative;
-    padding: 20px 28px 16px;
+    /* Extra top padding = sticky topbar (~48px) + room to breathe. Prevents
+       the eyebrow from rubbing against the topbar edge even when the viewport
+       is short and the scroll-padding hasn't kicked in yet (first paint,
+       before any scroll). */
+    padding: 28px 28px 16px;
     border-bottom: 1px solid var(--line);
     overflow: hidden;
   }
@@ -908,6 +920,39 @@
   }
   .final .cta-row { justify-content: center; margin-top: 36px; }
 
+  /* -------- acknowledgements strip (funder attribution, above footer) -------- */
+  .ack {
+    padding: 40px 28px 32px;
+    border-top: 1px solid var(--line);
+    background: var(--paper-2);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  .ack .wrap { max-width: 960px; margin: 0 auto; }
+  .ack-eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 14px;
+  }
+  .ack-body {
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink);
+    margin: 0 0 14px;
+  }
+  .ack-body a { color: var(--accent); text-decoration: none; border-bottom: 1px solid color-mix(in oklab, var(--accent) 40%, transparent); }
+  .ack-body a:hover { border-bottom-color: var(--accent); }
+  .ack-note {
+    font-size: 12px;
+    color: var(--dim);
+    margin: 0;
+  }
+
   /* -------- footer -------- */
   footer {
     padding: 36px 28px 56px;
@@ -1380,25 +1425,48 @@
   </div>
 </section>
 
-<!-- footer -->
+<!-- Acknowledgements — required funder attribution.
+     re:constitution is the primary funder of this work; the exact wording
+     below is the one they requested. Placed just before the footer so it
+     gets its own dedicated visual band rather than fighting for attention
+     with a dozen tiny supporter pills. -->
+<section class="ack" id="acknowledgements" aria-label="Funder acknowledgement">
+  <div class="wrap">
+    <div class="ack-eyebrow">Acknowledgements</div>
+    <p class="ack-body">
+      Supported by <a href="https://reconstitution.eu" target="_blank" rel="noopener"><strong>re:constitution — Exchange and Analysis on Democracy and the Rule of Law in Europe</strong></a>,
+      a joint programme of the <em>Forum Transregionale Studien</em> and <em>Democracy Reporting International</em>,
+      funded by <em>Stiftung Mercator</em>.
+    </p>
+    <p class="ack-note">
+      Research hosted by Adam Mickiewicz University, Poznań.
+      Documentation expertise provided by HURIDOCS.
+      Data source: OHCHR Universal Human Rights Index (this project is independent of OHCHR / the United Nations).
+    </p>
+  </div>
+</section>
+
+<!-- footer. OHCHR is named only as the source of the underlying dataset,
+     never as a supporter — this is an independent project using OHCHR
+     public data. Actual supporters (listed at right) fund / host / advise
+     the work; they do not endorse it. The re:constitution attribution
+     block earlier on the page carries the full funder-mandated wording. -->
 <footer>
   <div class="wrap">
     <div>
       <div class="hr"></div>
       <div style="display:flex; gap:32px; flex-wrap:wrap;">
-        <div>Built on OHCHR UHRI data · Developed by L. Szaszkiewicz</div>
-        <div>Supported by re:constitution — Exchange and Analysis on Democracy and the Rule of Law in Europe</div>
+        <div>Built on OHCHR UHRI data · Developed by L. Szoszkiewicz</div>
       </div>
       <div style="margin-top:12px; color:var(--dimmer);">
-        The institutions supporting this project do so in different capacities. This dashboard is an individual project and does not represent their views or endorsement.
+        This dashboard is an independent project. It reuses publicly-available OHCHR data under its Universal Human Rights Index — data use does not imply endorsement by OHCHR or the United Nations. Supporters listed at right fund, host, or advise the project; they do not speak for it.
       </div>
     </div>
     <div class="supporters">
       <div style="font-size:10px; letter-spacing:.16em; color:var(--dim); text-transform:uppercase; width:100%;">Supported by</div>
-      <span class="sup">UN · OHCHR</span>
-      <span class="sup">re:constitution</span>
-      <span class="sup">HURIDOCS</span>
-      <span class="sup">Forum Transregionale Studien</span>
+      <span class="sup" title="Adam Mickiewicz University, Poznań — research host">Adam Mickiewicz University</span>
+      <span class="sup" title="re:constitution fellowship — funding (see acknowledgements above)">re:constitution</span>
+      <span class="sup" title="HURIDOCS — documentation expertise">HURIDOCS</span>
     </div>
   </div>
 </footer>

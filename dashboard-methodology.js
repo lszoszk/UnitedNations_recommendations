@@ -139,7 +139,11 @@ function renderMethodology() {
       <p>Volume differences across countries reflect review frequency and substantive coverage; they are not a direct measure of human-rights performance. Counts per theme may double-count where a recommendation addresses multiple issues. Use this dashboard to identify trends and retrieve primary sources — not as a scoring instrument.</p>
 
       <h2>Citation</h2>
-      <p>Szoszkiewicz, L. (2026). <em>UN Human Rights Analytics Dashboard — Cleaned UHRI Dataset v2026.04</em>. Built on OHCHR UHRI data. Supported by re:constitution (Forum Transregionale Studien) and HURIDOCS.</p>
+      <p>Szoszkiewicz, L. (2026). <em>UN Human Rights Analytics Dashboard — Cleaned UHRI Dataset v2026.04</em>. Independent project built on OHCHR UHRI data.</p>
+
+      <h2>Acknowledgements</h2>
+      <p>Supported by <a href="https://reconstitution.eu" target="_blank" rel="noopener"><strong>re:constitution — Exchange and Analysis on Democracy and the Rule of Law in Europe</strong></a>, a joint programme of the <em>Forum Transregionale Studien</em> and <em>Democracy Reporting International</em>, funded by <em>Stiftung Mercator</em>.</p>
+      <p style="color:var(--dim);font-size:12px;margin-top:-6px">Research hosted by Adam Mickiewicz University, Poznań. Documentation expertise provided by HURIDOCS. Data source: OHCHR Universal Human Rights Index — this project is independent of OHCHR and the United Nations; data use does not imply endorsement.</p>
 
       <h2>Labels workspace <em style="color:#b88400">· β</em></h2>
       <p>Tab 10 (<strong>Labels</strong>) lets you define your own label taxonomy as explicit <strong>boolean FTS5 queries</strong>. Each label is one query that runs server-side against the same full-text index as the Search tab — <em>deterministic, fully explainable in a methodology section, no 300 MB download required</em>. A TF-IDF term-suggestion helper accelerates query construction by proposing candidate terms from a small sample of tagged examples. The workspace is flagged <strong>β</strong> while we collect feedback on the rule model and term-suggester — core behaviour is stable, edge-cases (CSV export of very broad rules, set-migration corner cases) may still surprise.</p>
