@@ -701,6 +701,20 @@ function _kwTokens(kw) {
   return units;
 }
 
+/* Convert a single _kwTokens output unit to a regex fragment. FTS5 syntax
+   lets users append a trailing "*" for prefix matching (bias* → anything
+   starting with "bias"). The upstream snippet returned by the server
+   already handles this; the client-side fallback highlighter + counter
+   need to mirror the semantics or they'll find literal asterisks (which
+   don't appear in UHRI text) and render zero highlights on expand.
+   Bug surfaced as: "expand" dropped all <mark> tags for queries with *. */
+function _tokenToRegex(tok) {
+  if (tok.length > 1 && tok.endsWith('*')) {
+    return escapeRegex(tok.slice(0, -1)) + '\\w*';
+  }
+  return escapeRegex(tok);
+}
+
 function highlightKeyword(text, kw) {
   const safe = sanitize(text);
   const tokens = _kwTokens(kw);
@@ -708,14 +722,14 @@ function highlightKeyword(text, kw) {
   // Longest tokens first so "human rights" doesn't fragment when both
   // "human" and "human rights" would match.
   tokens.sort((a, b) => b.length - a.length);
-  const pattern = new RegExp('(' + tokens.map(escapeRegex).join('|') + ')', 'gi');
+  const pattern = new RegExp('(' + tokens.map(_tokenToRegex).join('|') + ')', 'gi');
   return safe.replace(pattern, '<mark class="kw-match">$1</mark>');
 }
 
 function countMatches(text, kw) {
   const tokens = _kwTokens(kw);
   if (!tokens.length || !text) return 0;
-  const pattern = new RegExp(tokens.map(escapeRegex).join('|'), 'gi');
+  const pattern = new RegExp(tokens.map(_tokenToRegex).join('|'), 'gi');
   return (text.match(pattern) || []).length;
 }
 
@@ -727,11 +741,17 @@ function _findBestCluster(text, tokens) {
   const lower = text.toLowerCase();
   const hits = [];
   for (const t of tokens) {
-    let i = 0;
+    // Mirror FTS5 trailing-* prefix matching: strip the asterisk and
+    // treat the remainder as a prefix so tokens like "bias*" still
+    // find "bias"/"biased"/"biases" when picking the KWIC cluster.
     const lt = t.toLowerCase();
-    while ((i = lower.indexOf(lt, i)) !== -1) {
-      hits.push({ pos: i, token: lt });
-      i += lt.length;
+    const isPrefix = lt.length > 1 && lt.endsWith('*');
+    const probe = isPrefix ? lt.slice(0, -1) : lt;
+    if (!probe) continue;
+    let i = 0;
+    while ((i = lower.indexOf(probe, i)) !== -1) {
+      hits.push({ pos: i, token: probe });
+      i += probe.length;
     }
   }
   if (!hits.length) return -1;
