@@ -895,4 +895,45 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(errors, `JS errors during reading-mode rail restore:\n${errors.join('\n')}`).toEqual([]);
   });
 
+  test('21. aboutTab — About view renders, footer link navigates, methodology no longer owns citation/ack/labels copy', async ({ page }) => {
+    /* Added with the 2026-04-23 IA split: Methodology shrank from 13 to
+       7 sections; Citation / Acknowledgements / Caveats / Labels-workspace
+       moved to a dedicated About tab (and Labels how-it-works moved into
+       the Labels tab itself).  This test pins each of those moves so we
+       don't accidentally re-bloat Methodology during a future "just add
+       one section" edit. */
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html', { waitUntil: 'commit' });
+    await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+    // Footer <a data-nav="about"> must fire navigate('about') via the
+    // global delegated handler (no href attribute — click-to-navigate).
+    await page.locator('.dash-footer .disclaimer').click();
+
+    const aboutView = page.locator('#view-about');
+    await expect(aboutView).toBeVisible();
+    await expect(aboutView.locator('h1')).toContainText(/About/i);
+    // Content that moved OUT of Methodology should live here now:
+    await expect(aboutView).toContainText(/Citation/i);
+    await expect(aboutView).toContainText(/Acknowledgements/i);
+    await expect(aboutView).toContainText(/Szoszkiewicz/);
+    await expect(aboutView).toContainText(/re:constitution/);
+
+    // And must NOT remain in Methodology — these headings are gone.
+    await page.evaluate(() => navigate('methodology'));
+    const method = page.locator('#view-methodology');
+    await expect(method.locator('h2', { hasText: 'Citation' })).toHaveCount(0);
+    await expect(method.locator('h2', { hasText: 'Acknowledgements' })).toHaveCount(0);
+    await expect(method.locator('h2', { hasText: 'Architecture' })).toHaveCount(0);
+    await expect(method.locator('h2', { hasText: 'Labels workspace' })).toHaveCount(0);
+
+    // Labels tab picks up the collapsible how-it-works panel.
+    await page.evaluate(() => navigate('labels'));
+    const labels = page.locator('#view-labels');
+    await expect(labels.locator('details.rules-howto')).toHaveCount(1);
+    await expect(labels.locator('details.rules-howto summary')).toContainText(/How the Labels workspace works/i);
+
+    expect(errors, `JS errors during About tab flow:\n${errors.join('\n')}`).toEqual([]);
+  });
+
 });

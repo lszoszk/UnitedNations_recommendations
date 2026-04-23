@@ -103,8 +103,11 @@ a{color:inherit;text-decoration:none}
 .dash-footer a:hover{color:var(--ink);border-color:var(--ink)}
 .dash-footer .df-sep{color:var(--dimmer)}
 .dash-footer .sup{border:1px solid var(--line);padding:1px 6px;letter-spacing:.12em;text-transform:uppercase;font-size:9px}
-.dash-footer .disclaimer{cursor:help;color:var(--dim);border-bottom:1px dotted var(--dim)}
-.dash-footer .disclaimer:hover{color:var(--accent)}
+/* .disclaimer is now an <a data-nav="about"> (was a span+tooltip). Inherit
+   cursor:pointer from the generic .dash-footer a rule above; keep the
+   custom hover colour so it still reads as the "trust" link in the row. */
+.dash-footer .disclaimer{color:var(--dim);border-bottom:1px dotted var(--dim)}
+.dash-footer .disclaimer:hover{color:var(--accent);border-color:var(--accent)}
 @media(max-width:1200px){
   .dash-footer .df-middle{display:none}
   .dash-footer{font-size:9px}
@@ -1718,6 +1721,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <section class="view hidden" id="view-bookmarks"></section>
     <section class="view hidden" id="view-labels"></section>
     <section class="view hidden" id="view-methodology"></section>
+    <section class="view hidden" id="view-about"></section>
   </main>
 
   <!-- DRAWER -->
@@ -1771,7 +1775,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <span class="df-sep">·</span>
     <span>Developed by <b style="color:var(--ink);font-weight:500">L. Szoszkiewicz</b></span>
     <span class="df-sep">·</span>
-    <span class="disclaimer" title="This dashboard is an independent project. It uses data published by OHCHR under its Universal Human Rights Index — data use does not imply endorsement. Supporters listed at right fund / host / advise the project; they do not speak for it.">about this project</span>
+    <a class="disclaimer" data-nav="about" title="Independence, citation, acknowledgements, feedback">about this project</a>
   </div>
   <div class="df-right">
     <span style="font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-right:4px">Supported by</span>
@@ -1829,6 +1833,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <script src="./dashboard-years.js"></script>
 <script src="./dashboard-profiles.js"></script>
 <script src="./dashboard-methodology.js"></script>
+<script src="./dashboard-about.js"></script>
 <script src="./dashboard-drawer-list.js"></script>
 <script src="./dashboard-reader.js"></script>
 <script>
@@ -2590,6 +2595,7 @@ async function navigate(view) {
   else if (view === 'bookmarks') renderBookmarks();
   else if (view === 'labels') renderRules();
   else if (view === 'methodology') renderMethodology();
+  else if (view === 'about') renderAbout();
 }
 
 /* TW (palette/density/rail/drawer/reading) lives in dashboard-ui.js but is

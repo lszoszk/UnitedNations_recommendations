@@ -86,16 +86,22 @@ async function renderFreshnessCard() {
   }
 }
 
+/* Trimmed on 2026-04-23: Citation / Acknowledgements / Caveats moved to
+   the new About tab (project-identity content — not methodology).
+   Labels workspace moved to the Labels tab itself (collapsible "How
+   rules work" panel). Architecture section cut entirely — it was a
+   dev-oriented 40-word paragraph nobody read; the module map lives
+   in ARCHITECTURE.md where contributors look for it. Country coverage
+   + Regional classification merged into one "Coverage" section since
+   they describe two facets of the same topic (geography). */
 const _METHODOLOGY_TOC = [
   ['me-data-source', 'Data source'],
   ['me-cleanup', 'Cleanup pipeline'],
   ['me-impact', 'Impact on results'],
-  ['me-country-coverage', 'Country coverage'],
+  ['me-coverage', 'Country & region coverage'],
   ['me-search-semantics', 'Search semantics'],
   ['me-freshness', 'Dataset freshness'],
-  ['me-regions', 'Regional classification'],
   ['me-glossary', 'Glossary'],
-  ['me-labels', 'Labels workspace'],
 ];
 
 function _wireMethodologyToc(root) {
@@ -120,7 +126,6 @@ function renderMethodology() {
 
       <nav class="me-toc" aria-label="Methodology contents">
         <div class="me-toc-title">On this page</div>
-        <div class="me-toc-sub">Best fit for this amount of text: compact jump links inside the article, instead of a heavy sidebar.</div>
         <div class="me-toc-list">
           ${_METHODOLOGY_TOC.map(([id, label]) => `<button type="button" data-meto-jump="${id}">${label}</button>`).join('')}
         </div>
@@ -155,10 +160,11 @@ function renderMethodology() {
         <p>For large-trend analysis — top themes, country counts, 2006–2026 timelines, cross-region comparisons — cleaned and upstream datasets are functionally identical. The cleaning matters mainly in narrower slices where Stage 3 and Stage 5 concentrate: UPR second-cycle longitudinal work, the 2026 CRC/CEDAW/CMW batch, and Latin-American Spanish-language Special-Procedure visits.</p>
       </section>
 
-      <section class="me-sec" id="me-country-coverage">
-        <h2>Country coverage</h2>
-        <p>The hex map shows <strong>198 state parties</strong> plus a <strong>European Union</strong> tile. The 198 are drawn from UN M49 member states + observer states that appear in UHRI records; every one has at least one Treaty Body / UPR / Special Procedure recommendation or observation attached. <strong>Kosovo*</strong> is included as an <strong>XKX</strong> hex in southern Europe — it sits outside UN M49 because of its contested status (serving-state-of-UN rules only), but the UHRI export carries 75 records against it and routing those into a visible hex makes the coverage audit-friendly. We retain the OHCHR asterisk in the source data to flag observer status.</p>
-        <p style="color:var(--dim);font-size:12px;margin-top:-6px">The <strong>European Union</strong> tile (dashed border, top of the Europe cluster) is shown because the UHRI export carries 233 records against it as a regional bloc — Special Procedures country visits, joint communications with the EU, thematic dialogues. The bloc is <strong>not</strong> counted toward the 198 sovereign-states total, and the hex is visually distinguished (dashed stroke) so it doesn't read as a state. <strong>Bermuda</strong> was removed from the layout in the 2026-04-22 revision — it's a UK Overseas Territory, not a UN Member State, so OHCHR doesn't issue recommendations on it and leaving it as a permanently-grey hex was more misleading than useful.</p>
+      <section class="me-sec" id="me-coverage">
+        <h2>Country &amp; region coverage</h2>
+        <p>The hex map shows <strong>198 state parties</strong> plus a <strong>European Union</strong> tile. The 198 are UN M49 member states + observer states that appear in UHRI records; every one has at least one Treaty Body / UPR / Special Procedure recommendation or observation attached. <strong>Kosovo*</strong> is included as an <strong>XKX</strong> hex in southern Europe — it sits outside UN M49 because of its contested status, but the UHRI export carries 75 records against it and routing those into a visible hex makes the coverage audit-friendly; the OHCHR asterisk is retained in the source data to flag observer status. The <strong>European Union</strong> hex (dashed border, top of the Europe cluster) exists because the UHRI export carries 233 records against it as a regional bloc — Special Procedures country visits, joint communications, thematic dialogues. The bloc is <strong>not</strong> counted toward the 198 sovereign-states total. <strong>Bermuda</strong> was dropped from the layout in the 2026-04-22 revision — it's a UK Overseas Territory, not a UN Member State, so OHCHR doesn't issue recommendations on it.</p>
+        <p>Top-level regions on the hex map follow <strong>UN M49</strong> — <a href="https://unstats.un.org/unsd/methodology/m49/" target="_blank" rel="noopener">Standard Country or Area Codes for Statistical Use</a>. Five regions (<em>Africa · Americas · Asia · Europe · Oceania</em>) with 22 sub-regions nested underneath (<em>Northern Africa</em>, <em>Western Asia</em>, <em>Caribbean</em>, <em>Melanesia</em>, …). The sub-region is shown in the hex tooltip; the ⓘ on the region row above the map documents the choice in-place.</p>
+        <p style="color:var(--dim);font-size:12px;margin-top:-6px">Two caveats worth flagging: (1) <strong>M49 is statistical, not political</strong> — it classifies geography and is deliberately apolitical; it doesn't speak to sovereignty disputes or recognition. (2) <strong>The UN Human Rights machinery runs on different groupings</strong> — Treaty Body elections and HRC membership use <em>regional electoral groups</em>: African (54), Asia-Pacific (54), Eastern European (23), GRULAC (33), WEOG (29). Those cut across M49 lines (e.g. Australia, Canada, New Zealand, USA are WEOG despite sitting in Oceania/Americas geographically). The dashboard does not currently expose electoral groups as a filter — they're on the roadmap.</p>
       </section>
 
       <section class="me-sec" id="me-search-semantics">
@@ -180,21 +186,6 @@ function renderMethodology() {
         </div>
       </section>
 
-      <section class="me-sec" id="me-architecture">
-        <h2>Architecture</h2>
-        <p>Three-column analyst layout: rail filters → main content → selected-record drawer. All analytics computed server-side on demand (<code>/api/data/facets</code>, <code>/api/data/analytics</code>, <code>/api/data/records</code>, <code>/api/data/map</code>) with a materialised-view cache on the VM for single-entity profile queries.</p>
-      </section>
-
-      <section class="me-sec" id="me-regions">
-        <h2>Regional classification</h2>
-        <p>Top-level regions on the hex map follow <strong>UN M49</strong> — <a href="https://unstats.un.org/unsd/methodology/m49/" target="_blank" rel="noopener">Standard Country or Area Codes for Statistical Use</a>. This gives you five regions — <em>Africa · Americas · Asia · Europe · Oceania</em> — and 22 sub-regions nested underneath (<em>Northern Africa</em>, <em>Western Asia</em>, <em>Caribbean</em>, <em>Melanesia</em>, and so on). The sub-region shows on the hex tooltip; tooltip over the ⓘ on the region row above the map documents the choice in-place.</p>
-        <p style="color:var(--dim);font-size:12px;margin-top:-6px">Two caveats worth flagging:</p>
-        <ul style="margin-top:0">
-          <li><strong>M49 is statistical, not political.</strong> It classifies geography and is deliberately apolitical — it doesn't speak to sovereignty disputes, recognition, or membership in UN bodies.</li>
-          <li><strong>The UN Human Rights machinery runs on different groupings.</strong> Treaty Body elections and Human Rights Council membership use <em>regional electoral groups</em> — African (54), Asia-Pacific (54), Eastern European (23), Latin American & Caribbean / GRULAC (33), Western European and Others / WEOG (29). Those cut across M49 lines (e.g. Australia, Canada, New Zealand, USA are WEOG despite sitting in Oceania/Americas geographically). This dashboard doesn't currently expose electoral groups as a filter — they're on the roadmap.</li>
-        </ul>
-      </section>
-
       <section class="me-sec" id="me-glossary">
         <h2>Glossary</h2>
         <dl class="grid-def">
@@ -207,35 +198,7 @@ function renderMethodology() {
         </dl>
       </section>
 
-      <section class="me-sec" id="me-caveats">
-        <h2>Caveats</h2>
-        <p>Volume differences across countries reflect review frequency and substantive coverage; they are not a direct measure of human-rights performance. Counts per theme may double-count where a recommendation addresses multiple issues. Use this dashboard to identify trends and retrieve primary sources — not as a scoring instrument.</p>
-      </section>
-
-      <section class="me-sec" id="me-citation">
-        <h2>Citation</h2>
-        <p>Szoszkiewicz, L. (2026). <em>UN Human Rights Analytics Dashboard — Cleaned UHRI Dataset v2026.04</em>. Independent project built on OHCHR UHRI data.</p>
-      </section>
-
-      <section class="me-sec" id="me-acknowledgements">
-        <h2>Acknowledgements</h2>
-        <p>Supported by <a href="https://reconstitution.eu" target="_blank" rel="noopener"><strong>re:constitution — Exchange and Analysis on Democracy and the Rule of Law in Europe</strong></a>, a joint programme of the <em>Forum Transregionale Studien</em> and <em>Democracy Reporting International</em>, funded by <em>Stiftung Mercator</em>.</p>
-        <p style="color:var(--dim);font-size:12px;margin-top:-6px">Research hosted by Adam Mickiewicz University, Poznań. Documentation expertise provided by HURIDOCS. Data source: OHCHR Universal Human Rights Index — this project is independent of OHCHR and the United Nations; data use does not imply endorsement.</p>
-      </section>
-
-      <section class="me-sec" id="me-labels">
-        <h2>Labels workspace <em style="color:#b88400">· β</em></h2>
-        <p>Tab 10 (<strong>Labels</strong>) lets you define your own label taxonomy as explicit <strong>boolean FTS5 queries</strong>. Each label is one query that runs server-side against the same full-text index as the Search tab — <em>deterministic, fully explainable in a methodology section, no 300 MB download required</em>. A TF-IDF term-suggestion helper accelerates query construction by proposing candidate terms from a small sample of tagged examples. The workspace is flagged <strong>β</strong> while we collect feedback on the rule model and term-suggester — core behaviour is stable, edge-cases (CSV export of very broad rules, set-migration corner cases) may still surprise.</p>
-        <ul>
-          <li><strong>Rule model.</strong> Each rule has three term lists: <em>MUST</em> (OR-ed inside, required), <em>AND</em> (OR-ed inside, required when non-empty), <em>NOT</em> (OR-ed inside, excluded). They compile to FTS5 as <code>(must-1 OR must-2) AND (also-1 OR also-2) NOT (not-1)</code>. Stemming, irregular-plural expansion, quoted phrases and <code>*</code> wildcards work exactly as in the Search tab. A per-rule "raw FTS5" escape hatch is available for power users.</li>
-          <li><strong>Evaluation.</strong> Every rule count is a single API call to <code>/api/data/records</code> with the compiled query — same code path as the Search tab, same performance (100–300 ms typical). Counts respect the current rail filter, so a <em>Judicial independence</em> rule on a Country=Poland rail counts Poland records only.</li>
-          <li><strong>⚡ Suggest-terms helper.</strong> Per-rule modal: tag 10–20 records as <em>positive / negative / skip</em>, the browser runs TF-IDF centroid comparison on that small sample (≤50 ms), returns two ranked term lists. Click chips to add picked terms to MUST / AND / NOT. Tagged examples are persisted with the rule so the modal resumes where you left off. No Instant Mode required — the sample comes from the current rail filter (API page 1) or from <code>offline.data</code> if Instant Mode happens to be on.</li>
-          <li><strong>Exports.</strong> <em>JSON</em> — full rule set, re-importable, shareable. <em>CSV</em> — records × rules assignment matrix (one row per record, one 1/0 column per rule plus a joined <code>labels</code> string). <em>Coverage</em> — union count (records matching ≥1 rule) and overlap count (records matching ≥2 rules). CSV / Coverage require one API round-trip per rule plus pagination of matching IDs; typically a few seconds for a 5-rule set with median match sizes.</li>
-          <li><strong>Suitable for.</strong> Literature-review scaffolding with a defensible methodology annex, hypothesis probing ("how many UHRI records mention X AND Y but NOT Z?"), team-shared coding schemas that any collaborator with the UHRI can re-apply by pasting the compiled FTS5 string, reproducible research outputs.</li>
-          <li><strong>Not suitable for.</strong> Fuzzy semantic matching where the target phrase rewrites heavily ("independent judiciary" surfaced as "courts free from political pressure"). Rules match the literal terms you declare — widen them with synonyms via OR, or use the Suggest-terms helper to discover vocabulary you'd missed.</li>
-          <li><strong>Persistence.</strong> Rule sets live in your browser's <code>localStorage</code> per origin — clear cache and they are gone. Use <strong>⬇ JSON</strong> for durable copies and team sharing. Saved sets from the earlier TF-IDF workspace can be converted into rule stubs on first open (your tagged examples seed the Suggest-terms modal so you can bootstrap term lists with one click).</li>
-        </ul>
-      </section>
+      <p style="color:var(--dim);font-size:12px;margin-top:18px">Project identity, citation, acknowledgements and feedback contact live on the <a data-nav="about" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;cursor:pointer">About tab</a>. How the Labels workspace (Tab 10) evaluates rules is documented on the <a data-nav="labels" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;cursor:pointer">Labels tab</a> itself.</p>
     </div>`;
   _wireMethodologyToc(root);
   renderFreshnessCard().catch(err => console.warn('[freshness] render failed:', err));
