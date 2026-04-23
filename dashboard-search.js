@@ -78,6 +78,31 @@ function smartSnippet(text, kw) {
   };
 }
 
+/* Swap a single .se-item between its on-load KWIC preview and the full
+   highlighted text.  Idempotent: cards that never started in KWIC mode
+   (data-mode="full") have no snippet to swap — only the .expanded class
+   flips, which removes the CSS fade-out.
+   The FIRST time a KWIC card expands we cache its original innerHTML in
+   data-orig-snippet.  On collapse we restore THAT exact HTML — not a
+   freshly-computed smartSnippet() — because the initial render usually
+   preferred the server's tight FTS5 snippet (with <mark> already
+   wrapped), and regenerating client-side produced a wider ~360-char
+   window.  The expand↔collapse cycle was visibly growing the card. */
+function _seSwapExpansion(el, expanding) {
+  const tx = el.querySelector('.se-tx');
+  if (!tx || tx.dataset.mode !== 'kwic') return;
+  if (expanding) {
+    if (tx.dataset.origSnippet == null) {
+      tx.dataset.origSnippet = tx.innerHTML;
+    }
+    const full = tx.dataset.fullText || '';
+    const kw   = tx.dataset.kw || '';
+    tx.innerHTML = highlightKeyword(full, kw);
+  } else if (tx.dataset.origSnippet != null) {
+    tx.innerHTML = tx.dataset.origSnippet;
+  }
+}
+
 /* Renders a single search-result item HTML string */
 /* Heavy-user result card (A–E redesign):
  *  A. Explainer banner above the list (done in renderSearch).
@@ -229,10 +254,18 @@ async function renderSearch() {
     state.searchSort = { by, dir };
     renderSearch();
   });
-  // Expand / Collapse all — toggles `.expanded` on every loaded item. Also
-  // refresh any "Show full text" button label to match its state.
+  // Expand / Collapse all — toggles `.expanded` on every loaded item AND
+  // swaps KWIC↔full text on cards that started in KWIC mode (see
+  // _seSwapExpansion below).  Without the content swap, "Expand all"
+  // just removed the fade-out but still showed the short KWIC window,
+  // and "Collapse all" left cards that had been individually expanded
+  // showing truncated full text.  Refreshes every "Show full text"
+  // button label to match the new state.
   const flipExpansion = (on) => {
-    document.querySelectorAll('#seList .se-item').forEach(el => el.classList.toggle('expanded', on));
+    document.querySelectorAll('#seList .se-item').forEach(el => {
+      _seSwapExpansion(el, on);
+      el.classList.toggle('expanded', on);
+    });
     document.querySelectorAll('#seList .se-more-btn').forEach(btn => {
       btn.textContent = on ? '↑ Collapse' : '↓ Show full text';
     });
@@ -447,23 +480,13 @@ async function loadNextSearchPage() {
         renderDrawer();
         openReader(state.searchLoaded[idx]);
       });
-      // Expand/collapse — same pattern as drawer list cards.
-      // When the se-tx started life as a KWIC snippet, expanding swaps it
-      // for the full highlighted text (and collapsing restores the snippet).
+      // Expand/collapse — see _seSwapExpansion for the KWIC↔full swap.
       el.querySelector('.se-more-btn')?.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        const on = el.classList.toggle('expanded');
         const btn = ev.currentTarget;
-        const tx  = el.querySelector('.se-tx');
-        if (tx && tx.dataset.mode === 'kwic') {
-          const full = tx.dataset.fullText || '';
-          const kw   = tx.dataset.kw || '';
-          if (on) {
-            tx.innerHTML = highlightKeyword(full, kw);
-          } else {
-            tx.innerHTML = smartSnippet(full, kw).html;
-          }
-        }
+        const expanding = !el.classList.contains('expanded');
+        _seSwapExpansion(el, expanding);
+        const on = el.classList.toggle('expanded');
         btn.textContent = on ? '↑ Collapse' : '↓ Show full text';
       });
       // Bulk-select checkbox (G) — syncs to state.searchSelection and the
