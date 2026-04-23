@@ -1,0 +1,85 @@
+/* Tab-walk smoke: load dashboard.html, walk every tab, fail on any JS
+   console error.  Runs on top of the standard Playwright webServer.
+   Complementary to the existing 21 scenarios (which each focus on one
+   flow) — this one simply makes sure the 12 view dispatchers don't
+   throw when visited back-to-back. */
+import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
+
+const TOLERATED: RegExp[] = [
+  /Failed to load resource/i,
+  /net::ERR_/i,
+  /manifest\.webmanifest/i,
+  /\/api\/data\//i,
+  /\/uhri-api\//i,
+  /Service Worker .* was intercepted/i,
+  // Backend VM (150.254.115.204) is cross-origin + offline during tests.
+  // The dashboard catches the fetch() rejection and emits a single
+  // console.error("Phase 1 boot failed", err) — the app degrades
+  // gracefully from there.  These are not JS bugs.
+  /Phase 1 boot failed/i,
+  /Failed to fetch/i,
+  /\[freshness\] render failed/i,
+];
+
+function collectConsoleErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('console', (msg: ConsoleMessage) => {
+    if (msg.type() !== 'error') return;
+    const text = msg.text();
+    if (TOLERATED.some(p => p.test(text))) return;
+    errors.push(text);
+  });
+  page.on('pageerror', (err) => errors.push('pageerror: ' + err.message));
+  return errors;
+}
+
+const VIEWS = [
+  'overview', 'country', 'compare', 'group', 'theme', 'sdg',
+  'mechanism', 'search', 'bookmarks', 'labels', 'methodology', 'about',
+];
+
+test('walk every tab — no JS errors in any view dispatcher', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await page.goto('/dashboard.html', { waitUntil: 'commit' });
+  await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+
+  for (const view of VIEWS) {
+    await page.evaluate((v) => navigate(v), view);
+    const visible = await page.locator(`#view-${view}`).isVisible();
+    expect(visible, `view-${view} must become visible after navigate('${view}')`).toBe(true);
+    // Let any async renderer settle before we move on — some dispatchers
+    // await fetches that will reject in the test env; that's fine, we
+    // already filter tolerated errors above. Give 50ms headroom.
+    await page.waitForTimeout(60);
+  }
+
+  expect(errors, `JS errors while walking tabs:\n${errors.join('\n')}`).toEqual([]);
+});
+
+test('landing — index.html boots without JS errors', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await page.goto('/index.html', { waitUntil: 'commit' });
+  await page.waitForFunction(() => !!document.querySelector('#hexSvg'), null, { timeout: 5000 });
+  await page.waitForTimeout(300); // let dot-field + hex map finish their initial paints
+  expect(errors, `JS errors on landing page:\n${errors.join('\n')}`).toEqual([]);
+});
+
+test('footer About link navigates from Overview', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await page.goto('/dashboard.html', { waitUntil: 'commit' });
+  await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
+  await page.locator('.dash-footer .disclaimer').click();
+  await expect(page.locator('#view-about')).toBeVisible();
+  // Every anchor on the About page should have either href, or data-nav,
+  // or mailto — no decorative <a>s without a destination.
+  const anchors = await page.locator('#view-about a').evaluateAll(els =>
+    els.map(a => ({
+      text: a.textContent?.trim().slice(0, 30),
+      href: a.getAttribute('href'),
+      nav: a.getAttribute('data-nav'),
+    })));
+  for (const a of anchors) {
+    expect(a.href || a.nav, `anchor "${a.text}" has no target`).toBeTruthy();
+  }
+  expect(errors, `JS errors during About navigation:\n${errors.join('\n')}`).toEqual([]);
+});
