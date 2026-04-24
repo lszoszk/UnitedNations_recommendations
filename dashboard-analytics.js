@@ -99,9 +99,62 @@ function trackEvent(name, params = {}) {
   } catch (_) { /* never let analytics break the app */ }
 }
 
+/* Keyword search tracking — metadata only, content never sent.
+   Emits a `search_performed` event with five derived properties that
+   describe HOW the user searches, not WHAT they searched for:
+     query_word_count   — bucketed: 1 | 2 | '3-5' | '6+'
+     has_boolean        — true if AND / OR / NOT operator present
+     has_wildcard       — true if trailing-* used
+     has_quotes         — true if phrase-quoted segment present
+     result_count_bucket — 0 | '1-10' | '11-100' | '101-1k' | '1k-10k' | '10k+'
+   The raw query string is accepted as an argument but deliberately
+   never written to any gtag call.  See About → Privacy for the
+   user-facing description of what this tracks + why. */
+function _bucketCount(n) {
+  const v = Number(n) || 0;
+  if (v === 0) return '0';
+  if (v <= 10) return '1-10';
+  if (v <= 100) return '11-100';
+  if (v <= 1000) return '101-1k';
+  if (v <= 10000) return '1k-10k';
+  return '10k+';
+}
+function _bucketWords(wc) {
+  if (wc <= 1) return '1';
+  if (wc === 2) return '2';
+  if (wc <= 5) return '3-5';
+  return '6+';
+}
+
+function trackSearch(rawQuery, totalRecords) {
+  if (!_gaConsentIsGranted() || typeof window.gtag !== 'function') return;
+  const q = String(rawQuery || '').trim();
+  if (!q) return;  // empty searches (user browsing via rail) don't count
+  try {
+    // Strip boolean operators/parens/quotes before counting words so the
+    // bucket reflects the user's topic count, not their syntax overhead.
+    const words = q
+      .replace(/"[^"]*"/g, 'PHRASE')         // treat quoted phrase as one token
+      .replace(/[()]/g, ' ')                 // strip parens
+      .replace(/\b(AND|OR|NOT)\b/g, ' ')     // strip boolean operators
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(Boolean);
+    window.gtag('event', 'search_performed', {
+      query_word_count:     _bucketWords(words.length),
+      has_boolean:          /\b(AND|OR|NOT)\b/.test(q),
+      has_wildcard:         q.includes('*'),
+      has_quotes:           /["']/.test(q),
+      result_count_bucket:  _bucketCount(totalRecords),
+    });
+  } catch (_) { /* never let analytics break the app */ }
+}
+
 // Expose for other modules / inline handlers
 window.trackView = trackView;
 window.trackEvent = trackEvent;
+window.trackSearch = trackSearch;
 
 /* The first-visit onboarding tour (dashboard.html) puts up a full-
    viewport backdrop with z-index:240 that intercepts all pointer

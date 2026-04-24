@@ -46,7 +46,13 @@ function renderAbout() {
       <section class="me-sec" id="ab-privacy">
         <h2>Privacy</h2>
         <p>This dashboard uses <strong>Google Analytics 4</strong> to understand which features get used — nothing more.  It is <strong>consent-gated</strong>: a banner on your first visit lets you accept or reject; the default is "off".  Your choice persists in <code>localStorage</code>.  You can change it any time by clearing site data.</p>
-        <p><strong>What is sent</strong> (only after you accept): which tab you opened (<code>overview</code>, <code>country</code>, <code>search</code>, etc.), a few discrete actions (dataset toggle cleaned↔raw, upload button clicked, Instant Mode clicked), and the anonymised aggregates Google collects by default (approximate country from truncated IP, device type, referrer).</p>
+        <p><strong>What is sent</strong> (only after you accept):</p>
+        <ul>
+          <li>Which tab you opened — <code>overview</code>, <code>country</code>, <code>search</code>, <code>methodology</code>, etc.</li>
+          <li>A few discrete actions — dataset toggle <em>cleaned ↔ raw</em>, Upload button clicked, Instant Mode clicked.</li>
+          <li><strong>Search metadata</strong> (introduced 2026-04-24): when you run a search we log <em>how</em> you structured the query without logging <em>what</em> you typed.  Specifically, five derived flags per search — word count (1 / 2 / 3-5 / 6+), whether boolean operators (AND/OR/NOT) were used, whether the <code>*</code> wildcard was used, whether phrase-quotes were used, and the result-count bucket (0 / 1-10 / 11-100 / 101-1k / 1k-10k / 10k+).  The raw query string is never written to any analytics call.  This lets us see <em>e.g.</em> "power users run boolean queries 8× more often than casuals" without ever seeing the topic a user researched.</li>
+          <li>Anonymised aggregates Google collects by default — approximate country (from truncated IP), device type, referrer.</li>
+        </ul>
         <p><strong>What is never sent</strong>: the text of your keyword queries, the specific records you open in the reader, your saved notes or bookmarks, rule names in the Labels workspace, the contents of an uploaded dataset, your IP address in clear.  Ad personalisation and Google signals are disabled by configuration.  If your browser sends the <code>Do Not Track</code> header, Google Analytics is not loaded at all — not even in default-denied mode.</p>
         <p style="color:var(--dim);font-size:12px;margin-top:-4px">Why we track at all: a research tool nobody can tell is being used risks losing its supporter funding and never learning which pieces actually land.  The measurement ID is <code>G-F3XBX45HQC</code>; the policy above is enforced by the code in <code>dashboard-analytics.js</code> which you can read in the public repository.</p>
       </section>

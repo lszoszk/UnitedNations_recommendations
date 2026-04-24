@@ -414,6 +414,15 @@ async function loadNextSearchPage() {
     const n = $('#seN');
     if (n) n.textContent = `${fmt(total)} matches · showing ${fmt(state.searchLoaded.length + (r.records||[]).length)}`;
 
+    // Analytics: on page 1 only (subsequent pages are scroll-through,
+    // not a new search).  Fires metadata derived from `kw` — length
+    // bucket, boolean/wildcard/quote flags — and the result-count
+    // bucket.  The query string itself is never written to gtag.
+    // See About → Privacy for the full list + rationale.
+    if (state.searchPage === 1 && kw && typeof window.trackSearch === 'function') {
+      window.trackSearch(kw, total);
+    }
+
     if (state.searchPage === 1 && !(r.records || []).length) {
       // Empty state on first page — three flavours:
       // (a) backend returned `search_warning` → tailored hint with syntax
