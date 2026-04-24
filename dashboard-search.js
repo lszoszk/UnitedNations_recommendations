@@ -431,6 +431,7 @@ async function loadNextSearchPage() {
               <span class="ico">!</span>Search syntax examples:<br>
               <code>torture AND detention</code> both terms ·
               <code>"forced labour"</code> exact phrase ·
+              <code>LGBT*</code> prefix match ·
               <code>climate NOT green</code> exclude
             </div>
             <button class="primary" onclick="document.getElementById('kwInput').focus();document.getElementById('kwInput').select();">Edit keyword</button>

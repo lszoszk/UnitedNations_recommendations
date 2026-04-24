@@ -1632,19 +1632,23 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
         <div class="kw-syns" id="kwSyns" aria-live="polite"></div>
         <div class="kw-hint" id="kwHint">
           Plain words match all (implicit AND). Use
-          <code>"exact phrase"</code>, or
+          <code>"exact phrase"</code>,
+          <code>term*</code> for prefix match, or
           <code>AND</code> / <code>OR</code> / <code>NOT</code> (uppercase)
           for boolean.
           <a href="#" id="kwHintMore" title="Show examples">examples ▾</a>
         </div>
         <div class="kw-examples" id="kwExamples" style="display:none">
-          <div><code>torture</code> &nbsp; → all records mentioning torture (with prefix — catches tortured, tortures, torturing)</div>
+          <div><code>torture</code> &nbsp; → all records mentioning torture (Porter stemming catches tortured, tortures, torturing)</div>
           <div><code>forced labour</code> &nbsp; → records containing BOTH "forced" and "labour" (stemming: forced matches force/forcibly)</div>
           <div><code>"forced labour"</code> &nbsp; → records with the exact phrase</div>
+          <div><code>LGBT*</code> &nbsp; → trailing-<code>*</code> = prefix match: catches LGBTQ, LGBTI, LGBT+ (Porter stemming won't help with acronyms — use <code>*</code> explicitly)</div>
+          <div><code>democra*</code> &nbsp; → matches democracy, democracies, democratic, democratisation</div>
           <div><code>torture OR abuse</code> &nbsp; → union — records with either word</div>
           <div><code>torture NOT detention</code> &nbsp; → torture records that don't mention detention</div>
           <div><code>(child OR woman) AND trafficking</code> &nbsp; → grouped booleans</div>
           <div style="color:var(--dim);margin-top:6px">Note: operators are case-sensitive — <code>and</code> / <code>or</code> lowercased become plain words.</div>
+          <div style="color:var(--dim);margin-top:4px"><strong>When to use <code>*</code></strong> — for acronyms and uncommon variants that the Porter stemmer can't collapse (LGBT*, SDG*, UNHCR*, pre-1990*, non-discriminat*). For regular English verbs and nouns you usually don't need <code>*</code>: the default stemmer already catches the common inflections.</div>
           <div style="color:var(--dim);margin-top:4px"><strong>Quotes vs bare</strong> — <code>NOT "green"</code> matches only the word "green" (keeps records with <em>greenhouse</em>); <code>NOT green</code> (no quotes) excludes any word starting with "green".</div>
           <div style="color:var(--dim);margin-top:4px"><strong>Irregular plurals auto-expand</strong> — typing <code>woman</code> also matches <code>women</code> (and vice versa). Same for <code>man/men</code>, <code>child/children</code>, <code>person/people</code>, <code>crisis/crises</code>, <code>criterion/criteria</code>, and 5 more. A small chip appears under the input showing what's being expanded. Use <code>"woman"</code> (in quotes) if you want the exact word only.</div>
         </div>
