@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemap.org/schemas/sitemap/0.9">
+  <!-- UN Human Rights Analytics Dashboard — sitemap.
+       Covers the primary surfaces: landing, dashboard shell, and the
+       docs that are truly first-class URLs.  Hash-routed SPA views
+       (dashboard.html#view=search etc.) are NOT listed individually —
+       they're all the same document and listing them would just
+       confuse rank aggregation.  Agents can drill into specific tabs
+       via the patterns documented in llms.txt. -->
+  <url>
+    <loc>https://lszoszk.github.io/UnitedNations_recommendations/index.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#view=methodology</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#view=about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://lszoszk.github.io/UnitedNations_recommendations/docs/uhri-comparison.md</loc>
+    <changefreq>quarterly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lszoszk.github.io/UnitedNations_recommendations/README.md</loc>
+    <changefreq>quarterly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://lszoszk.github.io/UnitedNations_recommendations/ARCHITECTURE.md</loc>
+    <changefreq>quarterly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://lszoszk.github.io/UnitedNations_recommendations/llms.txt</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+</urlset>

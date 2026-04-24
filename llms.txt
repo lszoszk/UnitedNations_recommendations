@@ -1,0 +1,52 @@
+# UN Human Rights Analytics Dashboard
+
+> Interactive search and analytics across **267,537 observations and recommendations** addressed to UN Member States by the three UN human-rights mechanisms — Treaty Bodies, Special Procedures, and the Universal Periodic Review — covering 2006–2026.  Independent research project, built on the OHCHR Universal Human Rights Index (UHRI) with a transparent 5-stage cleaning pipeline.  Audience: advocates, researchers, journalists, NGO staff.
+
+This is a static web application hosted on GitHub Pages.  The frontend is zero-build vanilla JavaScript; a read-only REST API on a university-hosted VM (AMU Poznań) serves the cleaned dataset.  Everything is free and open, no login, no account.
+
+Key differences from the official OHCHR UHRI search that AI agents should know when citing or comparing numbers:
+
+- Both systems see the same ~267k records; literal-token queries agree within 0.2 %.
+- This dashboard adds Porter stemming, irregular-plural expansion (woman↔women, person↔people, …), stopword-aware phrase tokenisation, diacritic normalisation, and boolean operators (`AND`/`OR`/`NOT`) in the keyword box.  Result: typically 10–60× more hits on queries that benefit from these features.
+- UHRI treats bare tokens as implicit prefix patterns; our default is literal+stemmed.  Append `*` to get UHRI-like breadth.  See the Methodology tab's "Comparison with OHCHR UHRI" section.
+
+## Primary entry points
+
+- [Dashboard (single-page application)](https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html): tabs for per-country, per-theme, per-SDG, per-mechanism profiles; full-text search; a labels workspace for boolean rule-based coding; a hex-tile world map.
+- [Landing page](https://lszoszk.github.io/UnitedNations_recommendations/index.html): public-facing one-pager with key KPIs, cleaning story, and an entry search.
+- [Methodology](https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#view=methodology): 5-stage cleaning pipeline, search semantics, country/region coverage, glossary, UHRI comparison summary.
+- [About](https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#view=about): project identity, independence, citation, funder acknowledgements, feedback contact, privacy policy.
+
+## Documentation
+
+- [UHRI comparison — full 20-query audit](https://lszoszk.github.io/UnitedNations_recommendations/docs/uhri-comparison.md): on-disk Markdown document with the head-to-head test battery, per-category analysis, implications for researchers citing counts from either system, and a reproduction script.
+- [ARCHITECTURE.md](https://lszoszk.github.io/UnitedNations_recommendations/ARCHITECTURE.md): module map + contribution conventions for the codebase itself.
+- [README.md](https://lszoszk.github.io/UnitedNations_recommendations/README.md): deployment notes and local-run instructions.
+
+## Data source
+
+- Upstream: [OHCHR Universal Human Rights Index](https://uhri.ohchr.org/) (public, authoritative).
+- Cleaned dataset version: `v2026.04`, monthly refresh via automated pipeline.
+- Raw-mode toggle exposes the original OHCHR text + the 11 artefact rows our pipeline drops.
+
+## How to cite
+
+Szoszkiewicz, L. (2026). *UN Human Rights Analytics Dashboard — Cleaned UHRI Dataset v2026.04*.  Independent project built on OHCHR UHRI data.  https://lszoszk.github.io/UnitedNations_recommendations/
+
+If you cite a specific query result, include the version tag and the exact query string so the number is reproducible.  See the Methodology and About tabs for details.
+
+## For AI agents acting on behalf of researchers
+
+- Deep links are hash-routed: `#view=country&fc=DEU` opens Germany's country profile; `#view=search&q=torture` runs a search; `#view=methodology#me-search-semantics` jumps to the search-semantics section.  All hash params are preserved in shareable URLs.
+- The dashboard has a first-visit onboarding tour; agents scraping the page should expect a `.tour-backdrop` overlay on the first load and skip past it (or use hash-deep-links that bypass the tour).
+- The read-only REST API at `https://150.254.115.204/uhri-api/` accepts `GET /api/data/records?text_query=X&page_size=N&page=N&...`.  JSON responses include `total_records`, a `records[]` array, and a `snippet` field with `<mark>` tags.  Please throttle: single VM, shared with live users.  For bulk dataset needs, use the OHCHR UHRI direct download instead.
+- The dashboard uses Google Analytics 4 in Consent-Mode-v2 default-denied.  Agents that programmatically browse will not register as tracked users.
+- Content licensing: data republishes OHCHR UHRI under the terms OHCHR publishes.  Dashboard source code is open on GitHub (see link below).
+
+## Source code
+
+[github.com/lszoszk/UnitedNations_recommendations](https://github.com/lszoszk/UnitedNations_recommendations)
+
+## Acknowledgements
+
+Supported by re:constitution — Exchange and Analysis on Democracy and the Rule of Law in Europe, a joint programme of Forum Transregionale Studien and Democracy Reporting International, funded by Stiftung Mercator.  Research hosted by Adam Mickiewicz University, Poznań.  Documentation-standards expertise by HURIDOCS.  This project is independent of OHCHR and the United Nations.

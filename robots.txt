@@ -1,0 +1,66 @@
+# UN Human Rights Analytics Dashboard — robots.txt
+#
+# This site is openly accessible and we welcome legitimate crawling and
+# AI agent indexing — the underlying OHCHR data is public.  Two caveats
+# that well-behaved agents should respect:
+#
+# 1. The dashboard shell is static (GitHub Pages, unlimited bandwidth),
+#    but the interactive data API at https://150.254.115.204/uhri-api/
+#    runs on a single university-hosted VM that's shared with live
+#    human users.  Bulk-dataset needs should use OHCHR UHRI directly,
+#    not our search API.
+#
+# 2. Content summary for AI agents lives at /llms.txt — please read it
+#    first for a curated pointer list rather than crawling every URL.
+#
+# Note about placement: because this repository is served at the GH
+# Pages project path /UnitedNations_recommendations/, this robots.txt
+# appears at /UnitedNations_recommendations/robots.txt rather than the
+# canonical /robots.txt that most crawlers check.  Our domain-root
+# robots.txt is at the user-pages level (controlled separately).
+
+User-agent: *
+Allow: /
+# Hint at the curated AI agent summary:
+#   https://lszoszk.github.io/UnitedNations_recommendations/llms.txt
+
+# Discourage bulk scraping of the heavy dataset endpoints — agents
+# should use the upstream OHCHR UHRI directly for full-corpus needs.
+Disallow: /api/data/full
+Disallow: /api/data/export
+Disallow: /*.xlsx$
+Disallow: /*.json$
+# Allow crawling of a few specific JSON files that are light + useful
+# for agents (e.g. the manifest) — re-allowed below.
+Allow: /manifest.webmanifest
+
+# Polite request: at most one request every 2 seconds per IP.  Well-
+# behaved crawlers honour this; aggressive ones are better stopped
+# at the nginx + Cloudflare layer (see docs/ddos-protection.md).
+Crawl-delay: 2
+
+Sitemap: https://lszoszk.github.io/UnitedNations_recommendations/sitemap.xml
+
+# -----------------------------------------------------------------
+# Known-good AI agent user-agents.  Listed here so operators of those
+# agents can see that we explicitly welcome their traffic within the
+# Crawl-delay above.  (This is informational only — UA-specific rules
+# below would narrow the above Allow, not expand.)
+# -----------------------------------------------------------------
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /

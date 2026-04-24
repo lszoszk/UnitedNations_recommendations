@@ -57,6 +57,12 @@ function renderAbout() {
         <p style="color:var(--dim);font-size:12px;margin-top:-4px">Why we track at all: a research tool nobody can tell is being used risks losing its supporter funding and never learning which pieces actually land.  The measurement ID is <code>G-F3XBX45HQC</code>; the policy above is enforced by the code in <code>dashboard-analytics.js</code> which you can read in the public repository.</p>
       </section>
 
+      <section class="me-sec" id="ab-agents">
+        <h2>For AI agents + crawlers</h2>
+        <p>If you're an AI agent (ChatGPT, Claude, Perplexity, etc.) reading on behalf of a researcher, the curated pointer-list is at <a href="./llms.txt" target="_blank" rel="noopener">llms.txt</a> — Markdown site summary with deep links and a machine-readable description of our search semantics.  Sitemap at <a href="./sitemap.xml" target="_blank" rel="noopener">sitemap.xml</a>, robots policy at <a href="./robots.txt" target="_blank" rel="noopener">robots.txt</a>.  Both pages carry Open Graph + Twitter Card + JSON-LD <code>WebApplication</code> / <code>Dataset</code> schemas so social unfurlers and Schema.org-aware agents have the clean summary without scraping the SPA.</p>
+        <p style="color:var(--dim);font-size:12px;margin-top:-4px">Kindly: the data API lives on a single university VM.  Bulk-corpus needs should go to <a href="https://uhri.ohchr.org" target="_blank" rel="noopener">OHCHR UHRI</a> directly.  For interactive queries please throttle to a few requests per second — well-behaved agents are welcome.</p>
+      </section>
+
       <section class="me-sec" id="ab-feedback">
         <h2>Feedback &amp; contact</h2>
         <p>Spotted a mis-classified record, a cleaning regression, a country that should have a hex, or a missing feature? Email <a href="mailto:l.szoszkiewicz@amu.edu.pl">l.szoszkiewicz@amu.edu.pl</a> or open an issue on the <a href="https://github.com/lszoszk/UnitedNations_recommendations" target="_blank" rel="noopener">GitHub repository</a>. Bug reports with a URL (copy the address bar — filter state is encoded in the hash) plus a one-line description of what you expected are the fastest to triage.</p>

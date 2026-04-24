@@ -4,6 +4,87 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>UHRI · Analytics Dashboard v2</title>
+
+<!-- Agent-friendly metadata (2026-04-24).  Every tag here serves a
+     specific indexer: Open Graph for social unfurl (LinkedIn / Slack
+     / Twitter / Mastodon), Twitter Card for richer-preview on that
+     platform, canonical to dedup the hash-routed SPA views, and a
+     JSON-LD WebApplication schema for schema.org-aware search engines
+     + AI agents.  The curated per-agent summary lives in /llms.txt. -->
+<meta name="description" content="Interactive search and analytics across 267,537 UN human-rights observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review (2006–2026). Cleaned dataset built on OHCHR UHRI data, with boolean + wildcard + stemmed search, per-country profiles, and reproducible methodology.">
+<meta name="author" content="L. Szoszkiewicz (Adam Mickiewicz University, Poznań)">
+<meta name="keywords" content="human rights, OHCHR, UHRI, Treaty Bodies, Universal Periodic Review, UPR, Special Procedures, SDG, research dashboard, UN recommendations">
+<link rel="canonical" href="https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html">
+<link rel="alternate" type="text/markdown" href="./llms.txt" title="LLM-friendly site summary">
+
+<meta property="og:type"        content="website">
+<meta property="og:site_name"   content="UN Human Rights Analytics Dashboard">
+<meta property="og:title"       content="UN Human Rights Analytics Dashboard — 267,537 recommendations across Treaty Bodies, Special Procedures, UPR">
+<meta property="og:description" content="Cleaned OHCHR UHRI dataset. Boolean + wildcard + stemmed search. Per-country profiles. Reproducible methodology. Free, open, no login.">
+<meta property="og:url"         content="https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html">
+<meta property="og:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/icon-512.svg">
+<meta property="og:locale"      content="en_GB">
+
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:title"       content="UN Human Rights Analytics Dashboard">
+<meta name="twitter:description" content="Search 267,537 UN human-rights recommendations. Cleaned UHRI data, reproducible methodology.">
+<meta name="twitter:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/icon-512.svg">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#webapp",
+      "name": "UN Human Rights Analytics Dashboard",
+      "alternateName": "UHRI Dashboard v2",
+      "url": "https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html",
+      "description": "Interactive analytics and full-text search across 267,537 observations and recommendations from UN Treaty Bodies, Special Procedures, and the Universal Periodic Review (2006–2026).",
+      "applicationCategory": "ResearchApplication",
+      "applicationSubCategory": "Human rights data analysis",
+      "operatingSystem": "Any (browser)",
+      "isAccessibleForFree": true,
+      "inLanguage": "en",
+      "creator": {
+        "@type": "Person",
+        "name": "L. Szoszkiewicz",
+        "affiliation": {
+          "@type": "CollegeOrUniversity",
+          "name": "Adam Mickiewicz University, Poznań"
+        }
+      },
+      "funder": {
+        "@type": "Organization",
+        "name": "re:constitution — Exchange and Analysis on Democracy and the Rule of Law in Europe (Forum Transregionale Studien + Democracy Reporting International, funded by Stiftung Mercator)"
+      },
+      "isBasedOn": {
+        "@id": "https://uhri.ohchr.org/#dataset"
+      }
+    },
+    {
+      "@type": "Dataset",
+      "@id": "https://lszoszk.github.io/UnitedNations_recommendations/#dataset",
+      "name": "UHRI Cleaned Dataset",
+      "alternateName": "OHCHR Universal Human Rights Index — cleaned pipeline v2026.04",
+      "description": "267,537 observations and recommendations from UN Treaty Bodies, Special Procedures, and the Universal Periodic Review, cleaned via a transparent 5-stage pipeline (OCR & HTML repair, LLM-assisted residue review, AnnotationType normalisation, country backfill from document symbols, artefact drop).",
+      "url": "https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html",
+      "keywords": ["human rights", "UN Treaty Bodies", "Special Procedures", "Universal Periodic Review", "OHCHR", "UHRI"],
+      "temporalCoverage": "2006/2026",
+      "creator": { "@type": "Organization", "name": "OHCHR" },
+      "maintainer": {
+        "@type": "Person",
+        "name": "L. Szoszkiewicz",
+        "affiliation": "Adam Mickiewicz University, Poznań"
+      },
+      "license": "https://uhri.ohchr.org/",
+      "isAccessibleForFree": true,
+      "variableMeasured": ["country", "recommending body", "theme", "concerned groups", "SDG", "annotation type", "publication date"]
+    }
+  ]
+}
+</script>
+
 <link rel="preconnect" href="https://150.254.115.204" crossorigin>
 <link rel="dns-prefetch" href="https://150.254.115.204">
 <link rel="preconnect" href="https://fonts.googleapis.com">
