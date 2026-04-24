@@ -1364,6 +1364,31 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 @media(max-width:1200px){
   :root{--rail-w:240px;--drawer-w:280px}
 }
+
+/* Mid-range topbar pack (2026-04-24).  Between the mobile breakpoint
+   (≤960px) and the wide desktop, the topbar has to fit:
+     brand + cmdk(≤560) + Upload + InstantMode + status + methodology
+     + DATA pill + THEME
+   which adds up to ~1600px.  Below ~1400px the flex-row in .meta
+   visually collapses onto the .cmdk cell in Safari because the grid
+   column gets pushed narrower than its auto content, producing the
+   overlap the user reported.  We shed the cheapest items first:
+     1440 → drop the verbose "Search 267,537 records…" hint
+     1320 → hide the dataset-size text (keep the status dot)
+     1100 → hide the "methodology" footer link (still in the tab bar) */
+@media(max-width:1440px){
+  .cmdk-hint{display:none}
+  .cmdk{max-width:110px;justify-self:start}
+}
+@media(max-width:1320px){
+  .meta .status-chip #datasetSize{display:none}
+  .meta > .sep{display:none}
+  .topbar{gap:12px}
+}
+@media(max-width:1100px){
+  .meta > a[data-nav="methodology"]{display:none}
+  .meta{gap:8px}
+}
 @media(max-width:960px){
   .app{grid-template-columns:1fr!important}
   .rail{display:none;position:fixed;top:var(--top-h);left:0;bottom:0;width:min(320px,85vw);z-index:28;background:var(--paper);border-right:1px solid var(--line);box-shadow:4px 0 20px rgba(0,0,0,.15);box-sizing:border-box;overflow-x:hidden}
