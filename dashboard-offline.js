@@ -5,6 +5,14 @@ const offline = {
   enabled: false,
   data: null,
   aborter: null,
+  // Dataset provenance — distinguishes the two paths that flip the
+  // dashboard into local-filter mode. 'vm' = the user downloaded the
+  // full cleaned UHRI corpus via Instant Mode; 'upload' = the user
+  // loaded their own UHRI export (.xlsx/.json) via the Upload button.
+  // UI layers (badge, banner, sidebar hint) branch on this flag so
+  // "you are analysing YOUR upload" is loud, not subtle.
+  source: null,          // null | 'vm' | 'upload'
+  uploadMeta: null,      // null | { filename, size, loadedAt }
 
   _matches(r, f) {
     if (f.kw && f.kw.trim()) {
@@ -188,9 +196,16 @@ const offline = {
     };
   },
 
-  enable() {
+  enable(opts = {}) {
     if (!this.data) return;
     this.enabled = true;
+    // Remember provenance so every downstream UI layer (badge, banner,
+    // sidebar hint, toast copy) can branch on it. Default 'vm' keeps
+    // backwards compatibility for any caller that still does bare
+    // `offline.enable()`.
+    this.source = opts.source || 'vm';
+    this.uploadMeta = opts.uploadMeta || null;
+
     this._savedApi = {
       facets: api.facets,
       analytics: api.analytics,
@@ -208,27 +223,51 @@ const offline = {
     api.recordsCount = (f) => Promise.resolve(this.recordsCount(f || state.filters));
     api.health = () => Promise.resolve({ dataset_ready: true, offline: true });
 
-    document.body.classList.add('offline-mode');
-    $('#offlineIcon').textContent = '⚡';
-    $('#offlineLbl').textContent = 'INSTANT · ' + fmt(this.data.length) + ' LOCAL';
-    $('#offlineBtn').classList.add('is-active');
-    $('#offlineBtn').title = 'Instant Mode active — all ' + fmt(this.data.length) + ' records in your browser. Filters run locally at ~50ms, nothing leaves your machine. Right-click for options.';
-    setStatus('live', 'OFFLINE');
-    try { localStorage.setItem('uhri_v2_offline_pref', '1'); } catch {}
+    const isUpload = this.source === 'upload';
+    const fn = this.uploadMeta?.filename || '';
+    const shortFn = fn.length > 20 ? fn.slice(0, 20) + '…' : fn;
 
+    document.body.classList.add('offline-mode');
+    if (isUpload) document.body.classList.add('uploaded-mode');
+    else          document.body.classList.remove('uploaded-mode');
+
+    $('#offlineIcon').textContent = isUpload ? '📁' : '⚡';
+    $('#offlineLbl').textContent  = isUpload
+      ? `${shortFn} · ${fmt(this.data.length)}`
+      : `INSTANT · ${fmt(this.data.length)} LOCAL`;
+    $('#offlineBtn').classList.add('is-active');
+    $('#offlineBtn').title = isUpload
+      ? `📁 Analysing your upload: ${fn} (${fmt(this.data.length)} records). Click to swap back to the live dataset.`
+      : `Instant Mode active — all ${fmt(this.data.length)} records in your browser. Filters run locally at ~50ms, nothing leaves your machine. Right-click for options.`;
+    setStatus('live', isUpload ? 'UPLOAD' : 'OFFLINE');
+    // Only VM-sourced offline mode persists across reloads. Uploads are
+    // one-shot session data — auto-restoring someone else's random
+    // xlsx on next boot would be surprising at best.
+    try {
+      if (isUpload) localStorage.removeItem('uhri_v2_offline_pref');
+      else          localStorage.setItem('uhri_v2_offline_pref', '1');
+    } catch {}
+
+    renderUploadIndicators();
     (async () => { try { await updateOfflineBadge(); } catch {} })();
-    toast('⚡ Instant Mode active — ' + fmt(this.data.length) + ' records in browser. Filters are now ~50ms.', false, 5000);
+    toast(isUpload
+      ? `📁 Viewing your upload: ${fn} · ${fmt(this.data.length)} records. All queries run locally; the live dataset is paused.`
+      : `⚡ Instant Mode active — ${fmt(this.data.length)} records in browser. Filters are now ~50ms.`,
+      false, 5000);
   },
 
   disable({ keepCache = true } = {}) {
     if (!this.enabled) return;
+    const wasUpload = this.source === 'upload';
     this.enabled = false;
+    this.source = null;
+    this.uploadMeta = null;
     if (this._savedApi) {
       Object.assign(api, this._savedApi);
       this._savedApi = null;
     }
     this.data = null;
-    document.body.classList.remove('offline-mode');
+    document.body.classList.remove('offline-mode', 'uploaded-mode');
     $('#offlineIcon').textContent = '⚡';
     $('#offlineLbl').textContent = 'INSTANT MODE';
     $('#offlineBtn').classList.remove('is-active', 'has-update');
@@ -236,10 +275,27 @@ const offline = {
     setStatus('live', 'LIVE');
     try { localStorage.removeItem('uhri_v2_offline_pref'); } catch {}
     if (!keepCache) idbOffline.clear().catch(() => {});
+
+    // Tear down banner/pill/sidebar hint. Must run BEFORE the view
+    // refresh so the re-rendered views never inherit the upload chrome.
+    renderUploadIndicators();
+
+    // Re-sync every surface that caches a count or an analytics dict.
+    // `api.*` was just restored to the real VM-backed functions above
+    // but nothing has asked them for fresh numbers yet — without these
+    // calls the left sidebar keeps showing the upload's hit count while
+    // the centre panels gradually refresh on their own schedule (the
+    // exact split the user reported: `1,516 matching` next to
+    // `127,625 / 119,404 / 20,488`).
+    try { if (typeof refreshHitCount === 'function') refreshHitCount(); }
+    catch (e) { console.warn('[offline.disable] refreshHitCount failed:', e); }
+    try { if (typeof refreshCurrentView === 'function') refreshCurrentView(); }
+    catch (e) { console.warn('[offline.disable] refreshCurrentView failed:', e); }
+
     toast(
-      keepCache
-        ? 'Instant Mode disabled — cache kept, click ⚡ to re-activate instantly'
-        : 'Instant Mode disabled and cache cleared',
+      wasUpload
+        ? (keepCache ? 'Upload closed — switched back to live VM dataset' : 'Upload closed, local cache cleared')
+        : (keepCache ? 'Instant Mode disabled — cache kept, click ⚡ to re-activate instantly' : 'Instant Mode disabled and cache cleared'),
       false, 4000
     );
   },
@@ -364,6 +420,14 @@ async function updateOfflineBadge() {
   const lbl = document.querySelector('#offlineLbl');
   if (!btn || !lbl || !offline.enabled) return;
 
+  // Uploads don't live in IDB (they're one-shot session data), so the
+  // "records · MB · Xd old" metadata this function surfaces is
+  // meaningless for them. Skip the mutation entirely — otherwise the
+  // async overwrite here silently clobbers the filename label that
+  // enable() just set, which is the exact bug that left users staring
+  // at `INSTANT · 1,516 LOCAL` after uploading their own file.
+  if (offline.source === 'upload') return;
+
   const snap = await idbOffline.getSnapshot();
   const age = snap ? idbOffline.ageInDays(snap) : null;
   const n = offline.data ? fmt(offline.data.length) : '?';
@@ -384,6 +448,100 @@ async function updateOfflineBadge() {
       btn.classList.remove('has-update');
     }
   } catch {}
+}
+
+/* =========================================================================
+   UPLOAD INDICATORS — three coordinated surfaces so the user never forgets
+   the dashboard is showing THEIR file instead of the live UHRI corpus.
+   =========================================================================
+   1. Banner strip below the topbar — high-contrast amber, names the file,
+      one-click path back to the live dataset. Never hidden by scroll
+      position because it sits inside #main above the tab rail.
+   2. Source pill in the topbar meta row — mirrors the visual language of
+      the existing "DATA · cleaned/raw ▾" pill. Always visible, survives
+      scroll on long pages.
+   3. Sidebar sub-line under the hit count — tells the user, in the place
+      they read numbers most often, that the denominator is their upload.
+
+   All three are idempotently created/removed in a single function.  When
+   source !== 'upload' the function simply tears them down, so calling it
+   on every enable/disable is safe and cheap. */
+function renderUploadIndicators() {
+  const isUpload = offline.enabled && offline.source === 'upload';
+  const meta = offline.uploadMeta || {};
+  const filename = meta.filename || '';
+  const count = offline.data?.length || 0;
+
+  // -------- 1. BANNER STRIP ------------------------------------------------
+  let banner = document.getElementById('uploadBanner');
+  if (isUpload) {
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'uploadBanner';
+      banner.className = 'upload-banner';
+      banner.setAttribute('role', 'status');
+      banner.setAttribute('aria-live', 'polite');
+      // Insert as the FIRST child of #main so it sits above the tab rail
+      // and every view dispatcher (overview, country, compare, ...).
+      const main = document.getElementById('main');
+      if (main) main.insertBefore(banner, main.firstChild);
+    }
+    banner.innerHTML = `
+      <span class="ub-icon" aria-hidden="true">📁</span>
+      <span class="ub-text">
+        <strong>Viewing your upload</strong>
+        <span class="ub-file" title="${_attrEscape(filename)}">${_attrEscape(filename)}</span>
+        · <span class="ub-count">${fmt(count)} records</span>
+      </span>
+      <span class="ub-note">All filters run locally, nothing leaves your machine.</span>
+      <button type="button" class="ub-switch" id="uploadBannerSwitch" title="Close this upload and return to the live VM dataset">↩ Back to live dataset</button>`;
+    const btn = banner.querySelector('#uploadBannerSwitch');
+    if (btn) btn.onclick = () => offline.disable({ keepCache: true });
+  } else if (banner) {
+    banner.remove();
+  }
+
+  // -------- 2. SOURCE PILL (topbar) ---------------------------------------
+  let pill = document.getElementById('sourcePill');
+  if (isUpload) {
+    if (!pill) {
+      pill = document.createElement('button');
+      pill.id = 'sourcePill';
+      pill.type = 'button';
+      pill.className = 'ds-pill source-pill';
+      pill.setAttribute('aria-label', 'Data source');
+      pill.onclick = () => offline.disable({ keepCache: true });
+      // Anchor next to the existing "DATA · cleaned" pill so the two
+      // chrome-level dataset controls live side by side.
+      const anchor = document.querySelector('.ds-pill-wrap');
+      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(pill, anchor);
+    }
+    const shortFn = filename.length > 22 ? filename.slice(0, 22) + '…' : filename;
+    pill.innerHTML = `SOURCE · <span class="ds-val">upload</span> · <span style="font-weight:400;color:var(--dim)">${_attrEscape(shortFn)}</span>`;
+    pill.title = `Showing your upload: ${filename} (${fmt(count)} records). Click to switch back to the live VM dataset.`;
+  } else if (pill) {
+    pill.remove();
+  }
+
+  // -------- 3. SIDEBAR SUB-LINE (under hit count) -------------------------
+  let hint = document.getElementById('uploadSidebarHint');
+  if (isUpload) {
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'uploadSidebarHint';
+      hint.className = 'upload-sidebar-hint';
+      const fr = document.getElementById('filterResult');
+      if (fr) fr.appendChild(hint);
+    }
+    const shortFn = filename.length > 24 ? filename.slice(0, 24) + '…' : filename;
+    hint.innerHTML = `<span class="ush-label">source:</span> <strong title="${_attrEscape(filename)}">${_attrEscape(shortFn)}</strong> · ${fmt(count)} recs`;
+  } else if (hint) {
+    hint.remove();
+  }
+}
+
+function _attrEscape(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
 function showOfflineContextMenu(anchorEl, ev) {

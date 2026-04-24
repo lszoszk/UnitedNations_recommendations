@@ -307,12 +307,19 @@ function triggerUpload() {
       const parsed = isXlsx ? await parseUhriXlsx(file) : await parseUhriJson(file);
       if (!parsed.length) throw new Error('Parsed 0 records — is this an empty export?');
       offline.data = parsed;
-      offline.enable();
-      document.body.classList.add('uploaded-mode');
-      $('#offlineIcon').textContent = '📁';
-      $('#offlineLbl').textContent = `${file.name.slice(0,20)}${file.name.length>20?'…':''} · ${fmt(parsed.length)}`;
-      $('#offlineBtn').title = 'Analyzing your uploaded dataset — click to swap back to VM';
-      toast(`Uploaded ${fmt(parsed.length)} records from ${file.name}. All queries now run locally.`, false, 5500);
+      // Hand source + meta to enable() so the badge / banner / sidebar hint
+      // render in a single coordinated pass. The old implementation set the
+      // DOM manually after enable() returned, which raced against
+      // updateOfflineBadge() (fired async from inside enable) and silently
+      // reverted the 📁 + filename to ⚡ + "INSTANT · N LOCAL".
+      offline.enable({
+        source: 'upload',
+        uploadMeta: {
+          filename: file.name,
+          size: file.size,
+          loadedAt: Date.now(),
+        },
+      });
       close();
       refreshCurrentView(); refreshHitCount();
     } catch (err) {

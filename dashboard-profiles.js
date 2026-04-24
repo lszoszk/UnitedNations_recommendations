@@ -663,9 +663,18 @@ async function renderMechanism() {
         api.recordsCount(filter),
       ]).then(([analytics, mapD, count]) => {
         const k = $(`#mcKpi-${f.key}`); if (k) k.textContent = fmt(count.total_records);
+        // Per-family sparkline maps — built LOCALLY from this family's own
+        // yearly arrays, never written into the global _themeSparklines /
+        // _groupSparklines caches.  Three parallel family fetches land in
+        // non-deterministic order; if we used the globals the last one to
+        // resolve would clobber the first two (all three columns would
+        // render the SP timeline for the UPR and TB rows).  Locals keep
+        // every column consistent with its own KPI.
+        const themeSparks = _yearlyCountsByKey(analytics?.themes?.yearly_theme_counts, 'theme');
+        const groupSparks = _yearlyCountsByKey(analytics?.text?.yearly_affected_person_counts, 'affected_person');
         renderRowList($(`#mcCountries-${f.key}`), (mapD?.country_counts || []).slice(0,5).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country', extraFilter: { body: new Set(bodies) } });
-        renderRowList($(`#mcThemes-${f.key}`),    (analytics?.themes?.theme_counts || []).slice(0,5).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme',   extraFilter: { body: new Set(bodies) } });
-        renderRowList($(`#mcGroups-${f.key}`),    (analytics?.text?.affected_person_counts || []).slice(0,5).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', extraFilter: { body: new Set(bodies) } });
+        renderRowList($(`#mcThemes-${f.key}`),    (analytics?.themes?.theme_counts || []).slice(0,5).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme',   extraFilter: { body: new Set(bodies) }, sparklines: themeSparks });
+        renderRowList($(`#mcGroups-${f.key}`),    (analytics?.text?.affected_person_counts || []).slice(0,5).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', extraFilter: { body: new Set(bodies) }, sparklines: groupSparks });
       }).catch(err => {
         if (err.name === 'AbortError') return;
         console.warn('compare family load failed:', f.key, err);
