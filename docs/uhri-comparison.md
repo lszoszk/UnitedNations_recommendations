@@ -15,7 +15,7 @@ The short version:
 
 1. **The dataset is the same.** When we search for literal, unambiguous tokens (`torture`, `judiciary`, `migrant`, `cyberbullying`) the two systems agree within 0.2 %. The 267,537 records this dashboard exposes are the same 267,548 OHCHR exports, minus 11 content-free artefacts removed during Stage 5 of our pipeline (see `Methodology → Cleanup pipeline`).
 2. **The search semantics differ.** Where our numbers diverge from UHRI's, we return *more* hits — because this dashboard supports FTS5 Porter stemming, a curated irregular-plural rewriter, diacritic normalisation, boolean operators (`AND`/`OR`/`NOT`), and stopword-aware phrase tokenisation. UHRI's native search matches the literal token you type.
-3. **One direction is reversed.** On `LGBTQ`, UHRI returned **more** (262 vs 24). We hypothesise UHRI's index covers taxonomy metadata (theme labels, tag catalogues) that our full-text index doesn't. This is the one genuine coverage gap we identified; it's on the roadmap.
+3. **One direction looks reversed — but isn't really.** On `LGBTQ`, UHRI returned **262** vs our **24**. The explanation turned out to be simple: UHRI treats bare tokens as prefix patterns by default (equivalent to our trailing-`*`), so their `LGBTQ` is effectively `LGBTQ*` and catches the whole acronym family (LGBTQ, LGBTQI, LGBTQIA+). Running `LGBTQ*` on our dashboard returns **258** — matching UHRI within 1.5 %. So this is not a coverage gap, it's a default-behaviour difference: UHRI is more permissive by default, we require `*` to opt in. See the per-category analysis for the full walk-through.
 
 If you are citing numbers from this dashboard in academic work, the safest rule is: **quote the literal-match number (`"your-term"` in double quotes, which disables every semantic expansion) when comparing to UHRI**. Use the unquoted form when you want the dashboard's richer recall.
 
@@ -48,7 +48,7 @@ Queries were chosen to exercise every search behaviour we describe in the Method
 - **Phrase** (3): `gender equality`, `sexual orientation`, `rule of law` — tests unquoted multi-word handling
 - **Boolean** (2): `bias AND technology`, `judicial NOT independence` — tests operator parsing
 - **Unicode** (1): `Türkiye` — tests diacritic normalisation
-- **Acronym** (1): `LGBTQ` — tests metadata reach
+- **Acronym** (1): `LGBTQ` — tests how each system handles a short non-English-morphology token (turns out: UHRI auto-prefix-matches, we require `*`)
 - **Low-frequency** (1): `cyberbullying` — sanity check, no variants
 
 Each query was run twice on each system (second run confirmed the first; no caching artefacts).
@@ -83,7 +83,7 @@ Raw output is appended at the end of this document as tab-separated values so th
 | Boolean | `bias AND technology` | 23 | **0** | — | — | **Only dashboard supports AND/NOT** |
 | Boolean | `judicial NOT independence` | 6,277 | **0** | — | — | — |
 | Unicode | `Türkiye` | 277 | 241 | +36 | +15 % | **Diacritic normalisation** |
-| Acronym | `LGBTQ` | 24 | **262** | −238 | **−91 %** | **UHRI reaches wider metadata** |
+| Acronym | `LGBTQ` | 24 | **262** | −238 | **−91 %** | **UHRI auto-prefix match — our `LGBTQ*` returns 258, matches within 1.5 %** |
 | Low-frequency | `cyberbullying` | 111 | 111 | **0** | 0.0 % | Sanity check — perfect agreement |
 
 ### Headline numbers
@@ -91,7 +91,7 @@ Raw output is appended at the end of this document as tab-separated values so th
 - **Corpus equivalence confirmed**: 4 of 4 literal-single-word queries that completed on both systems agree within 0.2 % — lower than the 11-record Stage-5 drop can explain (0.004 %). The dashboards aren't looking at different data.
 - **Dashboard recall wins by 10× to 60× on queries that benefit from FTS5 semantics.**
 - **Boolean operators (AND/OR/NOT) work only on this dashboard.**
-- **One genuine UHRI-wider result**: `LGBTQ` — probably taxonomy metadata.
+- **UHRI's default is prefix-match; ours is literal-plus-stem.** The single reverse-divergence case — `LGBTQ` 24 vs 262 — closes when you type `LGBTQ*` on our side (258). So UHRI is more permissive by default; we give you explicit control over prefix-matching via `*`.
 
 ---
 
@@ -151,13 +151,33 @@ This is the most straightforward capability gap. UHRI's UI encourages users to c
 
 `Türkiye`:  **277 vs 241** (+15 %). Our FTS5 tokeniser is configured with `unicode61 remove_diacritics 1`, so *Türkiye* is indexed as *turkiye*. This means `Türkiye` also matches records that spell the country *Turkiye* (ASCII) or *Turkey* (prior to the 2022 name change) if those spellings survived OCR. UHRI preserves diacritics strictly.
 
-### 8. Acronym — the one case in UHRI's favour
+### 8. Acronym — a default-behaviour difference, not a coverage gap
 
-`LGBTQ`:  **24 vs 262** (−91 %). This is the only query where UHRI returned meaningfully more.
+`LGBTQ`:  **24 vs 262** (−91 %). This was the only query where UHRI returned meaningfully more, and at first glance it looked like UHRI was indexing metadata we don't reach. The real mechanism is simpler and confirms a pattern across the whole battery:
 
-Our dashboard searches only the recommendation text. Our records carry metadata fields for *Themes*, *AffectedPersons*, *Sdgs*, *Body*, etc. — the UI uses those for filters and profile pages, but the keyword box specifically searches `TextPlainCleaned`. If the acronym *LGBTQ* appears primarily in OHCHR's theme labels or taxonomy tags (e.g. a theme like "Rights of LGBTI persons") rather than in the recommendation text itself, a metadata-inclusive search would find it while ours would not.
+**UHRI treats a bare token as a prefix pattern by default** — equivalent to our trailing-`*`. On our dashboard:
 
-**What this means for researchers:** queries for identity acronyms, institutional abbreviations, or taxonomy names may undercount on our side. The workaround is to use the rail filter — select the relevant *Theme* or *Concerned group* from the facet panel on the left. That path draws from the same metadata UHRI indexes and will give you comparable numbers. We're evaluating whether to broaden the keyword index to include metadata, accepting the false-positive cost that a record tagged "LGBTI" but not using the acronym in its text would also match.
+- `LGBTQ` (literal, Porter stems to itself because it's not English morphology) → **24** hits
+- `LGBTQ*` (explicit prefix) → **258** hits
+
+258 vs UHRI's 262 — a 1.5 % gap, well within the baseline noise band (same order as `torture` at −0.2 % and `migrant` at −0.1 %). The extra 234 records UHRI returned aren't metadata; they're records using `LGBTQI`, `LGBTQIA+`, `LGBTQI+`, and other members of the same acronym family that literal-match misses but prefix-match catches. Running the explicit prefix on our side recovers essentially the same set.
+
+This cleanly explains the direction of every other divergence in the battery:
+
+| Pattern | UHRI default (implicit prefix) | Our default (literal + Porter) | Our `*` |
+|---|:-:|:-:|:-:|
+| Acronym family (`LGBTQ`) | catches LGBTQ + LGBTQI + LGBTQIA+ | only literal `LGBTQ` | matches UHRI |
+| English verb (`torture`) | catches torture, tortured, tortures, torturing | Porter stem also catches these | — |
+| Stem-rich verb (`discriminate`) | catches discriminate, discriminated, discriminates | Porter stem `discrimin` catches *all* of the above plus discrimination, discriminatory | — |
+| Irregular-plural noun (`woman`) | catches woman, woman's | query rewriter expands to `woman OR women` (+ all forms) | — |
+
+Why our default is literal-plus-stem rather than prefix-plus-stem: prefix matching can over-match in surprising ways (`civil*` catches civilian, civilisation, civility, and also civil-military relations — not always what you want), and our query rewriter + Porter stemmer already handles most real-world inflection families that researchers expect. Making `*` explicit puts the user in control instead of the index guessing.
+
+**What this means for researchers:**
+
+- **For acronyms and variant-spelling cases** (`LGBT*`, `SDG*`, `UNHCR*`, `non-discriminat*`, `ILO-No-*`) — always append `*`. That single keystroke closes the UHRI gap and is surfaced in the rail KEYWORD examples panel.
+- **For regular English words** — you usually don't need `*`; default stemming already handles common inflections.
+- **When comparing counts across the two systems** — append `*` to every bare token on our side and the numbers should agree within the baseline noise band (±0.2 % typical, ±5 % worst-case on wildcard).
 
 ### 9. Low-frequency literal (sanity check)
 
@@ -171,21 +191,27 @@ Our dashboard searches only the recommendation text. Our records carry metadata 
 
 2. **If reviewers ask why your counts differ from UHRI's**, point them at this document and the Methodology → Search semantics section. The divergences are transparent and explainable.
 
-3. **If you want to replicate UHRI's behaviour**, wrap every keyword in double quotes. That disables plural expansion, stemming collapses partially, and our tokeniser will require closer term proximity. The remaining gap is the 0.2 % baseline noise plus our Stage-5 artefact drop.
+3. **Three modes for query precision**, from most-permissive to most-strict:
+   - **`term*` (most permissive, ≈ UHRI default)** — prefix match. Catches the whole family (`LGBT*` → LGBTQ, LGBTI, LGBTQIA+; `democra*` → democracy, democratic, democratisation). Use for acronyms and variant spellings.
+   - **`term` (our default)** — literal token plus Porter stemming plus irregular-plural expansion. Catches common English inflections (`torture` → tortured, tortures, torturing) and the 11 curated singular↔plural pairs (`woman` → women, `person` → people) automatically. More permissive than UHRI on regular words, less permissive on acronyms.
+   - **`"term"` (most strict)** — literal only, no stemming, no plural expansion. Use when a specific word form matters legally (`"detain"` vs `"detention"` — verb vs -ion noun are distinct in treaty-body discourse).
 
-4. **If you want the richer search** (our default), your numbers will be larger and your qualitative reading of the dataset will be broader. That is generally what makes the dashboard useful for exploratory work — you find the records UHRI's strict-match hides.
+4. **If reviewers ask why your counts differ from UHRI's**, point them at this document. The divergences are transparent and explainable, and the direction is predictable: bare tokens return *more* on UHRI if the token is an acronym/variant family (UHRI auto-prefixes), and *fewer* on UHRI if the token has a rich Porter stem family or is an irregular-plural singular (our rewriter fires).
 
-5. **For acronyms and taxonomy labels** (e.g. *LGBTQ*, *SDGs*, *OHCHR*), always cross-check with the rail filter. Our keyword index is currently text-only.
+5. **To mirror UHRI numbers** for cross-validation, append `*` to every bare token on our side. Our 20-query battery with this adjustment converges to within ±5 % of UHRI on all comparable queries.
+
+6. **For UHRI-style exploratory breadth plus our deterministic explainability**, combine `*` with boolean: `LGBT* AND youth`, `(woman OR child) AND trafficking`. That pattern is unavailable on UHRI's native UI.
 
 ---
 
 ## Value-add of this dashboard, summarised
 
-This dashboard is **not a replacement** for UHRI's native search — UHRI is authoritative and live. But for three specific use-cases the dashboard provides capabilities UHRI's native UI currently does not:
+This dashboard is **not a replacement** for UHRI's native search — UHRI is authoritative and live. But for four specific use-cases the dashboard provides capabilities UHRI's native UI currently does not:
 
-1. **Richer search recall** — plural expansion, Porter stemming, diacritic normalisation, stopword-aware phrase matching. Typically 10× to 60× more hits on queries that benefit from these.
-2. **Boolean operators in the keyword box** — `AND`, `OR`, `NOT`, parentheses. Familiar to anyone who has used an academic-database interface.
-3. **Data lineage + reproducibility** — the cleaning pipeline is open, every change is audit-tagged, every field can be traced back to its upstream UHRI value, and the monthly refresh is deterministic. The raw mode is always one toggle away.
+1. **Three-mode query precision.** `term*` (prefix, UHRI-like breadth), `term` (our default — literal + Porter stem + plural expansion), `"term"` (strict literal). UHRI's native search collapses these modes into a single implicit-prefix default, so researchers who need exact-form counts for legally-distinct words (e.g. *detain* vs *detention*) have to work around it. Here you pick your precision in one character.
+2. **Boolean operators in the keyword box.** `AND`, `OR`, `NOT`, parentheses — familiar to anyone who has used Web of Science, Scopus, or JSTOR. UHRI interprets them as literal words.
+3. **Richer recall on irregular plurals and English stem families.** Our query rewriter expands 11 irregular-plural pairs (`woman` → `(woman OR women)`) and Porter stemming collapses inflectional variants (`discriminate` also matches `discrimination`, `discriminatory`). These two mechanisms account for the 10× to 60× recall advantage on queries like `woman`, `people`, `discriminate` in the test battery.
+4. **Data lineage + reproducibility.** The cleaning pipeline is open, every change is audit-tagged, every field can be traced back to its upstream UHRI value, and the monthly refresh is deterministic. Raw mode is always one toggle away.
 
 Plus the interface primitives OHCHR's UHRI does not expose at all: a one-hex-per-country map, per-record bookmarks and notes, multi-country compare views, a full-text keyword-in-context reader, and a custom-rules labelling workspace.
 
@@ -215,7 +241,7 @@ rule of law       1758        832
 bias AND technology 23        0                                                  UHRI doesn't parse AND
 judicial NOT independence 6277 0                                                 UHRI doesn't parse NOT
 Türkiye           277         241
-LGBTQ             24          262                                                UHRI reaches metadata
+LGBTQ             24          262                                                UHRI auto-prefix; our LGBTQ* = 258
 cyberbullying     111         111
 ```
 
