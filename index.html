@@ -459,6 +459,11 @@
     text-transform: uppercase;
     color: var(--dim);
   }
+  /* Section headline — rendered as <h2> (was <div>, which put an <h3>
+     in the bar-list below it before any h2, failing WCAG heading-
+     order).  Semantic bump doesn't change the visual — we just reset
+     the UA h2 defaults explicitly. */
+  .section-head h2.t,
   .section-head .t {
     font-family: var(--serif);
     font-size: clamp(28px, 3.4vw, 48px);
@@ -466,6 +471,8 @@
     letter-spacing: -.01em;
     text-wrap: balance;
     max-width: 22ch;
+    margin: 0;
+    font-weight: 400;
   }
   .section-head .ctx {
     font-family: var(--mono);
@@ -826,7 +833,10 @@
   }
   .hex-scale .scale { display: flex; height: 10px; gap: 0; }
   .hex-scale .s { width: 28px; height: 10px; }
-  .hex-scale .hint { margin-left: auto; color: var(--dimmer); font-size: 10px; text-transform: none; letter-spacing: .04em; }
+  /* var(--dimmer)=#A39E94 failed WCAG AA at 10px. Bumped to literal
+     #655f55 for text-only use; decorative uses of --dimmer (dot
+     separators, line/border tones) keep the lighter value. */
+  .hex-scale .hint { margin-left: auto; color: #655f55; font-size: 10px; text-transform: none; letter-spacing: .04em; }
 
   /* Old legacy map-grid CSS — no longer used but kept for reference */
   .map-grid {
@@ -1031,10 +1041,13 @@
     letter-spacing: .08em;
   }
   .nav-item:last-child { border-right: 0; }
+  /* Section-scroll numerals ("01" … "04").  Was var(--dimmer) = #A39E94
+     which scored contrast ~2.3.  #655f55 gives ≥4.7:1 on every toolbar
+     background state while still reading as subordinate to .lbl. */
   .nav-item .n {
     font-size: 9px;
     letter-spacing: .12em;
-    color: var(--dimmer);
+    color: #655f55;
     font-variant-numeric: tabular-nums;
     transition: color .2s;
   }
@@ -1191,6 +1204,7 @@
           <input id="landingSearch" name="q" type="search" autocomplete="off"
                  placeholder="Jump to country, theme, mechanism — or search 267K recommendations…"
                  aria-label="Search the dataset or jump to a profile"
+                 role="combobox" aria-autocomplete="list"
                  aria-controls="landingSearchDropdown" aria-expanded="false" />
           <kbd class="ls-kbd">↵</kbd>
         </div>
@@ -1222,7 +1236,7 @@
   <div class="wrap">
     <div class="section-head">
       <div class="no">FIG 02 / WHAT</div>
-      <div class="t">The recommendations cluster around a handful of persistent themes.</div>
+      <h2 class="t">The recommendations cluster around a handful of persistent themes.</h2>
       <div class="ctx">Top 10 of 100 tags · n=267,537</div>
     </div>
 
@@ -1244,7 +1258,7 @@
   <div class="wrap" style="max-width:none">
     <div class="section-head">
       <div class="no">FIG 03 / WHERE</div>
-      <div class="t">One hex per country. <em style="color:var(--accent)">No country is bigger than another.</em></div>
+      <h2 class="t">One hex per country. <em style="color:var(--accent)">No country is bigger than another.</em></h2>
       <div class="ctx">198 states + EU · color = record volume</div>
     </div>
 
@@ -1294,7 +1308,7 @@
   <div class="wrap">
     <div class="section-head">
       <div class="no">FIG 04 / HOW</div>
-      <div class="t"><em style="color:var(--accent)">Cleaned UHRI dataset</em> with deterministic rules, not a language model — so every row is defensible in a paper.</div>
+      <h2 class="t"><em style="color:var(--accent)">Cleaned UHRI dataset</em> with deterministic rules, not a language model — so every row is defensible in a paper.</h2>
       <div class="ctx">6-stage pipeline · audit-tagged · reversible</div>
     </div>
 

@@ -238,7 +238,11 @@ a{color:inherit;text-decoration:none}
 .tab{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-right:1px solid var(--line);min-width:96px;max-width:200px;position:relative;color:var(--dim);flex-shrink:0}
 .tab.active{background:var(--paper-2);color:var(--ink)}
 .tab.active::after{content:"";position:absolute;left:0;bottom:-1px;height:2px;width:100%;background:var(--accent)}
-.tab .t-idx{font-size:9px;letter-spacing:.14em;color:var(--dimmer)}
+/* Tab index numerals ("01", "02", …).  Was var(--dimmer) = #A39E94 —
+   contrast 2.14-2.32 against the tab strip.  First bump to #706a60
+   scored 4.3 on paper-2 (#eae6dd), still under WCAG AA (4.5:1) for
+   9px text.  #655f55 scores ≥4.7:1 on every tab-strip surface. */
+.tab .t-idx{font-size:9px;letter-spacing:.14em;color:#655f55}
 .tab .t-lbl{font-size:11px;font-weight:500}
 .tab-beta{display:inline-block;margin-left:4px;padding:0 4px;font-size:8px;letter-spacing:.1em;color:#b88400;background:color-mix(in oklab,#eab308 12%, var(--paper));border:1px solid color-mix(in oklab,#eab308 30%, var(--paper));border-radius:2px;text-transform:uppercase;font-weight:700;vertical-align:text-top}
 .tab .t-ctx{font-size:11px;color:var(--dim);font-family:var(--serif);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
@@ -1589,7 +1593,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
         </div>
       </div>
     </span>
-    <button class="tw-btn" id="twBtn" title="Appearance & layout" aria-label="Appearance settings"><span class="sw-preview" id="twPreview"></span>THEME</button>
+    <button class="tw-btn" id="twBtn" title="Appearance & layout" aria-label="Theme and layout settings"><span class="sw-preview" id="twPreview"></span>THEME</button>
   </div>
 </header>
 
@@ -1818,24 +1822,30 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   </div>
 </div>
 
-<script src="./dashboard-helpers.js"></script>
-<script src="./dashboard-data.js"></script>
-<script src="./dashboard-route.js"></script>
-<script src="./dashboard-offline.js"></script>
-<script src="./dashboard-utils.js"></script>
-<script src="./dashboard-rail.js"></script>
-<script src="./dashboard-labels.js"></script>
-<script src="./dashboard-ui.js"></script>
-<script src="./dashboard-timeline.js"></script>
-<script src="./dashboard-map.js"></script>
-<script src="./dashboard-search.js"></script>
-<script src="./dashboard-filters.js"></script>
-<script src="./dashboard-years.js"></script>
-<script src="./dashboard-profiles.js"></script>
-<script src="./dashboard-methodology.js"></script>
-<script src="./dashboard-about.js"></script>
-<script src="./dashboard-drawer-list.js"></script>
-<script src="./dashboard-reader.js"></script>
+<!-- defer on all modules (added 2026-04-24 per Lighthouse render-blocking
+     audit — ~3.7s savings).  Modules declare globals but do NOT call
+     anything at top level that depends on the inline script block below;
+     they only register handlers / const declarations.  boot() is the
+     single entry point and is moved to DOMContentLoaded at the bottom
+     so it runs AFTER every deferred script has executed. -->
+<script defer src="./dashboard-helpers.js"></script>
+<script defer src="./dashboard-data.js"></script>
+<script defer src="./dashboard-route.js"></script>
+<script defer src="./dashboard-offline.js"></script>
+<script defer src="./dashboard-utils.js"></script>
+<script defer src="./dashboard-rail.js"></script>
+<script defer src="./dashboard-labels.js"></script>
+<script defer src="./dashboard-ui.js"></script>
+<script defer src="./dashboard-timeline.js"></script>
+<script defer src="./dashboard-map.js"></script>
+<script defer src="./dashboard-search.js"></script>
+<script defer src="./dashboard-filters.js"></script>
+<script defer src="./dashboard-years.js"></script>
+<script defer src="./dashboard-profiles.js"></script>
+<script defer src="./dashboard-methodology.js"></script>
+<script defer src="./dashboard-about.js"></script>
+<script defer src="./dashboard-drawer-list.js"></script>
+<script defer src="./dashboard-reader.js"></script>
 <script>
 /* =========================================================================
    UHRI Analytics Dashboard — information-dense analyst UX
@@ -3256,7 +3266,16 @@ async function boot() {
   maybeShowTour();
 }
 
-boot();
+/* Wait for the deferred module scripts to finish executing before we
+   boot.  With `defer` on the external <script src="...">s above,
+   DOMContentLoaded fires AFTER all of them have run — exactly the
+   window we need.  The `readyState` branch handles the race where the
+   document already parsed (e.g. reader cached this inline script). */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
 </script>
 </body>
 </html>
