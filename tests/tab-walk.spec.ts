@@ -64,6 +64,41 @@ test('landing — index.html boots without JS errors', async ({ page }) => {
   expect(errors, `JS errors on landing page:\n${errors.join('\n')}`).toEqual([]);
 });
 
+test('rail facet heads toggle collapsed class — single listener, not N×', async ({ page }) => {
+  /* Regression test for the duplicate-attach bug: buildRail() runs 2–3×
+     during boot (SW cache / facets / analytics phases).  A previous
+     implementation attached a fresh .facet-head click handler on each
+     call, so clicks toggled .collapsed an even number of times on
+     fresh visits — SDG and TYPE (which start collapsed) refused to
+     expand.  The delegated handler in buildRail should fire exactly
+     once per click no matter how many times buildRail ran. */
+  const errors = collectConsoleErrors(page);
+  await page.goto('/dashboard.html', { waitUntil: 'commit' });
+  await page.waitForFunction(() => typeof (globalThis as any).buildRail === 'function', null, { timeout: 5000 });
+  // Simulate the full boot chain running buildRail twice (as it does
+  // on a cold visit: once from Phase-1 facets, once from Phase-2 analytics).
+  await page.evaluate(() => {
+    const stubFacets = { countries: [], bodies: [], regions: [], types: [], min_year: 2006, max_year: 2026 };
+    const stubAnalytics = { themes: { theme_counts: [] }, text: { affected_person_counts: [], sdg_counts: [] }, trends: {} };
+    (globalThis as any).buildRail(stubFacets, stubAnalytics);
+    (globalThis as any).buildRail(stubFacets, stubAnalytics);
+  });
+
+  const sdg = page.locator('[data-facet="sdg"]');
+  await expect(sdg).toHaveClass(/\bcollapsed\b/);  // starts collapsed
+  await sdg.locator('.facet-head').click();
+  await expect(sdg).not.toHaveClass(/\bcollapsed\b/);  // one click, one toggle
+  await sdg.locator('.facet-head').click();
+  await expect(sdg).toHaveClass(/\bcollapsed\b/);  // click-to-collapse still works
+
+  const type = page.locator('[data-facet="type"]');
+  await expect(type).toHaveClass(/\bcollapsed\b/);
+  await type.locator('.facet-head').click();
+  await expect(type).not.toHaveClass(/\bcollapsed\b/);
+
+  expect(errors).toEqual([]);
+});
+
 test('footer About link navigates from Overview', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   await page.goto('/dashboard.html', { waitUntil: 'commit' });

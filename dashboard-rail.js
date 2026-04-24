@@ -63,6 +63,11 @@ function renderKwSyns(expansions) {
 /* =========================================================================
    RAIL
    ========================================================================= */
+/* Guard for the single delegated facet-head click handler below.  Declared
+   at module scope (above buildRail) so accessing it inside the function
+   can never hit the TDZ regardless of call order. */
+let _railCollapseWired = false;
+
 function buildRail(facets, analytics) {
   // --- COUNTRY --- all countries, searchable in-facet
   const countries = cleanCountryList(facets.countries || []).sort();
@@ -153,11 +158,24 @@ function buildRail(facets, analytics) {
     onFiltersChanged();
   }));
 
-  // Facet collapse toggles (clicking head)
-  $$('.facet-head').forEach(h => h.addEventListener('click', e => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-    h.parentElement.classList.toggle('collapsed');
-  }));
+  // Facet collapse toggles: wired ONCE via delegation on the rail
+  // container.  buildRail() gets called 2–3× per boot (once from SW
+  // cache if warm, once after facets land, once after analytics).  The
+  // previous implementation attached a fresh click listener on each
+  // call, so on a fresh visit with no SW cache the handler fired
+  // twice per click → toggled .collapsed 2× → net no change.  SDG
+  // and TYPE (which start with .collapsed) refused to expand.
+  // Delegation solves the duplicate-attach class of bug cleanly.
+  if (!_railCollapseWired) {
+    const rail = document.getElementById('rail') || document.querySelector('.rail') || document;
+    rail.addEventListener('click', e => {
+      const head = e.target.closest('.facet-head');
+      if (!head) return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+      head.parentElement.classList.toggle('collapsed');
+    });
+    _railCollapseWired = true;
+  }
 }
 
 /* Region facet render — driven by state.regionTaxonomy ('m49' | 'unGroups').
