@@ -43,6 +43,14 @@ function renderAbout() {
         <p style="color:var(--dim);font-size:12px;margin-top:-6px">Research hosted by <strong>Adam Mickiewicz University, Poznań</strong>. Documentation-standards expertise provided by <strong>HURIDOCS</strong>. Upstream data: <strong>OHCHR Universal Human Rights Index</strong>. The supporters listed fund, host and advise the project; they do not speak for it.</p>
       </section>
 
+      <section class="me-sec" id="ab-privacy">
+        <h2>Privacy</h2>
+        <p>This dashboard uses <strong>Google Analytics 4</strong> to understand which features get used — nothing more.  It is <strong>consent-gated</strong>: a banner on your first visit lets you accept or reject; the default is "off".  Your choice persists in <code>localStorage</code>.  You can change it any time by clearing site data.</p>
+        <p><strong>What is sent</strong> (only after you accept): which tab you opened (<code>overview</code>, <code>country</code>, <code>search</code>, etc.), a few discrete actions (dataset toggle cleaned↔raw, upload button clicked, Instant Mode clicked), and the anonymised aggregates Google collects by default (approximate country from truncated IP, device type, referrer).</p>
+        <p><strong>What is never sent</strong>: the text of your keyword queries, the specific records you open in the reader, your saved notes or bookmarks, rule names in the Labels workspace, the contents of an uploaded dataset, your IP address in clear.  Ad personalisation and Google signals are disabled by configuration.  If your browser sends the <code>Do Not Track</code> header, Google Analytics is not loaded at all — not even in default-denied mode.</p>
+        <p style="color:var(--dim);font-size:12px;margin-top:-4px">Why we track at all: a research tool nobody can tell is being used risks losing its supporter funding and never learning which pieces actually land.  The measurement ID is <code>G-F3XBX45HQC</code>; the policy above is enforced by the code in <code>dashboard-analytics.js</code> which you can read in the public repository.</p>
+      </section>
+
       <section class="me-sec" id="ab-feedback">
         <h2>Feedback &amp; contact</h2>
         <p>Spotted a mis-classified record, a cleaning regression, a country that should have a hex, or a missing feature? Email <a href="mailto:l.szoszkiewicz@amu.edu.pl">l.szoszkiewicz@amu.edu.pl</a> or open an issue on the <a href="https://github.com/lszoszk/UnitedNations_recommendations" target="_blank" rel="noopener">GitHub repository</a>. Bug reports with a URL (copy the address bar — filter state is encoded in the hash) plus a one-line description of what you expected are the fastest to triage.</p>

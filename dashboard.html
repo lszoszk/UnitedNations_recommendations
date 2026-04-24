@@ -14,6 +14,39 @@
 <meta name="theme-color" content="#0b0d0b" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/svg+xml" href="icon-192.svg">
 <link rel="apple-touch-icon" href="icon-192.svg">
+<!-- Google Analytics 4 (G-F3XBX45HQC) — consent-gated, privacy-aware.
+     Full privacy policy + opt-out UX in dashboard-analytics.js.
+     Key properties of this setup:
+       * Consent Mode v2 defaults to DENIED — gtag loads but sends nothing
+         until the user explicitly opts in via the banner.
+       * Skipped entirely when the browser sends DNT=1.
+       * IP anonymised, ad personalisation + Google signals disabled.
+       * `send_page_view: false` — we fire page_view manually on SPA
+         navigation so single-page nav events still show up in GA. -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('consent', 'default', {
+    analytics_storage: 'denied',
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    wait_for_update: 500,
+  });
+  if (!(navigator.doNotTrack === '1' || window.doNotTrack === '1')) {
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=G-F3XBX45HQC';
+    document.head.appendChild(s);
+    gtag('js', new Date());
+    gtag('config', 'G-F3XBX45HQC', {
+      anonymize_ip: true,
+      allow_ad_personalization_signals: false,
+      allow_google_signals: false,
+      send_page_view: false,
+    });
+  }
+</script>
 <style>
 :root{
   --paper:#F2EFE8; --paper-2:#EAE6DD; --paper-3:#E1DCD0;
@@ -1357,6 +1390,26 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 .rpt-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
 
 /* responsive */
+/* GA consent banner — bottom-right pill.  Non-blocking (no overlay),
+   dismissible with either button or Escape.  Stays out of the way of
+   the primary UI but is visible enough that a user doesn't accidentally
+   opt in by missing it.  Styled to match the dashboard palette — no
+   branded Google/cookie iconography.  Hidden on mobile breakpoints so
+   it doesn't cover the bottom nav; the SPA works identically either
+   way (consent defaulted to denied, tracking is no-op). */
+.ga-consent{position:fixed;bottom:16px;right:16px;max-width:440px;background:var(--paper);border:1px solid var(--ink);box-shadow:0 12px 40px rgba(0,0,0,.18);padding:14px 16px 12px;font:13px var(--sans);line-height:1.5;color:var(--ink);z-index:200;animation:ga-consent-in .25s ease-out}
+.ga-consent-text{margin-bottom:10px}
+.ga-consent-text strong{font-weight:600}
+.ga-consent-more{color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;margin-left:4px;cursor:pointer}
+.ga-consent-more:hover{color:var(--ink);border-color:var(--ink)}
+.ga-consent-actions{display:flex;gap:8px;justify-content:flex-end}
+.ga-consent-actions button{font:11px var(--mono);letter-spacing:.08em;padding:8px 14px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;text-transform:uppercase}
+.ga-consent-actions button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.ga-consent-actions button.primary:hover{background:var(--ink-2)}
+.ga-consent-actions button.ghost:hover{background:var(--paper-2)}
+@keyframes ga-consent-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:720px){.ga-consent{left:8px;right:8px;bottom:8px;max-width:none;font-size:12px}}
+
 .mobile-menu-btn{display:none;border:1px solid var(--line);background:var(--paper);padding:3px 9px;color:var(--ink);font-size:14px;cursor:pointer;margin-right:4px}
 .mobile-menu-btn:hover{background:var(--paper-2)}
 .mobile-backdrop{position:fixed;inset:0;background:rgba(15,15,16,.5);z-index:25;animation:fadeIn .2s}
@@ -1875,6 +1928,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <script defer src="./dashboard-about.js"></script>
 <script defer src="./dashboard-drawer-list.js"></script>
 <script defer src="./dashboard-reader.js"></script>
+<script defer src="./dashboard-analytics.js"></script>
 <script>
 /* =========================================================================
    UHRI Analytics Dashboard — information-dense analyst UX
@@ -2623,6 +2677,10 @@ async function navigate(view) {
   $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + view));
   announce('Navigated to ' + view);
   _pushUrlState();
+  // Analytics: log the view change.  No-op until user opts in via the
+  // consent banner; we intentionally do NOT pass filter/keyword state —
+  // only the anonymous tab name.
+  if (typeof trackView === 'function') trackView(view);
   if (view === 'overview') await renderOverview();
   else if (view === 'country') await renderCountry();
   else if (view === 'theme') await renderTheme();
@@ -2722,6 +2780,7 @@ function _switchDataset(next) {
   }
   state.filters.dataset = next;
   try { localStorage.setItem(DS_KEY, next); } catch {}
+  if (typeof trackEvent === 'function') trackEvent('dataset_toggle', { to: next });
   // Nuke the response cache — cleaned / raw responses share endpoint
   // paths and would collide otherwise. Also abort in-flight requests so
   // stale responses don't clobber the fresh ones.
@@ -2955,7 +3014,10 @@ async function boot() {
   }));
 
   // Upload-your-own-dataset button (#2 feature parity)
-  $('#uploadBtn').addEventListener('click', triggerUpload);
+  $('#uploadBtn').addEventListener('click', () => {
+    if (typeof trackEvent === 'function') trackEvent('upload_clicked', {});
+    triggerUpload();
+  });
 
   // Offline & Private Mode button (#27)
   const offlineBtnEl = $('#offlineBtn');
@@ -2967,6 +3029,7 @@ async function boot() {
       showOfflineContextMenu(offlineBtnEl, ev);
       return;
     }
+    if (typeof trackEvent === 'function') trackEvent('instant_mode_clicked', {});
     // Tier 4B: if we have a fresh cached snapshot, skip the 420 MB download.
     const snap = await idbOffline.getSnapshot();
     if (idbOffline.isFresh(snap)) {

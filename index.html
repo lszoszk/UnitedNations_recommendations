@@ -8,6 +8,34 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 
+<!-- Google Analytics 4 (G-F3XBX45HQC) — consent-gated, DNT-respecting,
+     anonymised.  See dashboard-analytics.js for banner + event API,
+     and the Privacy section on the About tab for the end-user policy. -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('consent', 'default', {
+    analytics_storage: 'denied',
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    wait_for_update: 500,
+  });
+  if (!(navigator.doNotTrack === '1' || window.doNotTrack === '1')) {
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=G-F3XBX45HQC';
+    document.head.appendChild(s);
+    gtag('js', new Date());
+    gtag('config', 'G-F3XBX45HQC', {
+      anonymize_ip: true,
+      allow_ad_personalization_signals: false,
+      allow_google_signals: false,
+      send_page_view: false,
+    });
+  }
+</script>
+
 <script>
   // Tweakable defaults — patched in place by the host when user flips a Tweak.
   window.__TWEAKS__ = /*EDITMODE-BEGIN*/{
@@ -2968,5 +2996,24 @@
 })();
 
 </script>
+
+<!-- Analytics consent banner + trackers (shared with dashboard.html).
+     No-ops when DNT=1 or after user has explicitly rejected.  CSS for
+     the banner is inline below to keep the landing zero-build. -->
+<style>
+.ga-consent{position:fixed;bottom:16px;right:16px;max-width:440px;background:var(--paper);border:1px solid var(--ink);box-shadow:0 12px 40px rgba(0,0,0,.18);padding:14px 16px 12px;font:13px var(--sans,system-ui,sans-serif);line-height:1.5;color:var(--ink);z-index:200;animation:ga-consent-in .25s ease-out}
+.ga-consent-text{margin-bottom:10px}
+.ga-consent-text strong{font-weight:600}
+.ga-consent-more{color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;margin-left:4px;cursor:pointer}
+.ga-consent-more:hover{color:var(--ink);border-color:var(--ink)}
+.ga-consent-actions{display:flex;gap:8px;justify-content:flex-end}
+.ga-consent-actions button{font:11px var(--mono);letter-spacing:.08em;padding:8px 14px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;text-transform:uppercase}
+.ga-consent-actions button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.ga-consent-actions button.primary:hover{background:var(--ink-2,var(--ink))}
+.ga-consent-actions button.ghost:hover{background:var(--paper-2)}
+@keyframes ga-consent-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:720px){.ga-consent{left:8px;right:8px;bottom:8px;max-width:none;font-size:12px}}
+</style>
+<script defer src="./dashboard-analytics.js"></script>
 </body>
 </html>

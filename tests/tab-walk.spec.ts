@@ -19,6 +19,11 @@ const TOLERATED: RegExp[] = [
   /Phase 1 boot failed/i,
   /Failed to fetch/i,
   /\[freshness\] render failed/i,
+  // Google Analytics requests are blocked by the test env's CSP /
+  // network isolation — gtag.js loads with consent default=denied,
+  // nothing is ever sent.  Don't fail tests on GA network noise.
+  /googletagmanager\.com/i,
+  /google-analytics\.com/i,
 ];
 
 function collectConsoleErrors(page: Page): string[] {
