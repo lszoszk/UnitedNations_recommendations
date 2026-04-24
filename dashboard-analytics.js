@@ -46,6 +46,37 @@ function _gaDoNotTrack() {
   return navigator.doNotTrack === '1' || window.doNotTrack === '1';
 }
 
+/* Map an internal view key to (human title, path segment) for GA4.
+   The title is what researchers will see in Reports → Pages & screens;
+   putting the surface context in front makes it possible to tell at a
+   glance whether a page_view came from the landing or from the
+   dashboard, and which tab of the dashboard.  Order matters in the
+   title — "UHRI Dashboard" first so the Pages & screens list groups
+   dashboard entries together alphabetically. */
+const _VIEW_LABELS = {
+  landing:     { title: 'UHRI — Landing',                    path: '/landing' },
+  overview:    { title: 'UHRI Dashboard — Overview',         path: '/dashboard/overview' },
+  country:     { title: 'UHRI Dashboard — Country profile',  path: '/dashboard/country' },
+  compare:     { title: 'UHRI Dashboard — Compare A vs B',   path: '/dashboard/compare' },
+  group:       { title: 'UHRI Dashboard — Concerned group',  path: '/dashboard/group' },
+  theme:       { title: 'UHRI Dashboard — Theme profile',    path: '/dashboard/theme' },
+  sdg:         { title: 'UHRI Dashboard — SDG profile',      path: '/dashboard/sdg' },
+  mechanism:   { title: 'UHRI Dashboard — Mechanism profile',path: '/dashboard/mechanism' },
+  search:      { title: 'UHRI Dashboard — Search',           path: '/dashboard/search' },
+  bookmarks:   { title: 'UHRI Dashboard — Bookmarks',        path: '/dashboard/bookmarks' },
+  labels:      { title: 'UHRI Dashboard — Labels workspace', path: '/dashboard/labels' },
+  methodology: { title: 'UHRI Dashboard — Methodology',      path: '/dashboard/methodology' },
+  about:       { title: 'UHRI Dashboard — About',            path: '/dashboard/about' },
+};
+
+function _viewLabel(viewName) {
+  const v = String(viewName || '').toLowerCase();
+  return _VIEW_LABELS[v] || {
+    title: 'UHRI Dashboard — ' + (viewName || 'unknown'),
+    path:  '/dashboard/' + (viewName || 'unknown'),
+  };
+}
+
 /* Public API — view + event tracking.  No-ops if consent isn't granted
    or gtag failed to load (DNT, network block, etc.).  Callers never
    need to check consent themselves; just call trackView / trackEvent
@@ -53,9 +84,10 @@ function _gaDoNotTrack() {
 function trackView(viewName) {
   if (!_gaConsentIsGranted() || typeof window.gtag !== 'function') return;
   try {
+    const label = _viewLabel(viewName);
     window.gtag('event', 'page_view', {
-      page_title: String(viewName || ''),
-      page_path: '/view/' + String(viewName || 'overview'),
+      page_title: label.title,
+      page_path: label.path,
     });
   } catch (_) { /* never let analytics break the app */ }
 }
