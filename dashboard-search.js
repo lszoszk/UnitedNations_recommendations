@@ -568,6 +568,37 @@ async function loadNextSearchPage() {
     console.error(err);
     const n = $('#seN');
     if (n) n.textContent = 'failed';
+    // In-place error card in the list area — previously the list was
+    // left blank (so users staring at a "failed" counter up top would
+    // see no explanation below).  Shows the reason + retry + hint.
+    // Caught by user-flow C5: "very-unlikely-phrase-xyz123" + similar
+    // special-char inputs cause 500 responses upstream which lack CORS
+    // headers.  Browser reports it as a CORS error; the root cause is
+    // the backend's query parser not gracefully handling oddly-shaped
+    // input.  Dashboard shouldn't stay blank for that.
+    const list = $('#seList');
+    if (list && state.searchPage === 1) {
+      const kw = (state.filters.kw || '').trim();
+      const looksLikeBadSyntax = /["'*()&|]/.test(kw) && !/\s(AND|OR|NOT)\s/i.test(kw);
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="es-title">Search couldn't run</div>
+          <div class="es-sub">The server returned an error for "<code>${sanitize(kw.slice(0, 80))}</code>".
+            ${looksLikeBadSyntax
+              ? 'This often means odd punctuation or an unclosed quote/paren confused the query parser.'
+              : 'This is usually a transient backend issue — give it a few seconds and retry.'}</div>
+          <div class="se-warn-hint">
+            <span class="ico">!</span>Query tips:<br>
+            <code>torture AND detention</code> both terms ·
+            <code>"forced labour"</code> exact phrase ·
+            <code>LGBT*</code> prefix match ·
+            <code>climate NOT green</code> exclude
+          </div>
+          <button class="primary" onclick="state.filters.kw='';document.getElementById('kwInput').value='';onFiltersChanged();">Clear keyword</button>
+          <button onclick="document.getElementById('kwInput').focus();document.getElementById('kwInput').select();">Edit keyword</button>
+        </div>`;
+      state.searchExhausted = true;
+    }
     toast('Search failed: ' + err.message, true);
   }
 }

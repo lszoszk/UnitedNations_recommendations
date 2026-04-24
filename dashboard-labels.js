@@ -465,7 +465,11 @@ function rulesPaintCount(rule) {
   const pct = (n / denom * 100).toFixed(n < 100 ? 2 : 1);
   el.textContent = `${fmt(n)} (${pct}%)`;
   el.className = 'rule-count ' + (n === 0 ? 'zero' : (n >= 50 && n <= 20000 ? 'ok' : 'warn'));
-  el.title = `${fmt(n)} of ${fmt(total)} records match · click card for details`;
+  // The denominator shown in the tooltip mirrors the denom used for pct
+  // above (rail total if filtered, dataset total if not).  Previous line
+  // referenced an undefined `total` — crashed as pageerror each time a
+  // rule rendered.  Caught by user-flow H5 (Labels starter click).
+  el.title = `${fmt(n)} of ${fmt(denom)} records match · click card for details`;
 }
 
 function rulesRefreshAllCounts() {

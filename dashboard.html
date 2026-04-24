@@ -2748,7 +2748,20 @@ async function renderOverview(opts = {}) {
    dashboard-*.js sibling (see ARCHITECTURE.md for the module map). This
    function stays inline because it's the one seam that touches every view
    — extracting it would only move the giant if-chain, not simplify it. */
+const _VALID_VIEWS = new Set([
+  'overview','country','compare','group','theme','sdg','mechanism',
+  'search','bookmarks','labels','methodology','about',
+]);
 async function navigate(view) {
+  // Fallback: typo URLs like `#view=serch` or `#view=methology` used
+  // to produce a completely blank dashboard because EVERY .view got
+  // the `hidden` class (none matched the unknown view id).  Caught by
+  // user-flow C9 (typo URL test).  Default to overview instead so the
+  // user at least sees the homepage.
+  if (!_VALID_VIEWS.has(view)) {
+    console.warn('[navigate] unknown view:', view, '→ falling back to overview');
+    view = 'overview';
+  }
   state.view = view;
   $$('.tab').forEach(t => {
     const isActive = t.dataset.nav === view;
