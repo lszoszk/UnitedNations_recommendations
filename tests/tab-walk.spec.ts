@@ -104,6 +104,65 @@ test('rail facet heads toggle collapsed class — single listener, not N×', asy
   expect(errors).toEqual([]);
 });
 
+test('drawer-list — single-record load does not duplicate (race fix)', async ({ page }) => {
+  /* Regression test for the 2026-04-24 duplicate-card bug: openListDrawer
+     awaited loadMoreListDrawer() for its first fetch, but simultaneously
+     rendered the sentinel which fired the IntersectionObserver's own
+     load call before the awaited one finished.  Two concurrent fetches,
+     two pushes of the same record into ctx.records, 2 identical cards
+     rendered from 1 API result.  Fixed by a ctx._loading reentrancy
+     guard. */
+  const errors = collectConsoleErrors(page);
+  await page.goto('/dashboard.html', { waitUntil: 'commit' });
+  await page.waitForFunction(() => typeof (globalThis as any).openListDrawer === 'function', null, { timeout: 5000 });
+
+  // Stub fetch to guarantee a known response: 1 record, same ID on any
+  // duplicate call.  If the race regressed, ctx.records would grow to 2.
+  await page.evaluate(() => {
+    const stubRec = {
+      AnnotationId: 'test-uuid-0001',
+      Text: 'stub',
+      TextPlainCleaned: 'stub',
+      Countries: ['Albania'],
+      Themes: [], AffectedPersons: [], Sdgs: [], Body: 'Stub',
+      PublicationDate: '2012-01-01',
+    };
+    const origFetch = window.fetch;
+    window.fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.includes('/api/data/records') && url.includes('countries=')) {
+        return new Response(JSON.stringify({
+          ok: true, total_records: 1, page: 1, page_size: 30,
+          records: [stubRec], snippet: '',
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return origFetch(input, init);
+    };
+  });
+
+  await page.evaluate(() => (globalThis as any).openListDrawer('country', 'Albania'));
+  await page.waitForTimeout(1500);
+
+  // Check the DOM (classic-script `state` const isn't exposed on
+  // globalThis — DOM is the robust source of truth).  Header text
+  // "1 matching records · showing 1" vs the regressed "… · showing 2"
+  // is a reliable signal.
+  const result = await page.evaluate(() => {
+    const cards = document.querySelectorAll('.dr-list-card');
+    const head = document.querySelector('.dr-list-head .n');
+    return {
+      domCardCount: cards.length,
+      uniqueDomIds: new Set(Array.from(cards).map(c => (c as HTMLElement).dataset?.id)).size,
+      headText: head?.textContent?.trim() || '',
+    };
+  });
+
+  expect(result.headText, 'head text should show 1 matching / 1 shown').toContain('showing 1');
+  expect(result.domCardCount, 'DOM cards == total (no race duplicates)').toBe(1);
+  expect(result.uniqueDomIds, 'no duplicate cards with same id').toBe(1);
+  expect(errors).toEqual([]);
+});
+
 test('footer About link navigates from Overview', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   await page.goto('/dashboard.html', { waitUntil: 'commit' });

@@ -95,6 +95,20 @@ function listDrawerFilter() {
 async function loadMoreListDrawer() {
   const ctx = state.drawerList;
   if (!ctx || ctx.exhausted) return;
+  // Concurrency guard (fix 2026-04-24 for duplicate-row bug).
+  // Before this guard, openListDrawer did `await loadMoreListDrawer()`
+  // to fetch the first page.  renderDrawer() then drew the sentinel
+  // at the top of an empty list (no records yet), and the freshly-
+  // attached IntersectionObserver saw the sentinel intersecting and
+  // fired its own loadMoreListDrawer() call — before the awaited one
+  // had finished.  Two concurrent calls both fetched page=1, both
+  // pushed identical records, and ctx.records ended with [rec, rec]
+  // (→ "1 matching records · showing 2" in the drawer head, with a
+  // duplicate card rendered).  The `_loading` flag short-circuits
+  // the racing second caller; ctx.exhausted handles subsequent pages
+  // as before.
+  if (ctx._loading) return;
+  ctx._loading = true;
   const pageSize = 30;
   try {
     const r = await api.records(listDrawerFilter(), ctx.page, pageSize, { scope: 'drawerList' });
@@ -110,6 +124,8 @@ async function loadMoreListDrawer() {
     renderDrawer();
   } catch (err) {
     if (err.name !== 'AbortError') console.warn('drawer-list load failed', err);
+  } finally {
+    ctx._loading = false;
   }
 }
 
