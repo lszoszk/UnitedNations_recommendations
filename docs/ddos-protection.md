@@ -9,37 +9,74 @@ Three defensive layers, in order of effort.  You can ship layer 1 alone and skip
 
 ---
 
-## Layer 1 — nginx rate-limits + cache (low effort, ~30 min, zero cost)
+## Layer 1 — nginx rate-limits + scanner-UA block (low effort, ~30 min, zero cost)
 
-Copy-paste `docs/nginx-rate-limit.conf` into the VM's nginx config.  What you get:
+**Status: deployed live on the UHRI VM on 2026-04-24.**  This is
+the baseline protection the API VM runs today.
+
+The config is split into two files because `map` can live at http
+scope (`conf.d/*.conf`) but `if` + `limit_req` + `limit_conn` must
+live inside `server { }`.  Applying involves:
+
+1. Drop `docs/nginx-zones.conf` into `/etc/nginx/conf.d/` (zones +
+   UA map, safe standalone file).
+2. Apply the 4 edits from `docs/nginx-server-snippet.md` to the
+   existing server block in `/etc/nginx/sites-enabled/default`.
+   That doc ships a ready-to-run `sed` script for deterministic,
+   reversible application.
+
+What the live deployment enforces:
 
 | Protection | Value |
 |---|---|
-| Per-IP request rate | 20 req/s sustained, burst to 60 |
-| Per-IP concurrent connections | max 10 (stops slow-loris) |
-| Bulk-endpoint rate | 30 req/min (covers `/api/data/full` + `/export`) |
-| Scanner-UA block | `nuclei` / `nikto` / `sqlmap` / `masscan` / empty UA → 403 |
-| Cached endpoints | `facets`, `map`, `analytics`, `health` for 60 s; `records` for 30 s |
-| Stale-while-revalidate | Live users never wait for a cache refill even if upstream is sluggish |
+| Per-IP request rate on `/uhri-api/*` | 20 req/s sustained, burst to 60 → 429 |
+| Per-IP bulk-endpoint rate (`/full`, `/export`, `/feedback`) | 30 req/min → 429 |
+| Per-IP concurrent connections | Max 10 (slow-loris defence) → 429 |
+| Scanner-UA block | `nuclei` / `nikto` / `sqlmap` / `masscan` / `zgrab` / `spiderfoot` / empty → 403 |
+| Mattermost + ECHR_API traffic | Unrate-limited (different locations) |
+| Existing header-based caching (SWR 15 min / immutable 24 h / private 60 s) | Untouched |
+| Known-good AI agent UAs (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, CCBot) | Allowed, subject to rate limits |
 
-**Apply:**
-
-```bash
-sudo cp docs/nginx-rate-limit.conf /etc/nginx/conf.d/uhri-rate-limit.conf
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-**Verify:**
+**Verified live** via:
 
 ```bash
-# Hammer the API with 50 parallel identical requests
-seq 50 | xargs -n1 -P10 -I{} curl -sk -o /dev/null -w "%{http_code}\n" \
-  https://150.254.115.204/uhri-api/api/data/facets | sort | uniq -c
+# Normal request → 200
+curl -sk -o /dev/null -w "%{http_code}\n" \
+  https://150.254.115.204/uhri-api/api/data/facets
+# → 200
 
-# Expected: first ~60 get 200, rest 429 OR served from cache (check X-Cache-Status).
+# Scanner UA → 403
+curl -sk -o /dev/null -w "%{http_code}\n" \
+  -H "User-Agent: sqlmap/1.0" \
+  https://150.254.115.204/uhri-api/api/data/facets
+# → 403
+
+# 100 parallel requests → mix of 200 and 429
+seq 100 | xargs -P20 -I{} curl -sk -o /dev/null -w "%{http_code}\n" \
+  https://150.254.115.204/uhri-api/api/data/records \
+  | sort | uniq -c
+# → ~60 × 200 (under burst limit) + ~40 × 429 (rate-limited)
 ```
 
-**Estimated capacity after layer 1**: ~5 k concurrent distinct-user sessions on a small VM without breaking a sweat.  Repeated burst attacks get 429'd.
+**Estimated capacity after layer 1**: ~5 k concurrent distinct-user
+sessions on a small VM without breaking a sweat.  Repeated burst
+attacks get 429'd.  Individual distinct users (up to 20 req/s each)
+are unaffected.
+
+### Gotchas learned the hard way on 2026-04-24
+
+1. **Never put backups inside `/etc/nginx/sites-enabled/`.**  nginx
+   globs that directory (`include sites-enabled/*`) and will parse
+   `default.bak-*` as a live config — triggering `duplicate upstream`
+   errors.  Backups go to `~/` or `/etc/nginx/backups/`.
+2. **`if` is not allowed at http scope.**  Earlier drafts of this
+   runbook put the scanner-UA check inside `conf.d/*.conf`; nginx
+   rejects that with `"if" directive is not allowed here`.  The
+   current split (zones in conf.d, `if` in server block) is correct.
+3. **Default rate-limit status is 503, not 429.**  Override via
+   `limit_req_status 429; limit_conn_status 429;` in the zones
+   file.  429 semantically correct, triggers client backoff instead
+   of retry storms, not mis-cached by CDNs as "origin down".
 
 ---
 
