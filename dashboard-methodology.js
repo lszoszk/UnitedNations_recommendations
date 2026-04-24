@@ -93,13 +93,17 @@ async function renderFreshnessCard() {
    dev-oriented 40-word paragraph nobody read; the module map lives
    in ARCHITECTURE.md where contributors look for it. Country coverage
    + Regional classification merged into one "Coverage" section since
-   they describe two facets of the same topic (geography). */
+   they describe two facets of the same topic (geography).
+   2026-04-24: added "UHRI comparison" section after Search semantics
+   — anticipates the "why do my counts differ?" question researchers
+   ask when they cross-check against uhri.ohchr.org. */
 const _METHODOLOGY_TOC = [
   ['me-data-source', 'Data source'],
   ['me-cleanup', 'Cleanup pipeline'],
   ['me-impact', 'Impact on results'],
   ['me-coverage', 'Country & region coverage'],
   ['me-search-semantics', 'Search semantics'],
+  ['me-uhri-comparison', 'Comparison with OHCHR UHRI'],
   ['me-freshness', 'Dataset freshness'],
   ['me-glossary', 'Glossary'],
 ];
@@ -176,6 +180,18 @@ function renderMethodology() {
           <li><strong>Latin/Greek plurals:</strong> medium/media, basis/bases, criterion/criteria, phenomenon/phenomena, crisis/crises, index/indices, analysis/analyses</li>
         </ul>
         <p style="color:var(--dim);font-size:12px;margin-top:-4px">Rejected for asymmetric impact: <em>detain/detention</em> (verb vs -ion noun are legally distinct). To disable expansion for a single query, wrap the term in quotes — <code>"woman"</code> matches only the exact token. Phrases (<code>"climate change"</code>) are never expanded.</p>
+      </section>
+
+      <section class="me-sec" id="me-uhri-comparison">
+        <h2>Comparison with OHCHR UHRI native search</h2>
+        <p>Running the same keyword through this dashboard and through the native search at <a href="https://uhri.ohchr.org" target="_blank" rel="noopener">uhri.ohchr.org</a> will often return different hit counts. On <strong>2026-04-24</strong> we ran a 20-query battery against both systems on the same day. The headline findings:</p>
+        <ul>
+          <li><strong>Corpus equivalence confirmed.</strong> Literal single-word queries (<code>torture</code>, <code>judiciary</code>, <code>migrant</code>, <code>cyberbullying</code>) agree within <strong>0.2 %</strong>. We're looking at the same 267k records, minus the 11 Stage-5 artefacts.</li>
+          <li><strong>Our dashboard finds 10–60× more hits</strong> on queries that benefit from FTS5 semantics: Porter stemming (<code>discriminate</code> → <code>discrimin*</code> matches <em>discrimination, discriminatory</em>), irregular-plural expansion (<code>woman</code> → <code>woman OR women</code>), diacritic normalisation (<code>Türkiye</code> matches <em>Turkiye</em>/<em>Turkey</em>), and stopword-aware phrase tokenisation (<code>rule of law</code> → <code>rule AND law</code>).</li>
+          <li><strong>Boolean operators only work here.</strong> UHRI's search treats uppercase <code>AND</code>/<code>OR</code>/<code>NOT</code> as literal words; we parse them as operators.</li>
+          <li><strong>One reverse case — <code>LGBTQ</code>.</strong> UHRI returned 262 hits vs our 24. Likely because UHRI searches metadata (theme labels, taxonomy tags) that our keyword index doesn't currently reach. If you're querying identity acronyms or institutional abbreviations, use the rail <em>Theme</em>/<em>Group</em> filter — that path draws on the same metadata.</li>
+        </ul>
+        <p style="color:var(--dim);font-size:12px;margin-top:-4px"><strong>If you want UHRI-like behaviour here</strong>, wrap every keyword in double quotes — that disables the plural rewriter and narrows phrase matching. <strong>To reproduce the test</strong>, see the full 20-query table, per-category analysis, and raw data in the <a href="./docs/uhri-comparison.md" target="_blank" rel="noopener" style="color:var(--accent);border-bottom:1px dotted var(--accent);text-decoration:none">UHRI comparison document</a>.</p>
       </section>
 
       <section class="me-sec" id="me-freshness">

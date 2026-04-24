@@ -21,6 +21,7 @@ function renderAbout() {
       <section class="me-sec" id="ab-independence">
         <h2>Independence</h2>
         <p>This is a <strong>research project, not an OHCHR product</strong>. It republishes data from the OHCHR Universal Human Rights Index (<a href="https://uhri.ohchr.org/" target="_blank" rel="noopener">uhri.ohchr.org</a>) under the terms made public there. Data use does not imply endorsement by OHCHR, the United Nations, or any of the Member States involved in the underlying records. The views, cleaning decisions and interface choices are the author's alone.</p>
+        <p style="color:var(--dim);font-size:12px;margin-top:-6px"><strong>Corpus validated against UHRI.</strong> On 2026-04-24 we ran a 20-query test battery against both this dashboard and the native OHCHR search. Literal-token queries agreed within 0.2 %, confirming both surfaces look at the same ~267,000-record corpus; observed divergences on semantic queries (plurals, stemmed forms, boolean operators) are explained by our richer FTS5 configuration. Full report: <a href="./docs/uhri-comparison.md" target="_blank" rel="noopener" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none">docs/uhri-comparison.md</a>.</p>
       </section>
 
       <section class="me-sec" id="ab-what-for">
