@@ -829,6 +829,30 @@ a{color:inherit;text-decoration:none}
 .mech-tiles.compact .mech-tile .mt-count{font-size:18px;margin:0;flex:0 0 auto}
 .mech-tiles.compact .mech-tile .mt-sub,
 .mech-tiles.compact .mech-tile .mt-desc{display:none}
+
+/* Compact + with-desc — used in the drawer at-a-glance.  Stacks the
+   three rows vertically (each tile = a small card) so the description
+   has a full line below the count instead of being squeezed into the
+   inline row. The drawer column is ~280px wide; a horizontal layout
+   doesn't leave room for 2-3 lines of explainer text. */
+.mech-tiles.compact.with-desc .mech-tile{flex-direction:column;align-items:flex-start;padding:12px 14px;gap:2px}
+.mech-tiles.compact.with-desc .mech-tile .mt-name{font-size:15px;margin:0}
+.mech-tiles.compact.with-desc .mech-tile .mt-count{font-size:22px;margin-top:4px}
+.mech-tiles.compact.with-desc .mech-tile .mt-desc{display:block;font-size:11px;line-height:1.45;color:var(--ink-2);margin-top:6px}
+
+/* Single-sentence orientation callout above the dataset stats in the
+   drawer at-a-glance. Sits between the hand-set serif title and the
+   three KPI numbers — gives the drawer its own piece of standalone
+   useful content (instead of being a pure mirror of the centre KPI
+   strip). */
+.dr-glance .dg-callout{
+  font:11px/1.5 var(--mono);
+  color:var(--ink-2);
+  margin:6px 0 14px;
+  padding:8px 10px;
+  background:var(--paper-2);
+  border-left:2px solid var(--accent);
+}
 /* Reusable "family pill" — slim version for inline use in headers etc. */
 .mech-pill{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;font:10px var(--mono);letter-spacing:.06em;border:1px solid var(--mp-color,var(--line));color:var(--mp-color,var(--ink));background:var(--paper)}
 .mech-pill.tb{--mp-color:var(--mech-tb)}
@@ -2703,19 +2727,27 @@ function renderOverviewAnalytics(analytics) {
   state.analytics = analytics;
   const mechCounts = _computeMechCounts();
   if (mechCounts && mechCounts._total > 0) {
+    // Centre KPI strip — three numbers, no descriptions. The
+    // explainers ("Independent expert committees…", "Peer review of
+    // every UN State…") live in the drawer at-a-glance instead so the
+    // top of Overview reads as a clean three-tile KPI band rather
+    // than three paragraphs of mechanism-101 prose.
     renderMechTiles($('#ovMechTiles'), mechCounts, {
       mode: 'full',
+      showDesc: false,
       onClick: (family) => _openFamilyListDrawer(family),
     });
   }
   // Also refresh the drawer if it's currently on the empty at-a-glance
   // panel — the tiles there show the same counts and were rendered
-  // before analytics arrived.
+  // before analytics arrived.  Drawer keeps the descriptions (it IS
+  // the explainer panel now); centre stays count-only.
   if (!state.selectedRec && state.drawerMode !== 'list') {
     const drTiles = $('#drMechTiles');
     if (drTiles && mechCounts && mechCounts._total > 0) {
       renderMechTiles(drTiles, mechCounts, {
         mode: 'compact',
+        showDesc: true,
         onClick: (family) => _openFamilyListDrawer(family),
       });
     }
@@ -2774,6 +2806,18 @@ async function renderOverview(opts = {}) {
   const root = $('#view-overview');
 
   if (opts.keepPrevious) root.classList.add('updating');
+
+  // Paint the drawer at-a-glance immediately on Overview entry so the
+  // right panel is never just "SELECTED · RECOMMENDATION" + an empty
+  // body.  Previously renderDrawer() only ran when the user clicked
+  // CLEAR (or selected a record), making the drawer look broken on
+  // first visit.  Safe to call here: when state.selectedRec is null
+  // the function renders the at-a-glance + mechanism explainers; when
+  // a record IS selected (e.g. user navigated back to Overview from a
+  // reader view) it keeps the existing record render.
+  if (typeof renderDrawer === 'function') {
+    try { renderDrawer(); } catch (e) { console.warn('[renderOverview] renderDrawer failed:', e); }
+  }
 
   // Explicitly mark the analytics-dependent panels as "pending" so the
   // user knows themes / groups / timeline are being recomputed for the

@@ -391,11 +391,18 @@ function aggregateMechanismCounts(source) {
 
 /* Render three clickable mechanism tiles. Used by both the Overview
    KPI strip and the drawer at-a-glance panel. `mode` controls layout:
-    - 'full'    — 3-column grid with counts + description
-    - 'compact' — single-column stack, count-first (drawer)
+    - 'full'    — 3-column grid (Overview center)
+    - 'compact' — single-column stack (drawer / mobile)
+   `showDesc` overrides the per-mode default for the description line:
+    - omitted → 'full' shows desc, 'compact' hides it (legacy behaviour)
+    - true    → desc visible regardless of mode (drawer at-a-glance with
+                explainers; the centre KPI strip stays clean)
+    - false   → desc hidden regardless of mode (centre strip — counts
+                only, descriptions live in the drawer companion panel)
    `onClick(familyKey)` fires when a tile is activated. */
-function renderMechTiles(container, counts, { mode = 'full', onClick = null } = {}) {
+function renderMechTiles(container, counts, { mode = 'full', showDesc, onClick = null } = {}) {
   if (!container) return;
+  const wantDesc = (showDesc === undefined) ? (mode === 'full') : !!showDesc;
   const tiles = MECH_FAMILIES.map(f => {
     const n = counts[f.key] || 0;
     const pct = counts._total ? Math.round(100 * n / counts._total) : null;
@@ -404,10 +411,12 @@ function renderMechTiles(container, counts, { mode = 'full', onClick = null } = 
         <div class="mt-family">${f.label}</div>
         <div class="mt-name">${f.full}</div>
         <div class="mt-count">${fmt(n)}${pct !== null ? ` <span class="mt-sub" style="display:inline;font-size:11px;margin-left:4px">${pct}%</span>` : ''}</div>
-        ${mode === 'full' ? `<div class="mt-desc">${f.desc}</div>` : ''}
+        ${wantDesc ? `<div class="mt-desc">${f.desc}</div>` : ''}
       </button>`;
   }).join('');
-  container.className = 'mech-tiles' + (mode === 'compact' ? ' compact' : '');
+  container.className = 'mech-tiles'
+    + (mode === 'compact' ? ' compact' : '')
+    + (wantDesc ? ' with-desc' : '');
   container.innerHTML = tiles;
   if (onClick) {
     container.querySelectorAll('.mech-tile').forEach(el => {

@@ -128,6 +128,7 @@ function renderDrawer() {
       <div class="dr-glance">
         <div class="dg-eyebrow">UHRI · at a glance</div>
         <div class="dg-title">Three UN mechanisms. One dataset.</div>
+        <div class="dg-callout">The largest open dataset of UN human-rights recommendations — built from OHCHR UHRI, cleaned and unified across all three mechanisms.</div>
         <div class="dg-stats">
           <div class="s"><span class="n">${fmt(total)}</span>records</div>
           <div class="s"><span class="n">${nCountries || '—'}</span>countries</div>
@@ -142,8 +143,13 @@ function renderDrawer() {
         <div>Click any record on the map, in a list, or in Search to preview it here.<br><br>Or press <kbd style="border:1px solid var(--line);padding:0 4px;font-family:var(--mono)">⌘K</kbd> for the command palette.</div>
       </div>`;
     if (hasMech) {
+      // Drawer is the explainer panel — show the descriptions on each
+      // tile (UPR / Treaty Bodies / Special Procedures) so first-time
+      // visitors learn what each mechanism IS without first having to
+      // click around.  The centre FIG.00 strip is now count-only.
       renderMechTiles($('#drMechTiles'), mechCounts, {
         mode: 'compact',
+        showDesc: true,
         onClick: (family) => _openFamilyListDrawer(family),
       });
     }

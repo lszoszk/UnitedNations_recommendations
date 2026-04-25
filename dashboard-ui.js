@@ -157,12 +157,17 @@ function renderPalette(q) {
    2. Keyboard: t (palette cycle), [ (rail), ] (drawer)
    3. Command palette: type "palette archive" / "density cozy" / "toggle rail"
    All changes persist to localStorage. */
-// First-visit Overview: drawer starts hidden so the map + analytics get full
-// breathing room. Drawer auto-opens when a record / list context is selected
-// (renderDrawer does `if (state.selectedRec && TW.drawer===false) TW.drawer=true`).
-// After first visit, TW.drawer persists to `true` via the existing tweak write path.
+// Drawer starts OPEN by default — it now hosts the at-a-glance panel
+// (UHRI dataset stats + the three-mechanism explainer with descriptions
+// of UPR / Treaty Bodies / Special Procedures) so first-time visitors
+// learn what each mechanism IS without having to click around.  The
+// previous "drawer hidden on first visit" heuristic left the right
+// panel either empty or stuck on a stale "SELECTED · RECOMMENDATION"
+// header until the user clicked CLEAR — confusing UX, fixed by always
+// painting the explainer up front. User can still toggle the drawer
+// via `]` keyboard shortcut or the topbar tweak panel.
 const _firstVisit = !localStorage.getItem('uhri_v2_tour_done');
-const TW = { palette: 'archive', density: 'tight', rail: true, drawer: !_firstVisit };
+const TW = { palette: 'archive', density: 'tight', rail: true, drawer: true };
 const PALETTES = ['archive', 'terminal', 'ink'];
 const PALETTE_PREVIEW = { archive: '#F2EFE8', terminal: '#0b0d0b', ink: '#ffffff' };
 
