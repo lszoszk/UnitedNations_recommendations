@@ -218,7 +218,7 @@ async function renderChoroplethMap(container, countryCounts) {
         `<span class="s" style="background:color-mix(in oklab, var(--accent) ${Math.round(v*90)}%, var(--paper-2))"></span>`
       ).join('')}
       <span>${fmt(maxCount)}</span>
-      <span style="margin-left:auto;color:var(--dim);font-size:10px">drag to pan · scroll to zoom · click = filter · dblclick = profile</span>
+      <span style="margin-left:auto;color:var(--dim);font-size:10px" title="drag to pan · scroll to zoom · click = filter · dblclick = profile">drag to pan · scroll to zoom · click = filter · dblclick = profile</span>
     </div>`;
 
   const tip = $('#mapTip', container);
@@ -821,8 +821,30 @@ function renderHexMap(container, countryCounts) {
   // hex row.  (Previously: returning from a region zoom to the world
   // view left a wide empty band at the top because the content got
   // vertically centered in a taller viewBox.)
+  //
+  // IMPORTANT: aspect must use the SVG element's OWN rendered height,
+  // not the parent container's full height — the parent ALSO contains
+  // the region-button row above and the scale row below the SVG, plus
+  // (after the user clicked ⓘ once) the M49 popover.  Including those
+  // ~80–280px of chrome puffed the aspect denominator and made the
+  // viewBox math compute a too-tall content box; with preserveAspectRatio
+  // = "xMidYMid meet" the hexes scaled down and sat in the top portion
+  // of a 520px SVG with a wide empty band underneath them.  Most
+  // visible after returning from a region zoom to the world view.
   const rect = container.getBoundingClientRect();
-  const containerAspect = (rect.width && rect.height) ? (rect.width / rect.height) : 2.2;
+  const existingSvg = container.querySelector('.hex-svg');
+  // Existing SVG (re-render path) — read its CSS-driven height directly.
+  // First-render path: fall back to the CSS default, picking the right
+  // value for the current breakpoint.  The two values must stay in sync
+  // with the `.hex-svg{height:520px}` rule and its mobile @media variant
+  // `.hex-svg{height:360px}` in dashboard.html.
+  let svgPx = existingSvg ? existingSvg.getBoundingClientRect().height : 0;
+  if (!svgPx) {
+    const isNarrow = typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(max-width: 960px)').matches;
+    svgPx = isNarrow ? 360 : 520;
+  }
+  const containerAspect = (rect.width && svgPx) ? (rect.width / svgPx) : 2.2;
   const naturalAspect = natW / natH;
   if (naturalAspect > containerAspect) {
     // Content wider than container → pad natH at the BOTTOM only.
@@ -926,7 +948,7 @@ function renderHexMap(container, countryCounts) {
       <span>0</span>
       ${[0.15,0.32,0.52,0.72,0.92].map(v => `<span class="s" style="background:color-mix(in oklab, var(--accent) ${Math.round(v*100)}%, var(--paper-2))"></span>`).join('')}
       <span>${fmt(MAX)}</span>
-      <span style="margin-left:auto;color:var(--dim);font-size:10px">${shownHexes.length} ${region === 'world' ? 'states' : 'in region'} · click = filter · dblclick = profile</span>
+      <span style="margin-left:auto;color:var(--dim);font-size:10px" title="${shownHexes.length} ${region === 'world' ? 'states' : 'in region'} · click = filter · dblclick = profile">${shownHexes.length} ${region === 'world' ? 'states' : 'in region'} · click = filter · dblclick = profile</span>
     </div>`;
 
   // Region zoom buttons — `[data-region]` so we don't also toggle the

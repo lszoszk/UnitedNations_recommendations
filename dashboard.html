@@ -604,8 +604,14 @@ a{color:inherit;text-decoration:none}
 .map-tooltip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:11px;padding:5px 8px;transform:translate(-50%,-130%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:5}
 .map-tooltip.show{opacity:1}
 .map-tooltip .n{color:var(--accent);font-weight:700;margin-left:6px}
-.map-scale{display:flex;gap:2px;align-items:center;margin-top:6px;font-size:10px;color:var(--dim)}
-.map-scale .s{width:18px;height:8px}
+.map-scale{display:flex;flex-wrap:nowrap;gap:2px;align-items:center;margin-top:6px;font-size:10px;color:var(--dim);min-width:0}
+.map-scale .s{width:18px;height:8px;flex:0 0 auto}
+/* The trailing hint span ("drag to pan · scroll to zoom · click = filter…")
+   used to wrap to a second line on narrow main-content widths, pushing
+   itself outside .map-wrap and (with overflow:visible) bleeding onto the
+   next panel below.  Force a single-line ellipsis instead — the full
+   hint stays available via the title tooltip. */
+.map-scale > span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* Hex tile map — one hex per state party, visual-fairness layout */
 .map-modes{display:flex;gap:0;border:1px solid var(--line);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase}
@@ -1628,7 +1634,12 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .cp-head{grid-template-columns:1fr}
   .cp-kpis{grid-template-columns:repeat(2,1fr);gap:12px}
   .cp-body,.cmp-body{grid-template-columns:1fr}
-  .map-wrap{height:240px}
+  /* min-height (not height) — the SVG inside is 360px on this breakpoint
+     (.hex-svg @media rule below), and a fixed 240px container would clip
+     the SVG by 120px, letting it overflow into the next panel.  Use the
+     240px as a floor only so the loading skeleton still has something
+     visible while the map data is in flight. */
+  .map-wrap{min-height:240px}
   .tab{min-width:110px}
   .tab .t-ctx{max-width:100px}
 
