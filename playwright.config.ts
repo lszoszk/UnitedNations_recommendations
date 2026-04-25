@@ -19,6 +19,14 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests',
+  /* Exclude two suites that have their own configs:
+     - contracts/  → playwright.contracts.config.ts (live VM, no localhost)
+     - user-flows  → playwright.live.config.ts (live deployed dashboard)
+     Both run via dedicated npm scripts (test:contracts / test:live-flows).
+     Without this exclusion, `npm test` (the smoke suite) would try to
+     run them against localhost and fail because the URL/baseURL doesn't
+     match what they expect. */
+  testIgnore: ['**/contracts/**', '**/user-flows.spec.ts'],
   fullyParallel: false,      // one browser, tests share a serving port
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

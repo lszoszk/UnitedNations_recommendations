@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/record-by-id.json",
+  "title": "GET /api/data/record/{annotation_id}",
+  "description": "Single-record lookup by AnnotationId.  Used for permalink resolution and reader-mode deep links.  Returns 404 with `error.json` shape when the id doesn't exist.",
+  "type": "object",
+  "required": ["ok", "record"],
+  "properties": {
+    "ok":     { "type": "boolean" },
+    "record": { "$ref": "records.json#/$defs/record" }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/analytics.json",
+  "title": "GET /api/data/analytics",
+  "description": "Full analytics payload: themes, affected-person groups, SDGs, yearly trends.  Slowest endpoint (~10s cold).  Frontend computes mechanism-family counts client-side from trends.yearly_body_counts and feeds the per-tile sparklines from yearly_theme_counts / yearly_affected_person_counts / yearly_sdg_counts.",
+  "type": "object",
+  "required": ["ok", "text", "themes", "trends"],
+  "properties": {
+    "ok":                  { "type": "boolean" },
+    "requested_sections":  { "type": "array", "items": { "type": "string" } },
+    "text": {
+      "type": "object",
+      "properties": {
+        "affected_person_counts": { "type": "array", "items": { "$ref": "#/$defs/labelCount" } },
+        "sdg_counts":             { "type": "array", "items": { "$ref": "#/$defs/labelCount" } },
+        "yearly_affected_person_counts": { "type": "array", "items": { "$ref": "#/$defs/yearlyLabel" } },
+        "yearly_sdg_counts":      { "type": "array", "items": { "$ref": "#/$defs/yearlyLabel" } },
+        "bigram_counts":          { "type": "array" },
+        "body_avg_text_length":   { "type": ["object", "array"], "description": "Object keyed by body name → avg-text-length when body filter is active; empty array `[]` otherwise." },
+        "sampled":                { "type": "boolean" },
+        "sample_size":            { "type": "integer", "minimum": 0 },
+        "total_records":          { "type": "integer", "minimum": 0 }
+      }
+    },
+    "themes": {
+      "type": "object",
+      "properties": {
+        "theme_counts":         { "type": "array", "items": { "$ref": "#/$defs/labelCount" } },
+        "yearly_theme_counts":  { "type": "array", "items": { "$ref": "#/$defs/yearlyLabel" } }
+      }
+    },
+    "trends": {
+      "type": "object",
+      "properties": {
+        "yearly_counts":            { "type": "array", "items": { "$ref": "#/$defs/yearlyLabel" } },
+        "yearly_body_counts":       { "type": "array", "items": { "$ref": "#/$defs/yearlyLabel" } },
+        "yearly_region_counts":     { "type": "array", "items": { "$ref": "#/$defs/yearlyLabel" } },
+        "yearly_type_counts":       { "type": "array", "items": { "$ref": "#/$defs/yearlyLabel" } },
+        "dataset_first_publication_date": { "type": ["string", "null"] },
+        "dataset_last_publication_date":  { "type": ["string", "null"] }
+      }
+    }
+  },
+  "$defs": {
+    "labelCount": {
+      "type": "object",
+      "required": ["count"],
+      "properties": {
+        "theme":           { "type": "string" },
+        "affected_person": { "type": "string" },
+        "sdg":             { "type": "string" },
+        "body":            { "type": "string" },
+        "region":          { "type": "string" },
+        "country":         { "type": "string" },
+        "count":           { "type": "integer", "minimum": 0 }
+      }
+    },
+    "yearlyLabel": {
+      "type": "object",
+      "required": ["year", "count"],
+      "properties": {
+        "year":            { "type": "integer", "minimum": 1990, "maximum": 2100 },
+        "count":           { "type": "integer", "minimum": 0 },
+        "theme":           { "type": "string" },
+        "affected_person": { "type": "string" },
+        "sdg":             { "type": "string" },
+        "body":            { "type": "string" },
+        "region":          { "type": "string" },
+        "country":         { "type": "string" }
+      }
+    }
+  }
+}

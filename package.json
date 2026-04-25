@@ -7,8 +7,11 @@
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
+    "test:contracts": "playwright test --config=playwright.contracts.config.ts",
+    "test:live-flows": "playwright test --config=playwright.live.config.ts",
     "serve": "python3 -m http.server 8787"
   },
+  "apiSchemaVersion": "v1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lszoszk/UnitedNations_recommendations.git"
@@ -16,6 +19,8 @@
   "author": "L. Szoszkiewicz",
   "license": "ISC",
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.59.1",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
   }
 }

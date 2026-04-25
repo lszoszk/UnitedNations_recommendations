@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/records.json",
+  "title": "GET /api/data/records",
+  "description": "Paginated records with full filter parameters.  Drives the search results list, drawer-list mode, drill-down record browsing.  Page/page_size required.",
+  "type": "object",
+  "required": ["ok", "page", "page_size", "total_pages", "total_records", "records"],
+  "properties": {
+    "ok":             { "type": "boolean" },
+    "page":           { "type": "integer", "minimum": 1 },
+    "page_size":      { "type": "integer", "minimum": 1 },
+    "total_pages":    { "type": "integer", "minimum": 0 },
+    "total_records":  { "type": "integer", "minimum": 0 },
+    "records":        { "type": "array", "items": { "$ref": "#/$defs/record" } },
+    "snippet":        { "type": "string", "description": "Optional FTS5 highlight snippet — returned only on text_query searches." },
+    "search_expansions": { "type": "array", "items": { "type": "object" }, "description": "Optional synonym-expansion chips ('woman → women') surfaced under the keyword input." },
+    "search_warning": { "type": "string", "description": "Optional non-fatal hint about the query." }
+  },
+  "$defs": {
+    "record": {
+      "type": "object",
+      "required": ["AnnotationId", "PublicationDate", "Countries", "Body"],
+      "properties": {
+        "AnnotationId":      { "type": "string", "description": "UUID; primary key." },
+        "Symbol":            { "type": ["string", "null"] },
+        "Text":              { "type": ["string", "null"] },
+        "TextPlainRaw":      { "type": ["string", "null"] },
+        "TextPlainCleaned":  { "type": ["string", "null"] },
+        "SectionHeadings":   { "type": "array", "items": { "type": "string" } },
+        "Stage2Changes":     { "type": "array" },
+        "DocumentId":        { "type": ["string", "null"] },
+        "PublicationDate":   { "type": "string", "description": "ISO-8601" },
+        "AnnotationType":    { "type": ["string", "null"] },
+        "Countries":         { "type": "array", "items": { "type": "string" } },
+        "AffectedPersons":   { "type": "array", "items": { "type": "string" } },
+        "Themes":            { "type": "array", "items": { "type": "string" } },
+        "Sdgs":              { "type": "array", "items": { "type": "string" } },
+        "Regions":           { "type": "array", "items": { "type": "string" } },
+        "Body":              { "type": "string" }
+      }
+    }
+  }
+}

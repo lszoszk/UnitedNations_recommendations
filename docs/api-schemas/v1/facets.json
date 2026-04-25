@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/facets.json",
+  "title": "GET /api/data/facets",
+  "description": "Facet taxonomy + dataset totals.  Drives the rail filters (#n-country, #n-body etc.), the year slider min/max, and is the canonical source for dataset record count.  Frontend caches this for ~24h.",
+  "type": "object",
+  "required": ["ok", "countries", "bodies", "regions", "types", "min_year", "max_year", "total_records"],
+  "properties": {
+    "ok":             { "type": "boolean" },
+    "countries":      { "type": "array", "items": { "type": "string" }, "minItems": 100, "description": "Includes the 198+ canonical UN states plus a small set of dirty entries (2-letter ISO leaks like AU/CO/CZ); the frontend filters via cleanCountryList." },
+    "bodies":         { "type": "array", "items": { "type": "string" }, "minItems": 50, "description": "All recommending bodies; classified into UPR / Treaty Bodies / Special Procedures families client-side." },
+    "regions":        { "type": "array", "items": { "type": "string" }, "description": "Treaty Body / HRC electoral groups taxonomy ('Eastern Europe', 'Western Europe & Others', etc.). The hex map and overview use a separate M49 taxonomy resolved client-side." },
+    "types":          { "type": "array", "items": { "type": "string" } },
+    "min_year":       { "type": "integer", "minimum": 1990, "maximum": 2100 },
+    "max_year":       { "type": "integer", "minimum": 1990, "maximum": 2100 },
+    "total_records":  { "type": "integer", "minimum": 1, "description": "Cleaned-pipeline total. Should be ~267k as of 2026-04." }
+  }
+}

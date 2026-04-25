@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/summary.json",
+  "title": "GET /api/data/summary",
+  "description": "KPI strip data (total / countries / bodies / themes / years), yearly_counts for the timeline, body_counts for the mechanism aggregation.  Cheaper than /analytics; frontend uses it as a quick summary path.",
+  "type": "object",
+  "required": ["ok", "total_records", "countries_count", "bodies_count", "themes_count", "min_year", "max_year", "yearly_counts", "body_counts"],
+  "properties": {
+    "ok":              { "type": "boolean" },
+    "total_records":   { "type": "integer", "minimum": 0 },
+    "countries_count": { "type": "integer", "minimum": 0 },
+    "bodies_count":    { "type": "integer", "minimum": 0 },
+    "themes_count":    { "type": "integer", "minimum": 0 },
+    "min_year":        { "type": ["integer", "null"], "minimum": 1990, "maximum": 2100 },
+    "max_year":        { "type": ["integer", "null"], "minimum": 1990, "maximum": 2100 },
+    "avg_per_year":    { "type": ["integer", "number", "null"] },
+    "yearly_counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["year", "count"],
+        "properties": {
+          "year":  { "type": "integer", "minimum": 1990, "maximum": 2100 },
+          "count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "body_counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["body", "count"],
+        "properties": {
+          "body":  { "type": "string" },
+          "count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "region_counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["region", "count"],
+        "properties": {
+          "region": { "type": "string" },
+          "count":  { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "analysis_ready":  { "type": "boolean" },
+    "analysis_limit":  { "type": "integer", "minimum": 1 }
+  }
+}

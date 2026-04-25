@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/health.json",
+  "title": "GET /api/data/health",
+  "description": "Liveness check + dataset metadata. Frontend uses ok+dataset_ready to gate boot, modified_at to surface freshness in the topbar, db_ready to confirm FTS5 readiness.",
+  "type": "object",
+  "required": ["ok", "dataset_ready", "db_ready"],
+  "properties": {
+    "ok":                    { "type": "boolean" },
+    "dataset_ready":         { "type": "boolean" },
+    "dataset_path":          { "type": "string" },
+    "size_bytes":            { "type": ["integer", "null"], "minimum": 0 },
+    "modified_at":           { "type": ["string", "null"], "description": "ISO-8601 with timezone" },
+    "downloaded_at":         { "type": ["string", "null"] },
+    "message":               { "type": ["string", "null"] },
+    "analysis_export_limit": { "type": "integer", "minimum": 1 },
+    "db_ready":              { "type": "boolean" },
+    "db_path":               { "type": "string" }
+  }
+}

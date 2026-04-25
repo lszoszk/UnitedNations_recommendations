@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/map.json",
+  "title": "GET /api/data/map",
+  "description": "Country-level counts feeding the hex map and choropleth on Overview + Country profile.  Note: country_counts may include records where the filtered country appears as one of multiple Countries on the same record (cross-tagging); the frontend trims this to the filtered set when a region filter is active.",
+  "type": "object",
+  "required": ["ok", "total_records", "country_counts"],
+  "properties": {
+    "ok":             { "type": "boolean" },
+    "total_records":  { "type": "integer", "minimum": 0 },
+    "country_counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["country", "count"],
+        "properties": {
+          "country": { "type": "string", "minLength": 1 },
+          "count":   { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}

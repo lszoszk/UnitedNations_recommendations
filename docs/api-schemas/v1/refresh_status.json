@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/refresh_status.json",
+  "title": "GET /api/data/refresh_status",
+  "description": "Pipeline freshness + Stage 2 LLM review status.  Drives the Methodology dataset-freshness card and the freshness chip in the topbar.",
+  "type": "object",
+  "required": ["ok", "total_records", "last_refresh_date", "schema_version", "cleaned_available"],
+  "properties": {
+    "ok":                    { "type": "boolean" },
+    "total_records":         { "type": "integer", "minimum": 1 },
+    "llm_applied":           { "type": "integer", "minimum": 0 },
+    "llm_no_changes":        { "type": "integer", "minimum": 0 },
+    "llm_candidates":        { "type": "integer", "minimum": 0 },
+    "llm_rejected":          { "type": "object" },
+    "last_refresh_date":     { "type": "string", "description": "ISO-8601 date YYYY-MM-DD" },
+    "changelog_markdown":    { "type": "string" },
+    "delta_added":           { "type": "integer" },
+    "delta_removed":         { "type": "integer" },
+    "delta_changed":         { "type": "integer" },
+    "pending_llm":           { "type": "integer", "minimum": 0 },
+    "schema_version":        { "type": "string" },
+    "cleaned_available":     { "type": "boolean" }
+  }
+}

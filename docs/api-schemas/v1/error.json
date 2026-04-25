@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/error.json",
+  "title": "Error envelope",
+  "description": "Returned for any 4xx/5xx status code.  Two shapes coexist:\n  (a) FastAPI default `{detail: '...'}` — used by 404 (record not found), 405 (method not allowed), 422 (validation).\n  (b) Patched bad-query envelope `{error: 'bad_query_syntax', detail: '...'}` — used by the global exception handler when sqlite3.OperationalError leaks from FTS5.\nBoth shapes MUST include CORS headers when the request origin is approved (see test-plan §B.3).",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["detail"],
+      "properties": {
+        "detail": { "type": ["string", "object", "array"] }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["error", "detail"],
+      "properties": {
+        "error":  { "type": "string", "enum": ["bad_query_syntax"] },
+        "detail": { "type": "string" }
+      }
+    }
+  ]
+}

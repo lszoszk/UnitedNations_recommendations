@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uhri-api/v1/cache_status.json",
+  "title": "GET /api/data/cache_status",
+  "description": "Server-side LRU cache observability.  Surfaced only on Methodology / debug surfaces; not user-facing.",
+  "type": "object",
+  "required": ["ok", "size", "maxsize", "ttl_seconds", "hits", "misses", "hit_rate"],
+  "properties": {
+    "ok":                    { "type": "boolean" },
+    "size":                  { "type": "integer", "minimum": 0 },
+    "maxsize":               { "type": "integer", "minimum": 1 },
+    "ttl_seconds":           { "type": "integer", "minimum": 1 },
+    "hits":                  { "type": "integer", "minimum": 0 },
+    "misses":                { "type": "integer", "minimum": 0 },
+    "evictions":             { "type": "integer", "minimum": 0 },
+    "hit_rate":              { "type": "number", "minimum": 0, "maximum": 1 },
+    "warmed":                { "type": "boolean" },
+    "oldest_age_seconds":    { "type": ["integer", "null"] },
+    "newest_age_seconds":    { "type": ["integer", "null"] }
+  }
+}
