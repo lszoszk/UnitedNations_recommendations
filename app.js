@@ -3005,81 +3005,22 @@
          *   complex AND+OR mixes
          */
         function buildTextQueryParams(rawQuery) {
+            // Server uses SQLite FTS5 which natively supports AND / OR / NOT /
+            // "phrase". We pass the user's query through verbatim and let the
+            // server-side parser (_fts5_boolean in unhr_dataset_api.py) build the
+            // proper FTS5 MATCH expression.
+            //
+            // Earlier rounds split queries client-side into text_query_any /
+            // text_query_all / text_exclude — those params are silently dropped
+            // by the FTS5 backend's signature, which is exactly why
+            // "detained OR prison" returned the unfiltered count (the cache then
+            // collided across requests with different unknown params, producing
+            // the impossible "938" the user saw).
+            //
+            // Regex queries (re:… or /…/flags) are passed through unchanged; the
+            // server falls back to its REGEXP path for those.
             const raw = String(rawQuery || '').trim();
-            const empty = { text_query: '', text_exclude: '', text_query_any: [], text_query_all: [] };
-            if (!raw) return empty;
-
-            // Regex mode — pass through untouched.
-            if (raw.startsWith('re:') || (raw.startsWith('/') && raw.lastIndexOf('/') > 0)) {
-                return { ...empty, text_query: raw };
-            }
-            // No boolean operators at all → plain substring LIKE.
-            if (!/\b(AND|OR|NOT)\b/.test(raw) && !raw.includes('"')) {
-                return { ...empty, text_query: raw };
-            }
-
-            // Parse the query so we can pick the cheapest native-LIKE form.
-            const tokens = [];
-            const re = /"([^"]+)"|(\bAND\b|\bOR\b|\bNOT\b)|(\S+)/g;
-            let m;
-            while ((m = re.exec(raw)) !== null) {
-                if (m[1] !== undefined) tokens.push({ type: 'phrase', value: m[1] });
-                else if (m[2]) tokens.push({ type: 'op', value: m[2] });
-                else if (m[3]) tokens.push({ type: 'word', value: m[3] });
-            }
-            const orGroups = [[]];
-            let negate = false;
-            for (const tok of tokens) {
-                if (tok.type === 'op') {
-                    if (tok.value === 'OR') { orGroups.push([]); negate = false; }
-                    else if (tok.value === 'NOT') { negate = true; }
-                } else {
-                    orGroups[orGroups.length - 1].push({ term: tok.value, negate });
-                    negate = false;
-                }
-            }
-
-            // Shape 1 — "A NOT B" or "NOT B" or "A AND B NOT C": one OR-group, N positives,
-            // exactly 1 negative. Use text_query/text_query_all + text_exclude so the backend
-            // runs native LIKE + NOT LIKE instead of a PCRE regex with chained lookaheads.
-            // Widened from the prior ≤1-positive rule to cover common shapes like
-            //   "\"freedom of expression\" AND women NOT minors" (observed 30s timeout).
-            if (orGroups.length === 1) {
-                const g = orGroups[0];
-                const positives = g.filter(c => !c.negate);
-                const negatives = g.filter(c => c.negate);
-                if (negatives.length === 1) {
-                    if (positives.length >= 2) {
-                        return { ...empty, text_query_all: positives.map(c => c.term), text_exclude: negatives[0].term };
-                    }
-                    return { ...empty, text_query: positives[0]?.term || '', text_exclude: negatives[0].term };
-                }
-
-                // Shape 2 — "A AND B AND C": one OR-group, multiple positives, no negative.
-                // Route to text_query_all → (LIKE %a% AND LIKE %b% AND …). Native scans.
-                if (negatives.length === 0 && positives.length >= 2) {
-                    return { ...empty, text_query_all: positives.map(c => c.term) };
-                }
-            }
-
-            // Shape 3 — "A OR B OR C": multiple OR-groups, each with exactly one
-            // positive clause, no negatives anywhere. Route to text_query_any →
-            // (LIKE %a% OR LIKE %b% OR …). Native scans, no regex.
-            const isPureOr = orGroups.length >= 2 && orGroups.every(g => g.length === 1 && !g[0].negate);
-            if (isPureOr) {
-                return { ...empty, text_query_any: orGroups.map(g => g[0].term) };
-            }
-
-            // Fall back to regex for mixed shapes (AND+OR, multi-NOT, phrases with ops, etc.)
-            // Plan C: surface Offline Mode as the fast escape hatch before the inevitable 30s
-            // timeout. Triggered only when the compiled regex uses ≥2 lookarounds — the
-            // pattern that empirically saturates the backend REGEXP scan on the VM.
-            const fallback = convertTextQueryForServer(raw);
-            const lookaroundCount = (fallback.match(/\(\?[=!<]/g) || []).length;
-            if (lookaroundCount >= 2 && typeof showComplexQueryAdvisory === 'function') {
-                try { showComplexQueryAdvisory(raw); } catch (_) { /* non-critical */ }
-            }
-            return { ...empty, text_query: fallback };
+            return { text_query: raw, text_exclude: '', text_query_any: [], text_query_all: [] };
         }
 
         /**
