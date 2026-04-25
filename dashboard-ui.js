@@ -317,6 +317,13 @@ function startTour() {
     const s = TOUR_STEPS[step];
     const target = document.querySelector(s.target);
     if (!target) { next(); return; }  // skip if target doesn't exist
+    // Bring the target into the visible area before measuring. The tabs
+    // strip (.tabs) is overflow-x:auto and the Labels tab (10/11) is
+    // routinely scrolled off the right edge — without this, the rect
+    // is past the viewport and the spotlight lands offscreen while the
+    // popup gets clamped back, making it look like the popup is
+    // pointing at the wrong element.
+    try { target.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch {}
     const r = target.getBoundingClientRect();
     const pad = 6;
     spot.style.top = (r.top - pad) + 'px';
