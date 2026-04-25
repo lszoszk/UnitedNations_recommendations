@@ -154,9 +154,25 @@
 <style>
 :root{
   --paper:#F2EFE8; --paper-2:#EAE6DD; --paper-3:#E1DCD0;
-  --ink:#0F0F10; --ink-2:#2A2824; --dim:#6B6863; --dimmer:#A39E94;
+  --ink:#0F0F10; --ink-2:#2A2824; --dim:#525049; --dimmer:#67645E;
+  /* WCAG 2.2 AA contrast sweep — 2026-04-25:
+     - --dim was #6B6863 → ratio 4.45 against --paper-2 (0.05 short of
+       4.5:1).  First darkened to #5D5B56 (CSS-pure ratio 5.3) but axe
+       still reported 4.43 on `.ga-consent-more` (dotted-underline
+       border interferes with axe's effective-colour calculation in
+       some sub-pixel scenarios).  Pushed further to #525049 → 6.0+
+       ratio, well above any axe quirk threshold.
+     - --dimmer was #A39E94 → ratio 2.14, used in 15 places as
+       tertiary text (facet-head idx / count / toggle, placeholders,
+       hint, etc.). Bumped to #67645E → 4.7 ratio. Visual hierarchy
+       with --dim narrows but still distinguishable by font-weight +
+       size + letter-spacing in the actual usages. */
   --line:rgba(15,15,16,.14); --line-2:rgba(15,15,16,.06);
-  --accent:oklch(0.62 0.17 27); --accent-soft:oklch(0.62 0.17 27 / .14);
+  /* --accent was oklch(0.62 0.17 27) ≈ #d9544b — ratio 3.43 against
+     paper, fails WCAG AA for normal text (links, badges, error toasts).
+     Lightness reduced 0.62 → 0.50 → ≈ #b03b32; ratio ~5.0. Hue + chroma
+     unchanged so the brand orange-red identity is preserved. */
+  --accent:oklch(0.50 0.17 27); --accent-soft:oklch(0.50 0.17 27 / .14);
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --serif:"Instrument Serif","Times New Roman",serif;
   --rail-w:280px; --drawer-w:340px; --top-h:44px;
@@ -384,7 +400,10 @@ a{color:inherit;text-decoration:none}
    9px text.  #655f55 scores ≥4.7:1 on every tab-strip surface. */
 .tab .t-idx{font-size:9px;letter-spacing:.14em;color:#655f55}
 .tab .t-lbl{font-size:11px;font-weight:500}
-.tab-beta{display:inline-block;margin-left:4px;padding:0 4px;font-size:8px;letter-spacing:.1em;color:#b88400;background:color-mix(in oklab,#eab308 12%, var(--paper));border:1px solid color-mix(in oklab,#eab308 30%, var(--paper));border-radius:2px;text-transform:uppercase;font-weight:700;vertical-align:text-top}
+/* Amber β badge — text colour darkened from #b88400 (ratio 2.66 on
+   paper-2, fails 4.5:1) to #7a5500 → ratio 5.4. Background keeps the
+   eab308 12% wash so the warm amber identity is intact. */
+.tab-beta{display:inline-block;margin-left:4px;padding:0 4px;font-size:8px;letter-spacing:.1em;color:#7a5500;background:color-mix(in oklab,#eab308 12%, var(--paper));border:1px solid color-mix(in oklab,#eab308 30%, var(--paper));border-radius:2px;text-transform:uppercase;font-weight:700;vertical-align:text-top}
 .tab .t-ctx{font-size:11px;color:var(--dim);font-family:var(--serif);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
 
 .view{padding:0}
@@ -1010,7 +1029,7 @@ a{color:inherit;text-decoration:none}
    instead of "No records match your filters" when the query is
    structurally bad. Tag: search-warning-v1. */
 .se-warn-hint{margin:12px 0 4px;padding:10px 14px;background:color-mix(in oklab,#eab308 14%, var(--paper));border-left:3px solid #b88400;font:11px var(--mono);color:var(--ink);line-height:1.55;text-align:left;max-width:520px;margin-left:auto;margin-right:auto}
-.se-warn-hint .ico{color:#b88400;font-weight:700;margin-right:6px}
+.se-warn-hint .ico{color:#7a5500;font-weight:700;margin-right:6px}  /* darkened from #b88400 — passes 4.5:1 against paper */
 .se-warn-hint code{background:var(--paper);border:1px solid var(--line);padding:0 4px;font-size:10px;color:var(--ink);margin:0 2px}
 .se-kw-clear:hover{border-color:#b91c1c;color:#b91c1c}
 .se-sort{font:10px var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;display:inline-flex;gap:6px;align-items:center}
@@ -1092,10 +1111,21 @@ a{color:inherit;text-decoration:none}
 .se-item .se-tags .tg-kind{font:9px var(--mono);color:var(--dimmer);font-weight:700;letter-spacing:.12em;margin-right:2px}
 .se-item .se-tags .tg-kind:not(:first-child){margin-left:6px}
 .se-item .se-tags span.tg-val{font:10px var(--mono);padding:2px 8px;border:1px solid var(--line);color:var(--ink-2);letter-spacing:.04em;background:var(--paper)}
-.se-item .se-actions{display:flex;gap:6px;margin-top:10px;opacity:.25;transition:opacity .15s}
-.se-item:hover .se-actions,.se-item.expanded .se-actions{opacity:1}
-.se-item .se-actions button{padding:4px 10px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
-.se-item .se-actions button:hover{border-color:var(--ink);background:var(--paper-2)}
+/* Action buttons on search-result rows — show muted-but-readable in
+   the default state, full-strength on hover / focus-within / expanded.
+   Previously opacity:.25 hid them visually but failed WCAG 4.5:1 (the
+   effective rendered colour was ~rgb(185,183,178), ratio 1.74 against
+   paper).  The new pattern keeps the same visual quietness via
+   --dim text + dotted/light borders, then escalates to --ink on
+   interaction.  Both states pass 4.5:1, and keyboard users now get a
+   visibility lift on focus-within (the previous opacity rule had no
+   focus reveal). */
+.se-item .se-actions{display:flex;gap:6px;margin-top:10px;transition:opacity .15s}
+.se-item .se-actions button{padding:4px 10px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--dim);cursor:pointer;transition:color .12s,border-color .12s,background .12s}
+.se-item:hover .se-actions button,
+.se-item.expanded .se-actions button,
+.se-item:focus-within .se-actions button{color:var(--ink)}
+.se-item .se-actions button:hover{border-color:var(--ink);background:var(--paper-2);color:var(--ink)}
 .se-item .se-actions button.pinned{background:var(--accent);color:var(--paper);border-color:var(--accent)}
 .se-item .se-actions button.starred{color:#d97706;border-color:#d97706}
 .se-item .kw-count{display:inline-block;background:var(--accent);color:var(--paper);font-size:9px;letter-spacing:.04em;padding:1px 5px;margin-right:6px;font-family:var(--mono);border-radius:1px;vertical-align:1px}
@@ -1504,7 +1534,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 .ds-pill{position:relative;border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;cursor:pointer;color:var(--dim);display:inline-flex;align-items:center;gap:5px;text-transform:uppercase}
 .ds-pill:hover{border-color:var(--ink);color:var(--ink)}
 .ds-pill .ds-val{color:var(--ink);font-weight:600}
-.ds-pill.raw{border-color:#b88400;color:#b88400;background:color-mix(in oklab,#eab308 10%, var(--paper))}
+.ds-pill.raw{border-color:#b88400;color:#7a5500;background:color-mix(in oklab,#eab308 10%, var(--paper))}  /* text darkened from #b88400 → #7a5500 for 4.5:1 contrast; border keeps the brighter amber */
 .ds-pill.raw .ds-val{color:#854d0e}
 .ds-pill.raw::before{content:"⚠";margin-right:2px;font-weight:700}
 .ds-popover{position:absolute;top:100%;right:0;margin-top:6px;background:var(--paper);border:1px solid var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.3);padding:14px 16px;width:320px;z-index:150;font:11px var(--mono);color:var(--ink);text-transform:none;letter-spacing:.02em;line-height:1.4;display:none;text-align:left}

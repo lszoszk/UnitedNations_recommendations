@@ -36,6 +36,13 @@ const VIEWS = [
 /* Boot the dashboard and wait until the navigate() function exists
  * so we can switch views from inside the page. */
 async function bootDashboard(page: Page) {
+  // Pre-dismiss the GA consent banner.  Without this, axe samples the
+  // banner mid-fade-in animation (the .ga-consent {animation:.25s}
+  // rule), and reads the .ga-consent-more link as a partial-opacity
+  // colour rather than the resolved CSS --dim, surfacing as
+  // intermittent ratio drops in the 4.17–4.49 range that look like
+  // contrast bugs but are really animation-sampling artefacts.
+  await page.addInitScript(() => localStorage.setItem('uhri-ga-consent', 'denied'));
   await page.goto('/dashboard.html', { waitUntil: 'commit' });
   // 10 s (not 5) because the local test environment can't reach the
   // live VM and the boot's parallel fetches take a beat to time out
@@ -63,11 +70,11 @@ function audit(page: Page) {
     /* Disable rules we've consciously deferred or that produce
        false-positive noise on this codebase: */
     .disableRules([
-      'color-contrast',
-      // ↑ Re-enable after the Phase 0 contrast-fix sweep (§B.3 row 12).
-      // The dashboard's Bloomberg-monochrome palette has a few subtle
-      // dim-on-paper combinations on density:tight. Tracked as known
-      // issue in docs/a11y-findings.md.
+      // color-contrast was disabled during initial a11y wiring (commit
+      // e2e5f14) so the suite could go green on its first run; the
+      // 2026-04-25 contrast sweep re-enabled it after fixing the
+      // surfaced dim-on-paper combos.  Don't re-disable without
+      // tracking the regression in docs/a11y-findings.md.
       'scrollable-region-focusable',
       // ↑ Disabled with rationale: the `#tabs` element is a WAI-ARIA
       // tablist using the roving-tabindex pattern (one active tab has
@@ -93,8 +100,19 @@ function bucket(violations: any[]) {
 
 function summarise(violations: any[]): string {
   return violations.map(v => {
-    const targets = v.nodes.slice(0, 3).map((n: any) => n.target.join(' ')).join(', ');
-    return `  · [${v.impact}] ${v.id} — ${v.help}\n      ${targets}${v.nodes.length > 3 ? ` (+${v.nodes.length - 3} more)` : ''}`;
+    // For color-contrast specifically, surface the actual ratio +
+    // the colour pair so the operator can fix at the source instead
+    // of having to open DevTools.
+    const nodeDetail = (n: any) => {
+      const target = n.target.join(' ');
+      if (v.id === 'color-contrast' && n.any?.[0]?.data) {
+        const d = n.any[0].data;
+        return `${target} — ratio ${d.contrastRatio?.toFixed?.(2) ?? '?'} (need ${d.expectedContrastRatio ?? '?'}); fg=${d.fgColor} bg=${d.bgColor}`;
+      }
+      return target;
+    };
+    const samples = v.nodes.slice(0, 3).map(nodeDetail).join('\n      ');
+    return `  · [${v.impact}] ${v.id} — ${v.help}\n      ${samples}${v.nodes.length > 3 ? `\n      (+${v.nodes.length - 3} more nodes)` : ''}`;
   }).join('\n');
 }
 

@@ -702,7 +702,7 @@ function renderRules() {
            sections deep in Methodology.  <details> keeps the onboarding
            surface uncluttered — closed by default, one click to expand. -->
       <details class="rules-howto" style="margin:18px 0 4px;border:1px solid var(--line);border-radius:4px;background:var(--paper-2)">
-        <summary style="padding:10px 14px;cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);list-style:none">How the Labels workspace works <span style="color:#b88400">· β</span></summary>
+        <summary style="padding:10px 14px;cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);list-style:none">How the Labels workspace works <span style="color:#7a5500">· β</span></summary>
         <div style="padding:4px 18px 16px;font-size:13.5px;line-height:1.6">
           <p style="margin-top:6px">This tab lets you define your own label taxonomy as explicit <strong>boolean FTS5 queries</strong>. Each label is one query that runs server-side against the same full-text index as the Search tab — <em>deterministic, fully explainable in a methodology section, no 300 MB download required</em>. A TF-IDF term-suggestion helper accelerates query construction by proposing candidate terms from a small sample of tagged examples. The workspace is flagged <strong>β</strong> while we collect feedback on the rule model and term-suggester — core behaviour is stable, edge cases (CSV export of very broad rules, set-migration corner cases) may still surprise.</p>
           <ul style="padding-left:22px">
