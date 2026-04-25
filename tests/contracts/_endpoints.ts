@@ -80,15 +80,27 @@ export const ENDPOINTS: ContractEndpoint[] = [
     path:    '/api/data/summary?countries=Poland',
     schema:  'summary.json',
     purpose: 'KPI strip + yearly_counts + body_counts.',
-    /* TODO(perf): /summary measured at consistent 7.7–8.1 s on
-       2026-04-25 — significantly slower than its API design intent
-       (it's supposed to be the cheap fast path used in place of the
-       slow /analytics).  Likely the route cache isn't warming this
-       query because the dashboard primarily uses /analytics for
-       country-filtered profiles.  Bumping SLO to 10 s as a stop-gap
-       so the contract suite stops flapping; opening a perf ticket
-       to investigate the missing route-cache warming for /summary
-       under per-country filter. */
+    /* Perf history (resolved 2026-04-25):
+       - Pre-fix: 7.7–8.1 s deterministic on every call, plus an
+         intermittent cache-miss pattern (8s / 0.04s / 8s / …) that
+         turned out to be 3 uvicorn workers each holding their own
+         in-memory cache — load balancer round-robin meant ~33%
+         hit rate even after warmup.
+       - Backend fix landed: (1) /summary now uses the same route
+         cache wrapper as /analytics + /map; (2) baseline /summary
+         IS warmed, per-country /summary is cache-on-first-use (the
+         dashboard frontend does NOT call /summary so per-filter
+         pre-warming would 3× the warmup time for an unused endpoint);
+         (3) UVICORN_WORKERS dropped 3 → 1 — SQLite has write
+         contention anyway and beta scale is 1-2 RPS peak;
+         (4) UHRI_CACHE_MAXSIZE bumped 1400 → 4000 to give /summary
+         entries room next to the existing analytics + map warmup.
+       - Post-fix:  baseline /summary 30 ms (warmed); per-country
+         /summary 8 s on first hit, 30–50 ms on every subsequent
+         call (deterministic, no eviction roulette).
+       - SLO kept at 10 s because the contract test does a single
+         cold call per backend restart; that's realistic p99 for
+         this endpoint and the dashboard doesn't depend on it. */
     slo:     10000,
   },
   {
