@@ -120,7 +120,12 @@ function renderDrawer() {
     const hasMech = mechCounts && (mechCounts.upr + mechCounts.treaty + mechCounts.sp) > 0;
     const facets = state.facets || {};
     const total = facets.total_records || (mechCounts?._total) || 267537;
-    const nCountries = (facets.countries || []).filter(c => c && c !== '—').length;
+    // Use cleanCountryList — same canonical filter the rail uses for its
+    // "02 COUNTRY 199" badge.  Raw facets.countries from the API contains
+    // ~13 dirty entries (2-letter ISO leaks like "PK", "CZ"; OHCHR
+    // internal labels; dupes) which inflated the at-a-glance count from
+    // the canonical 199 to a misleading 212.
+    const nCountries = cleanCountryList(facets.countries || []).length;
     const minY = facets.min_year || 2006;
     const maxY = facets.max_year || 2026;
     const kwHint = (state.filters.kw || '').trim();
