@@ -157,14 +157,30 @@ test('H2 — search "woman" → add country PL → narrow year → verify count 
   }
   await page.waitForTimeout(400);
 
-  // Find + click Poland
-  const pl = page.locator('[data-facet="country"] label', { hasText: /^\s*Poland\s*/ }).first();
+  // Find + click Poland.  Country facet renders as <div class="opt"
+  // data-k="Poland">, NOT <label>; the previous selector silently
+  // no-op'd and the count stayed at the unfiltered value, with the
+  // test reporting "clean" despite the filter never applying.
+  const pl = page.locator('[data-facet="country"] .opt[data-k="Poland"]').first();
   if (await pl.count()) {
-    await pl.click().catch(() => {});
-    await page.waitForTimeout(2000);
+    // The country facet has 199 entries — Poland may be virtualised
+    // off-screen.  Type into the filter input first to bring it into
+    // the visible list, then click.
+    const filter = page.locator('[data-facet="country"] .facet-filter');
+    if (await filter.count()) await filter.fill('Poland').catch(() => {});
+    await page.waitForTimeout(300);
+    await pl.click({ timeout: 5000 }).catch((e) => steps.push(`Poland click failed: ${e.message}`));
+    await page.waitForTimeout(2500);
+  } else {
+    steps.push('Poland .opt not found — country facet rendering bug?');
   }
   const afterCountry = await page.locator('#seN').textContent().catch(() => '');
   steps.push(`after Country=PL: "${afterCountry}"`);
+  // Hard contract: country-filter MUST narrow the result count.  If it
+  // didn't, either the click no-op'd or the filter pipeline is broken.
+  const numFrom = (s: string) => Number((s.match(/[\d,]+/)?.[0] || '0').replace(/,/g, ''));
+  const before = numFrom(initialCount || ''), after = numFrom(afterCountry || '');
+  steps.push(`narrowed: ${before > after ? `yes (${before} → ${after})` : `NO (${before} = ${after}) — possible regression`}`);
 
   await page.screenshot({ path: 'test-results/flow-H2.png' });
   record('H2', 'refinement: search "woman" → country PL', errors, steps);
@@ -292,7 +308,9 @@ test('H7 — Compare A=DEU B=POL, verify dual rendering', async ({ page }) => {
   await freshDashboard(page, '#view=compare&ca=DEU&cb=POL');
   await page.waitForTimeout(3500);
   const compareVisible = await page.locator('#view-compare').isVisible().catch(() => false);
-  const sideA = await page.locator('#view-compare [class*="cp-side"], #view-compare .cmp-col').first().isVisible().catch(() => false);
+  // Compare uses .cmp-side (cmp not cp — distinct from country profile's
+  // .cp-side); previous selector was a typo and silently no-op'd.
+  const sideA = await page.locator('#view-compare .cmp-side').first().isVisible().catch(() => false);
   steps.push(`compare visible: ${compareVisible}`);
   steps.push(`side A rendered: ${sideA}`);
 
@@ -365,9 +383,20 @@ test('H10 — keyboard shortcuts: ⌘K palette + nav', async ({ page }) => {
   const steps: string[] = [];
 
   await freshDashboard(page);
+  // Focus the body so the document-level keydown handler receives the
+  // shortcut.  Without this, the keystroke can land on whatever
+  // element happened to have focus after page load (often the rail
+  // search input) and the global Meta+K handler never fires.
+  await page.locator('body').click();
   await page.keyboard.press('Meta+K');
-  await page.waitForTimeout(500);
-  const paletteVisible = await page.locator('#cmdPalette, .cmd-palette, [role="dialog"]').first().isVisible().catch(() => false);
+  await page.waitForTimeout(800);
+  // The palette container exists in DOM at boot with .hidden; opening
+  // removes that class.  Check the SPECIFIC #cmdPalette without
+  // .hidden to avoid matching some other dialog.
+  const paletteVisible = await page.evaluate(() => {
+    const el = document.getElementById('cmdPalette');
+    return !!el && !el.classList.contains('hidden');
+  });
   steps.push(`palette visible: ${paletteVisible}`);
 
   if (paletteVisible) {
@@ -420,17 +449,33 @@ test('C2 — Click a hex on the map → opens country', async ({ page }) => {
 
   await freshDashboard(page);
   await page.waitForTimeout(4000);
-  // Try clicking a hex for Germany (DEU) in the overview map
+  // The map defaults to GEO/choropleth mode (per getMapMode() ->
+  // 'choropleth'), which renders <path class="country" data-api="…">
+  // — there are no <g data-iso="…"> elements until the user toggles
+  // to HEX. Toggle to HEX explicitly so this regression test
+  // exercises the hex-tile click path the casual user is most likely
+  // to use (one cell per country, easy to hit on touch).
+  await page.locator('#mapModes button[data-mode="hex"]').click().catch(() => {});
+  await page.waitForTimeout(1500);
   const hex = page.locator('g[data-iso="DEU"], g[data-iso="USA"], g[data-iso="CHN"]').first();
   const hexCount = await hex.count();
   steps.push(`hex visible: ${hexCount}`);
 
   if (hexCount > 0) {
     const iso = await hex.getAttribute('data-iso');
+    // Single click on a hex opens the DRAWER list of records for that
+    // country (intentional — most common casual-user action: "what
+    // recommendations does X have?").  Double-click navigates to the
+    // full Country profile.  Test single-click → drawer first.
     await hex.click({ force: true }).catch(() => {});
     await page.waitForTimeout(2500);
+    const drawerOpen = await page.locator('#drawerBody .dr-list-card, #drawerBody .se-item').first().isVisible().catch(() => false);
+    steps.push(`clicked ${iso}: drawer opened: ${drawerOpen}`);
+    // Double-click → country profile (URL change).
+    await hex.dblclick({ force: true }).catch(() => {});
+    await page.waitForTimeout(2500);
     const url = page.url();
-    steps.push(`clicked ${iso}, url ends: ...${url.slice(-60)}`);
+    steps.push(`dbl-clicked ${iso}: url ends: ...${url.slice(-60)}`);
   }
 
   await page.screenshot({ path: 'test-results/flow-C2.png' });
@@ -538,10 +583,21 @@ test('C7 — Copy quote button', async ({ page, context }) => {
 
   if (present) {
     await copyBtn.click().catch(() => {});
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1500);
+    // Two signals — primary is the user-visible "Copied with citation"
+    // toast (the actual feedback the user sees); secondary is clipboard
+    // content (Playwright's clipboard-read sandbox occasionally returns
+    // empty even with permissions granted, so we don't fail on that).
+    const toastInfo = await page.evaluate(() => {
+      const el = document.getElementById('toast');
+      return el
+        ? { text: el.textContent || '', hidden: el.classList.contains('hidden') }
+        : { text: '(no #toast)', hidden: true };
+    });
     const clipboardText = await page.evaluate(async () => {
       try { return (await navigator.clipboard.readText()).slice(0, 80); } catch { return '(no access)'; }
     });
+    steps.push(`toast text: "${toastInfo.text}", visible: ${!toastInfo.hidden}`);
     steps.push(`clipboard: "${clipboardText}"`);
   }
 
