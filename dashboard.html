@@ -1807,6 +1807,80 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .reader-inner, .cmd-results, .sdg-results, .sv-list,
   .diff-cols .diff-col, .sh-filters-summary{-webkit-overflow-scrolling:touch}
 }
+
+/* =====================================================================
+   IN-APP BUG REPORT WIDGET (dashboard-bug-report.js)
+   ===================================================================== */
+.bug-report-fab{
+  position:fixed;right:16px;bottom:46px;z-index:200;
+  width:44px;height:44px;border-radius:50%;
+  background:var(--ink);color:var(--paper);border:1px solid var(--ink);
+  font-size:18px;line-height:1;cursor:pointer;
+  box-shadow:0 4px 12px rgba(0,0,0,.18);
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:transform .12s,background .12s;
+}
+.bug-report-fab:hover{background:var(--accent);border-color:var(--accent);transform:translateY(-2px) scale(1.04)}
+.bug-report-fab:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.bug-report-modal{
+  position:fixed;inset:0;z-index:240;background:rgba(0,0,0,.45);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+}
+.bug-report-modal .brm-card{
+  background:var(--paper);max-width:560px;width:100%;
+  max-height:90vh;overflow-y:auto;
+  padding:22px 24px;border:1px solid var(--ink);
+  box-shadow:0 24px 80px rgba(0,0,0,.35);
+  font-family:var(--mono);font-size:12px;color:var(--ink);
+}
+.bug-report-modal .brm-head{display:flex;align-items:center;gap:8px;margin:0 0 4px}
+.bug-report-modal h2{font-family:var(--serif);font-size:24px;line-height:1.1;margin:0;flex:1;color:var(--ink)}
+.bug-report-modal .brm-close{
+  background:transparent;border:0;font-size:24px;line-height:1;cursor:pointer;color:var(--dim);
+  padding:0 4px;
+}
+.bug-report-modal .brm-close:hover{color:var(--ink)}
+.bug-report-modal .brm-intro{font-family:var(--serif);font-size:13px;color:var(--ink-2);line-height:1.5;margin:0 0 14px}
+.bug-report-modal .brm-row{display:block;margin-bottom:10px}
+.bug-report-modal .brm-lbl{display:block;font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.bug-report-modal .brm-req{color:#b91c1c}
+.bug-report-modal input[type="text"],
+.bug-report-modal select,
+.bug-report-modal textarea{
+  width:100%;padding:7px 10px;font:12px var(--mono);
+  border:1px solid var(--line);background:var(--paper);color:var(--ink);
+  box-sizing:border-box;
+}
+.bug-report-modal textarea{resize:vertical;min-height:50px;font-size:11px;line-height:1.5}
+.bug-report-modal .brm-ctx{margin:14px 0;border:1px dashed var(--line);padding:8px 10px;background:var(--paper-2)}
+.bug-report-modal .brm-ctx summary{font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);cursor:pointer}
+.bug-report-modal .brm-ctx summary:hover{color:var(--ink)}
+.bug-report-modal .brm-ctx pre{
+  font-size:10px;line-height:1.5;color:var(--ink-2);
+  margin:8px 0 0;padding:8px;background:var(--paper);border:1px solid var(--line);
+  max-height:240px;overflow:auto;white-space:pre-wrap;
+}
+.bug-report-modal .brm-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.bug-report-modal .brm-submit-gh{
+  padding:8px 14px;background:var(--ink);color:var(--paper);border:1px solid var(--ink);
+  font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;flex:1;min-width:140px;
+}
+.bug-report-modal .brm-submit-gh:hover{background:var(--accent);border-color:var(--accent)}
+.bug-report-modal .brm-submit-mail{
+  padding:8px 14px;background:var(--paper);color:var(--ink);border:1px solid var(--ink);
+  font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
+}
+.bug-report-modal .brm-submit-mail:hover{background:var(--paper-2)}
+.bug-report-modal .brm-cancel{
+  padding:8px 14px;background:transparent;color:var(--dim);border:0;
+  font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-left:auto;
+}
+.bug-report-modal .brm-cancel:hover{color:var(--ink)}
+@media(max-width:720px){
+  .bug-report-fab{width:48px;height:48px;right:12px;bottom:50px}
+  .bug-report-modal{padding:0}
+  .bug-report-modal .brm-card{max-height:100vh;height:100%;border-radius:0;border:0}
+}
 </style>
 </head>
 <body data-palette="archive" data-density="tight">
@@ -2133,6 +2207,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <script defer src="./dashboard-drawer-list.js"></script>
 <script defer src="./dashboard-reader.js"></script>
 <script defer src="./dashboard-analytics.js"></script>
+<script defer src="./dashboard-bug-report.js"></script>
 <script>
 /* =========================================================================
    UHRI Analytics Dashboard — information-dense analyst UX
