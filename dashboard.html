@@ -128,6 +128,29 @@
     });
   }
 </script>
+<!-- Core Web Vitals (RUM) — measures LCP, INP, CLS, FCP, TTFB on real
+     users and forwards each metric to GA4 via window.trackWebVital
+     (consent-gated, bucketed; see dashboard-analytics.js).  Loaded as
+     a `type=module` from a CDN so the dashboard's zero-build vanilla
+     JS posture is preserved.  If the CDN is blocked / DNT is set /
+     web-vitals.js is unavailable, the dashboard runs unchanged — the
+     RUM is purely additive observability, never a hard dependency. -->
+<script type="module">
+  // Skip RUM entirely if DNT is set (matches the gtag opt-out above
+  // and avoids loading a third-party module the user has signalled
+  // they don't want).
+  if (!(navigator.doNotTrack === '1' || window.doNotTrack === '1')) {
+    try {
+      const wv = await import('https://unpkg.com/web-vitals@4?module');
+      const send = (m) => { try { window.trackWebVital && window.trackWebVital(m); } catch (_) {} };
+      wv.onLCP(send);
+      wv.onINP(send);
+      wv.onCLS(send);
+      wv.onFCP(send);
+      wv.onTTFB(send);
+    } catch (_) { /* CDN blocked / module-load failed → silent no-op */ }
+  }
+</script>
 <style>
 :root{
   --paper:#F2EFE8; --paper-2:#EAE6DD; --paper-3:#E1DCD0;

@@ -151,9 +151,65 @@ function trackSearch(rawQuery, totalRecords) {
   } catch (_) { /* never let analytics break the app */ }
 }
 
+/* Core Web Vitals — Real-User Monitoring (RUM).
+ *
+ * Web-vitals.js (loaded inline in dashboard.html) measures LCP, INP,
+ * CLS, FCP, TTFB and calls trackWebVital() once per metric per page-
+ * load.  We report:
+ *   - metric_name: 'LCP' | 'INP' | 'CLS' | 'FCP' | 'TTFB'
+ *   - metric_rating: 'good' | 'needs-improvement' | 'poor' (per web.dev
+ *     thresholds; same buckets the Chrome UX Report uses)
+ *   - metric_value_bucket: rough numeric bucket so we get distribution
+ *     data without flooding GA with high-cardinality continuous values
+ *   - view: which SPA view was active when the metric fired
+ *
+ * The raw numeric value is intentionally NOT sent — GA cardinality
+ * limits would shred a continuous timing dimension, and the bucket +
+ * rating combination is sufficient to track p75 trends per web.dev's
+ * own guidance. */
+function _bucketLcp(ms)  { return ms < 2500 ? '<2.5s' : ms < 4000 ? '2.5-4s' : '>4s'; }
+function _bucketInp(ms)  { return ms < 200  ? '<200ms' : ms < 500 ? '200-500ms' : '>500ms'; }
+function _bucketCls(val) { return val < 0.1 ? '<0.1'  : val < 0.25 ? '0.1-0.25' : '>0.25'; }
+function _bucketFcp(ms)  { return ms < 1800 ? '<1.8s' : ms < 3000 ? '1.8-3s' : '>3s'; }
+function _bucketTtfb(ms) { return ms < 800  ? '<800ms' : ms < 1800 ? '800-1800ms' : '>1800ms'; }
+
+function _bucketWebVital(name, value) {
+  switch (name) {
+    case 'LCP':  return _bucketLcp(value);
+    case 'INP':  return _bucketInp(value);
+    case 'CLS':  return _bucketCls(value);
+    case 'FCP':  return _bucketFcp(value);
+    case 'TTFB': return _bucketTtfb(value);
+    default:     return 'unknown';
+  }
+}
+
+/* Web-vitals.js library passes a Metric object: { name, value, rating,
+ * id, navigationType, ... }.  We accept the whole object and pull the
+ * fields we want.  Defensive on missing fields so an older library
+ * version doesn't crash analytics (it would still surface useful data
+ * via the bucket logic). */
+function trackWebVital(metric) {
+  if (!_gaConsentIsGranted() || typeof window.gtag !== 'function') return;
+  if (!metric || typeof metric !== 'object' || !metric.name) return;
+  try {
+    const name = String(metric.name);
+    const value = Number(metric.value) || 0;
+    window.gtag('event', 'web_vital', {
+      metric_name:    name,
+      metric_rating:  metric.rating || 'unknown',
+      metric_bucket:  _bucketWebVital(name, value),
+      metric_id:      metric.id ? String(metric.id).slice(0, 64) : '',
+      navigation_type: metric.navigationType || 'unknown',
+      view: (typeof state !== 'undefined' && state?.view) || 'unknown',
+    });
+  } catch (_) { /* never let analytics break the app */ }
+}
+
 // Expose for other modules / inline handlers
 window.trackView = trackView;
 window.trackEvent = trackEvent;
+window.trackWebVital = trackWebVital;
 window.trackSearch = trackSearch;
 
 /* The first-visit onboarding tour (dashboard.html) puts up a full-
