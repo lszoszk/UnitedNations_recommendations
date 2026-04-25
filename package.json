@@ -19,6 +19,7 @@
   "author": "L. Szoszkiewicz",
   "license": "ISC",
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
     "@playwright/test": "^1.59.1",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1"

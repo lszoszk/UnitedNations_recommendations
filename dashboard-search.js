@@ -237,7 +237,14 @@ async function renderSearch() {
       <button id="seBulkPin" title="Pin first two as A/B for compare">📌 Pin first 2</button>
       <button class="clear" id="seBulkClear">× clear</button>
     </div>
-    <div class="se-list" id="seList" role="list"></div>
+    <!-- WCAG: dropped role="list" — children are .se-item divs without
+         role="listitem", which axe flags as aria-required-children.
+         Adding listitem to every renderer would be invasive for marginal
+         AT benefit; the items are already keyboard-reachable as buttons
+         and have aria-labels through their inner content.  If we adopt
+         a list semantic later, every renderer below needs role="listitem"
+         on its outer wrapper. -->
+    <div class="se-list" id="seList"></div>
     <div class="se-sentinel" id="seSentinel" aria-live="polite"><span class="dot"></span>Loading more…</div>`;
 
   // H. Inline × on the keyword badge — fastest way to drop a too-narrow

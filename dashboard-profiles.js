@@ -953,11 +953,11 @@ async function renderCompare() {
   // IDs use letter-as-suffix consistently: cmpSelA/cmpNameA/cmpSubA/cmpTimeA/cmpThemesA
   root.innerHTML = `
     <div class="cmp-head">
-      <div class="cmp-side"><label>A</label><select id="cmpSelA">${opts(state.cmpA)}</select>
+      <div class="cmp-side"><label for="cmpSelA">A</label><select id="cmpSelA" aria-label="Country A">${opts(state.cmpA)}</select>
         <div class="big" id="cmpNameA">${sanitize(state.cmpA||'—')}</div>
         <div class="sub" id="cmpSubA">loading…</div></div>
       <div class="cmp-vs">vs</div>
-      <div class="cmp-side b"><label>B</label><select id="cmpSelB">${opts(state.cmpB)}</select>
+      <div class="cmp-side b"><label for="cmpSelB">B</label><select id="cmpSelB" aria-label="Country B">${opts(state.cmpB)}</select>
         <div class="big" id="cmpNameB">${sanitize(state.cmpB||'—')}</div>
         <div class="sub" id="cmpSubB">loading…</div></div>
     </div>
