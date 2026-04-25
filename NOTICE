@@ -1,0 +1,52 @@
+UN Human Rights Analytics Dashboard
+Copyright © 2025–2026 Łukasz Szoszkiewicz
+
+The dashboard source (everything under this repository, including app.js,
+index.html, styles.css, the bundled overview-bootstrap.json snapshot, and
+all logos provided by the author) is released under the PolyForm
+Noncommercial License 1.0.0 — see LICENSE.
+
+================================================================================
+Third-party libraries bundled / loaded by this site
+================================================================================
+
+The dashboard loads the following libraries from public CDNs at runtime.
+None of their source is redistributed in this repository; they are listed
+here purely for attribution.
+
+Chart.js
+  Version 4.4.1
+  Copyright (c) 2014–present Chart.js Contributors
+  License: MIT
+  https://www.chartjs.org/  https://github.com/chartjs/Chart.js
+
+Plotly.js
+  Version 2.35.2
+  Copyright (c) Plotly, Inc.
+  License: MIT
+  https://plotly.com/javascript/  https://github.com/plotly/plotly.js
+
+SheetJS (xlsx)
+  Version 0.18.5 (community edition)
+  Copyright (c) SheetJS LLC
+  License: Apache 2.0
+  https://sheetjs.com/  https://github.com/SheetJS/sheetjs
+
+================================================================================
+Data
+================================================================================
+
+This dashboard analyses data published by the Office of the UN High
+Commissioner for Human Rights (OHCHR) at the Universal Human Rights Index
+(https://uhri.ohchr.org/en). OHCHR's data terms apply to the underlying data;
+they are not affected by the licence on this software.
+
+================================================================================
+Attribution / funder acknowledgement
+================================================================================
+
+This work was supported by re:constitution — Exchange and Analysis on
+Democracy and the Rule of Law in Europe, a joint programme of the Forum
+Transregionale Studien and Democracy Reporting International, funded by
+Stiftung Mercator. The dashboard remains an individual project and does not
+represent the views or endorsement of any of these organisations.

@@ -2,6 +2,12 @@
 
 Static dashboard build prepared for GitHub Pages deployment.
 
+**License:** [PolyForm Noncommercial 1.0.0](LICENSE) — research, education,
+non-profit and personal use are permitted; redistribution must keep the
+attribution notice; commercial use requires a separate licence from the
+author. Bundled libraries retain their respective MIT / Apache 2.0
+licences ([NOTICE](NOTICE)).
+
 > **For engineering orientation see [ARCHITECTURE.md](ARCHITECTURE.md)** —
 > module map, load order, cross-module surface, extraction conventions.
 
