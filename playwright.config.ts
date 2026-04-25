@@ -39,10 +39,44 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
+  /* Four projects — chromium is the default fast gate; the other three
+     run via dedicated scripts (test:firefox / test:webkit / test:mobile /
+     test:cross-browser).  Cross-browser coverage matters because
+     Safari/WebKit have shipped real regressions affecting this dashboard
+     (commit 5364fd9 documented a Safari 26 SW + cross-origin HTTP/2
+     gzip race, fixed via SW pass-through).  Mobile chromium catches
+     viewport-narrow rendering bugs on iPhone-class widths. */
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+      /* Firefox is slower at boot than Chromium under the same WebServer.
+         The tablist roving-tabindex + axe-core combination occasionally
+         times out the 5 s waits used by some smoke specs.  Mark moderate
+         and minor flakes informationally: rerun a failing test once. */
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: 'mobile',
+      use: { ...devices['iPhone 13'] },
+      /* Mobile project intentionally skips topbar-widths.spec.ts (it
+         tests desktop breakpoints) and a11y.spec.ts (axe runs once on
+         desktop is enough; rerunning on every viewport is overkill).
+         Must also re-state the global testIgnore (contracts/ +
+         user-flows) — Playwright project-level testIgnore replaces
+         rather than merges with the top-level one, so without these
+         the mobile project would try to run user-flows + contracts. */
+      testIgnore: [
+        '**/contracts/**', '**/user-flows.spec.ts',
+        '**/topbar-widths.spec.ts', '**/a11y.spec.ts',
+      ],
     },
   ],
 
