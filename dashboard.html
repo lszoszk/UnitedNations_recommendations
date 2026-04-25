@@ -2739,18 +2739,16 @@ function renderOverviewAnalytics(analytics) {
     });
   }
   // Also refresh the drawer if it's currently on the empty at-a-glance
-  // panel — the tiles there show the same counts and were rendered
-  // before analytics arrived.  Drawer keeps the descriptions (it IS
-  // the explainer panel now); centre stays count-only.
-  if (!state.selectedRec && state.drawerMode !== 'list') {
-    const drTiles = $('#drMechTiles');
-    if (drTiles && mechCounts && mechCounts._total > 0) {
-      renderMechTiles(drTiles, mechCounts, {
-        mode: 'compact',
-        showDesc: true,
-        onClick: (family) => _openFamilyListDrawer(family),
-      });
-    }
+  // panel.  Boot calls renderDrawer() before analytics lands, so the
+  // first paint of the drawer shows a "Loading mechanism breakdown…"
+  // stub instead of the three tiles.  Re-run the full renderDrawer()
+  // (not just the inner #drMechTiles refresh) — the stub-vs-tiles
+  // branch lives inside renderDrawer, so partial updates can't cross
+  // it.  Skip when a record is selected or the drawer is in list
+  // mode — those branches own the drawer body and shouldn't be
+  // wiped by an analytics refresh.
+  if (!state.selectedRec && state.drawerMode !== 'list' && typeof renderDrawer === 'function') {
+    try { renderDrawer(); } catch (e) { console.warn('[renderOverviewAnalytics] renderDrawer failed:', e); }
   }
 
   const topT = (analytics?.themes?.theme_counts || []).slice(0, 10).map(t => ({
@@ -3059,6 +3057,19 @@ async function boot() {
   loadTweaks();
   TW.drawer = true;  // always-open drawer in the new stacked layout
   bindTweaks(); applyTweaks();
+  // Paint the drawer at-a-glance immediately so the right panel shows
+  // the UHRI orientation explainer (dataset stats + mechanism
+  // descriptions) from the first frame.  Without this the drawer
+  // boots with just the static "SELECTED · RECOMMENDATION" header
+  // and an empty body — users had to click CLEAR to trigger the
+  // first render.  renderOverview() also calls this on tab re-entry,
+  // but boot() bypasses renderOverview() on first paint (it hand-
+  // builds the shell + invokes renderOverviewMapOnly /
+  // renderOverviewAnalytics directly), so we explicitly seed the
+  // drawer here too.
+  if (typeof renderDrawer === 'function') {
+    try { renderDrawer(); } catch (e) { console.warn('[boot] renderDrawer failed:', e); }
+  }
   bindKwInput();
   // Dataset toggle — do this early so the rest of boot() (analytics,
   // facets, records) fetches with the restored dataset. Must run after
