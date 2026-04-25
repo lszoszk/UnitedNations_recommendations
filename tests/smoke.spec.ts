@@ -64,6 +64,12 @@ const TOLERATED_MESSAGE_PATTERNS: RegExp[] = [
   /Phase 1 boot failed/i,               // VM-down path, dashboard handles it
   /Analytics failed/i,                  // VM-down path, dashboard handles it
   /Failed to fetch/i,                   // VM-down path
+  /Access-Control-Allow-Origin/i,       // WebKit's console-error CORS-block message
+  /Cross-Origin Request Blocked/i,      // Firefox's CORS-block console message
+  /due to access control checks/i,      // WebKit's pageerror-channel CORS message — emitted as a thrown error, not a console.error
+  /downloadable font: download failed/i, // Firefox-only — fonts.gstatic.com timeout in test env
+  /fonts\.gstatic\.com/i,                // generic Google Fonts offline fallout
+  /A ServiceWorker passed a promise/i,   // Firefox's SW-fetch-rejected wrapper for the above
 ];
 
 function collectConsoleErrors(page: Page): string[] {
@@ -666,7 +672,19 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(errors, `JS errors:\n${errors.join('\n')}`).toEqual([]);
   });
 
-  test('16. rawModeBanner — RAW toggle doesn\'t collapse the grid layout', async ({ page }) => {
+  test('16. rawModeBanner — RAW toggle doesn\'t collapse the grid layout', async ({ page, viewport }) => {
+    /* This test asserts the desktop 3-column grid layout (rail | main |
+       drawer) doesn't collapse when raw-mode adds a top banner.  On
+       mobile (<960 px viewport) the layout is intentionally
+       single-column with rail in display:none until .mobile-open is
+       added — none of the assertions below apply.  Skip on narrow
+       viewports rather than rewrite the test for two layouts; the
+       mobile-specific raw-mode contract is its own future test. */
+    if (viewport && viewport.width < 960) {
+      test.skip();
+      return;
+    }
+
     const errors = collectConsoleErrors(page);
     await page.goto('/dashboard.html');
     await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
@@ -903,6 +921,10 @@ test.describe('UHRI Dashboard smoke', () => {
        don't accidentally re-bloat Methodology during a future "just add
        one section" edit. */
     const errors = collectConsoleErrors(page);
+    // Pre-set consent so the bottom-fixed GA banner doesn't intercept
+    // pointer events on the dash-footer below it (mobile-only blocker;
+    // identical pattern in tab-walk.spec.ts footer test).
+    await page.addInitScript(() => localStorage.setItem('uhri-ga-consent', 'denied'));
     await page.goto('/dashboard.html', { waitUntil: 'commit' });
     await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
 

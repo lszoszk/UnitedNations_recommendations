@@ -24,6 +24,12 @@ const TOLERATED: RegExp[] = [
   /\/api\/data\//i, /\/uhri-api\//i, /Service Worker .* was intercepted/i,
   /Phase 1 boot failed/i, /Failed to fetch/i, /\[freshness\] render failed/i,
   /googletagmanager\.com/i, /google-analytics\.com/i,
+  /Access-Control-Allow-Origin/i,       // WebKit's console-error CORS message
+  /Cross-Origin Request Blocked/i,      // Firefox's CORS message
+  /due to access control checks/i,      // WebKit's pageerror-channel CORS message
+  /downloadable font: download failed/i, // Firefox font-network-error
+  /fonts\.gstatic\.com/i,                // Firefox/WebKit offline-font fail
+  /A ServiceWorker passed a promise/i,   // Firefox's SW-fetch-rejected wrapper
 ];
 
 function collectConsoleErrors(page: Page): string[] {
@@ -34,7 +40,13 @@ function collectConsoleErrors(page: Page): string[] {
     if (TOLERATED.some(p => p.test(text))) return;
     errors.push(text);
   });
-  page.on('pageerror', (err) => errors.push('pageerror: ' + err.message));
+  page.on('pageerror', (err) => {
+    const text = err.message || String(err);
+    // pageerror also gets TOLERATED filtering — WebKit emits cross-
+    // origin VM rejection through this channel rather than console.error.
+    if (TOLERATED.some(p => p.test(text))) return;
+    errors.push('pageerror: ' + text);
+  });
   return errors;
 }
 

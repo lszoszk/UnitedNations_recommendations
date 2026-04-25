@@ -18,6 +18,12 @@ const TOLERATED: RegExp[] = [
   // gracefully from there.  These are not JS bugs.
   /Phase 1 boot failed/i,
   /Failed to fetch/i,
+  /Access-Control-Allow-Origin/i,       // WebKit's console-error CORS message
+  /Cross-Origin Request Blocked/i,      // Firefox's CORS message
+  /due to access control checks/i,      // WebKit's pageerror-channel CORS message
+  /downloadable font: download failed/i, // Firefox font-network-error console message
+  /fonts\.gstatic\.com/i,                // Firefox/WebKit fail-to-load when offline
+  /A ServiceWorker passed a promise/i,   // Firefox's SW-fetch-rejected wrapper
   /\[freshness\] render failed/i,
   // Google Analytics requests are blocked by the test env's CSP /
   // network isolation — gtag.js loads with consent default=denied,
@@ -34,7 +40,16 @@ function collectConsoleErrors(page: Page): string[] {
     if (TOLERATED.some(p => p.test(text))) return;
     errors.push(text);
   });
-  page.on('pageerror', (err) => errors.push('pageerror: ' + err.message));
+  page.on('pageerror', (err) => {
+    const text = err.message || String(err);
+    // pageerror events also need TOLERATED filtering — WebKit
+    // surfaces cross-origin VM fetches as pageerror "<URL> due to
+    // access control checks." while Chromium logs them as
+    // console.error. Without this filter, every WebKit run flags
+    // the expected cross-origin VM block as a real bug.
+    if (TOLERATED.some(p => p.test(text))) return;
+    errors.push('pageerror: ' + text);
+  });
   return errors;
 }
 
@@ -69,14 +84,25 @@ test('landing — index.html boots without JS errors', async ({ page }) => {
   expect(errors, `JS errors on landing page:\n${errors.join('\n')}`).toEqual([]);
 });
 
-test('rail facet heads toggle collapsed class — single listener, not N×', async ({ page }) => {
+test('rail facet heads toggle collapsed class — single listener, not N×', async ({ page, viewport }) => {
   /* Regression test for the duplicate-attach bug: buildRail() runs 2–3×
      during boot (SW cache / facets / analytics phases).  A previous
      implementation attached a fresh .facet-head click handler on each
      call, so clicks toggled .collapsed an even number of times on
      fresh visits — SDG and TYPE (which start collapsed) refused to
      expand.  The delegated handler in buildRail should fire exactly
-     once per click no matter how many times buildRail ran. */
+     once per click no matter how many times buildRail ran.
+
+     This test exercises the desktop rail layout.  On <960 px the rail
+     is display:none until the user taps the hamburger button (mobile
+     bottom-sheet pattern), so the .facet-head is unclickable in that
+     state.  The duplicate-attach bug doesn't depend on viewport, so
+     skipping on mobile loses no coverage. */
+  if (viewport && viewport.width < 960) {
+    test.skip();
+    return;
+  }
+
   const errors = collectConsoleErrors(page);
   await page.goto('/dashboard.html', { waitUntil: 'commit' });
   await page.waitForFunction(() => typeof (globalThis as any).buildRail === 'function', null, { timeout: 5000 });
@@ -165,6 +191,13 @@ test('drawer-list — single-record load does not duplicate (race fix)', async (
 
 test('footer About link navigates from Overview', async ({ page }) => {
   const errors = collectConsoleErrors(page);
+  // Pre-set GA consent so the banner never appears.  On mobile
+  // viewports the bottom-fixed banner intercepts pointer events on
+  // the dash-footer below it, blocking this test.  Setting consent
+  // either way (granted or denied) skips the banner; we use 'denied'
+  // because that's also closest to the test env's network reality
+  // (no GA traffic should fire from headless tests anyway).
+  await page.addInitScript(() => localStorage.setItem('uhri-ga-consent', 'denied'));
   await page.goto('/dashboard.html', { waitUntil: 'commit' });
   await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
   await page.locator('.dash-footer .disclaimer').click();
