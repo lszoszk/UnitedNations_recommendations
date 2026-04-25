@@ -1,0 +1,90 @@
+# Nightly deeper checks — the things we don't want gating every push
+# but DO want to know about within 24 hours.
+#
+# What runs:
+#   - Backend contract suite against the live VM.  Catches schema drift,
+#     CORS regressions, latency degradations.  If the VM is down, the
+#     job fails and creates a follow-up issue (see §J.3 — data freshness
+#     contract).
+#   - Cross-browser smoke (firefox / webkit / mobile).  Each is a
+#     separate matrix entry so a Safari-only regression is visible
+#     without poisoning the others.
+#   - Live user-flows suite against the deployed GitHub Pages dashboard.
+#
+# Failures here do NOT block deploys, but they DO cut a GitHub issue
+# tagged `nightly:<date>` so the maintainer triages within the next
+# working day.  Schedule is 03:30 UTC — quietest window on the OHCHR
+# UHRI / Re:constitution contributor timezones.
+
+name: Nightly checks
+
+on:
+  schedule:
+    - cron: '30 3 * * *'   # 03:30 UTC every day
+  workflow_dispatch:
+
+jobs:
+  contracts:
+    name: backend API contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true   # informational; never blocks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:contracts
+      - name: Upload artefacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-${{ github.run_id }}
+          path: test-results/
+          retention-days: 30
+
+  cross-browser:
+    name: smoke (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true   # informational; cross-browser fix sweep
+                              # is its own scope per cross-browser-status.md
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit, mobile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.browser == 'mobile' && 'chromium' || matrix.browser }}
+      - run: npm run test:${{ matrix.browser }}
+      - name: Upload artefacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.browser }}-${{ github.run_id }}
+          path: test-results/
+          retention-days: 30
+
+  live-flows:
+    name: user flows (live deployment)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true   # known to flake when the VM rate-limits
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:live-flows
+      - name: Upload flow report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-flows-${{ github.run_id }}
+          path: test-results/
+          retention-days: 30

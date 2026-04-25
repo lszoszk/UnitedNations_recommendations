@@ -1,0 +1,64 @@
+# Per-push / per-PR test pipeline.
+#
+# What runs:
+#   - The default smoke + integrity + a11y + analytics + topbar +
+#     bug-report + web-vitals + tab-walk suites in Chromium  (the
+#     blocking gate; matches `npm test` locally).
+#
+# What does NOT run here:
+#   - tests/contracts/api.spec.ts        — needs the live VM, runs on
+#                                          a separate workflow that
+#                                          handles the unreachable-VM
+#                                          case gracefully.
+#   - tests/user-flows.spec.ts           — runs against the deployed
+#                                          GitHub Pages site only,
+#                                          scheduled nightly.
+#   - cross-browser projects (firefox /
+#     webkit / mobile)                   — informational only,
+#                                          scheduled nightly.
+#
+# Why split this way:  the per-push gate must be FAST (< 2 min total)
+# and DETERMINISTIC (no flake from a transient VM outage).  The
+# longer-running checks happen out of the critical path.
+
+name: Test (smoke)
+
+on:
+  push:
+    branches: [gh-pages]
+  pull_request:
+    branches: [gh-pages]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: smoke + integrity + a11y (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Browsers — only chromium for the per-push gate (Firefox/WebKit/
+      # mobile install is heavier and runs nightly).  --with-deps adds
+      # the OS-level libs Playwright needs on Ubuntu.
+      - run: npx playwright install --with-deps chromium
+
+      - name: Run npm test (chromium-only suite)
+        run: npm test
+
+      - name: Upload test artefacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
