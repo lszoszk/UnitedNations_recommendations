@@ -660,6 +660,14 @@ function bindKwInput() {
   $('#kwInput').addEventListener('input', e => {
     state.filters.kw = e.target.value;
     $('#tabSearch').textContent = e.target.value.trim() || '—';
+    /* If the keyword was applied from a label rule and the user is now
+       editing it, drop the label association — they're no longer running
+       the label, just an inspired-by query. The chip + scope banner will
+       fall back to plain Q-style rendering on the next render. */
+    if (state.filters.activeLabel) {
+      state.filters.activeLabel = null;
+      delete e.target.dataset.fromLabel;
+    }
     debouncedKw();
   });
   $('#kwInput').addEventListener('keydown', e => {

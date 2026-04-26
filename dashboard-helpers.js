@@ -185,6 +185,9 @@ function emptyFilters() {
     // just because filters got wiped. Falls back to 'cleaned' on first call
     // before state exists (bootstrap safety).
     dataset: (typeof state !== 'undefined' && state?.filters?.dataset) || 'cleaned',
+    // Cleared along with the rest of the filter state — see comment in
+    // dashboard-data.js for what this carries.
+    activeLabel: null,
   };
 }
 

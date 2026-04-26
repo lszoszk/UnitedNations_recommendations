@@ -103,6 +103,13 @@ const state = {
     themesMatch: 'any',
     groupsMatch: 'any',
     dataset: 'cleaned',
+    /* Labels-workspace integration: when the user clicks "📊 Analyze" or
+       "🔎 Search" on a label rule, we pipe the rule's FTS5 query into kw
+       and remember which rule it came from here. The chip + scope banner
+       use this to render "🏷 <label name>" instead of the raw FTS5, and
+       the kw input handler clears it on manual edit (because the user is
+       no longer running the label, just an inspired-by query). */
+    activeLabel: null,
   },
   selectedRec: null,
   focusCountry: null,

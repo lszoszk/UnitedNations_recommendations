@@ -410,6 +410,23 @@ a{color:inherit;text-decoration:none}
 .view.loading{opacity:.5;pointer-events:none}
 
 /* Active-filter chip strip — between tabs and view content */
+/* Scope banner — surfaces "you are filtering by label X" prominently,
+   above the active-filter strip. Only visible when state.filters.activeLabel
+   is set. Built to be obvious without being noisy: same paper-2 chrome
+   as the filter strip, accent-coloured left border, label name in serif
+   so it reads as a proper title rather than a code string. */
+.scope-banner{display:none;align-items:center;gap:14px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--paper-2);border-left:3px solid var(--accent)}
+.scope-banner:not([hidden]){display:flex}
+.scope-banner .sb-icon{font-size:18px;line-height:1;flex-shrink:0}
+.scope-banner .sb-text{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;flex:1;min-width:0}
+.scope-banner .sb-lead{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.scope-banner .sb-name{font-family:var(--serif);font-size:18px;font-weight:600;color:var(--ink);font-style:italic;cursor:help}
+.scope-banner .sb-count{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.scope-banner .sb-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.scope-banner .sb-actions a{font-family:var(--mono);font-size:11px;color:var(--accent);border-bottom:1px dotted var(--accent-soft);padding-bottom:1px}
+.scope-banner .sb-actions a:hover{border-bottom-style:solid}
+.scope-banner .sb-actions button{font-family:var(--mono);font-size:11px;color:var(--dim);background:transparent;border:1px solid var(--line);padding:3px 8px;cursor:pointer;letter-spacing:.04em}
+.scope-banner .sb-actions button:hover{color:var(--ink);border-color:var(--ink)}
 .active-filters{display:none;gap:6px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--paper-2);align-items:center}
 .active-filters.on{display:flex}
 .active-filters .af-label{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-right:4px}
@@ -423,6 +440,8 @@ a{color:inherit;text-decoration:none}
 .active-filters .af-chip.kind-type{border-left-color:#6b7280}
 .active-filters .af-chip.kind-year{border-left-color:#737373}
 .active-filters .af-chip.kind-kw{border-left-color:#be185d}
+.active-filters .af-chip.kind-label{border-left-color:var(--accent);background:var(--accent-soft)}
+.active-filters .af-chip.kind-label .v{font-family:var(--serif);font-style:italic;font-weight:600;font-size:12px}
 .active-filters .af-chip .k{color:var(--dim);font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-right:2px}
 .active-filters .af-chip .v{color:var(--ink);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .active-filters .af-chip .x{border:0;background:transparent;color:var(--dim);font-size:14px;line-height:1;padding:0 2px;cursor:pointer;margin-left:2px}
@@ -2103,6 +2122,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <button class="tabs-chevron" id="tabsChevron" aria-label="Scroll tabs right" type="button">›</button>
     </div>
 
+    <div class="scope-banner" id="scopeBanner" role="status" aria-live="polite" hidden></div>
     <div class="active-filters" id="activeFilters"></div>
 
     <section class="view" id="view-overview"></section>

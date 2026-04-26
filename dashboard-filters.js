@@ -9,9 +9,22 @@
 function renderActiveFilters() {
   const f = state.filters;
   const chips = [];
-  const push = (kind, label, value, remove) => chips.push({ kind, label, value, remove });
+  const push = (kind, label, value, remove, opts) => chips.push({ kind, label, value, remove, ...(opts || {}) });
 
-  if (f.kw && f.kw.trim()) push('kw', 'Q', f.kw, () => { f.kw = ''; $('#kwInput').value = ''; });
+  /* Keyword chip — branches on whether the keyword came from a label
+     rule (📊 Analyze / 🔎 Search on a rule card). Label-driven kw shows
+     the label NAME with the FTS5 in the tooltip, instead of leaking the
+     compiled query into the visible chip text. */
+  if (f.kw && f.kw.trim()) {
+    if (f.activeLabel && f.activeLabel.name) {
+      push('label', '🏷', f.activeLabel.name,
+        () => { f.kw = ''; f.activeLabel = null; const inp = $('#kwInput'); if (inp) { inp.value = ''; delete inp.dataset.fromLabel; } },
+        { tooltip: f.kw });
+    } else {
+      push('kw', 'Q', f.kw,
+        () => { f.kw = ''; f.activeLabel = null; $('#kwInput').value = ''; });
+    }
+  }
 
   for (const c of f.country) push('country', 'Country', c, () => f.country.delete(c));
   for (const b of f.body)    push('body',    'Body',    b, () => f.body.delete(b));
@@ -39,7 +52,7 @@ function renderActiveFilters() {
   const chipHtml = (c, i) => `
     <span class="af-chip kind-${c.kind}">
       <span class="k">${sanitize(c.label)}</span>
-      <span class="v" title="${sanitize(c.value)}">${sanitize(c.value)}</span>
+      <span class="v" title="${sanitize(c.tooltip || c.value)}">${sanitize(c.value)}</span>
       <button class="x" data-i="${i}" aria-label="Remove filter">×</button>
     </span>`;
   bar.innerHTML =
@@ -52,11 +65,12 @@ function renderActiveFilters() {
   bar.querySelectorAll('.af-chip .x').forEach(btn => btn.addEventListener('click', () => {
     const i = Number(btn.dataset.i);
     chips[i].remove();
-    refreshFacetUI(chips[i].kind === 'group' ? 'group'
-                 : chips[i].kind === 'kw' || chips[i].kind === 'year' ? null
-                 : chips[i].kind);
-    if (chips[i].kind === 'kw') $('#tabSearch').textContent = '—';
-    if (chips[i].kind === 'country') state.hexRegion = 'world';
+    const k = chips[i].kind;
+    refreshFacetUI(k === 'group' ? 'group'
+                 : (k === 'kw' || k === 'label' || k === 'year') ? null
+                 : k);
+    if (k === 'kw' || k === 'label') $('#tabSearch').textContent = '—';
+    if (k === 'country') state.hexRegion = 'world';
     onFiltersChanged();
   }));
   $('#afMore')?.addEventListener('click', () => { state._afExpanded = true; renderActiveFilters(); });
@@ -64,11 +78,57 @@ function renderActiveFilters() {
   $('#afClearAll').addEventListener('click', () => $('#clearFilters').click());
 }
 
+/* ---------- Scope banner (#3) ---------- */
+/* Visible above the active-filter strip whenever the user has applied a
+   label rule via 📊 Analyze / 🔎 Search. Carries the label name + live
+   record count so it's obvious "you are now scoped to label X" — without
+   this, the only signal that a label is active is a chip with a long
+   FTS5 string, which scientists routinely overlook. */
+function renderScopeBanner() {
+  const el = $('#scopeBanner');
+  if (!el) return;
+  const f = state.filters;
+  const lbl = f.activeLabel;
+  if (!lbl || !f.kw) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  const total = state.facets?.total_records || 267537;
+  const hits = state.totalHits;
+  const hitsTxt = (hits == null) ? '…' : fmt(hits);
+  const pctTxt = (hits == null) ? '' : `(${pct(hits / total)})`;
+  el.hidden = false;
+  el.innerHTML = `
+    <span class="sb-icon" aria-hidden="true">🏷</span>
+    <div class="sb-text">
+      <span class="sb-lead">Filtering by label</span>
+      <strong class="sb-name" title="${sanitize(f.kw)}">${sanitize(lbl.name)}</strong>
+      <span class="sb-count">${hitsTxt} of ${fmt(total)} records ${pctTxt}</span>
+    </div>
+    <div class="sb-actions">
+      <a href="#" id="scopeBannerEdit" title="Open the Labels workspace to refine this rule">edit rule →</a>
+      <button id="scopeBannerClear" type="button" aria-label="Remove label filter">× remove</button>
+    </div>`;
+  $('#scopeBannerEdit')?.addEventListener('click', e => {
+    e.preventDefault();
+    if (typeof navigate === 'function') navigate('labels');
+  });
+  $('#scopeBannerClear')?.addEventListener('click', () => {
+    f.kw = '';
+    f.activeLabel = null;
+    const inp = $('#kwInput'); if (inp) { inp.value = ''; delete inp.dataset.fromLabel; }
+    $('#tabSearch').textContent = '—';
+    onFiltersChanged();
+  });
+}
+
 /* ---------- Filter-changed pipeline ---------- */
 const debouncedHit = debounce(() => refreshHitCount(), 200);
 const debouncedRefresh = debounce(() => refreshCurrentView(), 650);
 function onFiltersChanged() {
   renderActiveFilters();
+  renderScopeBanner();
   debouncedHit();
   debouncedRefresh();
   _pushUrlState();
@@ -152,6 +212,9 @@ async function refreshHitCount() {
     $('#hitPct').textContent = pct(p);
     el.classList.remove('fr-loading');
     renderKwSyns(r.search_expansions || []);
+    /* Re-render scope banner so its count refreshes once the hit-count
+       request comes back (initial render uses old / undefined hits). */
+    renderScopeBanner();
   } catch (err) {
     if (err.name === 'AbortError') return;
     console.warn('hit count failed', err);

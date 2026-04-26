@@ -476,6 +476,27 @@ function rulesRefreshAllCounts() {
   for (const r of (state.rules.rules || [])) rulesScheduleCount(r);
 }
 
+/* ------------- Apply rule as global filter -------------
+   Used by the "📊 Analyze" and "🔎 Search" rule-card actions. Sets the
+   compiled FTS5 query as the rail keyword AND tags state.filters.activeLabel
+   with the rule's id+name so the chip + scope banner can render the label
+   name instead of the raw FTS5 string. Crucially, calls onFiltersChanged()
+   so the rail hit-count, the active-filters strip, the URL hash and the
+   current tab's render all stay in sync — without this, the user sees a
+   half-applied filter (FIG.* refresh, but rail stays at 100% of dataset). */
+function _applyRuleAsActiveFilter(rule, compiled) {
+  state.filters.kw = compiled;
+  state.filters.activeLabel = { id: rule.id, name: rule.name || 'unnamed rule' };
+  const inp = $('#kwInput');
+  if (inp) {
+    inp.value = compiled;
+    /* Clear any "label was here, then user typed" association in case
+       this is a re-apply on top of a manually-edited keyword. */
+    inp.dataset.fromLabel = '1';
+  }
+  if (typeof onFiltersChanged === 'function') onFiltersChanged();
+}
+
 /* ------------- Rule CRUD helpers ------------- */
 function rulesAddRule(name) {
   const r = {
@@ -1036,8 +1057,7 @@ function rulesBindEvents() {
         } else if (act === 'openInSearch') {
           const q = compileRule(rule);
           if (!q) { toast('Rule is empty', true, 1500); return; }
-          state.filters.kw = q;
-          if ($('#kwInput')) $('#kwInput').value = q;
+          _applyRuleAsActiveFilter(rule, q);
           navigate('search');
         } else if (act === 'analyze') {
           // Answer to "what next after I've built a rule": pipe it through
@@ -1047,9 +1067,8 @@ function rulesBindEvents() {
           // Mechanism, SDG, Compare) will then work as rule-scoped too.
           const q = compileRule(rule);
           if (!q) { toast('Rule is empty', true, 1500); return; }
-          state.filters.kw = q;
-          if ($('#kwInput')) $('#kwInput').value = q;
-          toast(`Applied rule as rail keyword — explore across tabs`, false, 2500);
+          _applyRuleAsActiveFilter(rule, q);
+          toast(`Filtering by label "${rule.name || 'unnamed rule'}" — explore across tabs`, false, 2500);
           navigate('overview');
         } else if (act === 'openDrawer') {
           // Hybrid: browse matching records in the side drawer without
