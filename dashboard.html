@@ -220,6 +220,13 @@ a{color:inherit;text-decoration:none}
 .brand .mono-sq{width:10px;height:10px;background:var(--ink);display:inline-block}
 .brand .b-name{font-weight:700;letter-spacing:.14em}
 .brand .b-sub{color:var(--dim)}
+/* Beta-version badge — small, accent-bordered pill next to the brand
+   subtitle. Signals "iterative release, feedback welcome" without
+   shouting; hover reveals the contact channel. Hidden on mobile by
+   the same media query that hides .b-sub (the brand area is already
+   tight there). */
+.brand .b-version{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent-soft);padding:2px 6px;background:var(--paper);margin-left:6px;cursor:help;font-variant-numeric:tabular-nums;white-space:nowrap}
+.brand .b-version:hover{border-color:var(--accent)}
 .cmdk{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--paper-2);padding:4px 10px;max-width:560px;width:100%;justify-self:center;color:var(--dim);font-size:11px}
 /* N4: swap ⌘K symbols for a magnifier on touch devices (no physical
    keyboard). Desktop users still see the shortcut. */
@@ -1715,8 +1722,9 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   /* Brand "/ analytics (preview)" took 3 lines when UHRI pushed it to a
      narrow column. Hide the subtitle; the word UHRI + the LIVE dot +
      the THEME button already identify the app. Page title (selected tab)
-     stays below in the tabs strip. */
-  .brand .b-sub{display:none}
+     stays below in the tabs strip. The beta-version badge tags along
+     and hides on the same breakpoint for the same reason. */
+  .brand .b-sub,.brand .b-version{display:none}
 
   /* Topbar packing — shrink the stretched cmdk a bit and tighten the
      grid so the row doesn't feel dispersed. Keep auto/1fr/auto grid
@@ -1941,6 +1949,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <a href="./index2.html" class="mono-sq" title="Back to landing page" style="cursor:pointer" aria-label="Back to landing"></a>
     <a href="./index2.html" class="b-name" style="cursor:pointer;color:inherit;text-decoration:none" title="Back to landing">UHRI</a>
     <span class="b-sub">/ analytics (preview)</span>
+    <span class="b-version" title="Beta release · monthly OHCHR sync · feedback welcome via the bug-report button or l.szoszkiewicz@amu.edu.pl">β · v2026.04</span>
   </div>
   <button class="cmdk" id="cmdkBtn" aria-label="Open command palette">
     <span class="k cmdk-k-mac">⌘</span><span class="k cmdk-k-mac">K</span>
