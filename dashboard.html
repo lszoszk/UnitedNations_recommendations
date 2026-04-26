@@ -1557,7 +1557,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 /* Dataset toggle pill in header — swaps between cleaned (default) and
    raw upstream. In raw mode the pill picks up an amber accent so the
    user never loses track of which dataset they're viewing. */
-.ds-pill{position:relative;border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;cursor:pointer;color:var(--dim);display:inline-flex;align-items:center;gap:5px;text-transform:uppercase}
+.ds-pill{position:relative;border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;cursor:pointer;color:var(--dim);display:inline-flex;align-items:center;gap:5px;text-transform:uppercase;white-space:nowrap}
 .ds-pill:hover{border-color:var(--ink);color:var(--ink)}
 .ds-pill .ds-val{color:var(--ink);font-weight:600}
 .ds-pill.raw{border-color:#b88400;color:#7a5500;background:color-mix(in oklab,#eab308 10%, var(--paper))}  /* text darkened from #b88400 → #7a5500 for 4.5:1 contrast; border keeps the brighter amber */
