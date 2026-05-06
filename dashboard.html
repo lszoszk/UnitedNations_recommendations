@@ -3119,6 +3119,27 @@ async function navigate(view) {
    directly. Cross-script `const` bindings in classic <script> land share
    one slot per realm, so `TW.drawer = true` from here works fine. */
 
+function closeDrawerPanelSafe() {
+  if (typeof window.closeDrawerPanel === 'function') {
+    window.closeDrawerPanel();
+    return;
+  }
+  const app = $('#app') || document.body;
+  app?.classList.remove('reading-mode');
+  if (state.drawerMode === 'list' && typeof window.closeListDrawer === 'function') {
+    window.closeListDrawer();
+  }
+  state.selectedRec = null;
+  state.drawerMode = 'record';
+  state.drawerList = null;
+  state.currentResultIndex = -1;
+  if (typeof TW !== 'undefined') TW.drawer = false;
+  window._seSetActiveRecord?.(null);
+  window._closeMobileDrawer?.();
+  if (typeof applyTweaks === 'function') applyTweaks();
+  if (typeof renderDrawer === 'function') renderDrawer();
+}
+
 /* =========================================================================
    BOOT
    ========================================================================= */
@@ -3345,7 +3366,7 @@ async function boot() {
   $('#cmdInput').addEventListener('input', e => renderPalette(e.target.value));
   $('#cmdPalette').addEventListener('click', e => { if (e.target.id === 'cmdPalette') closePalette(); });
   $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') $('#reader').classList.add('hidden'); });
-  $('#drawerClear').addEventListener('click', closeDrawerPanel);
+  $('#drawerClear').addEventListener('click', closeDrawerPanelSafe);
   $('#drawerReadingMode')?.addEventListener('click', toggleReadingMode);
   // N2: A−/A+ wiring (visible only in reading-mode via CSS)
   $('#drFontDown')?.addEventListener('click', () => bumpReadingFontSize(-1));
@@ -3580,7 +3601,7 @@ async function boot() {
       const readerOpen = !$('#reader').classList.contains('hidden');
       if (paletteOpen) closePalette();
       else if (readerOpen) $('#reader').classList.add('hidden');
-      else if (!inInput && TW.drawer) closeDrawerPanel();
+      else if (!inInput && TW.drawer) closeDrawerPanelSafe();
     }
     else if (e.key === 'Enter' && !$('#cmdPalette').classList.contains('hidden')) {
       const first = window.__cmdResults && window.__cmdResults[0]; if (first) first.action();

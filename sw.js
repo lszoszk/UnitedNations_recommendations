@@ -1,10 +1,11 @@
 /* UHRI v2 Service Worker
- * - Cache-first for app shell (dashboard.html, manifest, icons, fonts)
+ * - Network-first for app code (dashboard.html, JS/CSS) to avoid version skew
+ *   after GitHub Pages deploys; cache-first only for stable icons/fonts.
  * - Stale-while-revalidate for /api/data/facets, /api/data/map, /api/data/analytics,
  *   /api/data/records (Tier 4a — filter-change instant on repeat visits)
  * - Network-only for /api/feedback/report, /api/data/full
  */
-const SHELL_CACHE  = 'uhri-v2-shell-v61';  // bump to invalidate stale caches on ship
+const SHELL_CACHE  = 'uhri-v2-shell-v62';  // bump to invalidate stale caches on ship
 const DATA_CACHE   = 'uhri-v2-data-v6';    // moot under cross-origin pass-through
 const FONT_CACHE   = 'uhri-v2-font-v2';
 
@@ -76,6 +77,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // App code must be network-first. Otherwise an old service worker can
+  // combine fresh dashboard.html with stale dashboard-*.js after a push,
+  // which is exactly the kind of blank-screen failure users perceive as
+  // "data not loading".
+  if (
+    req.destination === 'script' ||
+    req.destination === 'style' ||
+    /\.(?:js|css|html)$/i.test(url.pathname)
+  ) {
+    event.respondWith(networkFirst(req, SHELL_CACHE));
+    return;
+  }
+
   // Other same-origin static assets (icons, manifest) → cache-first
   event.respondWith(cacheFirst(req, SHELL_CACHE));
 });
@@ -83,7 +97,7 @@ self.addEventListener('fetch', (event) => {
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
   try {
-    const res = await fetch(req);
+    const res = await fetch(req, { cache: 'reload' });
     if (res.ok) cache.put(req, res.clone()).catch(() => {});
     return res;
   } catch {
