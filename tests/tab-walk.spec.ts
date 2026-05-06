@@ -189,6 +189,169 @@ test('drawer-list — single-record load does not duplicate (race fix)', async (
   expect(errors).toEqual([]);
 });
 
+test('overview mechanism tiles toggle family filters and active chips', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  const analyticsFixture = {
+    ok: true,
+    trends: {
+      yearly_counts: [{ year: 2020, count: 6 }],
+      yearly_body_counts: [
+        { year: 2020, body: 'UPR', count: 3 },
+        { year: 2020, body: 'CCPR', count: 2 },
+        { year: 2020, body: 'CEDAW', count: 1 },
+        { year: 2020, body: 'SR Torture', count: 1 },
+      ],
+    },
+    themes: { theme_counts: [], yearly_theme_counts: [] },
+    text: { affected_person_counts: [], sdg_counts: [] },
+  };
+
+  await page.route('**/uhri-api/api/data/**', async route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    let body: unknown = { ok: true };
+    if (path.endsWith('/facets')) {
+      body = {
+        ok: true,
+        countries: ['Poland'],
+        bodies: ['UPR', 'CCPR', 'CEDAW', 'SR Torture'],
+        regions: [],
+        types: ['Recommendations'],
+        min_year: 2006,
+        max_year: 2026,
+        total_records: 7,
+      };
+    } else if (path.endsWith('/analytics')) {
+      body = analyticsFixture;
+    } else if (path.endsWith('/map')) {
+      body = { ok: true, country_counts: [{ country: 'Poland', count: 7 }] };
+    } else if (path.endsWith('/records')) {
+      body = { ok: true, total_records: 3, page: 1, page_size: 1, records: [] };
+    } else if (path.endsWith('/summary')) {
+      body = { ok: true, total_records: 7, yearly_counts: [] };
+    }
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  });
+
+  await page.goto('/dashboard.html', { waitUntil: 'commit' });
+  const treatyTile = page.locator('#ovMechTiles .mech-tile[data-family="treaty"]');
+  await expect(treatyTile).toBeVisible({ timeout: 5000 });
+
+  await treatyTile.click();
+  await expect(treatyTile).toHaveClass(/\bon\b/);
+  await expect(page.locator('#activeFilters')).toContainText('Mechanism');
+  await expect(page.locator('#activeFilters')).toContainText('Treaty Bodies');
+  await expect.poll(() => page.evaluate(() => Array.from((globalThis as any).__state.filters.body).sort())).toEqual(['CCPR', 'CEDAW']);
+
+  await treatyTile.click();
+  await expect(treatyTile).not.toHaveClass(/\bon\b/);
+  await expect(page.locator('#activeFilters')).not.toHaveClass(/\bon\b/);
+  await expect.poll(() => page.evaluate(() => (globalThis as any).__state.filters.body.size)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('country profile row click scopes drawer records to the focused country', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  const recordsUrls: string[] = [];
+  const sampleRecord = {
+    AnnotationId: 'pol-res-0001',
+    Text: 'Poland reservation recommendation text',
+    TextPlainCleaned: 'Poland reservation recommendation text',
+    Countries: ['Poland'],
+    Themes: ['Reservations'],
+    AffectedPersons: ['Women & girls'],
+    Sdgs: ['5 - Gender equality'],
+    Body: 'UPR',
+    PublicationDate: '2020-01-01',
+  };
+  const analyticsFixture = {
+    ok: true,
+    trends: {
+      dataset_first_publication_date: '2006-01-01',
+      dataset_last_publication_date: '2026-01-01',
+      yearly_counts: [{ year: 2020, count: 2 }],
+      yearly_body_counts: [{ year: 2020, body: 'UPR', count: 2 }],
+    },
+    themes: {
+      theme_counts: [{ theme: 'Reservations', count: 2 }],
+      yearly_theme_counts: [{ year: 2020, theme: 'Reservations', count: 2 }],
+    },
+    text: {
+      affected_person_counts: [{ affected_person: 'Women & girls', count: 1 }],
+      yearly_affected_person_counts: [{ year: 2020, affected_person: 'Women & girls', count: 1 }],
+      sdg_counts: [{ sdg: '5 - Gender equality', count: 1 }],
+      yearly_sdg_counts: [{ year: 2020, sdg: '5 - Gender equality', count: 1 }],
+    },
+  };
+  const recordsFixture = {
+    ok: true,
+    total_records: 1,
+    page: 1,
+    page_size: 30,
+    records: [sampleRecord],
+  };
+
+  await page.route('**/uhri-api/api/data/**', async route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    let body: unknown = { ok: true };
+    if (path.endsWith('/records')) {
+      recordsUrls.push(url.toString());
+      body = recordsFixture;
+    } else if (path.endsWith('/facets')) {
+      body = {
+        ok: true,
+        countries: ['Poland'],
+        bodies: ['UPR'],
+        regions: [],
+        types: ['Recommendations'],
+        min_year: 2006,
+        max_year: 2026,
+        total_records: 1,
+      };
+    } else if (path.endsWith('/analytics')) {
+      body = analyticsFixture;
+    } else if (path.endsWith('/map')) {
+      body = { ok: true, country_counts: [{ country: 'Poland', count: 2 }] };
+    } else if (path.includes('/profile/country/Poland')) {
+      body = {
+        ok: true,
+        analytics: analyticsFixture,
+        map: { ok: true, country_counts: [{ country: 'Poland', count: 2 }] },
+        records_sample: recordsFixture,
+      };
+    } else if (path.endsWith('/summary')) {
+      body = { ok: true, total_records: 1, yearly_counts: [] };
+    }
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  });
+
+  await page.goto('/dashboard.html#view=country&fc=POL', { waitUntil: 'commit' });
+  await expect(page.locator('#cpThemes .rl-row').first()).toBeVisible({ timeout: 5000 });
+  await page.locator('#cpThemes .rl-row').first().click();
+
+  await expect.poll(() => {
+    return recordsUrls.find(raw => {
+      const url = new URL(raw);
+      return url.pathname.endsWith('/records')
+        && url.searchParams.get('themes') === 'Reservations'
+        && url.searchParams.get('countries') === 'Poland'
+        && url.searchParams.get('page_size') === '30';
+    }) || null;
+  }, { timeout: 5000 }).not.toBeNull();
+
+  await expect(page.locator('.dr-list-head .v')).toContainText('Reservations');
+  expect(errors).toEqual([]);
+});
+
 test('footer About link navigates from Overview', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   // Pre-set GA consent so the banner never appears.  On mobile

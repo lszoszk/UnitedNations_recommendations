@@ -889,6 +889,11 @@ a{color:inherit;text-decoration:none}
 .mech-tile.tb:hover{background:var(--mech-tb-soft)}
 .mech-tile.sp:hover{background:var(--mech-sp-soft)}
 .mech-tile.upr:hover{background:var(--mech-upr-soft)}
+.mech-tile.on{box-shadow:inset 0 0 0 1px var(--mt-color,var(--accent)),inset 0 -3px 0 var(--mt-color,var(--accent));background:var(--paper-2)}
+.mech-tile.tb.on{background:var(--mech-tb-soft)}
+.mech-tile.sp.on{background:var(--mech-sp-soft)}
+.mech-tile.upr.on{background:var(--mech-upr-soft)}
+.mech-tile.on .mt-family{color:var(--ink)}
 /* Compact variant used inside the drawer (tight vertical space) */
 .mech-tiles.compact{grid-template-columns:1fr;gap:1px}
 .mech-tiles.compact .mech-tile{padding:10px 14px;flex-direction:row;align-items:center;gap:10px}
@@ -2731,11 +2736,11 @@ function buildOverviewShell() {
            the breakdown of the dataset by UN source type. Reinforces
            the landing-page promise ("Treaty Bodies · UPR · Special
            Procedures") at the top of the first working tab. Click a
-           tile to open all that family's recommendations in the drawer. -->
+           tile to filter the dashboard by that mechanism family. -->
       <div class="panel p-mech-strip">
         <div class="panel-head">
           <div class="panel-title"><span class="idx">FIG.00</span><span class="t">Three UN mechanisms</span></div>
-          <div class="panel-actions"><span style="color:var(--dim);font-size:10px">click a tile → all recommendations from that family</span></div>
+          <div class="panel-actions"><span style="color:var(--dim);font-size:10px">click = filter · click again = clear</span></div>
         </div>
         <div id="ovMechTiles">${_skelRowList(3)}</div>
       </div>
@@ -2883,8 +2888,8 @@ function renderOverviewAnalytics(analytics) {
   updateSparklineCaches(analytics);
 
   // FIG.00 — mechanism KPI strip. Aggregate body counts into three
-  // family totals and render as clickable tiles. Click → drawer list
-  // with that family's records. State.analytics gets written here so
+  // family totals and render as clickable tiles. Click → toggle a
+  // body-family rail filter. State.analytics gets written here so
   // other callers (_computeMechCounts for the drawer at-a-glance) can
   // reuse the same figures without a second API round-trip.
   state.analytics = analytics;
@@ -2898,7 +2903,8 @@ function renderOverviewAnalytics(analytics) {
     renderMechTiles($('#ovMechTiles'), mechCounts, {
       mode: 'full',
       showDesc: false,
-      onClick: (family) => _openFamilyListDrawer(family),
+      showActive: true,
+      onClick: (family) => toggleMechanismFamilyFilter(family),
     });
   }
   // Also refresh the drawer if it's currently on the empty at-a-glance

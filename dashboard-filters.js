@@ -27,7 +27,13 @@ function renderActiveFilters() {
   }
 
   for (const c of f.country) push('country', 'Country', c, () => f.country.delete(c));
-  for (const b of f.body)    push('body',    'Body',    b, () => f.body.delete(b));
+  const bodyFamilies = mechanismFamilySelectionInfo();
+  bodyFamilies.families.forEach(fam => {
+    push('body', 'Mechanism', fam.full, () => fam.members.forEach(body => f.body.delete(body)));
+  });
+  for (const b of f.body) {
+    if (!bodyFamilies.consumed.has(b)) push('body', 'Body', b, () => f.body.delete(b));
+  }
   for (const t of f.theme)   push('theme',   'Theme',   t, () => f.theme.delete(t));
   for (const g of f.group)   push('group',   'Group',   g, () => f.group.delete(g));
   for (const r of f.region)  push('region',  'Region',  r, () => f.region.delete(r));
@@ -43,6 +49,7 @@ function renderActiveFilters() {
   }
 
   const bar = $('#activeFilters');
+  syncMechanismTileSelection();
   if (!chips.length) { bar.classList.remove('on'); bar.innerHTML = ''; return; }
   bar.classList.add('on');
   const COLLAPSE_AT = 6;

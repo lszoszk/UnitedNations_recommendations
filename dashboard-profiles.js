@@ -109,13 +109,14 @@ async function renderCountry() {
       _renderStackToggle($('#cpStackToggle'), mode, (next) => { state.profileStackBy = next; _cpRenderTl(); });
     };
     _cpRenderTl();
-    renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
+    const countryScope = { country: new Set([name]) };
+    renderRowList($('#cpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines, extraFilter: countryScope });
     const bodyRows = Object.entries(bodyTotals).sort((a,b)=>b[1]-a[1]).map(([k,v]) => ({ key:k, label:k, v }));
-    renderRowList($('#cpBodies'), bodyRows, { facet:'body', sparklines: _bodySparklines });
+    renderRowList($('#cpBodies'), bodyRows, { facet:'body', sparklines: _bodySparklines, extraFilter: countryScope });
     const groups = analytics?.text?.affected_person_counts || [];
-    renderRowList($('#cpGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
+    renderRowList($('#cpGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines, extraFilter: countryScope });
     const sdgs = analytics?.text?.sdg_counts || [];
-    renderRowList($('#cpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
+    renderRowList($('#cpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines, extraFilter: countryScope });
 
     const sampleEl = $('#cpSamples');
     sampleEl.innerHTML = '';

@@ -400,14 +400,16 @@ function aggregateMechanismCounts(source) {
     - false   → desc hidden regardless of mode (centre strip — counts
                 only, descriptions live in the drawer companion panel)
    `onClick(familyKey)` fires when a tile is activated. */
-function renderMechTiles(container, counts, { mode = 'full', showDesc, onClick = null } = {}) {
+function renderMechTiles(container, counts, { mode = 'full', showDesc, showActive = false, onClick = null } = {}) {
   if (!container) return;
   const wantDesc = (showDesc === undefined) ? (mode === 'full') : !!showDesc;
+  const activeFamilies = showActive ? mechanismFamilySelectionInfo().families : [];
   const tiles = MECH_FAMILIES.map(f => {
     const n = counts[f.key] || 0;
     const pct = counts._total ? Math.round(100 * n / counts._total) : null;
+    const active = activeFamilies.some(sel => sel.key === f.key);
     return `
-      <button class="mech-tile ${f.cls}" data-family="${f.key}" aria-label="${f.full} — ${n} records">
+      <button class="mech-tile ${f.cls}${active ? ' on' : ''}" data-family="${f.key}" aria-pressed="${active ? 'true' : 'false'}" aria-label="${f.full} — ${n} records">
         <div class="mt-family">${f.label}</div>
         <div class="mt-name">${f.full}</div>
         <div class="mt-count">${fmt(n)}${pct !== null ? ` <span class="mt-sub" style="display:inline;font-size:11px;margin-left:4px">${pct}%</span>` : ''}</div>
@@ -437,6 +439,47 @@ function bodiesInFamily(familyKey) {
     .filter(b => b && b !== '-')
     .map(b => String(b).replace(/^-\s*/, ''))
     .filter(b => classifyBody(b) === familyKey);
+}
+
+function mechanismFamilySelectionInfo(bodySet = state.filters?.body || new Set()) {
+  const selected = bodySet || new Set();
+  const consumed = new Set();
+  const families = [];
+  MECH_FAMILIES.forEach(fam => {
+    const members = bodiesInFamily(fam.key);
+    if (!members.length) return;
+    if (members.every(body => selected.has(body))) {
+      families.push({ ...fam, members });
+      members.forEach(body => consumed.add(body));
+    }
+  });
+  return { families, consumed };
+}
+
+function syncMechanismTileSelection() {
+  const active = new Set(mechanismFamilySelectionInfo().families.map(f => f.key));
+  $$('#ovMechTiles .mech-tile[data-family]').forEach(tile => {
+    const on = active.has(tile.dataset.family);
+    tile.classList.toggle('on', on);
+    tile.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+function toggleMechanismFamilyFilter(familyKey) {
+  const fam = MECH_FAMILIES.find(f => f.key === familyKey);
+  if (!fam) return;
+  const members = bodiesInFamily(familyKey);
+  if (!members.length) { toast(`No ${fam.full} bodies in current dataset`, true, 2000); return; }
+  const set = state.filters.body;
+  const selected = members.every(body => set.has(body));
+  members.forEach(body => {
+    if (selected) set.delete(body);
+    else set.add(body);
+  });
+  refreshFacetUI('body');
+  syncMechanismTileSelection();
+  onFiltersChanged();
+  announce(`${fam.full} ${selected ? 'removed from' : 'added to'} filters`);
 }
 
 /* Compute current mechanism-family counts from cached analytics. Looks
@@ -679,4 +722,3 @@ function bindKwInput() {
 }
 
 /* Active-filter strip + hit-count pipeline moved to dashboard-filters.js. */
-
