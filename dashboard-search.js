@@ -108,7 +108,7 @@ function _seSwapExpansion(el, expanding) {
  *  A. Explainer banner above the list (done in renderSearch).
  *  B. Citation-grade header row: year · country · body · TYPE · symbol · marks.
  *  C. Full text with fade-out + "Show full" toggle (no 320-char slice).
- *  D. Per-row action bar appears on hover: Read · Bookmark · Pin · Copy · Note.
+ *  D. Per-row action bar stays for secondary tasks: Bookmark · Pin · Copy.
  *  E. Tags grouped by kind with visible category labels (THEMES / GROUPS / SDGs). */
 function _renderSearchItem(rec, idx, kw) {
   const fullTxt = rec.TextPlainCleaned || rec.Text || '';
@@ -146,7 +146,8 @@ function _renderSearchItem(rec, idx, kw) {
     snippet = smartSnippet(fullTxt, kw);
   }
   const isSelected = state.searchSelection.has(rec.AnnotationId);
-  return `<div class="se-item${isSelected?' selected':''}${snippet.isKwic?' is-kwic':''}" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
+  const isOpen = state.drawerMode !== 'list' && state.selectedRec?.AnnotationId === rec.AnnotationId;
+  return `<div class="se-item${isSelected?' selected':''}${isOpen?' is-open':''}${snippet.isKwic?' is-kwic':''}" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
     <label class="se-check" title="Select for bulk actions" onclick="event.stopPropagation()"><input type="checkbox" data-bulkcb="${idx}" ${isSelected?'checked':''}></label>
     <div class="se-hdr">
       <span class="yr">${sanitize(yr || '—')}</span>
@@ -171,14 +172,20 @@ function _renderSearchItem(rec, idx, kw) {
       ${sdgs.length ? `<span class="tg-kind">SDGs</span>${sdgs.map(s=>`<span class="tg-val" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(formatSdgLabel(s))}</span>`).join('')}` : ''}
     </div>` : ''}
     <div class="se-actions">
-      <button data-act="read" data-idx="${idx}" title="Open full reader (r for reading mode)">📖 Read</button>
       <button data-act="bookmark" data-idx="${idx}" class="${starred?'starred':''}" title="Toggle bookmark (b)">${starred?'★ Bookmarked':'☆ Bookmark'}</button>
       <button data-act="pin" data-idx="${idx}" class="${isPinned?'pinned':''}" title="Pin for side-by-side compare">${isPinned?'📌 Pinned':'📌 Pin'}</button>
       <button data-act="copy" data-idx="${idx}" title="Copy quote with APA citation">Copy quote</button>
-      <button data-act="note" data-idx="${idx}" title="Open drawer + focus the note field">📝 Note</button>
     </div>
   </div>`;
 }
+
+function _seSetActiveRecord(recOrId) {
+  const id = typeof recOrId === 'string' ? recOrId : (recOrId?.AnnotationId || '');
+  $$('#seList .se-item').forEach(el => {
+    el.classList.toggle('is-open', !!id && el.dataset.id === id);
+  });
+}
+window._seSetActiveRecord = _seSetActiveRecord;
 
 /* Search view — infinite scroll with IntersectionObserver sentinel.
    Modern browsers use CSS content-visibility:auto on rows so only visible
@@ -227,7 +234,7 @@ async function renderSearch() {
       <span class="pill" id="seBreakObs" title="Observations — findings, concerns, notes"><span class="v">…</span> Observations</span>
       <span class="pill" id="seBreakOther" title="Follow-up requests, procedural paragraphs, etc."><span class="v">…</span> Other</span>
       <span style="flex:1"></span>
-      <span style="color:var(--dim)">Click row → reader · checkbox → bulk · <kbd>/</kbd> focus keyword</span>
+      <span style="color:var(--dim)">Click row → side reader + notes · checkbox → bulk · <kbd>/</kbd> focus keyword</span>
     </div>
     <div class="se-bulk" id="seBulk" aria-live="polite">
       <span class="cnt" id="seBulkCount">0 selected</span>
@@ -484,18 +491,23 @@ async function loadNextSearchPage() {
     const list = $('#seList');
     if (list) list.insertAdjacentHTML('beforeend', html);
 
-    // Wire card click (→ reader) separately from action-button clicks so
-    // hovering/clicking an action doesn't also open the full reader.
+    // Wire card click to the side drawer. Search is a scanning surface:
+    // keep list context in the middle pane, inspect + note in the drawer.
     (list ? list.querySelectorAll('.se-item:not([data-wired])') : []).forEach(el => {
       el.dataset.wired = '1';
       el.addEventListener('click', (e) => {
         // Ignore clicks on buttons + the expand chevron — they handle themselves
         if (e.target.closest('button, .se-more-btn')) return;
         const idx = +el.dataset.idx;
-        state.selectedRec = state.searchLoaded[idx];
+        const rec = state.searchLoaded[idx];
+        if (!rec) return;
+        state.drawerMode = 'record';
+        state.drawerList = null;
+        state.selectedRec = rec;
         state.currentResultIndex = idx;
+        state.currentResultList = state.searchLoaded;
+        _seSetActiveRecord(rec);
         renderDrawer();
-        openReader(state.searchLoaded[idx]);
       });
       // Expand/collapse — see _seSwapExpansion for the KWIC↔full swap.
       el.querySelector('.se-more-btn')?.addEventListener('click', (ev) => {
@@ -515,15 +527,13 @@ async function loadNextSearchPage() {
         const on = _seToggleSelect(rec);
         el.classList.toggle('selected', !!on);
       });
-      // Per-row actions: read / bookmark / pin / copy / note
+      // Per-row actions: bookmark / pin / copy. Reading + notes live in the drawer.
       el.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         const idx = +btn.dataset.idx;
         const rec = state.searchLoaded[idx]; if (!rec) return;
         const act = btn.dataset.act;
-        if (act === 'read') {
-          state.selectedRec = rec; state.currentResultIndex = idx; renderDrawer(); openReader(rec);
-        } else if (act === 'bookmark') {
+        if (act === 'bookmark') {
           const on = bmToggle(rec);
           btn.textContent = on ? '★ Bookmarked' : '☆ Bookmark';
           btn.classList.toggle('starred', on);
@@ -537,9 +547,6 @@ async function loadNextSearchPage() {
         } else if (act === 'copy') {
           const quote = `"${(rec.TextPlainCleaned || rec.Text || '').trim()}"\n\n${citeAPA(rec)}`;
           navigator.clipboard.writeText(quote).then(() => toast('Copied with citation', false, 1600));
-        } else if (act === 'note') {
-          state.selectedRec = rec; state.currentResultIndex = idx; renderDrawer();
-          setTimeout(() => { $('#drNote')?.focus(); }, 120);
         }
       }));
     });

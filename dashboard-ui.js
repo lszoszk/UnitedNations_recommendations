@@ -167,9 +167,46 @@ function renderPalette(q) {
 // painting the explainer up front. User can still toggle the drawer
 // via `]` keyboard shortcut or the topbar tweak panel.
 const _firstVisit = !localStorage.getItem('uhri_v2_tour_done');
-const TW = { palette: 'archive', density: 'tight', rail: true, drawer: true };
+const TW = { palette: 'archive', density: 'cozy', rail: true, drawer: true };
 const PALETTES = ['archive', 'terminal', 'ink'];
 const PALETTE_PREVIEW = { archive: '#F2EFE8', terminal: '#0b0d0b', ink: '#ffffff' };
+const DRAWER_W_KEY = 'uhri_v2_drawer_w_px';
+const DRAWER_W_DEFAULT = 340;
+
+function _drawerWidthBounds() {
+  const vw = window.innerWidth || 1280;
+  const rail = ($('#rail')?.getBoundingClientRect().width || parseInt(getComputedStyle(document.documentElement).getPropertyValue('--rail-w')) || 0);
+  const min = 320;
+  const mainMin = vw < 1200 ? 340 : 420;
+  const layoutMax = Math.max(min, vw - (TW.rail ? rail : 0) - mainMin);
+  const max = Math.max(min, Math.min(760, Math.floor(vw * 0.58), layoutMax));
+  return { min, max };
+}
+
+function setDrawerWidth(px, persist = true) {
+  const { min, max } = _drawerWidthBounds();
+  const clamped = Math.max(min, Math.min(max, Math.round(px || DRAWER_W_DEFAULT)));
+  document.documentElement.style.setProperty('--drawer-w', clamped + 'px');
+  const handle = $('#drawerResizeHandle');
+  if (handle) {
+    handle.setAttribute('aria-valuemin', String(min));
+    handle.setAttribute('aria-valuemax', String(max));
+    handle.setAttribute('aria-valuenow', String(clamped));
+  }
+  if (persist) {
+    try { localStorage.setItem(DRAWER_W_KEY, String(clamped)); } catch {}
+  }
+  return clamped;
+}
+
+function loadDrawerWidth() {
+  let saved = DRAWER_W_DEFAULT;
+  try {
+    const raw = parseInt(localStorage.getItem(DRAWER_W_KEY) || '', 10);
+    if (raw) saved = raw;
+  } catch {}
+  setDrawerWidth(saved, false);
+}
 
 function _persistTweaks() {
   const persisted = {
@@ -199,6 +236,7 @@ function applyTweaks() {
 }
 
 function loadTweaks() {
+  loadDrawerWidth();
   try {
     const s = localStorage.getItem('uhri_v2_tw');
     if (!s) return;
@@ -220,6 +258,22 @@ function cyclePalette() { const i = PALETTES.indexOf(TW.palette); setPalette(PAL
 function setDensity(d) { if (['tight','cozy','roomy'].includes(d)) { TW.density = d; applyTweaks(); toast('Density → ' + d, false, 1800); } }
 function toggleRail() { TW.rail = !TW.rail; applyTweaks(); toast('Rail ' + (TW.rail?'shown':'hidden'), false, 1500); }
 function toggleDrawer() { TW.drawer = !TW.drawer; applyTweaks(); toast('Drawer ' + (TW.drawer?'shown':'hidden'), false, 1500); }
+function closeDrawerPanel() {
+  const app = $('#app') || document.body;
+  app.classList.remove('reading-mode');
+  if (state.drawerMode === 'list' && typeof closeListDrawer === 'function') {
+    closeListDrawer();
+  }
+  state.selectedRec = null;
+  state.drawerMode = 'record';
+  state.drawerList = null;
+  state.currentResultIndex = -1;
+  TW.drawer = false;
+  window._seSetActiveRecord?.(null);
+  window._closeMobileDrawer?.();
+  applyTweaks();
+  if (typeof renderDrawer === 'function') renderDrawer();
+}
 /* Reading mode — wide drawer + larger serif text for comfortable reading
    of long recommendations. Toggled via the 📖 button in drawer-head or
    the `r` keyboard shortcut. Cooperates with the existing rail/drawer
@@ -274,6 +328,75 @@ function toggleTweaks() {
 
 /* (Focus mode is now the only layout — compact/toggle removed) */
 
+function bindDrawerResize() {
+  const handle = $('#drawerResizeHandle');
+  if (!handle || handle.dataset.wired === '1') return;
+  handle.dataset.wired = '1';
+  let startX = 0;
+  let startW = DRAWER_W_DEFAULT;
+  let nextW = DRAWER_W_DEFAULT;
+  let raf = 0;
+
+  const paint = () => {
+    raf = 0;
+    setDrawerWidth(nextW, false);
+  };
+  const schedule = () => {
+    if (!raf) raf = requestAnimationFrame(paint);
+  };
+  const stop = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', stop);
+    window.removeEventListener('pointercancel', stop);
+    $('#app')?.classList.remove('drawer-resizing');
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    setDrawerWidth(nextW, true);
+  };
+  const move = (e) => {
+    nextW = startW + (startX - e.clientX);
+    schedule();
+  };
+
+  handle.addEventListener('pointerdown', (e) => {
+    if (window.innerWidth < 960) return;
+    e.preventDefault();
+    if (!TW.drawer) { TW.drawer = true; applyTweaks(); }
+    startX = e.clientX;
+    startW = $('#drawer')?.getBoundingClientRect().width || DRAWER_W_DEFAULT;
+    nextW = startW;
+    $('#app')?.classList.add('drawer-resizing');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
+  });
+
+  handle.addEventListener('dblclick', () => {
+    setDrawerWidth(DRAWER_W_DEFAULT, true);
+    toast('Drawer width reset', false, 1200);
+  });
+
+  handle.addEventListener('keydown', (e) => {
+    if (window.innerWidth < 960) return;
+    const cur = $('#drawer')?.getBoundingClientRect().width || DRAWER_W_DEFAULT;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setDrawerWidth(cur + (e.shiftKey ? 80 : 24), true);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setDrawerWidth(cur - (e.shiftKey ? 80 : 24), true);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setDrawerWidth(DRAWER_W_DEFAULT, true);
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    const cur = $('#drawer')?.getBoundingClientRect().width || DRAWER_W_DEFAULT;
+    setDrawerWidth(cur, false);
+  });
+}
+
 function bindTweaks() {
   $$('#swPalette .sw').forEach(s => s.addEventListener('click', () => setPalette(s.dataset.pal)));
   $('#densitySel').addEventListener('change', e => setDensity(e.target.value));
@@ -281,6 +404,7 @@ function bindTweaks() {
   $('#drawerTog').addEventListener('click', toggleDrawer);
   $('#tweaksClose').addEventListener('click', closeTweaks);
   $('#twBtn').addEventListener('click', e => { e.stopPropagation(); toggleTweaks(); });
+  bindDrawerResize();
   // Close when clicking outside
   document.addEventListener('click', e => {
     if (!e.target.closest('#tweaks') && !e.target.closest('#twBtn')) closeTweaks();

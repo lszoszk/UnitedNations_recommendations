@@ -177,6 +177,14 @@
   --serif:"Instrument Serif","Times New Roman",serif;
   --rail-w:280px; --drawer-w:340px; --top-h:44px;
   --row-h:22px;
+  --density-panel-pad-y:14px; --density-panel-pad-x:16px;
+  --density-facet-head-pad-y:8px; --density-facet-body-pad-y:6px; --density-facet-body-pad-bottom:10px;
+  --density-option-pad-y:3px; --density-option-pad-x:4px;
+  --density-row-pad-y:3px;
+  --density-drawer-pad:14px; --density-callout-pad:14px;
+  --density-tile-pad-y:14px; --density-tile-pad-x:14px; --density-tile-pad-bottom:12px;
+  --density-search-pad-y:16px; --density-search-pad-x:22px;
+  --density-action-gap:10px; --density-tag-gap:8px;
   /* Mechanism family colours — same three UN source-types the landing
      page promises (Treaty Bodies · Special Procedures · UPR). Used on
      the Overview KPI strip, the drawer at-a-glance tiles, body chips,
@@ -256,7 +264,7 @@ a{color:inherit;text-decoration:none}
 @keyframes pulse{50%{opacity:.4}}
 
 /* ---------- APP LAYOUT ---------- */
-.app{display:grid;grid-template-columns:var(--rail-w) 1fr var(--drawer-w);height:calc(100vh - var(--top-h) - 30px);overflow:hidden}
+.app{display:grid;grid-template-columns:var(--rail-w) minmax(0, 1fr) var(--drawer-w);height:calc(100vh - var(--top-h) - 30px);overflow:hidden}
 @supports (height: 100dvh){.app{height:calc(100dvh - var(--top-h) - 30px)}}
 /* ---------- FOOTER (always visible at bottom) ---------- */
 .dash-footer{position:fixed;bottom:0;left:0;right:0;height:30px;background:var(--paper);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;z-index:25;gap:16px;overflow:hidden;white-space:nowrap}
@@ -279,9 +287,9 @@ a{color:inherit;text-decoration:none}
   .dash-footer .sup:nth-child(n+3){display:none}
   .dash-footer .df-left span:nth-child(n+3){display:none}
 }
-.app.drawer-closed{grid-template-columns:var(--rail-w) 1fr 0}
-.app.rail-closed{grid-template-columns:0 1fr var(--drawer-w)}
-.app.rail-closed.drawer-closed{grid-template-columns:0 1fr 0}
+.app.drawer-closed{grid-template-columns:var(--rail-w) minmax(0, 1fr) 0}
+.app.rail-closed{grid-template-columns:0 minmax(0, 1fr) var(--drawer-w)}
+.app.rail-closed.drawer-closed{grid-template-columns:0 minmax(0, 1fr) 0}
 /* Reading mode — expand drawer width, collapse rail, bump text size so the
    user can actually read long recommendations without squinting. Toggled
    via the drawer-head 📖 button or keyboard shortcut R. +/- keys in
@@ -291,6 +299,7 @@ a{color:inherit;text-decoration:none}
 .app.reading-mode .drawer .dr-text{font-size:var(--reading-fs);line-height:var(--reading-lh);max-height:none}
 .app.reading-mode .drawer #drNote{font-size:calc(var(--reading-fs) - 2px);line-height:1.55}
 .app.reading-mode .drawer{border-left-color:var(--accent)}
+.app.drawer-resizing,.app.drawer-resizing *{cursor:col-resize!important;user-select:none}
 .reading-toggle{border:1px solid var(--line);background:var(--paper);padding:2px 8px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink);margin-right:6px}
 .reading-toggle:hover{border-color:var(--ink);background:var(--paper-2)}
 .app.reading-mode .reading-toggle{background:var(--accent);color:var(--paper);border-color:var(--accent)}
@@ -305,6 +314,9 @@ a{color:inherit;text-decoration:none}
 .rail::-webkit-scrollbar{width:8px}
 .rail::-webkit-scrollbar-thumb{background:var(--paper-3)}
 .rail-head,.drawer-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-size:10px;letter-spacing:.16em;color:var(--dim);position:sticky;top:0;background:var(--paper);z-index:2}
+.drawer-title{margin:0;font:inherit;color:inherit}
+.icon-btn{width:28px;min-width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:var(--dim);font-size:18px;line-height:1;cursor:pointer}
+.icon-btn:hover{border-color:var(--line);background:var(--paper-2);color:var(--ink)}
 .linkbtn{font-size:10px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border:1px solid transparent}
 .linkbtn:hover{border-color:var(--line);color:var(--ink)}
 
@@ -319,11 +331,11 @@ a{color:inherit;text-decoration:none}
 @keyframes dots{0%{content:"·"}33%{content:"··"}66%{content:"···"}100%{content:""}}
 
 .facet{border-bottom:1px solid var(--line)}
-.facet-head{display:flex;gap:8px;padding:8px 14px;font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;background:var(--paper-2);cursor:pointer;user-select:none;align-items:center}
+.facet-head{display:flex;gap:8px;padding:var(--density-facet-head-pad-y) 14px;font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;background:var(--paper-2);cursor:pointer;user-select:none;align-items:center}
 .facet-head .fh-idx{color:var(--dimmer);font-weight:500}
 .facet-head .fh-n{margin-left:auto;color:var(--dimmer);font-weight:400;letter-spacing:0;text-transform:none}
 .facet-head .fh-toggle{color:var(--dimmer);font-size:11px;margin-left:6px}
-.facet-body{padding:6px 10px 10px;max-height:240px;overflow-y:auto}
+.facet-body{padding:var(--density-facet-body-pad-y) 10px var(--density-facet-body-pad-bottom);max-height:240px;overflow-y:auto}
 .facet-body::-webkit-scrollbar{width:6px}
 .facet-body::-webkit-scrollbar-thumb{background:var(--paper-3)}
 .facet.collapsed .facet-body{display:none}
@@ -346,7 +358,7 @@ a{color:inherit;text-decoration:none}
 .facet-filter::placeholder{color:var(--dimmer);font-style:italic}
 .facet-filter:focus{outline:none;border-color:var(--ink)}
 
-.opt{display:grid;grid-template-columns:14px 1fr auto;gap:8px;padding:3px 4px;align-items:center;cursor:pointer;font-size:11px;border-left:2px solid transparent}
+.opt{display:grid;grid-template-columns:14px 1fr auto;gap:8px;padding:var(--density-option-pad-y) var(--density-option-pad-x);min-height:var(--row-h);align-items:center;cursor:pointer;font-size:11px;border-left:2px solid transparent}
 .opt:hover{background:var(--paper-2)}
 .opt.on{border-left-color:var(--accent);background:var(--accent-soft)}
 .opt .box{width:10px;height:10px;border:1px solid var(--ink);background:var(--paper);position:relative;flex-shrink:0}
@@ -622,7 +634,7 @@ a{color:inherit;text-decoration:none}
 .ov-grid .p-sankey{grid-column:1;grid-row:6}
 .ov-grid .p-top-bodies{grid-column:1;grid-row:7}
 .ov-grid .p-top-sdgs{grid-column:1;grid-row:8}
-.panel{background:var(--paper);padding:14px 16px;min-height:0;overflow:hidden;position:relative}
+.panel{background:var(--paper);padding:var(--density-panel-pad-y) var(--density-panel-pad-x);min-height:0;overflow:hidden;position:relative}
 .panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
 .panel-title{display:flex;gap:10px;align-items:baseline}
 .panel-title .idx{font-size:10px;color:var(--dim);letter-spacing:.14em}
@@ -767,7 +779,7 @@ a{color:inherit;text-decoration:none}
 
 /* bars / rows — optional 4th column with sparkline */
 .row-list{display:flex;flex-direction:column}
-.rl-row{display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:3px 2px;border-bottom:1px dotted var(--line);cursor:pointer;align-items:center;font-size:11px;position:relative}
+.rl-row{display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:var(--density-row-pad-y) 2px;min-height:var(--row-h);border-bottom:1px dotted var(--line);cursor:pointer;align-items:center;font-size:11px;position:relative}
 .rl-row.has-spark{grid-template-columns:22px 1fr 56px auto}
 .rl-row:hover{background:var(--paper-2)}
 .rl-row .rnk{color:var(--dim);font-variant-numeric:tabular-nums;font-size:10px}
@@ -801,16 +813,23 @@ a{color:inherit;text-decoration:none}
 .sk-svg{width:100%;height:100%}
 
 /* ---------- DRAWER ---------- */
-.drawer{border-left:1px solid var(--line);overflow-y:auto;background:var(--paper);transition:opacity .2s}
+.drawer{border-left:1px solid var(--line);overflow-y:auto;background:var(--paper);transition:opacity .2s;position:relative;min-width:0}
 .drawer::-webkit-scrollbar{width:8px}
 .drawer::-webkit-scrollbar-thumb{background:var(--paper-3)}
-.drawer-body{padding:14px}
+.drawer-resize-handle{position:absolute;left:0;top:0;bottom:0;width:10px;z-index:5;cursor:col-resize;touch-action:none}
+.drawer-resize-handle::after{content:"";position:absolute;top:0;bottom:0;left:0;width:1px;background:transparent;transition:background .12s,box-shadow .12s}
+.drawer-resize-handle:hover::after,
+.drawer-resize-handle:focus-visible::after,
+.app.drawer-resizing .drawer-resize-handle::after{background:var(--accent);box-shadow:0 0 0 1px var(--accent-soft)}
+.app.drawer-closed .drawer-resize-handle,
+.app.reading-mode .drawer-resize-handle{display:none}
+.drawer-body{padding:var(--density-drawer-pad)}
 .dr-meta{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:12px;font-size:11px}
 .dr-meta dt{color:var(--dim);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
 .dr-meta dd{margin:0}
 .dr-id{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.08em;border:1px dotted var(--line);padding:3px 6px;margin-bottom:10px;display:inline-block;word-break:break-all}
 .dr-yr{font-family:var(--serif);font-size:38px;line-height:1;margin:6px 0 14px}
-.dr-text{font-family:var(--serif);font-size:15px;line-height:1.45;color:var(--ink);padding:14px;background:var(--paper-2);border-left:2px solid var(--accent);margin-bottom:14px;max-height:260px;overflow-y:auto}
+.dr-text{font-family:var(--serif);font-size:15px;line-height:1.45;color:var(--ink);padding:var(--density-callout-pad);background:var(--paper-2);border-left:2px solid var(--accent);margin-bottom:14px;max-height:260px;overflow-y:auto}
 .dr-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}
 .dr-tag{font-size:10px;letter-spacing:.06em;padding:2px 6px;border:1px solid var(--line);color:var(--dim);cursor:pointer}
 .dr-tag:hover{border-color:var(--ink);color:var(--ink)}
@@ -855,7 +874,7 @@ a{color:inherit;text-decoration:none}
    column is a slim mechanism profile (volume mini-chart + top 5 of
    each facet). Stacks on mobile. */
 .mech-compare{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line)}
-.mech-compare .mc-col{background:var(--paper);padding:16px 16px 20px}
+.mech-compare .mc-col{background:var(--paper);padding:calc(var(--density-panel-pad-y) + 2px) var(--density-panel-pad-x) calc(var(--density-panel-pad-y) + 6px)}
 .mech-compare .mc-col.tb  {border-top:3px solid var(--mech-tb)}
 .mech-compare .mc-col.sp  {border-top:3px solid var(--mech-sp)}
 .mech-compare .mc-col.upr {border-top:3px solid var(--mech-upr)}
@@ -875,7 +894,7 @@ a{color:inherit;text-decoration:none}
    colour from --mech-{tb,sp,upr}-* custom props so a single CSS rule
    covers both locations and all three palettes. */
 .mech-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);margin:0 0 1px}
-.mech-tile{background:var(--paper);padding:14px 14px 12px;cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:background .15s;text-align:left;font-family:var(--mono);border:0}
+.mech-tile{background:var(--paper);padding:var(--density-tile-pad-y) var(--density-tile-pad-x) var(--density-tile-pad-bottom);cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:background .15s;text-align:left;font-family:var(--mono);border:0}
 .mech-tile:hover{background:var(--paper-2)}
 .mech-tile .mt-family{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:6px}
 .mech-tile .mt-family::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--mt-color,var(--dim));flex-shrink:0}
@@ -995,7 +1014,7 @@ a{color:inherit;text-decoration:none}
 .cp-picker label{color:var(--dim);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
 .cp-picker select{padding:6px 8px;border:1px solid var(--ink);background:var(--paper);font-family:var(--mono);font-size:11px;color:var(--ink);max-width:360px;width:100%;box-sizing:border-box}
 .cp-body{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
-.cp-body .panel{padding:14px 18px}
+.cp-body .panel{padding:var(--density-panel-pad-y) calc(var(--density-panel-pad-x) + 2px)}
 .cp-sample{padding:10px 40px 10px 10px;background:var(--paper-2);border-left:2px solid var(--accent);cursor:pointer;font-family:var(--serif);font-size:14px;line-height:1.45;position:relative;transition:background .15s,transform .15s}
 .cp-sample:hover{background:var(--paper-3);transform:translateX(2px)}
 .cp-sample .meta{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--dim);margin-bottom:4px}
@@ -1074,14 +1093,13 @@ a{color:inherit;text-decoration:none}
 .se-bulk .clear{margin-left:auto;color:var(--dim);background:transparent;border:0;cursor:pointer;padding:2px 4px;font-size:12px}
 .se-bulk .clear:hover{color:#b91c1c}
 /* Checkbox on each search result — placed in a reserved left gutter so it
-   never overlaps the year (the previous `.se-item{padding:16px 22px}` rule
-   was winning over `padding-left:44px`; using `padding:16px 22px 16px 46px`
-   applies the gutter explicitly without risk of shorthand collisions). */
-.se-item{padding:16px 22px 16px 46px !important;position:relative}
-.se-item .se-check{position:absolute;left:18px;top:22px;padding:0;cursor:pointer;z-index:2}
+   never overlaps the year. Density variables keep that reserved gutter in
+   sync with search-card spacing. */
+.se-item{padding:var(--density-search-pad-y) var(--density-search-pad-x) var(--density-search-pad-y) calc(var(--density-search-pad-x) + 24px) !important;position:relative}
+.se-item .se-check{position:absolute;left:calc(var(--density-search-pad-x) - 4px);top:calc(var(--density-search-pad-y) + 6px);padding:0;cursor:pointer;z-index:2}
 .se-item .se-check input{width:14px;height:14px;cursor:pointer;accent-color:var(--accent);margin:0}
-.se-item.selected{background:color-mix(in oklab, var(--accent) 9%, var(--paper))}
-.se-item.selected:hover{background:color-mix(in oklab, var(--accent) 14%, var(--paper))}
+.se-item.selected{--se-row-bg:color-mix(in oklab, var(--accent) 9%, var(--paper));background:var(--se-row-bg)}
+.se-item.selected:hover{--se-row-bg:color-mix(in oklab, var(--accent) 14%, var(--paper));background:var(--se-row-bg)}
 /* Slow-load banner — shown when a filter refresh exceeds 2s */
 .slow-load-banner{position:fixed;left:50%;top:88px;transform:translateX(-50%);z-index:180;background:var(--paper);border:1px solid var(--accent);border-left-width:3px;box-shadow:0 10px 30px rgba(0,0,0,.16);padding:12px 16px;display:flex;align-items:center;gap:14px;min-width:520px;max-width:780px;font:12px var(--mono)}
 .slow-load-banner .sl-left{display:flex;align-items:center;gap:12px;flex:1}
@@ -1108,9 +1126,12 @@ a{color:inherit;text-decoration:none}
 /* Heavy-user result card — single column, every row shows citation-grade
    metadata first, then the full paragraph with keyword highlight, then the
    tagged categories (THEMES/GROUPS/SDGs). Actions surface on hover. */
-.se-item{padding:16px 22px;border-bottom:1px solid var(--line);cursor:pointer;position:relative}
-.se-item:hover{background:var(--paper-2)}
-.se-item.expanded{background:var(--paper-2)}
+.se-item{--se-row-bg:var(--paper);padding:var(--density-search-pad-y) var(--density-search-pad-x);border-bottom:1px solid var(--line);cursor:pointer;position:relative;background:var(--se-row-bg)}
+.se-item:hover{--se-row-bg:var(--paper-2);background:var(--se-row-bg)}
+.se-item.expanded{--se-row-bg:var(--paper-2);background:var(--se-row-bg)}
+.se-item.is-open{--se-row-bg:color-mix(in oklab, var(--accent) 12%, var(--paper));background:var(--se-row-bg);box-shadow:inset 3px 0 0 var(--accent)}
+.se-item.is-open:hover{--se-row-bg:color-mix(in oklab, var(--accent) 16%, var(--paper));background:var(--se-row-bg)}
+.se-item.is-open .se-hdr .country{color:var(--accent)}
 .se-item .se-hdr{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
 .se-item .se-hdr .yr{font-family:var(--serif);font-size:22px;line-height:1;color:var(--ink);letter-spacing:-0.01em}
 .se-item .se-hdr .country{font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);font-weight:700}
@@ -1124,8 +1145,7 @@ a{color:inherit;text-decoration:none}
 .se-item .se-hdr .kw{padding:2px 7px;border:1px solid var(--accent);background:color-mix(in oklab, var(--accent) 15%, var(--paper));color:var(--ink);font:9px var(--mono);letter-spacing:.08em;font-weight:700}
 .se-item .se-tx{font-family:var(--serif);font-size:15px;line-height:1.6;color:var(--ink);max-height:7.2em;overflow:hidden;position:relative;transition:max-height .25s}
 .se-item.expanded .se-tx{max-height:999em}
-.se-item .se-tx::after{content:"";position:absolute;bottom:0;left:0;right:0;height:2em;background:linear-gradient(to bottom, transparent, var(--paper) 85%);pointer-events:none}
-.se-item:hover .se-tx::after{background:linear-gradient(to bottom, transparent, var(--paper-2) 85%)}
+.se-item .se-tx::after{content:"";position:absolute;bottom:0;left:0;right:0;height:2em;background:linear-gradient(to bottom, transparent, var(--se-row-bg) 85%);pointer-events:none}
 .se-item.expanded .se-tx::after{display:none}
 
 /* KWIC mode: the snippet is short and centred on the match, no fade-out */
@@ -1138,7 +1158,7 @@ a{color:inherit;text-decoration:none}
 .se-item .se-tx mark,.se-item .se-tx em,.se-item .se-tx mark.kw-match{background:color-mix(in oklab, var(--accent) 35%, transparent);color:var(--ink);font-weight:600;font-style:normal;padding:0 2px;border-radius:1px}
 .se-item .se-more-btn{font:9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);border:0;background:transparent;padding:6px 0 2px;cursor:pointer}
 .se-item .se-more-btn:hover{color:var(--ink)}
-.se-item .se-tags{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.se-item .se-tags{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:var(--density-tag-gap)}
 .se-item .se-tags .tg-kind{font:9px var(--mono);color:var(--dimmer);font-weight:700;letter-spacing:.12em;margin-right:2px}
 .se-item .se-tags .tg-kind:not(:first-child){margin-left:6px}
 .se-item .se-tags span.tg-val{font:10px var(--mono);padding:2px 8px;border:1px solid var(--line);color:var(--ink-2);letter-spacing:.04em;background:var(--paper)}
@@ -1151,7 +1171,7 @@ a{color:inherit;text-decoration:none}
    interaction.  Both states pass 4.5:1, and keyboard users now get a
    visibility lift on focus-within (the previous opacity rule had no
    focus reveal). */
-.se-item .se-actions{display:flex;gap:6px;margin-top:10px;transition:opacity .15s}
+.se-item .se-actions{display:flex;gap:6px;margin-top:var(--density-action-gap);transition:opacity .15s}
 .se-item .se-actions button{padding:4px 10px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--dim);cursor:pointer;transition:color .12s,border-color .12s,background .12s}
 .se-item:hover .se-actions button,
 .se-item.expanded .se-actions button,
@@ -1246,10 +1266,31 @@ a{color:inherit;text-decoration:none}
 .tweaks .tweaks-shortcuts{border-top:1px dotted var(--line);margin-top:8px;padding-top:10px;font-size:10px;color:var(--dim);line-height:1.8}
 .tweaks .tweaks-shortcuts kbd{border:1px solid var(--line);padding:0 4px;background:var(--paper-2);font-family:var(--mono);font-size:10px;color:var(--ink);margin:0 2px}
 
-[data-density="cozy"]{--row-h:26px}
-[data-density="cozy"] body{font-size:13px}
-[data-density="roomy"]{--row-h:30px}
-[data-density="roomy"] body{font-size:13px}
+body[data-density="tight"]{--row-h:22px;font-size:12px}
+body[data-density="cozy"]{
+  --row-h:26px;
+  --density-panel-pad-y:17px; --density-panel-pad-x:20px;
+  --density-facet-head-pad-y:10px; --density-facet-body-pad-y:8px; --density-facet-body-pad-bottom:12px;
+  --density-option-pad-y:5px; --density-option-pad-x:6px;
+  --density-row-pad-y:5px;
+  --density-drawer-pad:18px; --density-callout-pad:18px;
+  --density-tile-pad-y:17px; --density-tile-pad-x:18px; --density-tile-pad-bottom:15px;
+  --density-search-pad-y:20px; --density-search-pad-x:26px;
+  --density-action-gap:12px; --density-tag-gap:10px;
+  font-size:13px;
+}
+body[data-density="roomy"]{
+  --row-h:32px;
+  --density-panel-pad-y:22px; --density-panel-pad-x:26px;
+  --density-facet-head-pad-y:13px; --density-facet-body-pad-y:10px; --density-facet-body-pad-bottom:16px;
+  --density-option-pad-y:8px; --density-option-pad-x:8px;
+  --density-row-pad-y:8px;
+  --density-drawer-pad:24px; --density-callout-pad:24px;
+  --density-tile-pad-y:22px; --density-tile-pad-x:24px; --density-tile-pad-bottom:20px;
+  --density-search-pad-y:26px; --density-search-pad-x:30px;
+  --density-action-gap:16px; --density-tag-gap:14px;
+  font-size:13px;
+}
 
 /* ---------- ERROR / TOAST ---------- */
 .toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;font-size:11px;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:520px}
@@ -1714,6 +1755,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   .fr-num{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .drawer{display:none}
   .drawer.mobile-open{display:block;position:fixed;top:var(--top-h);right:0;bottom:0;width:min(340px,90vw);z-index:28;background:var(--paper);border-left:1px solid var(--line);box-shadow:-4px 0 20px rgba(0,0,0,.15)}
+  .drawer-resize-handle{display:none}
   .cmdk-hint{display:none}
   .cmdk{max-width:none}
   .mobile-menu-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;font-size:16px;min-width:44px;min-height:44px}
@@ -1945,7 +1987,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 }
 </style>
 </head>
-<body data-palette="archive" data-density="tight">
+<body data-palette="archive" data-density="cozy">
 
 <!-- top command bar -->
 <header class="topbar">
@@ -2155,8 +2197,9 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 
   <!-- DRAWER -->
   <aside class="drawer" id="drawer" aria-label="Selected recommendation details">
+    <div class="drawer-resize-handle" id="drawerResizeHandle" role="separator" aria-orientation="vertical" aria-label="Resize details panel" tabindex="0" title="Drag to resize the details panel · double-click to reset"></div>
     <div class="drawer-head">
-      <h2 style="margin:0;font:inherit;color:inherit">SELECTED · RECOMMENDATION</h2>
+      <h2 class="drawer-title">SELECTED · RECOMMENDATION</h2>
       <div style="display:flex;gap:4px;align-items:center">
         <!-- N2: reading-mode A-/A+ buttons. Visible only in reading-mode
              (CSS below). Desktop users keep +/- keyboard shortcuts; this
@@ -2164,7 +2207,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
         <button class="fs-btn" id="drFontDown" aria-label="Decrease reading font size" title="Smaller text (shortcut: -)">A−</button>
         <button class="fs-btn" id="drFontUp" aria-label="Increase reading font size" title="Larger text (shortcut: +)">A+</button>
         <button class="reading-toggle" id="drawerReadingMode" title="Reading mode — wide drawer + larger text (shortcut: r)">📖 Read</button>
-        <button class="linkbtn" id="drawerClear" aria-label="Clear selected record">× clear</button>
+        <button class="icon-btn" id="drawerClear" aria-label="Close details panel" title="Close details panel">×</button>
       </div>
     </div>
     <div class="drawer-body" id="drawerBody"></div>
@@ -2236,7 +2279,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <span>Density</span>
     <select id="densitySel">
       <option value="tight">Tight (dense)</option>
-      <option value="cozy">Cozy</option>
+      <option value="cozy" selected>Cozy</option>
       <option value="roomy">Roomy</option>
     </select>
   </div>
@@ -3302,7 +3345,7 @@ async function boot() {
   $('#cmdInput').addEventListener('input', e => renderPalette(e.target.value));
   $('#cmdPalette').addEventListener('click', e => { if (e.target.id === 'cmdPalette') closePalette(); });
   $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') $('#reader').classList.add('hidden'); });
-  $('#drawerClear').addEventListener('click', () => { state.selectedRec = null; renderDrawer(); });
+  $('#drawerClear').addEventListener('click', closeDrawerPanel);
   $('#drawerReadingMode')?.addEventListener('click', toggleReadingMode);
   // N2: A−/A+ wiring (visible only in reading-mode via CSS)
   $('#drFontDown')?.addEventListener('click', () => bumpReadingFontSize(-1));
@@ -3532,7 +3575,13 @@ async function boot() {
     const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 
     if ((e.metaKey||e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
-    else if (e.key === 'Escape') { closePalette(); $('#reader').classList.add('hidden'); }
+    else if (e.key === 'Escape') {
+      const paletteOpen = !$('#cmdPalette').classList.contains('hidden');
+      const readerOpen = !$('#reader').classList.contains('hidden');
+      if (paletteOpen) closePalette();
+      else if (readerOpen) $('#reader').classList.add('hidden');
+      else if (!inInput && TW.drawer) closeDrawerPanel();
+    }
     else if (e.key === 'Enter' && !$('#cmdPalette').classList.contains('hidden')) {
       const first = window.__cmdResults && window.__cmdResults[0]; if (first) first.action();
     } else if (e.key === '/' && !inInput) {

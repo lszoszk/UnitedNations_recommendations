@@ -85,6 +85,7 @@ function navigateRec(step) {
   if (idx < 0 || idx >= state.currentResultList.length) return;
   state.currentResultIndex = idx;
   state.selectedRec = state.currentResultList[idx];
+  window._seSetActiveRecord?.(state.selectedRec);
   renderDrawer();
   // Open reader if it's already open
   if (!$('#reader').classList.contains('hidden')) openReader(state.selectedRec);
@@ -205,9 +206,7 @@ function renderDrawer() {
       <dt>Type</dt><dd>${sanitize(type)}</dd>
     </dl>
     <div class="dr-actions">
-      <button class="dr-btn primary" id="drOpen">Open full reader →</button>
-      <button class="dr-btn" id="drCountry">Country profile</button>
-      ${themes[0] ? `<button class="dr-btn" id="drTheme">Theme profile</button>` : ''}
+      <button class="dr-btn primary" id="drOpen">Focus reader →</button>
       <div class="cite-picker">
         <button class="dr-btn" id="drCite">Cite ▾</button>
         <div class="cite-dropdown" id="citeDropdown">
@@ -292,16 +291,6 @@ function renderDrawer() {
     toast(nowOn ? '★ Bookmarked' : 'Bookmark removed', false, 1800);
     renderDrawer();
     if (state.view === 'bookmarks') renderBookmarks();
-  });
-  $('#drCountry').addEventListener('click', () => {
-    state.focusCountry = NAME_TO_ISO[country] || country;
-    $('#tabCountry').textContent = country;
-    navigate('country');
-  });
-  $('#drTheme')?.addEventListener('click', () => {
-    state.focusTheme = themes[0];
-    $('#tabTheme').textContent = themes[0];
-    navigate('theme');
   });
 
   $('#drCite').addEventListener('click', (e) => {

@@ -84,6 +84,61 @@ test('landing — index.html boots without JS errors', async ({ page }) => {
   expect(errors, `JS errors on landing page:\n${errors.join('\n')}`).toEqual([]);
 });
 
+test('density control defaults to Cozy and changes visible spacing', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await page.addInitScript(() => localStorage.removeItem('uhri_v2_tw'));
+  await page.goto('/dashboard.html', { waitUntil: 'commit' });
+  await page.waitForFunction(() => typeof (globalThis as any).setDensity === 'function', null, { timeout: 5000 });
+
+  await expect(page.locator('body')).toHaveAttribute('data-density', 'cozy');
+  await expect(page.locator('#densitySel')).toHaveValue('cozy');
+
+  const metrics = await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.id = 'density-fixture';
+    host.style.cssText = 'position:absolute;left:-9999px;top:0;width:420px;visibility:hidden';
+    host.innerHTML = `
+      <div class="panel">
+        <button class="mech-tile">Mechanism tile</button>
+        <div class="opt"><span class="box"></span><span class="txt">Facet option</span><span class="n">1</span></div>
+        <div class="rl-row"><span class="rnk">1</span><span class="nm"><span class="txt">Row</span></span><span class="v">10</span></div>
+        <div class="se-item"><label class="se-check"><input type="checkbox"></label><div class="se-actions"></div></div>
+      </div>`;
+    document.body.appendChild(host);
+    const panel = host.querySelector('.panel') as HTMLElement;
+    const tile = host.querySelector('.mech-tile') as HTMLElement;
+    const option = host.querySelector('.opt') as HTMLElement;
+    const row = host.querySelector('.rl-row') as HTMLElement;
+    const search = host.querySelector('.se-item') as HTMLElement;
+
+    const read = () => ({
+      density: document.body.dataset.density || '',
+      panelPadTop: parseFloat(getComputedStyle(panel).paddingTop),
+      tilePadTop: parseFloat(getComputedStyle(tile).paddingTop),
+      optionHeight: option.getBoundingClientRect().height,
+      rowHeight: row.getBoundingClientRect().height,
+      searchPadTop: parseFloat(getComputedStyle(search).paddingTop),
+    });
+
+    (globalThis as any).setDensity('tight');
+    const tight = read();
+    (globalThis as any).setDensity('cozy');
+    const cozy = read();
+    (globalThis as any).setDensity('roomy');
+    const roomy = read();
+    host.remove();
+    return { tight, cozy, roomy };
+  });
+
+  expect(metrics.cozy.panelPadTop).toBeGreaterThan(metrics.tight.panelPadTop);
+  expect(metrics.roomy.panelPadTop).toBeGreaterThan(metrics.cozy.panelPadTop);
+  expect(metrics.roomy.tilePadTop).toBeGreaterThan(metrics.tight.tilePadTop);
+  expect(metrics.cozy.optionHeight).toBeGreaterThan(metrics.tight.optionHeight);
+  expect(metrics.roomy.rowHeight).toBeGreaterThan(metrics.cozy.rowHeight);
+  expect(metrics.roomy.searchPadTop).toBeGreaterThan(metrics.tight.searchPadTop);
+  expect(errors, `JS errors during density flow:\n${errors.join('\n')}`).toEqual([]);
+});
+
 test('rail facet heads toggle collapsed class — single listener, not N×', async ({ page, viewport }) => {
   /* Regression test for the duplicate-attach bug: buildRail() runs 2–3×
      during boot (SW cache / facets / analytics phases).  A previous
@@ -251,6 +306,100 @@ test('overview mechanism tiles toggle family filters and active chips', async ({
   await expect(treatyTile).not.toHaveClass(/\bon\b/);
   await expect(page.locator('#activeFilters')).not.toHaveClass(/\bon\b/);
   await expect.poll(() => page.evaluate(() => (globalThis as any).__state.filters.body.size)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('search result opens in resizable drawer without modal reader', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  const sampleRecord = {
+    AnnotationId: 'search-drawer-0001',
+    Text: 'The State should improve detention safeguards and access to remedies.',
+    TextPlainCleaned: 'The State should improve detention safeguards and access to remedies.',
+    Countries: ['Poland'],
+    Regions: ['Eastern Europe'],
+    Themes: ['Liberty and security of person'],
+    AffectedPersons: ['Persons deprived of liberty'],
+    Sdgs: ['16 - Peace, justice and strong institutions'],
+    Body: 'CCPR',
+    Symbol: 'CCPR/C/POL/CO/8',
+    AnnotationType: 'Recommendations',
+    PublicationDate: '2024-02-01',
+  };
+
+  await page.addInitScript(() => {
+    localStorage.setItem('uhri-ga-consent', 'denied');
+    localStorage.removeItem('uhri_v2_drawer_w_px');
+  });
+
+  await page.route('**/uhri-api/api/data/**', async route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    let body: unknown = { ok: true };
+    if (path.endsWith('/records')) {
+      body = { ok: true, total_records: 1, page: 1, page_size: 30, records: [sampleRecord] };
+    } else if (path.endsWith('/facets')) {
+      body = {
+        ok: true,
+        countries: ['Poland'],
+        bodies: ['CCPR'],
+        regions: ['Eastern Europe'],
+        types: ['Recommendations'],
+        min_year: 2006,
+        max_year: 2026,
+        total_records: 1,
+      };
+    } else if (path.endsWith('/analytics')) {
+      body = {
+        ok: true,
+        trends: {
+          yearly_counts: [{ year: 2024, count: 1 }],
+          yearly_body_counts: [{ year: 2024, body: 'CCPR', count: 1 }],
+        },
+        themes: { theme_counts: [], yearly_theme_counts: [] },
+        text: { affected_person_counts: [], sdg_counts: [] },
+      };
+    } else if (path.endsWith('/map')) {
+      body = { ok: true, country_counts: [{ country: 'Poland', count: 1 }] };
+    } else if (path.endsWith('/summary')) {
+      body = { ok: true, total_records: 1, yearly_counts: [] };
+    }
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  });
+
+  await page.goto('/dashboard.html#view=search&q=detention', { waitUntil: 'commit' });
+  const firstRow = page.locator('#seList .se-item').first();
+  await expect(firstRow).toBeVisible({ timeout: 5000 });
+  await expect(firstRow.locator('[data-act="read"]')).toHaveCount(0);
+  await expect(firstRow.locator('[data-act="note"]')).toHaveCount(0);
+
+  await firstRow.locator('.se-tx').click();
+  await expect(page.locator('#drawerBody')).toContainText('search-drawer-0001');
+  await expect(page.locator('#drawerBody #drNote')).toBeVisible();
+  await expect(firstRow).toHaveClass(/\bis-open\b/);
+  await expect(page.locator('#reader:not(.hidden)')).toHaveCount(0);
+
+  const before = await page.locator('#drawer').evaluate(el => el.getBoundingClientRect().width);
+  const handleBox = await page.locator('#drawerResizeHandle').boundingBox();
+  expect(handleBox, 'drawer resize handle should have a box').not.toBeNull();
+  await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(handleBox!.x - 90, handleBox!.y + 80, { steps: 5 });
+  await page.mouse.up();
+  const after = await page.locator('#drawer').evaluate(el => el.getBoundingClientRect().width);
+  expect(after, 'dragging the left handle left should widen the drawer').toBeGreaterThan(before + 40);
+
+  await page.locator('#drawerClear').click();
+  await expect(page.locator('#app')).toHaveClass(/\bdrawer-closed\b/);
+  await expect(firstRow).not.toHaveClass(/\bis-open\b/);
+  await expect.poll(() => page.evaluate(() => ({
+    selected: (globalThis as any).__state.selectedRec,
+    drawerMode: (globalThis as any).__state.drawerMode,
+  }))).toEqual({ selected: null, drawerMode: 'record' });
+
   expect(errors).toEqual([]);
 });
 
