@@ -776,12 +776,14 @@ function renderRuleCard(rule) {
   const validation = validateRule(rule);
   const errMsg = validation.ok ? '' : validation.error;
   const useRaw = !!(rule.rawQuery && rule.rawQuery.trim());
+  const isActiveFilter = state.filters?.activeLabel?.id === rule.id;
   return `
-    <div class="rule-card ${errMsg ? 'invalid' : ''} ${state.rules._peekOpen[rule.id] ? 'has-peek' : ''}" data-rule-id="${sanitize(rule.id)}">
+    <div class="rule-card ${errMsg ? 'invalid' : ''} ${state.rules._peekOpen[rule.id] ? 'has-peek' : ''} ${isActiveFilter ? 'is-active-filter' : ''}" data-rule-id="${sanitize(rule.id)}">
       <div class="rule-head">
         <input class="rule-name" type="text" value="${sanitize(rule.name)}" placeholder="Rule name — e.g. Judicial independence" />
+        ${isActiveFilter ? `<span class="rule-active-badge" title="This label is currently driving the dataset filter">● ACTIVE FILTER</span>` : ''}
         <span class="rule-count" data-act="openDrawer" title="Click to browse matching records in the side drawer (stay on this tab)" role="button" tabindex="0">—</span>
-        <button class="rule-btn" data-act="peek" title="Show 5 matching records inline">👁</button>
+        <button class="rule-btn" data-act="peek" title="Show 5 matching records inline (click any example to open it on the right)">👁</button>
         <button class="rule-btn" data-act="suggest" title="⚡ Suggest terms from tagged examples">⚡</button>
         <button class="rule-btn danger" data-act="delete" title="Delete this rule">×</button>
       </div>
@@ -800,9 +802,13 @@ function renderRuleCard(rule) {
         <div class="rule-actions">
           <button data-act="analyze" title="Apply as rail keyword and go to Overview — see map, timeline, country/body distributions for records matching this rule">📊 Analyze</button>
           <button data-act="openInSearch" title="Apply as rail keyword and go to Search — full-page list with sort, bulk actions, export">🔎 Search</button>
-          <button data-act="openDrawer" title="Open matching records in the side drawer, without leaving this tab">📜 Browse</button>
-          <button data-act="toggleRaw" class="${useRaw ? 'active' : ''}">${useRaw ? '✓ RAW mode' : 'Raw FTS5'}</button>
-          <button data-act="copy">📋 Copy query</button>
+          <span class="rule-overflow-wrap">
+            <button class="rule-overflow-btn" data-act="overflow" title="More actions" aria-haspopup="menu" aria-expanded="false">⋯</button>
+            <span class="rule-overflow-menu" hidden role="menu">
+              <button data-act="toggleRaw" class="${useRaw ? 'active' : ''}" role="menuitem">${useRaw ? '✓ Chips mode' : 'Raw FTS5 mode'}</button>
+              <button data-act="copy" role="menuitem">📋 Copy query</button>
+            </span>
+          </span>
         </div>
         ${state.rules._peekOpen[rule.id] ? `<div class="rule-peek" data-peek="${sanitize(rule.id)}"><span class="pk-loading">Loading peek…</span></div>` : ''}
       </div>
@@ -1084,6 +1090,20 @@ function rulesBindEvents() {
           if (open) rulesLoadPeek(rule);
         } else if (act === 'suggest') {
           rulesOpenSuggestModal(rule);
+        } else if (act === 'overflow') {
+          // Toggle the per-card overflow menu (Raw FTS5, Copy query).
+          // Close any other open overflow menu so we don't end up with
+          // multiple stacked menus when the user clicks across cards.
+          const wrap = btn.closest('.rule-overflow-wrap');
+          const menu = wrap?.querySelector('.rule-overflow-menu');
+          if (!menu) return;
+          const wasOpen = !menu.hasAttribute('hidden');
+          $$('.rule-overflow-menu').forEach(m => m.setAttribute('hidden', ''));
+          $$('.rule-overflow-btn').forEach(b => b.setAttribute('aria-expanded', 'false'));
+          if (!wasOpen) {
+            menu.removeAttribute('hidden');
+            btn.setAttribute('aria-expanded', 'true');
+          }
         }
       };
       btn.addEventListener('click', trigger);
@@ -1094,7 +1114,44 @@ function rulesBindEvents() {
         });
       }
     });
+
+    // Peek records: click any of the 5 inline examples to open it in
+    // the side reader. Uses the records cached on the peek element by
+    // rulesLoadPeek so we don't refetch.
+    card.querySelectorAll('.rule-peek').forEach(peekEl => {
+      const open = (idx) => {
+        const rec = (peekEl._peekRecs || [])[idx];
+        if (!rec) return;
+        state.drawerMode = 'record';
+        state.drawerList = null;
+        state.selectedRec = rec;
+        if (typeof renderDrawer === 'function') renderDrawer();
+      };
+      peekEl.addEventListener('click', e => {
+        const pk = e.target.closest('.pk');
+        if (!pk) return;
+        open(+pk.dataset.pkIdx);
+      });
+      peekEl.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const pk = e.target.closest('.pk');
+        if (!pk) return;
+        e.preventDefault();
+        open(+pk.dataset.pkIdx);
+      });
+    });
   });
+
+  // Outside-click closes any open overflow menu — single global listener
+  // installed once per render of the labels view.
+  if (!root._overflowOutsideBound) {
+    root._overflowOutsideBound = true;
+    document.addEventListener('click', e => {
+      if (e.target.closest('.rule-overflow-wrap')) return;
+      $$('.rule-overflow-menu').forEach(m => m.setAttribute('hidden', ''));
+      $$('.rule-overflow-btn').forEach(b => b.setAttribute('aria-expanded', 'false'));
+    });
+  }
 }
 
 /* ------------- Peek 5 records inline ------------- */
@@ -1107,12 +1164,15 @@ async function rulesLoadPeek(rule) {
     const r = await api.records({ ...state.filters, kw: q }, 1, 5, { scope: `rules:peek:${rule.id}` });
     const recs = r.records || [];
     if (!recs.length) { el.innerHTML = '<span class="pk-loading">No matches</span>'; return; }
-    el.innerHTML = recs.map(rec => {
+    // Stash records on the peek element so click handlers can hand the
+    // full record straight to the drawer without a refetch round-trip.
+    el._peekRecs = recs;
+    el.innerHTML = recs.map((rec, i) => {
       const yr = (rec.PublicationDate || '').slice(0, 4) || '—';
       const country = cleanCountryName((rec.Countries || [])[0] || '—');
       const body = cleanLabel(rec.Body || '—');
       const txt = rec.TextPlainCleaned || rec.Text || '—';
-      return `<div class="pk">
+      return `<div class="pk" data-pk-idx="${i}" role="button" tabindex="0" title="Open this record in the side reader →">
         <div class="pk-meta">${sanitize(yr)} · ${sanitize(country)} · ${sanitize(body)}</div>
         ${sanitize(txt.slice(0, 240))}${txt.length > 240 ? '…' : ''}
       </div>`;
