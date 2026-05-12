@@ -349,7 +349,10 @@ const TREATY_BODY_ACRONYMS = new Set([
 ]);
 
 function classifyBody(name) {
-  const s = String(name || '').trim();
+  // cleanLabel strips leading "- " (the prefix every body name carries in the
+  // API response, e.g. "- CCPR", "- UPR", "- SR Torture").  Without this,
+  // every body falls through to 'other' and the family-mode timeline is blank.
+  const s = cleanLabel(name);
   if (!s) return 'other';
   if (s === 'UPR') return 'upr';
   if (TREATY_BODY_ACRONYMS.has(s)) return 'treaty';
