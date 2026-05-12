@@ -97,6 +97,9 @@ function _seSwapExpansion(el, expanding) {
     }
     const full = tx.dataset.fullText || '';
     const kw   = tx.dataset.kw || '';
+    // Bug A guard: if full text is absent (record had no TextPlainCleaned /
+    // Text field), keep the server snippet visible instead of blanking the card.
+    if (!full) return;
     tx.innerHTML = highlightKeyword(full, kw);
   } else if (tx.dataset.origSnippet != null) {
     tx.innerHTML = tx.dataset.origSnippet;
@@ -141,7 +144,12 @@ function _renderSearchItem(rec, idx, kw) {
     const safeSn = sanitize(rawSn.replace(/<mark>/g, '\u0001MK\u0001').replace(/<\/mark>/g, '\u0001/MK\u0001'))
       .replace(/\u0001MK\u0001/g, '<mark class="kw-match">')
       .replace(/\u0001\/MK\u0001/g, '</mark>');
-    snippet = { html: safeSn, isKwic: true, fullLen: fullTxt.length };
+    // Bug B fix: server FTS5 may only mark the OR branch it matched in this
+    // window (e.g. "commun*" but not "forced labour" even if both appear).
+    // _highlightOutsideMarks adds client-side highlights to text runs that sit
+    // between the server's existing <mark> tags, so all query terms visible in
+    // the snippet get highlighted regardless of which branch the server picked.
+    snippet = { html: _highlightOutsideMarks(safeSn, kw), isKwic: true, fullLen: fullTxt.length };
   } else {
     snippet = smartSnippet(fullTxt, kw);
   }

@@ -733,6 +733,30 @@ function highlightKeyword(text, kw) {
   return safe.replace(pattern, '<mark class="kw-match">$1</mark>');
 }
 
+/* Apply client-side highlights to text runs that sit OUTSIDE existing
+   <mark> elements.  Used when the server has already wrapped some matches
+   (FTS5 snippet path) but OR-branch terms that also appear in the same
+   snippet window aren't marked — e.g. for the query
+   "forced labour" OR commun*, the server might only mark the "commun*"
+   branch while "forced labour" in the same window goes unhighlighted.
+   This function leaves every existing <mark> untouched and re-runs the
+   client regex only on the plain-text runs between tags. */
+function _highlightOutsideMarks(html, kw) {
+  const tokens = _kwTokens(kw);
+  if (!tokens.length) return html;
+  tokens.sort((a, b) => b.length - a.length);
+  const pattern = new RegExp('(' + tokens.map(_tokenToRegex).join('|') + ')', 'gi');
+  // Each iteration of the replacer receives either:
+  //   marked — an existing <mark …>…</mark> block  (group 1, left intact)
+  //   text   — a plain-text run with no angle brackets (group 2, highlighted)
+  return html.replace(/(<mark\b[^>]*>[\s\S]*?<\/mark>)|([^<]+)/g,
+    (m, marked, text) => {
+      if (marked) return marked;
+      if (text)   return text.replace(pattern, '<mark class="kw-match">$1</mark>');
+      return m;
+    });
+}
+
 function countMatches(text, kw) {
   const tokens = _kwTokens(kw);
   if (!tokens.length || !text) return 0;

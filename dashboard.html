@@ -89,7 +89,7 @@
 <link rel="dns-prefetch" href="https://150.254.115.204">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#F2EFE8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b0d0b" media="(prefers-color-scheme: dark)">
@@ -174,6 +174,7 @@
      unchanged so the brand orange-red identity is preserved. */
   --accent:oklch(0.50 0.17 27); --accent-soft:oklch(0.50 0.17 27 / .14);
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --ui:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --serif:"Instrument Serif","Times New Roman",serif;
   --rail-w:280px; --drawer-w:340px; --top-h:44px;
   --row-h:22px;
@@ -204,7 +205,7 @@
 [data-palette="ink"]{--paper:#fff;--paper-2:#f4f4f5;--paper-3:#e9e9eb;--ink:#000;--ink-2:#1a1a1a;--dim:#7a7a7a;--dimmer:#c0c0c0;--line:rgba(0,0,0,.12);--line-2:rgba(0,0,0,.06);--accent:#1d4ed8;--accent-soft:rgba(29,78,216,.14);--mech-tb:#0f766e;--mech-sp:#6d28d9;--mech-upr:#9a3412;--mech-tb-soft:color-mix(in oklab,#0f766e 10%, var(--paper));--mech-sp-soft:color-mix(in oklab,#6d28d9 10%, var(--paper));--mech-upr-soft:color-mix(in oklab,#9a3412 10%, var(--paper));}
 *{box-sizing:border-box}
 html,body{background:var(--paper);color:var(--ink);margin:0;height:100%}
-body{font-family:var(--mono);font-size:12px;line-height:1.4;-webkit-font-smoothing:antialiased;overflow:hidden}
+body{font-family:var(--ui);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
 /* M3: dvh fallback for iOS Safari where 100vh includes URL bar area
    (content gets clipped when bar appears). dvh = dynamic viewport
    height, always the visible area. */
