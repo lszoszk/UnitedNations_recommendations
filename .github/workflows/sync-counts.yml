@@ -1,0 +1,66 @@
+# Sync dataset counts — patches every hardcoded record/recommendation count
+# in the source tree to match the live API after each monthly dataset refresh.
+#
+# HOW IT WORKS
+#   1. Runs daily at 06:00 UTC (well after the VM's monthly refresh window).
+#   2. Calls scripts/update-counts.mjs, which fetches total_records from the
+#      live API and rewrites all occurrences of the old count across ~16 files.
+#   3. If any file changed, commits and pushes a "chore: sync counts" commit.
+#      Most days the script exits immediately because the count hasn't changed.
+#
+# MANUAL TRIGGER
+#   Go to Actions → "Sync dataset counts" → "Run workflow".
+#   Useful right after you know a refresh landed on the VM.
+#
+# WHAT IT DOES NOT UPDATE
+#   Pipeline methodology numbers (~56,000 edited, 3,294 type fixes, etc.) —
+#   those require human review. Also does not update artefacts_dropped in
+#   scripts/counts.json — edit that manually if Stage 5 changes.
+
+name: Sync dataset counts
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 06:00 UTC daily — after VM monthly refresh window
+  workflow_dispatch:       # allow manual trigger from the Actions tab
+
+jobs:
+  sync:
+    name: Update hardcoded counts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write      # needed to push the counts commit
+
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run update-counts script
+        run: node scripts/update-counts.mjs
+        env:
+          API_BASE: https://150.254.115.204/uhri-api
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'   # VM uses self-signed cert
+
+      - name: Commit and push if counts changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No count changes — nothing to commit."
+          else
+            NEW=$(node -e "const s=JSON.parse(require('fs').readFileSync('scripts/counts.json','utf8')); process.stdout.write(s.cleaned.toLocaleString('en-US'))")
+            git commit -m "chore: sync dataset counts to ${NEW} records
+
+Auto-updated by sync-counts workflow after monthly OHCHR UHRI refresh.
+Pipeline constants (artefacts_dropped, methodology stats) unchanged."
+            git push
+          fi

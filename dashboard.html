@@ -11,7 +11,7 @@
      platform, canonical to dedup the hash-routed SPA views, and a
      JSON-LD WebApplication schema for schema.org-aware search engines
      + AI agents.  The curated per-agent summary lives in /llms.txt. -->
-<meta name="description" content="Interactive search and analytics across 267,537 UN human-rights observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review (2006–2026). Cleaned dataset built on OHCHR UHRI data, with boolean + wildcard + stemmed search, per-country profiles, and reproducible methodology.">
+<meta name="description" content="Interactive search and analytics across 267,671 UN human-rights observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review (2006–2026). Cleaned dataset built on OHCHR UHRI data, with boolean + wildcard + stemmed search, per-country profiles, and reproducible methodology.">
 <meta name="author" content="L. Szoszkiewicz (Adam Mickiewicz University, Poznań)">
 <meta name="keywords" content="human rights, OHCHR, UHRI, Treaty Bodies, Universal Periodic Review, UPR, Special Procedures, SDG, research dashboard, UN recommendations">
 <link rel="canonical" href="https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html">
@@ -19,7 +19,7 @@
 
 <meta property="og:type"        content="website">
 <meta property="og:site_name"   content="UN Human Rights Analytics Dashboard">
-<meta property="og:title"       content="UN Human Rights Analytics Dashboard — 267,537 recommendations across Treaty Bodies, Special Procedures, UPR">
+<meta property="og:title"       content="UN Human Rights Analytics Dashboard — 267,671 recommendations across Treaty Bodies, Special Procedures, UPR">
 <meta property="og:description" content="Cleaned OHCHR UHRI dataset. Boolean + wildcard + stemmed search. Per-country profiles. Reproducible methodology. Free, open, no login.">
 <meta property="og:url"         content="https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html">
 <meta property="og:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/icon-512.svg">
@@ -27,7 +27,7 @@
 
 <meta name="twitter:card"        content="summary_large_image">
 <meta name="twitter:title"       content="UN Human Rights Analytics Dashboard">
-<meta name="twitter:description" content="Search 267,537 UN human-rights recommendations. Cleaned UHRI data, reproducible methodology.">
+<meta name="twitter:description" content="Search 267,671 UN human-rights recommendations. Cleaned UHRI data, reproducible methodology.">
 <meta name="twitter:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/icon-512.svg">
 
 <script type="application/ld+json">
@@ -40,7 +40,7 @@
       "name": "UN Human Rights Analytics Dashboard",
       "alternateName": "UHRI+ Dashboard",
       "url": "https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html",
-      "description": "Interactive analytics and full-text search across 267,537 observations and recommendations from UN Treaty Bodies, Special Procedures, and the Universal Periodic Review (2006–2026).",
+      "description": "Interactive analytics and full-text search across 267,671 observations and recommendations from UN Treaty Bodies, Special Procedures, and the Universal Periodic Review (2006–2026).",
       "applicationCategory": "ResearchApplication",
       "applicationSubCategory": "Human rights data analysis",
       "operatingSystem": "Any (browser)",
@@ -67,7 +67,7 @@
       "@id": "https://lszoszk.github.io/UnitedNations_recommendations/#dataset",
       "name": "UHRI Cleaned Dataset",
       "alternateName": "OHCHR Universal Human Rights Index — cleaned pipeline v2026.04",
-      "description": "267,537 observations and recommendations from UN Treaty Bodies, Special Procedures, and the Universal Periodic Review, cleaned via a transparent 5-stage pipeline (OCR & HTML repair, LLM-assisted residue review, AnnotationType normalisation, country backfill from document symbols, artefact drop).",
+      "description": "267,671 observations and recommendations from UN Treaty Bodies, Special Procedures, and the Universal Periodic Review, cleaned via a transparent 5-stage pipeline (OCR & HTML repair, LLM-assisted residue review, AnnotationType normalisation, country backfill from document symbols, artefact drop).",
       "url": "https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html",
       "keywords": ["human rights", "UN Treaty Bodies", "Special Procedures", "Universal Periodic Review", "OHCHR", "UHRI"],
       "temporalCoverage": "2006/2026",
@@ -247,7 +247,7 @@ a{color:inherit;text-decoration:none}
 .cmdk:hover{border-color:var(--ink)}
 .cmdk span.k{font-weight:700;color:var(--ink);border:1px solid var(--line);padding:1px 5px;background:var(--paper)}
 /* Truncate gracefully at narrow widths instead of hiding entirely —
-   an empty ⌘K button looks broken; a truncated "Search 267,537…"
+   an empty ⌘K button looks broken; a truncated "Search 267,671…"
    clearly signals what the button does regardless of viewport. */
 .cmdk-hint{color:var(--dim);flex:1;text-align:left;padding-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .meta{display:flex;gap:10px;font-size:10px;color:var(--dim);letter-spacing:.04em;align-items:center}
@@ -258,8 +258,8 @@ a{color:inherit;text-decoration:none}
 .meta a:hover{color:var(--accent);border-color:var(--accent)}
 .meta .sep{color:var(--dimmer)}
 /* Unified live-status + dataset size chip. Groups the pulsing dot with the
-   record count so they read as one atomic signal ("● 267,537 records")
-   rather than three separated items ("● LIVE · VM · 267,537 records"). */
+   record count so they read as one atomic signal ("● 267,671 records")
+   rather than three separated items ("● LIVE · VM · 267,671 records"). */
 .meta .status-chip{display:inline-flex;align-items:center;gap:7px;color:var(--ink);font-variant-numeric:tabular-nums;cursor:help}
 @keyframes pulse{50%{opacity:.4}}
 
@@ -2034,7 +2034,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <button class="cmdk" id="cmdkBtn" aria-label="Open command palette">
     <span class="k cmdk-k-mac">⌘</span><span class="k cmdk-k-mac">K</span>
     <span class="cmdk-k-mobile" aria-hidden="true">🔍</span>
-    <span class="cmdk-hint">Search 267,537 recommendations · jump to country, theme, year…</span>
+    <span class="cmdk-hint">Search 267,671 recommendations · jump to country, theme, year…</span>
   </button>
   <div class="meta">
     <!-- Instant Mode (~300MB IndexedDB download) and Upload (user-supplied
@@ -2052,7 +2052,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     </button>
     <span class="sep">·</span>
     <!-- Unified live-status pill: pulsing dot + dataset size in a single
-         compact unit. Replaces the old "● LIVE · VM · 267,537 records"
+         compact unit. Replaces the old "● LIVE · VM · 267,671 records"
          triple-group. Tooltip on the chip (updated by setStatus) covers
          the former "LIVE" label + "VM" prefix so removing both from the
          top bar doesn't lose any info for hover-readers. `statusLbl` stays
@@ -2080,7 +2080,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
         <label data-ds="raw" id="dsOptRaw">
           <input type="radio" name="dsRadio" value="raw" />
           <strong>Raw upstream</strong>
-          <span class="desc">Original HTML-stripped text · 267 548 records incl. 11 artefacts. Metadata stays pipeline-canonical.</span>
+          <span class="desc">Original HTML-stripped text · 267 682 records incl. 11 artefacts. Metadata stays pipeline-canonical.</span>
         </label>
         <div class="ds-foot">
           Shareable URL includes <code>?dataset=raw</code> · <a href="#methodology" data-nav="methodology">what's the difference?</a>
@@ -2276,7 +2276,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
      / providing research infrastructure for this work. -->
 <footer class="dash-footer" role="contentinfo">
   <div class="df-left">
-    <span>Built on <b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> data · 267,537 records · cleaned pipeline</span>
+    <span>Built on <b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> data · 267,671 records · cleaned pipeline</span>
     <span class="df-sep">·</span>
     <span>Developed by <b style="color:var(--ink);font-weight:500">L. Szoszkiewicz</b></span>
     <span class="df-sep">·</span>

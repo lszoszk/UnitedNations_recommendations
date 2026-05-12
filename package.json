@@ -14,7 +14,9 @@
     "test:contracts":     "playwright test --config=playwright.contracts.config.ts",
     "test:live-flows":    "playwright test --config=playwright.live.config.ts",
     "test:self-audit":    "playwright test --config=playwright.audit.config.ts",
-    "serve":              "python3 -m http.server 8787"
+    "serve":              "python3 -m http.server 8787",
+    "sync-counts":        "node scripts/update-counts.mjs",
+    "sync-counts:dry":    "node scripts/update-counts.mjs --dry"
   },
   "apiSchemaVersion": "v1",
   "repository": {

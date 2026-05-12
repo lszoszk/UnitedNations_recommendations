@@ -1,6 +1,6 @@
 # UN Human Rights Analytics Dashboard
 
-> Interactive search and analytics across **267,537 observations and recommendations** addressed to UN Member States by the three UN human-rights mechanisms — Treaty Bodies, Special Procedures, and the Universal Periodic Review — covering 2006–2026.  Independent research project, built on the OHCHR Universal Human Rights Index (UHRI) with a transparent 5-stage cleaning pipeline.  Audience: advocates, researchers, journalists, NGO staff.
+> Interactive search and analytics across **267,671 observations and recommendations** addressed to UN Member States by the three UN human-rights mechanisms — Treaty Bodies, Special Procedures, and the Universal Periodic Review — covering 2006–2026.  Independent research project, built on the OHCHR Universal Human Rights Index (UHRI) with a transparent 5-stage cleaning pipeline.  Audience: advocates, researchers, journalists, NGO staff.
 
 This is a static web application hosted on GitHub Pages.  The frontend is zero-build vanilla JavaScript; a read-only REST API on a university-hosted VM (AMU Poznań) serves the cleaned dataset.  Everything is free and open, no login, no account.
 

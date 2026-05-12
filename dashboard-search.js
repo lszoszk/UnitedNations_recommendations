@@ -468,7 +468,7 @@ async function loadNextSearchPage() {
       $('#seList').innerHTML = `
         <div class="empty-state">
           <div class="es-title">No records match your filters</div>
-          <div class="es-sub">${hasFilters ? 'Try removing one or two filters, broadening the year range, or using a different keyword.' : 'Hmm, the dataset should have 267,537 records — something went wrong.'}</div>
+          <div class="es-sub">${hasFilters ? 'Try removing one or two filters, broadening the year range, or using a different keyword.' : 'Hmm, the dataset should have 267,671 records — something went wrong.'}</div>
           ${hasFilters ? `
             <button class="primary" onclick="document.getElementById('clearFilters').click()">Clear all filters</button>
             ${state.filters.kw.trim() ? `<button onclick="document.getElementById('kwInput').value='';state.filters.kw='';onFiltersChanged();">Drop keyword "${sanitize(state.filters.kw.trim().slice(0,40))}"</button>` : ''}

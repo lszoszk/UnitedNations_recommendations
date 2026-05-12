@@ -1,0 +1,7 @@
+{
+  "_note": "Single source of truth for update-counts.mjs. The script reads 'cleaned' and 'artefacts_dropped' to know what to replace and writes 'cleaned', 'raw', and 'last_updated' back after a successful run. Only edit 'artefacts_dropped' manually — it is a pipeline constant (count of content-free records Stage 5 removes) that does NOT come from the API.",
+  "cleaned": 267671,
+  "artefacts_dropped": 11,
+  "raw": 267682,
+  "last_updated": "2026-05-12"
+}

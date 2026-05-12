@@ -9,7 +9,7 @@
      lives in /llms.txt.  Canonical points at the landing itself so
      this URL is the one cited in AI-generated answers; the dashboard
      page has its own canonical. -->
-<meta name="description" content="Landing page for the UN Human Rights Analytics Dashboard — free interactive access to 267,537 observations and recommendations from OHCHR UHRI, cleaned and searchable with boolean + wildcard + stemmed queries.">
+<meta name="description" content="Landing page for the UN Human Rights Analytics Dashboard — free interactive access to 267,671 observations and recommendations from OHCHR UHRI, cleaned and searchable with boolean + wildcard + stemmed queries.">
 <meta name="author" content="L. Szoszkiewicz (Adam Mickiewicz University, Poznań)">
 <meta name="keywords" content="human rights, OHCHR, UHRI, Treaty Bodies, Universal Periodic Review, UPR, Special Procedures, SDG, research dashboard, UN recommendations">
 <link rel="canonical" href="https://lszoszk.github.io/UnitedNations_recommendations/index.html">
@@ -17,14 +17,14 @@
 
 <meta property="og:type"        content="website">
 <meta property="og:site_name"   content="UN Human Rights Analytics Dashboard">
-<meta property="og:title"       content="267,537 UN human-rights recommendations, searchable">
+<meta property="og:title"       content="267,671 UN human-rights recommendations, searchable">
 <meta property="og:description" content="Cleaned OHCHR UHRI dataset. Boolean + wildcard + stemmed search. Per-country profiles. Reproducible methodology. Free, open, no login.">
 <meta property="og:url"         content="https://lszoszk.github.io/UnitedNations_recommendations/">
 <meta property="og:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/icon-512.svg">
 <meta property="og:locale"      content="en_GB">
 
 <meta name="twitter:card"        content="summary_large_image">
-<meta name="twitter:title"       content="UN Human Rights Analytics — 267,537 recommendations">
+<meta name="twitter:title"       content="UN Human Rights Analytics — 267,671 recommendations">
 <meta name="twitter:description" content="Cleaned OHCHR UHRI data, interactive dashboard, reproducible methodology.">
 <meta name="twitter:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/icon-512.svg">
 
@@ -34,7 +34,7 @@
   "@type": "WebSite",
   "name": "UN Human Rights Analytics Dashboard",
   "url": "https://lszoszk.github.io/UnitedNations_recommendations/",
-  "description": "Search and analytics across 267,537 UN human-rights observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review.",
+  "description": "Search and analytics across 267,671 UN human-rights observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review.",
   "inLanguage": "en",
   "potentialAction": {
     "@type": "SearchAction",
@@ -1230,13 +1230,13 @@
 
       <p class="lede">
         A single searchable dataset built on the OHCHR Universal Human Rights Index —
-        <span class="hl">267,537 country-specific observations</span> from Treaty Bodies, Special Procedures
+        <span class="hl">267,671 country-specific observations</span> from Treaty Bodies, Special Procedures
         and the Universal Periodic Review, assembled for advocates, researchers and journalists.
       </p>
 
       <div class="kpis">
         <div class="kpi">
-          <div class="num" data-counter="267537">0</div>
+          <div class="num" data-counter="267671">0</div>
           <div class="lbl">Recommendations</div>
         </div>
         <div class="kpi">
@@ -1288,7 +1288,7 @@
     <div>
       <div class="field" id="field">
         <div class="corner tl">FIG 01 / LIVE</div>
-        <div class="corner tr"><span id="fieldCounter">0</span> / 267,537</div>
+        <div class="corner tr"><span id="fieldCounter">0</span> / 267,671</div>
         <div class="corner bl">EACH DOT = ONE RECOMMENDATION</div>
         <div class="corner br">YR <span id="fieldYear">2006</span></div>
         <canvas id="dotCanvas"></canvas>
@@ -1310,7 +1310,7 @@
     <div class="section-head">
       <div class="no">FIG 02 / WHAT</div>
       <h2 class="t">The recommendations cluster around a handful of persistent themes.</h2>
-      <div class="ctx">Top 10 of 100 tags · n=267,537</div>
+      <div class="ctx">Top 10 of 100 tags · n=267,671</div>
     </div>
 
     <div class="bar-grid">
@@ -1722,7 +1722,7 @@
       console.info('[landing] live data loaded in', (performance.now() - t0).toFixed(0), 'ms · total:', facets.total_records);
 
       /* KPIs — overwrite the [data-counter] attrs BEFORE the counter
-         observer fires. 267,537 real vs 267,548 fake is an 11-record
+         observer fires. 267,671 real vs 267,682 fake is an 11-record
          difference (Stage 6 artefacts removed during cleaning).
          Country count: the facets endpoint returns 212 entries, but
          13 of those are bogus 2-letter ISO codes (AU/CO/CZ/ES/ET/GH/
@@ -1739,7 +1739,7 @@
         if (!el || target == null) return;
         el.dataset.counter = String(target);
       };
-      patchCounter('[data-counter="267537"]', facets.total_records);
+      patchCounter('[data-counter="267671"]', facets.total_records);
       patchCounter('[data-counter="198"]',    realCountries.length);
       patchCounter('[data-counter="75"]',     (facets.bodies || []).length);
 
@@ -2127,7 +2127,7 @@
     // draw dots gradually
     const revealPer = 6.0; // dots per ms
     const revealed = Math.min(dots.length, Math.floor(elapsed * revealPer / 3));
-    fieldCounter.textContent = fmt(Math.round(267537 * (revealed / dots.length)));
+    fieldCounter.textContent = fmt(Math.round(267671 * (revealed / dots.length)));
     if (dots.length) {
       const lastYr = dots[Math.min(revealed, dots.length - 1)]?.yr ?? 2006;
       fieldYear.textContent = lastYr;

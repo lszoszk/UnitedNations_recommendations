@@ -461,7 +461,7 @@ function rulesPaintCount(rule) {
   // records matching") else the dataset total.
   const denom = (!_railIsEmpty(state.filters) && state.totalHits)
     ? state.totalHits
-    : 267537;
+    : 267671;
   const pct = (n / denom * 100).toFixed(n < 100 ? 2 : 1);
   el.textContent = `${fmt(n)} (${pct}%)`;
   el.className = 'rule-count ' + (n === 0 ? 'zero' : (n >= 50 && n <= 20000 ? 'ok' : 'warn'));
