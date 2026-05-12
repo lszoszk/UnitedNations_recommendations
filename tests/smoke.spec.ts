@@ -1,4 +1,6 @@
 import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
+import * as fs   from 'fs';
+import * as path from 'path';
 
 /**
  * UHRI Dashboard smoke tests.
@@ -240,20 +242,23 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(errors, `JS errors on landing page:\n${errors.join('\n')}`).toEqual([]);
   });
 
-  test('5. datasetNumber — "267,537" appears in footer and cmdk hint', async ({ page }) => {
+  test('5. datasetNumber — canonical count matches scripts/counts.json', async ({ page }) => {
+    // Read the single source of truth so this test never needs manual edits
+    // after the monthly dataset refresh.  scripts/counts.json is written by
+    // update-counts.mjs and is the same file the sync-counts workflow reads.
+    const countsPath = path.join(__dirname, '../scripts/counts.json');
+    const counts = JSON.parse(fs.readFileSync(countsPath, 'utf8'));
+    const expected = counts.cleaned.toLocaleString('en-US');   // e.g. "267,671"
+
     await page.goto('/dashboard.html', { waitUntil: 'commit' });
     // Footer and cmdk hint are both in static HTML — always present regardless
     // of data load. They're the canonical surfaces where the dataset number
     // is visible to users on every view.
     const footer = page.locator('.dash-footer');
-    await expect(footer).toContainText('267,537');
-    await expect(footer).not.toContainText('267,548');
+    await expect(footer).toContainText(expected);
 
     const cmdkHint = page.locator('.cmdk-hint');
-    await expect(cmdkHint).toContainText('267,537');
-    await expect(cmdkHint).not.toContainText('267,548');
-    // Methodology tab legitimately mentions the raw-count 267,548 as
-    // documentation — so we deliberately don't do a page-wide scan.
+    await expect(cmdkHint).toContainText(expected);
   });
 
   test('6. searchView — extracted search module renders shell and keyword sort', async ({ page }) => {
