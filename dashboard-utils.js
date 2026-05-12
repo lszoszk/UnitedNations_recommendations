@@ -733,6 +733,27 @@ function highlightKeyword(text, kw) {
   return safe.replace(pattern, '<mark class="kw-match">$1</mark>');
 }
 
+/* Re-apply an explicit list of plain strings as highlights, leaving any
+   existing <mark> elements untouched.  Used in _seSwapExpansion to map
+   server-FTS5-matched forms (e.g. "will and preference" — singular —
+   when the user typed "will and preferences") back onto the full expanded
+   text even though the client regex can't reproduce the stemming.
+   terms[] entries are plain text (not query syntax); escapeRegex handles
+   any special chars inside them. */
+function _highlightTerms(html, terms) {
+  if (!terms || !terms.length) return html;
+  const filtered = terms.filter(t => t && t.trim());
+  if (!filtered.length) return html;
+  filtered.sort((a, b) => b.length - a.length);
+  const pattern = new RegExp('(' + filtered.map(escapeRegex).join('|') + ')', 'gi');
+  return html.replace(/(<mark\b[^>]*>[\s\S]*?<\/mark>)|([^<]+)/g,
+    (m, marked, text) => {
+      if (marked) return marked;
+      if (text)   return text.replace(pattern, '<mark class="kw-match">$1</mark>');
+      return m;
+    });
+}
+
 /* Apply client-side highlights to text runs that sit OUTSIDE existing
    <mark> elements.  Used when the server has already wrapped some matches
    (FTS5 snippet path) but OR-branch terms that also appear in the same

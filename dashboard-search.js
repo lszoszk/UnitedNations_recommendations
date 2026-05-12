@@ -100,7 +100,15 @@ function _seSwapExpansion(el, expanding) {
     // Bug A guard: if full text is absent (record had no TextPlainCleaned /
     // Text field), keep the server snippet visible instead of blanking the card.
     if (!full) return;
-    tx.innerHTML = highlightKeyword(full, kw);
+    // Pass 1 — client regex: exact phrases + wildcard (*) tokens from the query.
+    let html = highlightKeyword(full, kw);
+    // Pass 2 — server hints: FTS5 may have matched stemmed/inflected forms the
+    // client regex can't reproduce (e.g. "preference" for query "preferences",
+    // or a locale-variant spelling).  data-server-hints holds the exact words
+    // the server put in <mark> tags so we can re-apply them here.
+    const hints = (tx.dataset.serverHints || '').split('\x1f').filter(Boolean);
+    if (hints.length) html = _highlightTerms(html, hints);
+    tx.innerHTML = html;
   } else if (tx.dataset.origSnippet != null) {
     tx.innerHTML = tx.dataset.origSnippet;
   }
@@ -138,17 +146,29 @@ function _renderSearchItem(rec, idx, kw) {
   // would strip them, so we substitute the literal tags for delimiters
   // before sanitizing, then restore them after. The fallback smartSnippet
   // path stays intact for plain-mode and no-keyword queries.
+  // Extract the exact words FTS5 marked in the server snippet — these may
+  // differ from the user's query tokens via stemming (e.g. "preferences" →
+  // "preference") or tokenisation differences.  Stored in data-server-hints
+  // so _seSwapExpansion can re-highlight them over the full expanded text.
+  let serverHintsAttr = '';
   let snippet;
   if (rec.snippet && kw) {
     const rawSn = String(rec.snippet);
+    // Collect <mark>…</mark> contents before sanitization
+    const _srvHints = [];
+    const _hmRe = /<mark>([\s\S]*?)<\/mark>/g; let _hm;
+    while ((_hm = _hmRe.exec(rawSn)) !== null) {
+      const _t = _hm[1].trim();
+      if (_t && !_srvHints.includes(_t)) _srvHints.push(_t);
+    }
+    if (_srvHints.length) {
+      serverHintsAttr = ` data-server-hints="${sanitize(_srvHints.join('\x1f'))}"`;
+    }
     const safeSn = sanitize(rawSn.replace(/<mark>/g, '\u0001MK\u0001').replace(/<\/mark>/g, '\u0001/MK\u0001'))
       .replace(/\u0001MK\u0001/g, '<mark class="kw-match">')
       .replace(/\u0001\/MK\u0001/g, '</mark>');
-    // Bug B fix: server FTS5 may only mark the OR branch it matched in this
-    // window (e.g. "commun*" but not "forced labour" even if both appear).
-    // _highlightOutsideMarks adds client-side highlights to text runs that sit
-    // between the server's existing <mark> tags, so all query terms visible in
-    // the snippet get highlighted regardless of which branch the server picked.
+    // Bug B fix: also add client highlights for OR-branch terms the server
+    // didn't mark in this window (e.g. "forced labour" when only "commun*" matched).
     snippet = { html: _highlightOutsideMarks(safeSn, kw), isKwic: true, fullLen: fullTxt.length };
   } else {
     snippet = smartSnippet(fullTxt, kw);
@@ -172,7 +192,7 @@ function _renderSearchItem(rec, idx, kw) {
       </span>` : ''}
       ${region ? `<span class="region">${sanitize(region)}</span>` : ''}
     </div>
-    <div class="se-tx" data-full-text="${sanitize(fullTxt)}" data-kw="${sanitize(kw||'')}" data-mode="${snippet.isKwic ? 'kwic' : 'full'}">${snippet.html}</div>
+    <div class="se-tx" data-full-text="${sanitize(fullTxt)}" data-kw="${sanitize(kw||'')}"${serverHintsAttr} data-mode="${snippet.isKwic ? 'kwic' : 'full'}">${snippet.html}</div>
     ${isLong ? `<button class="se-more-btn">↓ Show full text (${fullTxt.length.toLocaleString()} chars)</button>` : ''}
     ${(themes.length || groups.length || sdgs.length) ? `<div class="se-tags">
       ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val" data-tag-kind="theme" data-tag-value="${sanitize(t)}">${sanitize(t)}</span>`).join('')}` : ''}
