@@ -195,9 +195,9 @@ function _renderSearchItem(rec, idx, kw) {
     <div class="se-tx" data-full-text="${sanitize(fullTxt)}" data-kw="${sanitize(kw||'')}"${serverHintsAttr} data-mode="${snippet.isKwic ? 'kwic' : 'full'}">${snippet.html}</div>
     ${isLong ? `<button class="se-more-btn">↓ Show full text (${fullTxt.length.toLocaleString()} chars)</button>` : ''}
     ${(themes.length || groups.length || sdgs.length) ? `<div class="se-tags">
-      ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val" role="button" tabindex="0" data-tag-kind="theme" data-tag-value="${sanitize(t)}">${sanitize(t)}</span>`).join('')}` : ''}
-      ${groups.length ? `<span class="tg-kind">Groups</span>${groups.map(g=>`<span class="tg-val" role="button" tabindex="0" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}` : ''}
-      ${sdgs.length ? `<span class="tg-kind">SDGs</span>${sdgs.map(s=>`<span class="tg-val" role="button" tabindex="0" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(formatSdgLabel(s))}</span>`).join('')}` : ''}
+      ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val" role="button" tabindex="0" title="Filter by this theme" data-tag-kind="theme" data-tag-value="${sanitize(t)}">${sanitize(t)}</span>`).join('')}` : ''}
+      ${groups.length ? `<span class="tg-kind">Groups</span>${groups.map(g=>`<span class="tg-val" role="button" tabindex="0" title="Filter by this affected group" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}` : ''}
+      ${sdgs.length ? `<span class="tg-kind">SDGs</span>${sdgs.map(s=>`<span class="tg-val" role="button" tabindex="0" title="Filter by this SDG" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(formatSdgLabel(s))}</span>`).join('')}` : ''}
     </div>` : ''}
     <div class="se-actions">
       <button data-act="bookmark" data-idx="${idx}" class="${starred?'starred':''}" title="Toggle bookmark (b)">${starred?'★ Bookmarked':'☆ Bookmark'}</button>

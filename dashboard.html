@@ -1181,7 +1181,10 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .se-item .se-tags{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:var(--density-tag-gap)}
 .se-item .se-tags .tg-kind{font:9px var(--mono);color:var(--dimmer);font-weight:700;letter-spacing:.12em;margin-right:2px}
 .se-item .se-tags .tg-kind:not(:first-child){margin-left:6px}
-.se-item .se-tags span.tg-val{font:10px var(--mono);padding:2px 8px;border:1px solid var(--line);color:var(--ink-2);letter-spacing:.04em;background:var(--paper)}
+.se-item .se-tags span.tg-val{font:10px var(--mono);padding:2px 8px;border:1px solid var(--line);color:var(--ink-2);letter-spacing:.04em;background:var(--paper);cursor:pointer;user-select:none;transition:background .12s,color .12s,border-color .12s}
+.se-item .se-tags span.tg-val::after{content:' +';opacity:0;font-size:9px;transition:opacity .12s}
+.se-item .se-tags span.tg-val:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.se-item .se-tags span.tg-val:hover::after{opacity:.6}
 /* Action buttons on search-result rows — show muted-but-readable in
    the default state, full-strength on hover / focus-within / expanded.
    Previously opacity:.25 hid them visually but failed WCAG 4.5:1 (the
