@@ -346,12 +346,21 @@ function renderDrawerListMode() {
       expMenu.classList.toggle('on');
     });
     document.addEventListener('click', () => expMenu.classList.remove('on'));
-    expMenu.querySelectorAll('.exp-item').forEach(it => it.addEventListener('click', (e) => {
+    expMenu.querySelectorAll('.exp-item').forEach(it => it.addEventListener('click', async (e) => {
       e.stopPropagation();
       const kind = it.dataset.exp;
       expMenu.classList.remove('on');
       const missing = Math.max(0, (ctx.total || 0) - ctx.records.length);
-      if (missing > 0 && !confirm(`${missing} more records haven't been loaded yet. Export the ${ctx.records.length} currently visible?`)) return;
+      if (missing > 0) {
+        // OK = load every remaining page first (complete export); Cancel = just
+        // the rows already loaded. Prevents silently exporting e.g. 30 of 1,204.
+        const loadAll = confirm(`This list has ${fmt(ctx.total)} records but only ${fmt(ctx.records.length)} are loaded.\n\nOK — load all ${fmt(ctx.total)}, then export.\nCancel — export only the ${fmt(ctx.records.length)} loaded so far.`);
+        if (loadAll) {
+          toast(`Loading all ${fmt(ctx.total)} records…`, false, 4000);
+          let guard = 0;
+          while (!ctx.exhausted && guard < 500) { await loadMoreListDrawer(); guard++; }
+        }
+      }
       _exportDrawerList(kind, ctx);
     }));
   }

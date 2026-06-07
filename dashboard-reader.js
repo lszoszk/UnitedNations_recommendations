@@ -13,25 +13,57 @@ function _citeBaseFields(r) {
   const country = cleanCountryName((r.Countries || [])[0] || '');
   const body = cleanLabel(r.Body || '');
   const theme = (r.Themes || [])[0] || '';
-  const symbol = r.Symbol || r.AnnotationId || '';
+  // Never fall back to AnnotationId — an internal UUID printed as a "UN Doc."
+  // symbol is a fabricated-looking citation. Empty symbol is handled below.
+  const symbol = (r.Symbol || '').trim();
   const txt = (r.TextPlainCleaned || r.Text || '').trim();
-  // Short title: first section heading if available, else first 90 chars
+  // Pinpoint: treaty-body / Special-Procedure paragraphs almost always begin
+  // with their own number ("23. The Committee recommends…"). Best-effort.
+  const pm = txt.match(/^\s*(\d{1,3})\s*\./);
+  const para = pm ? pm[1] : '';
+  // Title: a section heading if present, else the annotation type — never a
+  // truncated sentence (which reads as a fake work title and is not how UN
+  // documents are cited). Country is appended by each formatter.
   const sections = r.SectionHeadings || [];
-  const title = sections[0] || (txt.length > 90 ? txt.slice(0, 88).trim() + '…' : txt);
+  const typeLabel = (typeof cleanAnnotationType === 'function'
+    ? cleanAnnotationType(r.AnnotationType || '') : '') || '';
+  const title = sections[0] || typeLabel || body || 'UN human-rights record';
+  // Primary URL = the authoritative UN document (undocs.org resolves by symbol
+  // and redirects to docs.un.org). The dashboard deep-link is only a fallback.
+  const sourceUrl = symbol ? 'https://undocs.org/' + encodeURI(symbol) : '';
   const shareUrl = location.origin + location.pathname + '#sel=' + encodeURIComponent(r.AnnotationId || '');
-  return { yr, country, body, theme, symbol, title, shareUrl, id: r.AnnotationId || '' };
+  return { yr, country, body, theme, symbol, para, title, sourceUrl, shareUrl, id: r.AnnotationId || '' };
+}
+
+/* "UN Doc. SYMBOL, para. N" — empty string when there is no official symbol. */
+function _citeDoc(f) {
+  if (!f.symbol) return '';
+  return `UN Doc. ${f.symbol}${f.para ? ', para. ' + f.para : ''}`;
+}
+
+/* Resolvable citation link: the authoritative UN document when we have a
+   symbol, otherwise the dashboard view, clearly labelled as a finding aid. */
+function _citeUrl(f) {
+  return f.sourceUrl || `${f.shareUrl} (UHRI+ finding aid — UN document symbol unavailable)`;
 }
 
 function citeAPA(r) {
   const f = _citeBaseFields(r);
   const author = f.body || 'United Nations';
-  return `${author}. (${f.yr}). ${f.title}${f.country ? ' — ' + f.country : ''} [UN Doc. ${f.symbol}]. Universal Human Rights Index. ${f.shareUrl}`;
+  const doc = _citeDoc(f);
+  return `${author}. (${f.yr}). ${f.title}${f.country ? ' — ' + f.country : ''}${doc ? ' [' + doc + ']' : ''}. United Nations. ${_citeUrl(f)}`;
 }
 
 function citeChicago(r) {
   const f = _citeBaseFields(r);
   const author = f.body || 'United Nations';
-  return `${author}, "${f.title}${f.country ? ', ' + f.country : ''}," UN Doc. ${f.symbol} (${f.yr}), Universal Human Rights Index, ${f.shareUrl}.`;
+  const doc = _citeDoc(f);
+  return [
+    `${author}, "${f.title}${f.country ? ', ' + f.country : ''},"`,
+    doc || null,
+    `(${f.yr}),`,
+    _citeUrl(f) + '.',
+  ].filter(Boolean).join(' ');
 }
 
 function citeBibTeX(r) {
@@ -42,9 +74,9 @@ function citeBibTeX(r) {
   author       = {${esc(f.body || 'United Nations')}},
   title        = {${esc(f.title)}},
   year         = {${esc(f.yr)}},
-  howpublished = {UN Doc. ${esc(f.symbol)}},
-  ${f.country ? `addendum     = {${esc(f.country)}},\n  ` : ''}url          = {${f.shareUrl}},
-  note         = {Universal Human Rights Index annotation ${esc(f.id)}},
+  howpublished = {${f.symbol ? 'UN Doc. ' + esc(f.symbol) + (f.para ? ', para. ' + f.para : '') : 'United Nations document'}},
+  ${f.country ? `addendum     = {${esc(f.country)}},\n  ` : ''}url          = {${_citeUrl(f)}},
+  note         = {Retrieved via UHRI+ dashboard; UHRI annotation ${esc(f.id)}},
 }`;
 }
 
@@ -55,17 +87,19 @@ function citeRIS(r) {
     'AU  - ' + (f.body || 'United Nations'),
     'PY  - ' + f.yr,
     'TI  - ' + f.title,
-    'PB  - Universal Human Rights Index (OHCHR)',
-    'ID  - ' + f.symbol,
+    'PB  - United Nations (OHCHR Universal Human Rights Index)',
+    f.symbol ? 'ID  - ' + f.symbol : '',
+    f.para ? 'SP  - ' + f.para : '',
     f.country ? 'CY  - ' + f.country : '',
-    'UR  - ' + f.shareUrl,
+    'UR  - ' + _citeUrl(f),
     'N1  - UHRI annotation ' + f.id,
     'ER  - ',
   ].filter(Boolean).join('\n');
 }
 
 function citePlainURL(r) {
-  return _citeBaseFields(r).shareUrl;
+  const f = _citeBaseFields(r);
+  return f.sourceUrl || f.shareUrl;
 }
 
 const CITE_FORMATS = [
@@ -140,7 +174,7 @@ function renderDrawer() {
           <div class="s"><span class="n">${nCountries || '—'}</span>countries</div>
           <div class="s"><span class="n">${minY}–${maxY}</span>years</div>
         </div>
-        ${hasMech ? `<div id="drMechTiles"></div>` : `<div style="font-size:10px;color:var(--dim);padding:10px 0">Loading mechanism breakdown…</div>`}
+        ${hasMech ? `<div id="drMechTiles"></div>` : `<div style="font-size:10px;color:var(--dim);padding:10px 0">${(state.analytics || state._offlineNotified || state._mechRetried) ? 'Mechanism breakdown unavailable for this view.' : 'Loading mechanism breakdown…'}</div>`}
         <div class="dg-quick">
           Click any tile → all recommendations from that mechanism · or click a record anywhere to preview it here${kwHint ? ` · current keyword <strong>"${sanitize(kwHint.slice(0, 40))}"</strong>` : ''}
         </div>
@@ -148,6 +182,14 @@ function renderDrawer() {
       <div class="dr-empty" style="padding:24px 20px">
         <div>Click any record on the map, in a list, or in Search to preview it here.<br><br>Or press <kbd style="border:1px solid var(--line);padding:0 4px;font-family:var(--mono)">⌘K</kbd> for the command palette.</div>
       </div>`;
+    // UI-10: never spin "Loading…" forever — retry once after a short delay to
+    // catch a slow analytics load; if it still isn't there, the message above
+    // already reads "unavailable" instead of an indefinite spinner.
+    if (!hasMech && !state.analytics && !state._offlineNotified && !state._mechRetried) {
+      state._mechRetried = true;
+      setTimeout(() => { if (!state.selectedRec) renderDrawer(); }, 6000);
+    }
+    if (hasMech) state._mechRetried = false;
     if (hasMech) {
       // Drawer is the explainer panel — show the descriptions on each
       // tile (UPR / Treaty Bodies / Special Procedures) so first-time
@@ -194,9 +236,9 @@ function renderDrawer() {
     ${kwCount ? `<div class="rd-kw-hint" style="margin-top:-6px;margin-bottom:8px"><kbd>${sanitize(kw)}</kbd> matched ${kwCount}× in this text</div>` : ''}
     <div class="dr-text">${highlightKeyword(txt, kw)}</div>
     <div class="dr-tags">
-      ${themes.slice(0, 4).map(t => `<span class="dr-tag theme" data-tag-kind="theme" data-tag-value="${sanitize(t)}" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}
-      ${groups.slice(0, 4).map(g => `<span class="dr-tag" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}
-      ${sdgs.slice(0, 3).map(s => `<span class="dr-tag" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(s)}</span>`).join('')}
+      ${themes.slice(0, 4).map(t => `<span class="dr-tag theme" role="button" tabindex="0" data-tag-kind="theme" data-tag-value="${sanitize(t)}" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}
+      ${groups.slice(0, 4).map(g => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}
+      ${sdgs.slice(0, 3).map(s => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(s)}</span>`).join('')}
     </div>
     <dl class="dr-meta">
       <dt>Country</dt><dd>${sanitize(country)}</dd>
@@ -309,11 +351,50 @@ function renderDrawer() {
       $('#citeDropdown').classList.remove('open');
     });
   });
-  el.querySelectorAll('.dr-tag.theme').forEach(t => t.addEventListener('click', () => {
-    state.focusTheme = t.dataset.theme;
-    $('#tabTheme').textContent = t.dataset.theme;
-    navigate('theme');
+  el.querySelectorAll('.dr-tag').forEach(tag => tag.addEventListener('click', () => {
+    const kind  = tag.dataset.tagKind;
+    const value = tag.dataset.tagValue;
+    if (!kind || !value) return;
+    if (kind === 'theme') {
+      state.filters.theme.add(value);
+      refreshFacetUI('theme');
+    } else if (kind === 'group') {
+      state.filters.group.add(value);
+      refreshFacetUI('group');
+    } else if (kind === 'sdg') {
+      const goalNum = _sdgToFilterValue(value);
+      if (goalNum !== null) {
+        state.filters.sdg = state.filters.sdg || new Set();
+        state.filters.sdg.add(goalNum);
+        refreshFacetUI('sdg');
+      }
+    }
+    onFiltersChanged();
+    toast(`Filter added: ${value.slice(0, 48)}`, false, 2200);
   }));
+  el.querySelectorAll('.dr-tag').forEach(tag => tag.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tag.click(); }
+  }));
+}
+
+function closeReader() {
+  $('#reader').classList.add('hidden');
+  $('#reader').onkeydown = null;
+  const ret = state._readerReturnFocus;
+  state._readerReturnFocus = null;
+  if (ret && typeof ret.focus === 'function') { try { ret.focus(); } catch (e) {} }
+}
+
+/* Focus trap for the Reader modal: keep Tab within the dialog. Escape-to-close
+   is handled by the global keydown handler in dashboard.html. */
+function _readerTrapTab(e) {
+  if (e.key !== 'Tab') return;
+  const nodes = $('#reader').querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  const focusable = Array.from(nodes).filter(el => el.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 function openReader(r) {
@@ -353,9 +434,13 @@ function openReader(r) {
       <button class="dr-btn primary" id="rdCloseFoot">Close</button>
       <button class="dr-btn report" id="rdReport">🚩 Report issue</button>
     </div>`;
+  const _rdWasHidden = $('#reader').classList.contains('hidden');
+  if (_rdWasHidden) state._readerReturnFocus = document.activeElement;
   $('#reader').classList.remove('hidden');
-  $('#rdClose').addEventListener('click', () => $('#reader').classList.add('hidden'));
-  $('#rdCloseFoot').addEventListener('click', () => $('#reader').classList.add('hidden'));
+  $('#reader').onkeydown = _readerTrapTab;
+  $('#rdClose').addEventListener('click', closeReader);
+  $('#rdCloseFoot').addEventListener('click', closeReader);
+  if (_rdWasHidden) { const _c = $('#rdClose'); if (_c) _c.focus(); }
   $('#rdReport').addEventListener('click', () => openReportModal(r));
   $('#rdStar').addEventListener('click', () => {
     const nowOn = bmToggle(r);

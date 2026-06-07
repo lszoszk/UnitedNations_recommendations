@@ -805,7 +805,7 @@ function renderRuleCard(rule) {
           <span class="rule-overflow-wrap">
             <button class="rule-overflow-btn" data-act="overflow" title="More actions" aria-haspopup="menu" aria-expanded="false">⋯</button>
             <span class="rule-overflow-menu" hidden role="menu">
-              <button data-act="toggleRaw" class="${useRaw ? 'active' : ''}" role="menuitem">${useRaw ? '✓ Chips mode' : 'Raw FTS5 mode'}</button>
+              <button data-act="toggleRaw" class="${useRaw ? 'active' : ''}" role="menuitem" title="Write the boolean query yourself instead of using term chips">${useRaw ? '✓ Chips mode' : 'Raw query mode'}</button>
               <button data-act="copy" role="menuitem">📋 Copy query</button>
             </span>
           </span>

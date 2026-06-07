@@ -222,6 +222,10 @@ a{color:inherit;text-decoration:none}
 /* Visible focus rings across the board — override browser default */
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:1px}
 .opt:focus-visible,.sdg-cell:focus-visible,.rl-row:focus-visible,.map-cell:focus-visible,.tab:focus-visible,.sw:focus-visible,.cite-item:focus-visible,.export-item:focus-visible,.af-chip:focus-visible,path.country:focus-visible{outline-offset:-2px;background:var(--paper-2)}
+/* Respect reduced-motion: neutralise the ~14 looping/transition animations
+   (status pulse, spinners, sliding bars, skeleton sweeps) for users who
+   request it, without removing functional state changes. */
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 
 /* ---------- TOP BAR ---------- */
 .topbar{height:var(--top-h);display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;padding:0 16px;border-bottom:1px solid var(--line);background:var(--paper);position:relative;z-index:30}
@@ -845,9 +849,10 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .dr-yr{font-family:var(--serif);font-size:38px;line-height:1;margin:6px 0 14px}
 .dr-text{font-family:var(--ui);font-size:15px;line-height:1.7;color:var(--ink);padding:var(--density-callout-pad);background:var(--paper-2);border-left:2px solid var(--accent);margin-bottom:14px;max-height:260px;overflow-y:auto}
 .dr-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}
-.dr-tag{font-size:10px;letter-spacing:.06em;padding:2px 6px;border:1px solid var(--line);color:var(--dim);cursor:pointer}
-.dr-tag:hover{border-color:var(--ink);color:var(--ink)}
-.dr-tag.theme{border-color:var(--ink);color:var(--ink)}
+.dr-tag{font-size:10px;letter-spacing:.06em;padding:2px 6px;border:1px solid var(--ink);color:var(--ink);cursor:pointer;user-select:none;transition:background .12s,color .12s}
+.dr-tag::after{content:' +';opacity:0;font-size:9px;transition:opacity .12s}
+.dr-tag:hover{background:var(--ink);color:var(--paper)}
+.dr-tag:hover::after{opacity:.6}
 .dr-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .dr-btn{padding:5px 10px;border:1px solid var(--ink);background:var(--paper);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
 .dr-btn.primary{background:var(--ink);color:var(--paper)}
@@ -1309,6 +1314,8 @@ body[data-density="roomy"]{
 
 /* ---------- ERROR / TOAST ---------- */
 .toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;font-size:11px;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:520px}
+.toast-action{margin-left:4px;background:transparent;color:var(--paper);border:1px solid var(--paper);padding:2px 8px;font:inherit;font-size:11px;cursor:pointer;border-radius:2px}
+.toast-action:hover{background:var(--paper);color:var(--ink)}
 .toast.error{background:#b91c1c;color:#fff}
 .toast.hidden{display:none}
 
@@ -2035,7 +2042,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <button class="cmdk" id="cmdkBtn" aria-label="Open command palette">
     <span class="k cmdk-k-mac">⌘</span><span class="k cmdk-k-mac">K</span>
     <span class="cmdk-k-mobile" aria-hidden="true">🔍</span>
-    <span class="cmdk-hint">Search 267,671 recommendations · jump to country, theme, year…</span>
+    <span class="cmdk-hint">Search all 267,671 records · or jump to a country, theme, body…</span>
   </button>
   <div class="meta">
     <!-- Instant Mode (~300MB IndexedDB download) and Upload (user-supplied
@@ -2076,7 +2083,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
         <label data-ds="cleaned" id="dsOptCleaned">
           <input type="radio" name="dsRadio" value="cleaned" />
           <strong>Cleaned</strong>
-          <span class="desc">6-stage pipeline · 267 537 records · canonical body names, inferred countries, artefacts removed. Recommended.</span>
+          <span class="desc">5-stage pipeline · 267 671 records · canonical body names, inferred countries, artefacts removed. Recommended.</span>
         </label>
         <label data-ds="raw" id="dsOptRaw">
           <input type="radio" name="dsRadio" value="raw" />
@@ -2118,7 +2125,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <div class="facet" data-facet="kw">
       <div class="facet-head"><span class="fh-idx">01</span><span>KEYWORD</span><span class="fh-toggle">▾</span></div>
       <div class="facet-body">
-        <input id="kwInput" class="kwinput" placeholder='e.g. forced labour, "death penalty", torture OR abuse'/>
+        <input id="kwInput" class="kwinput" aria-label="Search recommendations by keyword" placeholder='e.g. forced labour, "death penalty", torture OR abuse'/>
         <!-- Dynamic synonym-expansion chip row. Populated from the records
              response `search_expansions` field after each search. Hidden
              when empty; each chip reads "woman → women". Tells the user
@@ -2206,7 +2213,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1" title="Recommending-body profile"><span class="t-idx">07</span><span class="t-lbl">Mechanism</span><span class="t-ctx" id="tabMechanism">—</span></a>
       <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1" title="Full-text search results"><span class="t-idx">08</span><span class="t-lbl">Search</span><span class="t-ctx" id="tabSearch">—</span></a>
       <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1" title="Bookmarked records"><span class="t-idx">09</span><span class="t-lbl">★ Saved</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Define your own labels as boolean FTS5 queries — deterministic, explainable, server-side (experimental)"><span class="t-idx">10</span><span class="t-lbl">Labels <span class="tab-beta" aria-label="experimental feature">β</span></span><span class="t-ctx" id="tabLabels">—</span></a>
+      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Define your own labels as boolean keyword queries — deterministic, explainable, server-side (experimental)"><span class="t-idx">10</span><span class="t-lbl">Labels <span class="tab-beta" aria-label="experimental feature">β</span></span><span class="t-ctx" id="tabLabels">—</span></a>
       <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1" title="Dataset notes & caveats"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
     </nav>
     <button class="tabs-chevron" id="tabsChevron" aria-label="Scroll tabs right" type="button">›</button>
@@ -2249,7 +2256,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 </div>
 
 <!-- READER -->
-<div class="reader hidden" id="reader">
+<div class="reader hidden" id="reader" role="dialog" aria-modal="true" aria-label="Recommendation full text">
   <div class="reader-inner" id="readerBody"></div>
 </div>
 
@@ -2258,7 +2265,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <div class="cmd-card">
     <div class="cmd-input-row">
       <span class="cmd-prompt">$</span>
-      <input id="cmdInput" placeholder="Search country, theme, body, view — ↵ to jump"/>
+      <input id="cmdInput" aria-label="Command palette — search full text, or jump to a country, theme, body, or view" placeholder="Search full text, or jump to a country, theme, body…"/>
       <span class="cmd-esc">esc</span>
     </div>
     <div class="cmd-results" id="cmdResults"></div>
@@ -2296,7 +2303,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 <div class="mobile-backdrop hidden" id="mobileBackdrop"></div>
 
 <!-- TOAST -->
-<div class="toast hidden" id="toast"></div>
+<div class="toast hidden" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- TWEAKS panel — anchored to top-bar THEME button -->
 <div class="tweaks" id="tweaks">
@@ -2311,7 +2318,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   </div>
   <div class="row">
     <span>Density</span>
-    <select id="densitySel">
+    <select id="densitySel" aria-label="Display density">
       <option value="tight">Tight (dense)</option>
       <option value="cozy" selected>Cozy</option>
       <option value="roomy">Roomy</option>
@@ -2552,10 +2559,19 @@ function cacheSet(key, v) {
 
 /* ---------- TOAST ---------- */
 let toastT;
-function toast(msg, isErr=false, ms=3200) {
+function toast(msg, isErr=false, ms=3200, action=null) {
   const el = $('#toast');
-  el.textContent = msg;
   el.className = 'toast' + (isErr?' error':'');
+  el.textContent = msg;
+  if (action && action.label && typeof action.onClick === 'function') {
+    const btn = document.createElement('button');
+    btn.className = 'toast-action';
+    btn.type = 'button';
+    btn.textContent = action.label;
+    btn.addEventListener('click', () => { el.classList.add('hidden'); clearTimeout(toastT); action.onClick(); });
+    el.appendChild(document.createTextNode(' '));
+    el.appendChild(btn);
+  }
   clearTimeout(toastT);
   toastT = setTimeout(()=>el.classList.add('hidden'), ms);
 }
@@ -2574,6 +2590,16 @@ function setStatus(kind, lbl) {
               : kind === 'loading' ? 'Loading dataset…'
               : 'Live VM connection';
     c.title = size && size !== '—' ? `${base} · ${size}` : base;
+  }
+  // Offline is otherwise signalled only by a 6px dot — surface it once with a
+  // recovery action so a non-technical user isn't left with a silently stale UI.
+  if (kind === 'error') {
+    if (!state._offlineNotified) {
+      state._offlineNotified = true;
+      toast('Live connection lost — data may be stale.', true, 9000, { label: 'Reload', onClick: () => location.reload() });
+    }
+  } else {
+    state._offlineNotified = false;
   }
 }
 
@@ -2689,7 +2715,7 @@ function renderRowList(el, rows, opts = {}) {
       }
     }
     return `
-    <div class="rl-row ${showSpark?'has-spark':''}" data-key="${sanitize(r.key||'')}" data-facet="${opts.facet||''}"${opts.facet === 'body' ? ` data-family="${classifyBody(r.key || '')}"` : ''}>
+    <div class="rl-row ${showSpark?'has-spark':''}" tabindex="0" role="button" data-key="${sanitize(r.key||'')}" data-facet="${opts.facet||''}"${opts.facet === 'body' ? ` data-family="${classifyBody(r.key || '')}"` : ''}>
       <div class="rnk">${String(i+1).padStart(2,'0')}</div>
       <div class="nm"><span class="bar" style="width:${(r.v/top)*100}%"></span><span class="txt" title="${sanitize(r.label)}">${highlightKeyword(r.label, (state.filters.kw||'').trim())}</span></div>
       ${showSpark ? `<div class="spark" title="2006–2026 evolution">${sparkHtml}</div>` : ''}
@@ -2765,6 +2791,15 @@ function renderRowList(el, rows, opts = {}) {
   if (opts.onClick) {
     el.querySelectorAll('.rl-row').forEach(row => row.addEventListener('click', e => opts.onClick(row.dataset.key, e)));
   }
+  // Keyboard parity for the Top-N rows: Enter/Space = the row's click action
+  // (read); Shift+Enter mirrors shift-click (filter). The :focus-visible ring
+  // for .rl-row is already declared in the stylesheet.
+  el.querySelectorAll('.rl-row').forEach(row => row.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    if (e.shiftKey) row.dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+    else row.click();
+  }));
   // Backfill country sparklines asynchronously (uses cache + lazy fetch)
   if (opts.facet === 'country' && !sparkSource) {
     backfillCountrySparklines(el, minY, maxY);
@@ -3448,6 +3483,12 @@ async function boot() {
   // Also: on mobile, clicking a tab or closing a filter should auto-close the rail
   $$('.tab').forEach(t => t.addEventListener('click', () => { if (window.innerWidth < 960) { closeMobileRail(); closeMobileDrawer(); } }));
   $('#clearFilters').addEventListener('click', () => {
+    // Snapshot for Undo — deep-copy Sets so the restore is independent of
+    // subsequent mutations.
+    const _snap = {}; for (const k in state.filters) { const v = state.filters[k]; _snap[k] = (v instanceof Set) ? new Set(v) : v; }
+    const _snapTab = $('#tabSearch').textContent;
+    const _setKeys = ['country','body','theme','group','region','type','sdg','sdgExact'];
+    const _hadAny = !!_snap.kw || _setKeys.some(k => _snap[k] && _snap[k].size);
     state.filters = { ...emptyFilters(),
       yearA: state.facets?.min_year, yearB: state.facets?.max_year };
     $('#kwInput').value = '';
@@ -3459,7 +3500,17 @@ async function boot() {
     // Clear any visible in-facet search filters so all options reappear
     $$('.facet-filter').forEach(inp => { inp.value = ''; inp.dispatchEvent(new Event('input')); });
     onFiltersChanged();
-    toast('Filters cleared');
+    toast('Filters cleared', false, _hadAny ? 8000 : 3200, _hadAny ? { label: 'Undo', onClick: () => {
+      state.filters = _snap;
+      $('#kwInput').value = _snap.kw || '';
+      $('#tabSearch').textContent = _snapTab;
+      ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
+      if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
+      document.querySelectorAll('#themeMatch button').forEach(b => b.classList.toggle('on', b.dataset.m === (_snap.themesMatch || 'any')));
+      document.querySelectorAll('#groupMatch button').forEach(b => b.classList.toggle('on', b.dataset.m === (_snap.groupsMatch || 'any')));
+      onFiltersChanged();
+      toast('Filters restored', false, 1600);
+    } } : null);
   });
   $('#btnReset')?.addEventListener('click', () => $('#clearFilters').click());
   $('#btnShare').addEventListener('click', openShareModal);
@@ -3638,7 +3689,7 @@ async function boot() {
       const paletteOpen = !$('#cmdPalette').classList.contains('hidden');
       const readerOpen = !$('#reader').classList.contains('hidden');
       if (paletteOpen) closePalette();
-      else if (readerOpen) $('#reader').classList.add('hidden');
+      else if (readerOpen) closeReader();
       else if (!inInput && TW.drawer) closeDrawerPanelSafe();
     }
     else if (e.key === 'Enter' && !$('#cmdPalette').classList.contains('hidden')) {

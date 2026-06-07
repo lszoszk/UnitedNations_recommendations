@@ -962,6 +962,7 @@ async function renderCompare() {
         <div class="big" id="cmpNameB">${sanitize(state.cmpB||'—')}</div>
         <div class="sub" id="cmpSubB">loading…</div></div>
     </div>
+    <p style="font-size:11px;color:var(--dim);padding:8px 24px;margin:0;border-bottom:1px solid var(--line)">⚑ <strong>Comparability note:</strong> Treaty Body counts reflect only the bodies each state has ratified — countries with fewer ratifications will structurally show lower totals. Volume comparisons are most meaningful between states with similar treaty profiles.</p>
     <div class="cmp-body">
       <!-- C1: Timelines stacked vertically, both full-width. Half-width
            side-by-side squeezed 21 years into ~500 px and made year

@@ -38,6 +38,10 @@ function bindYearSlider(minY, maxY) {
     fill.style.left = pA + '%'; fill.style.width = (pB - pA) + '%';
     $('#yrAL').textContent = state.filters.yearA;
     $('#yrBL').textContent = state.filters.yearB;
+    A.setAttribute('aria-valuenow', state.filters.yearA);
+    A.setAttribute('aria-valuetext', state.filters.yearA + ' (start year)');
+    B.setAttribute('aria-valuenow', state.filters.yearB);
+    B.setAttribute('aria-valuetext', state.filters.yearB + ' (end year)');
     $$('#ysHist .ys-hist-bar').forEach(b => {
       const y = Number(b.dataset.y);
       b.classList.toggle('in-range', y >= state.filters.yearA && y <= state.filters.yearB);
@@ -63,4 +67,31 @@ function bindYearSlider(minY, maxY) {
   A.addEventListener('touchstart', onDown); B.addEventListener('touchstart', onDown);
   document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
   document.addEventListener('touchmove', onMove); document.addEventListener('touchend', onUp);
+
+  // Keyboard parity — handles are real sliders: arrows ±1yr, PgUp/PgDn ±5,
+  // Home/End jump to the range edge. The global :focus-visible ring makes the
+  // focused handle visible against the track.
+  [[A, 'a', 'Start year'], [B, 'b', 'End year']].forEach(([h, which, label]) => {
+    h.setAttribute('role', 'slider');
+    h.setAttribute('tabindex', '0');
+    h.setAttribute('aria-label', label);
+    h.setAttribute('aria-valuemin', minY);
+    h.setAttribute('aria-valuemax', maxY);
+    h.addEventListener('keydown', (e) => {
+      let d = 0;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') d = -1;
+      else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') d = 1;
+      else if (e.key === 'PageDown') d = -5;
+      else if (e.key === 'PageUp') d = 5;
+      else if (e.key === 'Home') d = which === 'a' ? (minY - state.filters.yearA) : (state.filters.yearA - state.filters.yearB);
+      else if (e.key === 'End') d = which === 'a' ? (state.filters.yearB - state.filters.yearA) : (maxY - state.filters.yearB);
+      else return;
+      e.preventDefault();
+      if (which === 'a') state.filters.yearA = Math.max(minY, Math.min(state.filters.yearA + d, state.filters.yearB));
+      else state.filters.yearB = Math.min(maxY, Math.max(state.filters.yearB + d, state.filters.yearA));
+      update();
+      onFiltersChanged();
+    });
+  });
+  update();
 }

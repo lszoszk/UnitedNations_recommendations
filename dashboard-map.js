@@ -185,7 +185,7 @@ async function renderChoroplethMap(container, countryCounts) {
     const cls = 'country' + (count === 0 ? ' empty' : '') + (filteredOn ? ' on' : '');
     const d = pathGen(f);
     if (!d) return '';
-    return `<path class="${cls}" d="${d}" fill="${fill}" data-name="${sanitize(name)}" data-api="${sanitize(apiName||'')}" data-count="${count}" />`;
+    return `<path class="${cls}" d="${d}" fill="${fill}" data-name="${sanitize(name)}" data-api="${sanitize(apiName||'')}" data-count="${count}" tabindex="0" role="button" aria-label="${sanitize(apiName||name)}: ${fmt(count)} records" />`;
   }).filter(Boolean).join('');
 
   // Graticule for geographic context
@@ -257,6 +257,13 @@ async function renderChoroplethMap(container, countryCounts) {
         $('#tabCountry').textContent = apiName;
         navigate('country');
       }
+    });
+    // Keyboard: Enter/Space = open records (default click); Shift+Enter = filter.
+    p.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      if (e.shiftKey) p.dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+      else p.click();
     });
   });
 
@@ -1077,14 +1084,36 @@ function renderMap(container, countryCounts) {
   // Migrate old localStorage value
   let mode = getMapMode();
   if (mode === 'grid') { mode = 'hex'; setMapMode(mode); }
+  const _summary = () => _appendMapSrSummary(container, countryCounts);
   if (mode === 'hex') {
     renderHexMap(container, countryCounts);
+    _summary();
   } else {
-    renderChoroplethMap(container, countryCounts).catch(err => {
+    renderChoroplethMap(container, countryCounts).then(_summary).catch(err => {
       console.warn('Choropleth failed, falling back to hex', err);
       renderHexMap(container, countryCounts);
+      _summary();
     });
   }
+}
+
+/* A11Y: the map encodes counts by colour only. Append a visually-hidden text
+   alternative so screen-reader and colour-blind users get the same data. */
+function _appendMapSrSummary(container, countryCounts) {
+  if (!container) return;
+  const prev = container.querySelector('.map-sr-summary');
+  if (prev) prev.remove();
+  const arr = (countryCounts || [])
+    .filter(c => c && c.count > 0)
+    .map(c => [cleanCountryName(c.country), c.count])
+    .sort((a, b) => b[1] - a[1]);
+  const div = document.createElement('div');
+  div.className = 'sr-only map-sr-summary';
+  div.setAttribute('role', 'note');
+  div.textContent = arr.length
+    ? `Map text alternative: ${arr.length} countries with recommendations. Highest counts — ${arr.slice(0, 15).map(([n, v]) => `${n} ${fmt(v)}`).join('; ')}.`
+    : 'Map text alternative: no country counts available for the current view.';
+  container.appendChild(div);
 }
 
 /* ---------- LEGACY GRID MAP (fallback) ---------- */

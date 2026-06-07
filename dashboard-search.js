@@ -175,7 +175,7 @@ function _renderSearchItem(rec, idx, kw) {
   }
   const isSelected = state.searchSelection.has(rec.AnnotationId);
   const isOpen = state.drawerMode !== 'list' && state.selectedRec?.AnnotationId === rec.AnnotationId;
-  return `<div class="se-item${isSelected?' selected':''}${isOpen?' is-open':''}${snippet.isKwic?' is-kwic':''}" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)}">
+  return `<div class="se-item${isSelected?' selected':''}${isOpen?' is-open':''}${snippet.isKwic?' is-kwic':''}" data-idx="${idx}" data-id="${sanitize(rec.AnnotationId||'')}" role="article" tabindex="0" aria-label="${sanitize(yr)} ${sanitize(country)} ${sanitize(body)} — Enter to open">
     <label class="se-check" title="Select for bulk actions" onclick="event.stopPropagation()"><input type="checkbox" data-bulkcb="${idx}" ${isSelected?'checked':''}></label>
     <div class="se-hdr">
       <span class="yr">${sanitize(yr || '—')}</span>
@@ -184,7 +184,7 @@ function _renderSearchItem(rec, idx, kw) {
       ${typeLabel ? `<span class="type ${typeClass}" title="Annotation type">${sanitize(typeLabel)}</span>` : ''}
       ${symbol ? `<span class="sym" title="UN document symbol — cite this">${sanitize(symbol)}</span>` : ''}
       ${kwCount ? `<span class="kw" title="${kwCount} keyword match${kwCount!==1?'es':''}">${kwCount}× "${sanitize(kw)}"</span>` : ''}
-      ${snippet.isKwic ? `<span class="kwic-badge" title="Showing a keyword-in-context snippet. Click 'show full text' to see the whole record.">◎ KWIC</span>` : ''}
+      ${snippet.isKwic ? `<span class="kwic-badge" title="Showing a matched excerpt (the keyword in context). Click 'show full text' to see the whole record.">◎ Excerpt</span>` : ''}
       ${(hasNote || starred || isPinned) ? `<span class="marks">
         ${hasNote ? '<span title="You have a note on this record">📝</span>' : ''}
         ${starred ? '<span style="color:#d97706" title="Bookmarked">★</span>' : ''}
@@ -195,9 +195,9 @@ function _renderSearchItem(rec, idx, kw) {
     <div class="se-tx" data-full-text="${sanitize(fullTxt)}" data-kw="${sanitize(kw||'')}"${serverHintsAttr} data-mode="${snippet.isKwic ? 'kwic' : 'full'}">${snippet.html}</div>
     ${isLong ? `<button class="se-more-btn">↓ Show full text (${fullTxt.length.toLocaleString()} chars)</button>` : ''}
     ${(themes.length || groups.length || sdgs.length) ? `<div class="se-tags">
-      ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val" data-tag-kind="theme" data-tag-value="${sanitize(t)}">${sanitize(t)}</span>`).join('')}` : ''}
-      ${groups.length ? `<span class="tg-kind">Groups</span>${groups.map(g=>`<span class="tg-val" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}` : ''}
-      ${sdgs.length ? `<span class="tg-kind">SDGs</span>${sdgs.map(s=>`<span class="tg-val" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(formatSdgLabel(s))}</span>`).join('')}` : ''}
+      ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val" role="button" tabindex="0" data-tag-kind="theme" data-tag-value="${sanitize(t)}">${sanitize(t)}</span>`).join('')}` : ''}
+      ${groups.length ? `<span class="tg-kind">Groups</span>${groups.map(g=>`<span class="tg-val" role="button" tabindex="0" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}` : ''}
+      ${sdgs.length ? `<span class="tg-kind">SDGs</span>${sdgs.map(s=>`<span class="tg-val" role="button" tabindex="0" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(formatSdgLabel(s))}</span>`).join('')}` : ''}
     </div>` : ''}
     <div class="se-actions">
       <button data-act="bookmark" data-idx="${idx}" class="${starred?'starred':''}" title="Toggle bookmark (b)">${starred?'★ Bookmarked':'☆ Bookmark'}</button>
@@ -256,6 +256,7 @@ async function renderSearch() {
       <button id="seExpandAll" title="Expand all result texts on the current page">↓ Expand all</button>
       <button id="seCollapseAll" title="Collapse all result texts">↑ Collapse all</button>
     </div>
+    ${kw ? `<div class="se-exhaustive-note" role="note" style="font-size:11px;color:var(--dim);padding:6px 2px 0;line-height:1.5">Results match word forms found in the text — a low or zero count is <strong>not proof none exists</strong>. Broaden with a trailing <code>*</code> (e.g. <code>detentio*</code>) or a synonym. <a href="#view=methodology" onclick="event.preventDefault();navigate('methodology')">How search works →</a></div>` : ''}
     <div class="se-explainer">
       <span>Each row is <strong>one paragraph</strong> extracted from a UN concluding observation, UPR report or Special Procedure communication.</span>
       <span class="pill rec" id="seBreakRec" title="Formal UN recommendations — 'The Committee recommends that…'"><span class="v">…</span> Recommendations</span>
@@ -492,14 +493,22 @@ async function loadNextSearchPage() {
         state.searchExhausted = true;
         return;
       }
-      const hasFilters = state.filters.country.size || state.filters.body.size || state.filters.theme.size || state.filters.group.size || state.filters.region.size || _hasSdgFilters(state.filters) || state.filters.type.size || state.filters.kw.trim() || (state.facets && (state.filters.yearA > state.facets.min_year || state.filters.yearB < state.facets.max_year));
+      const kwActive = state.filters.kw.trim();
+      const hasFilters = state.filters.country.size || state.filters.body.size || state.filters.theme.size || state.filters.group.size || state.filters.region.size || _hasSdgFilters(state.filters) || state.filters.type.size || kwActive || (state.facets && (state.filters.yearA > state.facets.min_year || state.filters.yearB < state.facets.max_year));
       $('#seList').innerHTML = `
         <div class="empty-state">
-          <div class="es-title">No records match your filters</div>
+          <div class="es-title">${kwActive ? `No matches for &ldquo;${sanitize(kwActive.slice(0, 60))}&rdquo;` : 'No records match your filters'}</div>
           <div class="es-sub">${hasFilters ? 'Try removing one or two filters, broadening the year range, or using a different keyword.' : 'Hmm, the dataset should have 267,671 records — something went wrong.'}</div>
+          ${kwActive ? `
+            <div class="se-warn-hint">
+              <span class="ico">!</span><strong>A zero result is not proof that none exists.</strong>
+              Search matches word forms found in the text, so exact spellings and quoted phrases can miss variants.
+              Try a trailing <code>*</code> (e.g. <code>detentio*</code>), a synonym, or removing quotation marks.
+              <a href="#view=methodology" onclick="event.preventDefault();navigate('methodology')">How search works →</a>
+            </div>` : ''}
           ${hasFilters ? `
             <button class="primary" onclick="document.getElementById('clearFilters').click()">Clear all filters</button>
-            ${state.filters.kw.trim() ? `<button onclick="document.getElementById('kwInput').value='';state.filters.kw='';onFiltersChanged();">Drop keyword "${sanitize(state.filters.kw.trim().slice(0,40))}"</button>` : ''}
+            ${kwActive ? `<button onclick="document.getElementById('kwInput').value='';state.filters.kw='';onFiltersChanged();">Drop keyword "${sanitize(kwActive.slice(0, 40))}"</button>` : ''}
             ${state.filters.country.size ? `<button onclick="state.filters.country=new Set();['country'].forEach(refreshFacetUI);onFiltersChanged();">Include all countries</button>` : ''}
             ${state.filters.theme.size ? `<button onclick="state.filters.theme=new Set();['theme'].forEach(refreshFacetUI);onFiltersChanged();">Include all themes</button>` : ''}
           ` : ''}
@@ -536,6 +545,12 @@ async function loadNextSearchPage() {
         state.currentResultList = state.searchLoaded;
         _seSetActiveRecord(rec);
         renderDrawer();
+      });
+      // Keyboard: Enter/Space on the card itself opens it in the reader. The
+      // e.target guard lets inner buttons/checkbox/chips keep their own keys.
+      el.addEventListener('keydown', (e) => {
+        if (e.target !== el) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
       });
       // Expand/collapse — see _seSwapExpansion for the KWIC↔full swap.
       el.querySelector('.se-more-btn')?.addEventListener('click', (ev) => {
@@ -576,6 +591,29 @@ async function loadNextSearchPage() {
           const quote = `"${(rec.TextPlainCleaned || rec.Text || '').trim()}"\n\n${citeAPA(rec)}`;
           navigator.clipboard.writeText(quote).then(() => toast('Copied with citation', false, 1600));
         }
+      }));
+      // Tag chips (themes / groups / SDGs) add the matching filter — same
+      // contract as the drawer's .dr-tag chips. stopPropagation so the card's
+      // reader-open click doesn't also fire.
+      el.querySelectorAll('.tg-val').forEach(chip => chip.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const kind = chip.dataset.tagKind;
+        const value = chip.dataset.tagValue;
+        if (!kind || !value) return;
+        if (kind === 'theme') { state.filters.theme.add(value); refreshFacetUI('theme'); }
+        else if (kind === 'group') { state.filters.group.add(value); refreshFacetUI('group'); }
+        else if (kind === 'sdg') {
+          const g = _sdgToFilterValue(value);
+          if (g === null) return;
+          state.filters.sdg = state.filters.sdg || new Set();
+          state.filters.sdg.add(g);
+          refreshFacetUI('sdg');
+        }
+        onFiltersChanged();
+        toast(`Filter added: ${value.slice(0, 48)}`, false, 2200);
+      }));
+      el.querySelectorAll('.tg-val').forEach(chip => chip.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.stopPropagation(); chip.click(); }
       }));
     });
     _seUpdateBreakdown();

@@ -115,6 +115,9 @@ function openShareModal() {
         <a class="sh-opt" href="https://www.linkedin.com/sharing/share-offsite/?url=${encoded}" target="_blank" rel="noopener"><span class="ic">in</span>LinkedIn</a>
         <a class="sh-opt" href="https://bsky.app/intent/compose?text=${subject}+${encoded}" target="_blank" rel="noopener"><span class="ic">🦋</span>Bluesky</a>
       </div>
+      <div class="sh-cite-note" style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px;font-size:11px;color:var(--dim)">
+        Citing this in research? See <a href="#view=about" id="shAbout" style="color:var(--accent)">how to cite the dataset &amp; the independence statement →</a>
+      </div>
       <div style="margin-top:16px;text-align:right">
         <button id="shClose" style="padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--ink);font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Close</button>
       </div>
@@ -122,6 +125,7 @@ function openShareModal() {
   document.body.appendChild(m);
   m.addEventListener('click', e => { if (e.target === m) m.remove(); });
   $('#shClose', m).addEventListener('click', () => m.remove());
+  $('#shAbout', m)?.addEventListener('click', (e) => { e.preventDefault(); m.remove(); if (typeof navigate === 'function') navigate('about'); });
   $('#shCopy', m).addEventListener('click', () => {
     $('#shUrl', m).select();
     navigator.clipboard.writeText(u).then(() => {

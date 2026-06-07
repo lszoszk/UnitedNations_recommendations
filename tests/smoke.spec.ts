@@ -468,13 +468,19 @@ test.describe('UHRI Dashboard smoke', () => {
     // are still populated — typing 'methodology' should match the
     // Methodology view tile.
     await page.keyboard.type('methodology');
-    await expect(page.locator('#cmdResults .cmd-result')).toHaveCount(1, { timeout: 2000 });
+    // The palette now always offers a full-text "Search…" action as the top
+    // result (so ⌘K can search the corpus, not just jump), plus the matching
+    // Methodology view tile — two results with empty facets.
+    await expect(page.locator('#cmdResults .cmd-result')).toHaveCount(2, { timeout: 2000 });
+    await expect(page.locator('#cmdResults .cmd-result .kind').first()).toHaveText('SEARCH');
 
-    // Clicking the first (focused) result runs its action — which calls
-    // closePalette() and navigate(...). We click instead of pressing Enter
-    // because the Enter handler is inline's keydown on document, and it
-    // reads `window.__cmdResults[0].action()` — clicking is the simpler path.
-    await page.locator('#cmdResults .cmd-result').first().click();
+    // Click the Methodology *view* result specifically (not the search action).
+    // We click instead of pressing Enter because the Enter handler is inline's
+    // keydown on document reading `window.__cmdResults[0].action()`.
+    await page.locator('#cmdResults .cmd-result')
+      .filter({ has: page.locator('.kind', { hasText: 'VIEW' }) })
+      .filter({ hasText: 'Methodology' })
+      .click();
 
     await expect(palette).toHaveClass(/hidden/, { timeout: 2000 });
     await expect(page.locator('a[role="tab"][data-nav="methodology"]')).toHaveAttribute('aria-selected', 'true', { timeout: 2000 });
@@ -961,6 +967,62 @@ test.describe('UHRI Dashboard smoke', () => {
     await expect(labels.locator('details.rules-howto summary')).toContainText(/How the Labels workspace works/i);
 
     expect(errors, `JS errors during About tab flow:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('22. keyboardFocus — reader is a focus-trapped dialog; slider + chips are keyboard-operable', async ({ page }) => {
+    /* Sprint 3 (keyboard/focus parity): the Reader modal must declare dialog
+       semantics, move focus in on open, and restore focus to the opener on
+       Escape; the year-slider handles must be real ARIA sliders driven by
+       arrow keys. Pins these so a future refactor can't silently regress
+       keyboard access for the core read + filter actions. */
+    const errors = collectConsoleErrors(page);
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).openReader === 'function', null, { timeout: 5000 });
+
+    // --- Reader: dialog semantics + focus move-in ---
+    await page.evaluate(() => {
+      const rec = {
+        AnnotationId: 'kbd-1', PublicationDate: '2024-01-01', Countries: ['Poland'],
+        Regions: ['Eastern Europe'], Body: 'CAT', Themes: ['Torture'], AffectedPersons: ['Women'],
+        Sdgs: ['SDG 16.3'], Symbol: 'CAT/C/POL/CO/7', AnnotationType: 'Recommendations',
+        SectionHeadings: ['Test'], TextPlainCleaned: '23. The Committee recommends keyboard access.',
+      };
+      state.selectedRec = rec; state.currentResultList = [rec]; state.currentResultIndex = 0;
+      state.drawerMode = 'record'; state.drawerList = null;
+      renderDrawer();
+      document.getElementById('drOpen')?.focus();   // known opener focus
+      openReader(rec);
+    });
+    const reader = page.locator('#reader');
+    await expect(reader).toHaveAttribute('role', 'dialog');
+    await expect(reader).toHaveAttribute('aria-modal', 'true');
+    const focusInReader = await page.evaluate(() =>
+      !!document.activeElement && !!document.getElementById('reader')?.contains(document.activeElement));
+    expect(focusInReader, 'focus should move into the reader on open').toBe(true);
+
+    // Escape closes the reader AND restores focus to the opener (#drOpen).
+    await page.keyboard.press('Escape');
+    await expect(reader).toHaveClass(/hidden/);
+    const focusRestored = await page.evaluate(() => document.activeElement?.id);
+    expect(focusRestored, 'focus should return to the element that opened the reader').toBe('drOpen');
+
+    // --- Year slider: ARIA slider + arrow-key drives the bound value ---
+    const slider = await page.evaluate(() => {
+      state.facets = { ...(state.facets || {}), min_year: 2006, max_year: 2026 };
+      state.filters.yearA = 2006; state.filters.yearB = 2026;
+      bindYearSlider(2006, 2026);
+      const a = document.getElementById('ysA')!;
+      const role = a.getAttribute('role');
+      const valuemin = a.getAttribute('aria-valuemin');
+      a.focus();
+      a.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      return { role, valuemin, yearA: state.filters.yearA };
+    });
+    expect(slider.role).toBe('slider');
+    expect(slider.valuemin).toBe('2006');
+    expect(slider.yearA, 'ArrowRight should advance the start year by one').toBe(2007);
+
+    expect(errors, `JS errors during keyboard/focus test:\n${errors.join('\n')}`).toEqual([]);
   });
 
 });

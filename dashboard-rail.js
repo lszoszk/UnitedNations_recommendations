@@ -120,13 +120,16 @@ function buildRail(facets, analytics) {
     const c = sdgCountsByN[n];
     const name = SDG_NAMES[n] || '';
     const tip = `SDG ${n}${name?' — '+name:''}${c?' ('+fmt(c)+' recs across targets)':''}`;
-    return `<div class="sdg-cell" data-k="${n}" title="${sanitize(tip)}">${n}</div>`;
+    return `<div class="sdg-cell" role="button" tabindex="0" aria-label="${sanitize(tip)}" data-k="${n}" title="${sanitize(tip)}">${n}</div>`;
   }).join('');
   sdgEl.querySelectorAll('.sdg-cell').forEach(c => c.addEventListener('click', () => {
     const k = Number(c.dataset.k);
     _sdgToggleFilter(k);
     c.classList.toggle('on');
     onFiltersChanged();
+  }));
+  sdgEl.querySelectorAll('.sdg-cell').forEach(c => c.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); c.click(); }
   }));
 
   // --- TYPE ---
@@ -236,7 +239,7 @@ function _buildFacetListInto(el, facetKey, items, stateKey) {
   const currentSet = () => state.filters[stateKey];
   const withSearch = items.length > 15;
   const searchHtml = withSearch
-    ? `<input class="facet-filter" type="search" placeholder="filter ${items.length}…" data-for="${facetKey}" />`
+    ? `<input class="facet-filter" type="search" aria-label="Filter ${facetKey} options" placeholder="filter ${items.length}…" data-for="${facetKey}" />`
     : '';
   const initialSet = currentSet();
   const listHtml = items.map(it => {
@@ -285,7 +288,7 @@ function buildFacetList(facetKey, items, stateKey) {
   const currentSet = () => state.filters[stateKey];
   const withSearch = items.length > 15;
   const searchHtml = withSearch
-    ? `<input class="facet-filter" type="search" placeholder="filter ${items.length}…" data-for="${facetKey}" />`
+    ? `<input class="facet-filter" type="search" aria-label="Filter ${facetKey} options" placeholder="filter ${items.length}…" data-for="${facetKey}" />`
     : '';
   const initialSet = currentSet();
   const listHtml = items.map(it => {
@@ -595,7 +598,7 @@ function buildBodyFacetGrouped(bodies) {
     <div class="body-chips-hint">Chips ADD to current selection · Shift+click = REPLACE selection</div>
   `;
 
-  const searchHtml = `<input class="facet-filter" type="search" placeholder="filter ${bodies.length}…" data-for="body" />`;
+  const searchHtml = `<input class="facet-filter" type="search" aria-label="Filter recommending body options" placeholder="filter ${bodies.length}…" data-for="body" />`;
 
   const renderOpt = (b) => {
     const on = currentSet().has(b) ? 'on' : '';

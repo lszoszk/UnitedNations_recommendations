@@ -53,7 +53,8 @@ function openPalette() {
 function closePalette() { $('#cmdPalette').classList.add('hidden'); }
 
 function renderPalette(q) {
-  q = (q||'').trim().toLowerCase();
+  const qRaw = (q || '').trim();
+  q = qRaw.toLowerCase();
   const countries = cleanCountryList(state.facets?.countries || []);
   const bodies = (state.facets?.bodies || []).filter(b => b && b !== '-').map(b => b.replace(/^-\s*/,''));
   const themes = (state.analytics?.themes?.theme_counts || []).map(t => t.theme);
@@ -83,6 +84,7 @@ function renderPalette(q) {
     { kind:'VIEW', label:'Methodology', sub:'about the dataset', score: 95, action:()=>{closePalette();navigate('methodology');} },
     { kind:'VIEW', label:'Bookmarks', sub:`${bmLoad().length} saved records`, score: 94, action:()=>{closePalette();navigate('bookmarks');} },
     { kind:'VIEW', label:'Labels workspace', sub:'boolean rule builder (β)', score: 93, action:()=>{closePalette();navigate('labels');} },
+    { kind:'VIEW', label:'About & cite this dataset', sub:'independence, citation, acknowledgements', score: 92, action:()=>{closePalette();navigate('about');} },
   ];
 
   // ACTIONS — appearance & layout commands surfaced in palette
@@ -132,6 +134,27 @@ function renderPalette(q) {
       action: () => { state.focusMechanism = b; $('#tabMechanism').textContent = b; closePalette(); navigate('mechanism'); }
     });
   });
+
+  // FULL-TEXT SEARCH — searching the corpus is the point of the tool. When the
+  // user has typed anything, offer it as the top result so ⌘K runs a real
+  // keyword search (not only entity jumps), matching the prominent "Search…"
+  // hint. Routes through the same kw filter + onFiltersChanged pipeline the
+  // rail keyword box uses.
+  if (qRaw) {
+    results.push({
+      kind: 'SEARCH',
+      label: `Search full text for "${qRaw}"`,
+      sub: 'find this across all recommendations',
+      _score: 1000,
+      action: () => {
+        const inp = $('#kwInput'); if (inp) inp.value = qRaw;
+        if (state.filters) state.filters.kw = qRaw;
+        closePalette();
+        navigate('search');
+        if (typeof onFiltersChanged === 'function') onFiltersChanged();
+      }
+    });
+  }
 
   // Sort by score desc, then dedupe by label
   results.sort((a, b) => b._score - a._score);
