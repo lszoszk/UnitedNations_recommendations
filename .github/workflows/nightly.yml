@@ -88,3 +88,30 @@ jobs:
           name: live-flows-${{ github.run_id }}
           path: test-results/
           retention-days: 30
+
+  data-canon:
+    # Guards against the 2026-06-08 class of regression: a dataset rebuild
+    # from an unpatched source silently reverted the body normalisation
+    # (70 -> 78 duplicate bodies), the Stage-4 country backfill, AND shipped
+    # without the FTS tables (keyword search 500'd). The metadata fixes now
+    # live in pipeline/normalize_metadata.py on the VM + the FTS/index build
+    # in the API's _build_dataset_db — this job verifies, within 24 h, that
+    # what the live API serves still matches the canon.
+    name: data canon guard (live API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Assert canonical bodies + working keyword search
+        run: |
+          set -euo pipefail
+          FACETS=$(curl -sk --max-time 30 --compressed "https://150.254.115.204/uhri-api/api/data/facets")
+          BODIES=$(echo "$FACETS" | jq '.bodies | length')
+          TOTAL=$(echo "$FACETS" | jq '.total_records')
+          echo "live API: $BODIES distinct bodies, $TOTAL records"
+          # 70 canonical bodies. 78 = un-normalised rebuild; any other drift
+          # (e.g. OHCHR adds a new mandate) deserves a conscious look too.
+          test "$BODIES" -eq 70
+          # Keyword search must work (FTS tables present + populated).
+          HITS=$(curl -sk --max-time 30 --compressed "https://150.254.115.204/uhri-api/api/data/records?text_query=torture&page_size=1" | jq '.total_records')
+          echo "FTS check: 'torture' -> $HITS records"
+          test "$HITS" -gt 10000
