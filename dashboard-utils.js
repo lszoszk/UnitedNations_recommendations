@@ -468,7 +468,13 @@ function ensureXLSX() {
   if (_xlsxPromise) return _xlsxPromise;
   _xlsxPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    // 0.18.5 (last npm release) carries CVE-2023-30533 + CVE-2024-22363;
+    // 0.20.3 ships only via the vendor CDN. SRI pin so a CDN compromise
+    // can't inject script into this origin (we parse untrusted uploads
+    // with it). Hash = sha384 of the fetched artefact, 2026-06-11.
+    s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    s.integrity = 'sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT';
+    s.crossOrigin = 'anonymous';
     s.onload = () => resolve(window.XLSX);
     s.onerror = () => reject(new Error('Failed to load SheetJS from CDN'));
     document.head.appendChild(s);
