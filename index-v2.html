@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>UN Human Rights Analytics — Landing</title>
+<title>UN Human Rights Analytics — Landing (v2 concept)</title>
+<!-- EXPERIMENT: question-led hero concept, compared side-by-side with
+     index.html. noindex until a winner is chosen; not in sitemap.xml. -->
+<meta name="robots" content="noindex">
 
 <!-- Agent-friendly metadata (2026-04-24).  Curated agent summary
      lives in /llms.txt.  Canonical points at the landing itself so
@@ -51,7 +54,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 
 <!-- Google Analytics 4 (G-F3XBX45HQC) — consent-gated, DNT-respecting,
      anonymised.  See dashboard-analytics.js for banner + event API,
@@ -1188,6 +1191,42 @@
     .how-why { font-size: 16px; }
   }
 </style>
+<style id="v2-hero">
+  /* ===== v2 concept: question-led hero ===================================
+     The headline asks the visitor's actual question and answers it inline
+     with two real recommendations for a selectable (locale-detected)
+     country — the "aha" happens before any click. Long-form prose moves
+     from mono to Inter; mono stays for chrome, labels and numbers. */
+  :root { --ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .hero .lede { font-family: var(--ui); font-size: 16px; line-height: 1.6; }
+
+  /* country picker styled as the red italic word; a real <select> sits
+     transparently on top so it stays native, accessible and mobile-friendly */
+  .h1pick { position: relative; display: inline-block; color: var(--accent); font-style: italic; border-bottom: 3px solid var(--accent); padding-bottom: 2px; cursor: pointer; }
+  .h1pick .h1caret { font-family: var(--mono); font-style: normal; font-size: .38em; vertical-align: .55em; margin-left: 8px; letter-spacing: 0; }
+  .h1pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+  .h1pick:hover { background: color-mix(in oklab, var(--accent) 8%, transparent); }
+  .h1pick:focus-within { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+  .ans-label { font: 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px; margin: 26px 0 10px; }
+  .ans-label::before { content: ""; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; flex: none; }
+  .ans-card { background: var(--paper-2); border: 1px solid var(--line); border-left: 3px solid var(--accent); padding: 13px 16px; margin-bottom: 8px; }
+  .ans-card .meta { font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 12px; }
+  .ans-card .meta b { color: var(--ink-2); font-weight: 500; }
+  .ans-card .q { font-family: var(--ui); font-size: 15px; line-height: 1.5; color: var(--ink); }
+  .ans-seeall { display: inline-block; font: 12px var(--mono); letter-spacing: .06em; color: var(--ink); border-bottom: 1px dotted var(--ink); text-decoration: none; margin: 6px 0 4px; }
+  .ans-seeall:hover { color: var(--accent); border-color: var(--accent); }
+
+  .hero-trust { font: 11px var(--mono); letter-spacing: .03em; color: var(--dim); line-height: 1.7; margin-top: 18px; }
+  .hero-trust b { color: var(--ink-2); font-weight: 500; }
+
+  /* eyebrow carries the dataset numbers now (KPI grid retired in v2) */
+  .eyebrow .ebn { color: var(--ink-2); font-weight: 500; }
+  @media (max-width: 540px) {
+    .hero .eyebrow { font-size: 9px; letter-spacing: .08em; line-height: 1.8; }
+    .ans-card .q { font-size: 14px; }
+  }
+</style>
 </head>
 <body data-palette="archive">
 
@@ -1196,8 +1235,8 @@
   <div class="left">
     <span class="dot" title="live"></span>
     <span style="color:var(--ink);letter-spacing:.14em;font-weight:500">UN HUMAN RIGHTS ANALYTICS</span>
-    <span class="sep">·</span>
-    <span>Dataset v2026.04</span>
+    <!-- v2: dataset version demoted to the footer — the topbar sells the
+         product, not the build metadata. -->
   </div>
   <!-- Section nav lives inside the topbar so it never overlaps content -->
   <nav class="section-nav" id="sectionNav" aria-label="Page sections" style="justify-self:center">
@@ -1220,37 +1259,27 @@
 <section class="hero" id="hero">
   <div class="grid">
     <div>
-      <div class="eyebrow">Treaty Bodies · UPR · Special Procedures · 2006 — 2026</div>
+      <div class="eyebrow"><span><span class="ebn" id="ebTotal">267,671</span> recommendations · <span class="ebn" id="ebCountries">198</span> countries · <span class="ebn" id="ebBodies">70</span> UN bodies · 2006 — 2026</span></div>
 
       <h1 class="headline">
-        Every UPR, Treaty Body<br>
-        &amp; Special Procedures<br>
-        <em>recommendation<span id="cursor" class="cursor"></span></em>
+        What has the UN<br>
+        told <span class="h1pick"><span id="heroCountryWord">your country</span><span class="h1caret">▾</span><select id="heroCountry" aria-label="Choose a country"></select></span><br>
+        to fix?
       </h1>
 
       <p class="lede">
-        A single searchable dataset built on the OHCHR Universal Human Rights Index —
-        <span class="hl">267,671 country-specific observations</span> from Treaty Bodies, Special Procedures
-        and the Universal Periodic Review, assembled for advocates, researchers and journalists.
+        Every recommendation from UN Treaty Bodies, the Universal Periodic Review and
+        Special Procedures — <span class="hl">searchable, citable</span>, and defensible in a paper.
+        Built for advocates, researchers and journalists.
       </p>
 
-      <div class="kpis">
-        <div class="kpi">
-          <div class="num" data-counter="267671">0</div>
-          <div class="lbl">Recommendations</div>
-        </div>
-        <div class="kpi">
-          <div class="num" data-counter="198">0</div>
-          <div class="lbl" title="Includes Cook Islands &amp; Niue (non-UN-member states), State of Palestine* &amp; Holy See (UN observer states), and Kosovo* (contested status)" style="cursor:help">Countries*</div>
-        </div>
-        <div class="kpi">
-          <div class="num" data-counter="70">0</div>
-          <div class="lbl" title="70 distinct UN bodies in the 2006–2026 dataset after name normalisation: 1 UPR cycle, 12 treaty-body codes, and 57 Special-Procedure mandates (Special Rapporteurs, Independent Experts, Working Groups)." style="cursor:help">UN Bodies</div>
-        </div>
-        <div class="kpi">
-          <div class="num"><span class="unit">yrs</span><span data-counter="20">0</span></div>
-          <div class="lbl">2006 — 2026</div>
-        </div>
+      <!-- live answer: 2 real recommendations for the selected country.
+           Hidden until the first successful fetch; the page degrades to the
+           classic lede + CTA when the VM is unreachable. -->
+      <div id="heroAnswer" hidden>
+        <div class="ans-label" id="ansLabel">loading…</div>
+        <div id="ansCards"></div>
+        <a class="ans-seeall" id="ansSeeAll" href="./dashboard.html">See all →</a>
       </div>
 
       <div class="cta-row">
@@ -1283,6 +1312,11 @@
         </div>
         <div class="ls-dropdown" id="landingSearchDropdown" role="listbox" hidden></div>
       </form>
+
+      <div class="hero-trust">
+        Built at <b>Adam Mickiewicz University</b>, Poznań · Supported by <b>re:constitution</b> &amp; <b>HURIDOCS</b><br>
+        Independent project — not affiliated with OHCHR or the United Nations.
+      </div>
     </div>
 
     <div>
@@ -3060,5 +3094,136 @@
 @media(max-width:720px){.ga-consent{left:8px;right:8px;bottom:8px;max-width:none;font-size:12px}}
 </style>
 <script defer src="./dashboard-analytics.js"></script>
+
+<script>
+/* ===== v2 hero: question-led country answer ================================
+   Self-contained module — independent of the main IIFE so a failure in
+   either cannot break the other. Flow:
+     1. populate the country <select> (static seed → live facets when up)
+     2. detect the visitor's country from the browser locale (region subtag
+        via Intl.DisplayNames), match it against the dataset's country list
+     3. fetch the 2 latest Recommendations for that country + total count
+        and render them as the hero "answer"; link out to the country
+        profile (ISO3 via __nameToIso3 from the main script)
+   Degrades silently: if the VM is unreachable the answer block stays
+   hidden and the hero reads like the classic version. */
+(() => {
+  const API = 'https://150.254.115.204/uhri-api';
+  const $id = (i) => document.getElementById(i);
+  const sel = $id('heroCountry'), word = $id('heroCountryWord');
+  if (!sel || !word) return;
+
+  /* Seed list so the picker works before facets arrive (and offline). */
+  const SEED = ['Afghanistan','Argentina','Australia','Brazil','Canada','Chile','China','Colombia','Egypt','France','Germany','India','Indonesia','Iran (Islamic Republic of)','Italy','Japan','Kenya','Mexico','Netherlands','Nigeria','Pakistan','Philippines','Poland','Russian Federation','South Africa','Spain','Sweden','Türkiye','Ukraine','United Kingdom of Great Britain and Northern Ireland','United States of America','Viet Nam'];
+
+  let countries = SEED.slice();
+  let aborter = null;
+
+  function fillSelect(list, keep) {
+    sel.innerHTML = list.map(c => `<option${c === keep ? ' selected' : ''}>${c.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
+  }
+
+  /* Browser locale → dataset country name. Loose matcher handles the long
+     official forms ("United States of America", "Iran (Islamic Republic
+     of)") by prefix/containment against the Intl.DisplayNames region name. */
+  function detectCountry(list) {
+    try {
+      const region = (navigator.language || '').split('-')[1];
+      if (!region) return null;
+      const name = new Intl.DisplayNames(['en'], { type: 'region' }).of(region.toUpperCase());
+      if (!name) return null;
+      const lc = name.toLowerCase();
+      return list.find(c => c.toLowerCase() === lc)
+          || list.find(c => c.toLowerCase().startsWith(lc))
+          || list.find(c => c.toLowerCase().includes(lc))
+          || null;
+    } catch { return null; }
+  }
+
+  const trim = (s, n) => { s = (s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+  const esc  = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  async function loadAnswer(name) {
+    if (aborter) aborter.abort();
+    aborter = new AbortController();
+    const p = new URLSearchParams({
+      countries: name, annotation_type: 'Recommendations',
+      sort_by: 'publication_date', sort_dir: 'desc', page_size: '24',
+    });
+    try {
+      const r = await fetch(`${API}/api/data/records?${p}`, { signal: aborter.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      const fetched = d.records || [];
+      if (!fetched.length) { $id('heroAnswer').hidden = true; return; }
+
+      /* Prefer two cards from two different bodies — eight recent rows are
+         often one committee's batch, and variety shows the dataset's range. */
+      const recs = [fetched[0]];
+      const second = fetched.find(x => x.Body !== fetched[0].Body) || fetched[1];
+      if (second) recs.push(second);
+
+      const latestYr = (recs[0].PublicationDate || '').slice(0, 4);
+      $id('ansLabel').textContent =
+        `${(d.total_records || 0).toLocaleString('en-US')} recommendations to ${name}${latestYr ? ' · latest ' + latestYr : ''}`;
+
+      $id('ansCards').innerHTML = recs.map(rec => {
+        const body = esc((rec.Body || '').replace(/^[-\s]+/, ''));
+        const yr   = esc((rec.PublicationDate || '').slice(0, 4));
+        /* strip UN paragraph numbering so the card reads as a quote —
+           handles both "118. The Independent Expert…" and the UPR's
+           double form "129.106 Ensure…" / "106 Ensure…" */
+        const raw  = (rec.TextPlainCleaned || rec.Text || '')
+          .replace(/^\s*(?:\d{1,3}\s*\.\s*)+/, '')
+          .replace(/^\s*\d{1,3}\s+(?=[A-Z“"])/, '');
+        const txt  = esc(trim(raw, 180));
+        return `<div class="ans-card"><div class="meta"><b>${body}</b><span>${yr}</span></div><div class="q">“${txt}”</div></div>`;
+      }).join('');
+
+      const seeAll = $id('ansSeeAll');
+      seeAll.textContent = `See all ${(d.total_records || 0).toLocaleString('en-US')} recommendations to ${name} →`;
+      const iso = (typeof window.__nameToIso3 === 'function' && window.__nameToIso3(name)) || '';
+      seeAll.href = iso
+        ? `./dashboard.html#view=country&fc=${encodeURIComponent(iso)}`
+        : `./dashboard.html#country=${encodeURIComponent(name)}&view=search`;
+
+      $id('heroAnswer').hidden = false;
+    } catch (e) {
+      if (e.name !== 'AbortError') $id('heroAnswer').hidden = true;
+    }
+  }
+
+  function setCountry(name) {
+    word.textContent = name;
+    fillSelect(countries, name);
+    loadAnswer(name);
+  }
+
+  sel.addEventListener('change', () => setCountry(sel.value));
+
+  /* boot: seed select immediately, then upgrade from live facets */
+  fillSelect(countries, null);
+  const initial = detectCountry(countries) || 'Poland';
+  setCountry(initial);
+
+  fetch(`${API}/api/data/facets`)
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('facets ' + r.status)))
+    .then(f => {
+      const live = (f.countries || []).filter(n => n && n.length > 2 && n !== 'European Union').sort();
+      if (live.length > 50) {
+        countries = live;
+        const det = detectCountry(countries);
+        const keep = countries.includes(sel.value) ? sel.value : (det || countries[0]);
+        fillSelect(countries, keep);
+        if (keep !== word.textContent) setCountry(keep);
+      }
+      if (f.total_records) $id('ebTotal').textContent = f.total_records.toLocaleString('en-US');
+      if (f.bodies) $id('ebBodies').textContent = f.bodies.length;
+      const states = (f.countries || []).filter(n => n && n.length > 2 && n !== 'European Union');
+      if (states.length) $id('ebCountries').textContent = states.length;
+    })
+    .catch(() => {});
+})();
+</script>
 </body>
 </html>
