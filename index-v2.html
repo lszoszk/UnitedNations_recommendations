@@ -1332,7 +1332,7 @@
       <div class="field" id="field">
         <div class="corner tl">FIG 01 / LIVE</div>
         <div class="corner tr"><span id="fieldCounter">0</span> / 267,671</div>
-        <div class="corner bl" id="fieldNote">EACH DOT = ONE RECOMMENDATION</div>
+        <div class="corner bl" id="fieldNote">1 DOT ≈ 15 RECOMMENDATIONS</div>
         <div class="corner br">YR <span id="fieldYear">2006</span></div>
         <canvas id="dotCanvas"></canvas>
         <canvas id="countryDots" aria-hidden="true"></canvas>
@@ -2130,7 +2130,10 @@
   function buildDots() {
     dots = [];
     const density = tw.dotDensity || 1.0;
-    const N = Math.floor(1800 * density);
+    /* v2: 10× finer scale — 1 dot ≈ 15 records (18,000 dots for 267,671).
+       Affordable because draw() below paints incrementally (new dots only,
+       no per-frame clear), so the reveal stays ~1 ms/frame at any N. */
+    const N = Math.floor(18000 * density);
 
     // spread across 21 year-bands (2006..2026)
     const years = 21;
@@ -2149,7 +2152,9 @@
         const yy = padY + centerBias * (H - padY*2);
         // some dots tinted accent (e.g., "serious" recs)
         const tint = Math.random() < 0.18;
-        dots.push({ x, y: yy, r: 1.3 + Math.random()*0.7, yr: 2006 + y, tint, t0: idx * 0.9 });
+        /* smaller radius at 10× density so the field reads as texture,
+           not an ink blob */
+        dots.push({ x, y: yy, r: 0.7 + Math.random()*0.5, yr: 2006 + y, tint, t0: idx * 0.9 });
         idx++;
       }
     }
@@ -2157,19 +2162,32 @@
 
   let started = false;
   let startT = 0;
+  let prevRevealed = 0;
   function draw(ts) {
-    if (!started) { started = true; startT = ts; }
-    const elapsed = ts - startT;
-    ctx.clearRect(0,0,W,H);
-
     const ink = getCSSVar("--ink") || "#0F0F10";
     const dim = getCSSVar("--dim") || "#6B6863";
     const accent = getCSSVar("--accent") || "oklch(0.62 0.17 27)";
 
-    // faint baseline
-    ctx.strokeStyle = "rgba(0,0,0,0.05)";
-    // draw dots gradually
-    const revealPer = 6.0; // dots per ms
+    if (!started) {
+      started = true; startT = ts; prevRevealed = 0;
+      /* one-time frame: clear + static chrome (axis, tick labels). Dots
+         accumulate on top incrementally — nothing moves, so per-frame
+         clearing was pure waste and capped how many dots we can afford. */
+      ctx.clearRect(0,0,W,H);
+      ctx.strokeStyle = "rgba(0,0,0,0.18)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(24, H - 20); ctx.lineTo(W - 24, H - 20); ctx.stroke();
+      ctx.fillStyle = dim;
+      ctx.font = "10px 'JetBrains Mono', ui-monospace, monospace";
+      ctx.fillText("2006", 28, H - 6);
+      ctx.textAlign = "right";
+      ctx.fillText("2026", W - 28, H - 6);
+      ctx.textAlign = "left";
+    }
+    const elapsed = ts - startT;
+
+    // reveal pace scaled with the 10× dot count → same ~1s total reveal
+    const revealPer = 60.0; // dots per ms (÷3 below)
     const revealed = Math.min(dots.length, Math.floor(elapsed * revealPer / 3));
     fieldCounter.textContent = fmt(Math.round(267671 * (revealed / dots.length)));
     if (dots.length) {
@@ -2177,7 +2195,8 @@
       fieldYear.textContent = lastYr;
     }
 
-    for (let i = 0; i < revealed; i++) {
+    // incremental: only the dots that appeared since the last frame
+    for (let i = prevRevealed; i < revealed; i++) {
       const d = dots[i];
       ctx.beginPath();
       ctx.fillStyle = d.tint ? accent : ink;
@@ -2186,19 +2205,7 @@
       ctx.fill();
     }
     ctx.globalAlpha = 1;
-
-    // year axis baseline
-    ctx.strokeStyle = "rgba(0,0,0,0.18)";
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(24, H - 20); ctx.lineTo(W - 24, H - 20); ctx.stroke();
-
-    // year tick labels at beginning and end
-    ctx.fillStyle = dim;
-    ctx.font = "10px 'JetBrains Mono', ui-monospace, monospace";
-    ctx.fillText("2006", 28, H - 6);
-    ctx.textAlign = "right";
-    ctx.fillText("2026", W - 28, H - 6);
-    ctx.textAlign = "left";
+    prevRevealed = revealed;
 
     if (revealed < dots.length) requestAnimationFrame(draw);
   }
@@ -3161,15 +3168,21 @@
     x.setTransform(dpr, 0, 0, dpr, 0, 0);
     x.clearRect(0, 0, r.width, r.height);
     const accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#b02b27';
-    const M = Math.max(3, Math.round(1800 * count / 267671));
+    /* same 18,000-dot scale as the base field (1 dot ≈ 15 records) so the
+       red share stays an honest proportion. Halo rings only when the
+       country is small enough that single dots need help being seen. */
+    const M = Math.max(3, Math.round(18000 * count / 267671));
+    const rings = M <= 40;
     const padX = 28, padY = 28;
     for (let i = 0; i < M; i++) {
       const px = padX + Math.random() * (r.width - padX * 2);
       const bias = (Math.random() + Math.random() + Math.random()) / 3;
       const py = padY + bias * (r.height - padY * 2);
-      x.beginPath(); x.fillStyle = accent; x.arc(px, py, 2.1, 0, Math.PI * 2); x.fill();
-      x.beginPath(); x.strokeStyle = accent; x.globalAlpha = .3; x.arc(px, py, 4.6, 0, Math.PI * 2); x.stroke();
-      x.globalAlpha = 1;
+      x.beginPath(); x.fillStyle = accent; x.arc(px, py, 1.6, 0, Math.PI * 2); x.fill();
+      if (rings) {
+        x.beginPath(); x.strokeStyle = accent; x.globalAlpha = .3; x.arc(px, py, 4.2, 0, Math.PI * 2); x.stroke();
+        x.globalAlpha = 1;
+      }
     }
     field.classList.add('country-active');
     const note = $id('fieldNote');
