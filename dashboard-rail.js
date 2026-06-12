@@ -72,7 +72,14 @@ function buildRail(facets, analytics) {
   // --- COUNTRY --- all countries, searchable in-facet
   const countries = cleanCountryList(facets.countries || []).sort();
   buildFacetList('country', countries.map(c => ({ key:c, label:c })), 'country');
-  $('#n-country').textContent = countries.length;
+  // The European Union appears in the facet list as a filterable regional
+  // bloc but is not a state party — exclude it from the headline count so the
+  // rail shows the canonical 198 cited on the landing page + methodology.
+  const stateParties = countries.filter(c => c !== 'European Union');
+  $('#n-country').textContent = stateParties.length;
+  if (stateParties.length !== countries.length) {
+    $('#n-country').title = `${stateParties.length} states + the European Union bloc (listed below)`;
+  }
 
   // --- BODY --- grouped by mechanism family (UPR / Treaty Bodies / Special
   // Procedures) with quick-select chips at the top. Flat list below keeps

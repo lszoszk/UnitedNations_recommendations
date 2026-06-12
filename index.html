@@ -1244,8 +1244,8 @@
           <div class="lbl" title="Includes Cook Islands &amp; Niue (non-UN-member states), State of Palestine* &amp; Holy See (UN observer states), and Kosovo* (contested status)" style="cursor:help">Countries*</div>
         </div>
         <div class="kpi">
-          <div class="num" data-counter="75">0</div>
-          <div class="lbl" title="75 distinct UN bodies in the 2006–2026 dataset, including historical and inactive mandates. Currently active: 1 UPR cycle, 10 Treaty Bodies, 59 Special Procedures." style="cursor:help">UN Bodies</div>
+          <div class="num" data-counter="70">0</div>
+          <div class="lbl" title="70 distinct UN bodies in the 2006–2026 dataset after name normalisation: 1 UPR cycle, 12 treaty-body codes, and 57 Special-Procedure mandates (Special Rapporteurs, Independent Experts, Working Groups)." style="cursor:help">UN Bodies</div>
         </div>
         <div class="kpi">
           <div class="num"><span class="unit">yrs</span><span data-counter="20">0</span></div>
@@ -1382,7 +1382,7 @@
     <div class="section-head">
       <div class="no">FIG 04 / HOW</div>
       <h2 class="t"><em style="color:var(--accent)">Cleaned UHRI dataset</em> with deterministic rules, not a language model — so every row is defensible in a paper.</h2>
-      <div class="ctx">6-stage pipeline · audit-tagged · reversible</div>
+      <div class="ctx">5-stage pipeline · audit-tagged · reversible</div>
     </div>
 
     <!-- Why paragraph — sets the frame before the step cards. The
@@ -1723,10 +1723,10 @@
 
       /* KPIs — overwrite the [data-counter] attrs BEFORE the counter
          observer fires. 267,671 real vs 267,682 fake is an 11-record
-         difference (Stage 6 artefacts removed during cleaning).
-         Country count: the facets endpoint returns 212 entries, but
-         13 of those are bogus 2-letter ISO codes (AU/CO/CZ/ES/ET/GH/
-         ID/IQ/MV/MY/PK/SG/SV) that duplicate proper country names
+         difference (Stage 5 artefacts removed during cleaning).
+         Country count: the facets endpoint returns ~214 entries, but
+         ~15 of those are bogus 2-letter ISO codes (AU/CA/CO/CZ/ES/ET/
+         GH/ID/IQ/MV/MY/PK/SG/SV/WS) that duplicate proper country names
          already present. We also drop "European Union" — it shows on
          the hex map as a regional-bloc tile (dashed border) but is
          not a sovereign state, so it must not inflate the country
@@ -1741,7 +1741,7 @@
       };
       patchCounter('[data-counter="267671"]', facets.total_records);
       patchCounter('[data-counter="198"]',    realCountries.length);
-      patchCounter('[data-counter="75"]',     (facets.bodies || []).length);
+      patchCounter('[data-counter="70"]',     (facets.bodies || []).length);
 
       /* THEMES — top 10 by count, same shape as hardcoded [[name, count]].
          renderBars still slices to BARS_MAX (=10) on display, so we

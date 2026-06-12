@@ -148,9 +148,9 @@ function inferAnnotationType(rec) {
 /* Normalize 2-letter ISO codes that leak into the Countries field as if
    they were separate countries. Maps PK → Pakistan, CZ → Czechia, etc. */
 const ISO2_TO_NAME = {
-  AU:'Australia', CO:'Colombia', CZ:'Czechia', ES:'Spain', ET:'Ethiopia',
-  GH:'Ghana', ID:'Indonesia', IQ:'Iraq', MV:'Maldives', MY:'Malaysia',
-  PK:'Pakistan', SG:'Singapore', SV:'El Salvador',
+  AU:'Australia', CA:'Canada', CO:'Colombia', CZ:'Czechia', ES:'Spain',
+  ET:'Ethiopia', GH:'Ghana', ID:'Indonesia', IQ:'Iraq', MV:'Maldives',
+  MY:'Malaysia', PK:'Pakistan', SG:'Singapore', SV:'El Salvador', WS:'Samoa',
 };
 function cleanCountryName(s) {
   /* Normalises a country name from the API or upload to the form our
