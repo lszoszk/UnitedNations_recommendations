@@ -1,6 +1,12 @@
-# UN Human Rights Dashboard (GitHub Pages)
+# UHRI+ — UN Human Rights Recommendations Dashboard (GitHub Pages)
 
-Static dashboard build prepared for GitHub Pages deployment.
+Static, zero-build dashboard for searching and analysing **267,671** cleaned
+country-specific UN human-rights observations and recommendations (Treaty
+Bodies, Universal Periodic Review, Special Procedures, 2006–2026), built on
+the OHCHR Universal Human Rights Index.
+
+**Live:** <https://lszoszk.github.io/UnitedNations_recommendations/>
+**Dataset (HuggingFace):** <https://huggingface.co/datasets/lszoszk/uhri-recommendations>
 
 **License:** [PolyForm Noncommercial 1.0.0](LICENSE) — research, education,
 non-profit and personal use are permitted; redistribution must keep the
@@ -13,42 +19,46 @@ licences ([NOTICE](NOTICE)).
 
 ## What is included
 - `index.html`: landing page
-- `dashboard.html`: main dashboard + 16 sibling `dashboard-*.js` modules
-- `sw.js`: service worker (app shell cache)
-- `tests/smoke.spec.ts`: Playwright smoke tests (8 scenarios)
-- `sample-data/search-4_2_2026_739_labelled.xlsx`: bundled labelled sample dataset
+- `dashboard.html`: the dashboard application + 20 sibling `dashboard-*.js` modules (no bundler, classic `<script defer>` load order)
+- `sw.js`: service worker (app-shell cache)
+- `tests/`: Playwright suites — `smoke.spec.ts` (22 scenarios) plus `a11y`, `user-flows`, `contracts`, `tab-walk`, and others
+- `scripts/`, `docs/`, `llms.txt`: count-sync tooling, methodology comparison, and an agent-friendly site summary
 
-## Use online
-- VM mode: when the site is opened from GitHub Pages, it opens in server browse mode against `https://150.254.115.204/echr-api/unhr-api` by default.
-- Standard mode: open the site and upload your own Excel/JSON file.
-- Demo mode (auto-load sample): open the site URL with `?demo=1`.
-- Upload-only mode: add `?source=upload` to skip VM autoload.
+## How it works
+The dashboard is fully static on GitHub Pages and reads data at runtime from a
+FastAPI backend on a VM (SQLite + FTS5), with a 15-minute edge cache. Users can
+also upload their own UHRI Excel/JSON export to browse it locally (no server
+round-trip). There is no login.
 
-Example:
-- `https://<your-username>.github.io/<repo-name>/?demo=1`
+VM API base: `https://150.254.115.204/uhri-api`. Main endpoints
+(all under `/api/data/`):
+
+| Endpoint | Purpose |
+|---|---|
+| `/health` | liveness probe |
+| `/facets` | filter vocabularies (countries, bodies, themes, …) |
+| `/records` | paginated, filtered records (full-text search via FTS5) |
+| `/analytics` | aggregates for the current filter (trends, themes, SDGs) |
+| `/map` | per-country counts for the hex / choropleth map |
+| `/record/{annotation_id}` | a single record |
+| `/export`, `/full` | bulk export of a filtered subset |
+| `/feedback/report` | user-submitted data-quality reports |
+
+Admin-only operations (`POST /mv/rebuild`, `DELETE /cache_status`) require an
+`X-Admin-Key` header. The machine-readable `/openapi.json` is public; the
+interactive Swagger UI is disabled in production.
 
 ## Deploy with GitHub Pages
 1. Push this folder as its own GitHub repository.
-2. In GitHub: `Settings` -> `Pages`.
+2. In GitHub: `Settings` → `Pages`.
 3. Set source to `Deploy from a branch`.
 4. Select branch `gh-pages` and folder `/ (root)`.
-5. Save. Wait for the Pages URL to appear.
+5. Save and wait for the Pages URL to appear.
 
-## Notes
-- The dashboard stays static on GitHub Pages, but it now browses the large dataset through VM API endpoints by default.
-- The GitHub Pages build uses these VM endpoints:
-  - Dataset health: `https://150.254.115.204/echr-api/unhr-api/api/data/health`
-  - Facets: `https://150.254.115.204/echr-api/unhr-api/api/data/facets`
-  - Summary: `https://150.254.115.204/echr-api/unhr-api/api/data/summary`
-  - Paginated records: `https://150.254.115.204/echr-api/unhr-api/api/data/records`
-  - Filtered subset export for full analytics: `https://150.254.115.204/echr-api/unhr-api/api/data/export`
-  - Optional full JSON fallback: `https://150.254.115.204/echr-api/unhr-api/api/data/full`
-  - SetFit API: `https://150.254.115.204/echr-api/unhr-api/api/setfit`
-- You can override the VM base URL later with `?vm_base=https://your-host`.
-- When the VM exposes `downloaded_at` metadata, the dashboard shows that date as the dataset cutoff for users.
-- Server browse mode keeps the dashboard responsive for the full 266k+ record dataset. Full charts/classifier tools are loaded only for narrowed subsets.
-- SetFit now runs as a VM-backed training service with client-owned model packages:
-  - training starts as an async job on the VM,
-  - the resulting SetFit package is downloaded as a small ZIP to the user computer,
-  - later the user can upload that ZIP again to create a temporary prediction session on the VM,
-  - the package is no longer meant to be stored permanently on the server.
+## Dataset & methodology
+The cleaned dataset is produced by a transparent **5-stage pipeline** (OCR/HTML
+repair → LLM-assisted residue review → AnnotationType normalisation → country
+backfill from document symbols → artefact drop). Full detail is on the
+dashboard's **Methodology** tab and in the HuggingFace dataset card. The
+canonical record count is maintained in `scripts/counts.json` and synced across
+the UI by `scripts/update-counts.mjs`.

@@ -9,15 +9,15 @@ Last updated: 2026-04-22 (commit after `c658225`).
 
 ## TL;DR
 
-One HTML page (`dashboard.html`) plus 16 sibling `dashboard-*.js` modules.
+One HTML page (`dashboard.html`) plus 20 sibling `dashboard-*.js` modules.
 No bundler, no framework, no TypeScript. Every script is a classic
 non-module `<script>` — top-level declarations share the same global
 realm by bare-name lookup, which is the seam that makes the
 extraction work without an `import/export` graph.
 
 ```
-dashboard.html (3244 lines)
-├── <style> ..............................  ~1150 lines CSS
+dashboard.html (3924 lines)
+├── <style> ..............................  ~1300 lines CSS
 ├── <body> ...............................    DOM shell
 ├── <script src="./dashboard-helpers.js">      ─┐
 ├── <script src="./dashboard-data.js">         │
@@ -34,14 +34,17 @@ dashboard.html (3244 lines)
 ├── <script src="./dashboard-years.js">        │ (lazy-looked-up)
 ├── <script src="./dashboard-profiles.js">     │
 ├── <script src="./dashboard-methodology.js">  │
+├── <script src="./dashboard-about.js">        │
 ├── <script src="./dashboard-drawer-list.js">  │
-├── <script src="./dashboard-reader.js">       ─┘
-└── <script> ... inline spine ... </script>   ~1465 lines JS
+├── <script src="./dashboard-reader.js">       │
+├── <script src="./dashboard-analytics.js">    │
+├── <script src="./dashboard-bug-report.js">   ─┘
+└── <script> ... inline spine ... </script>   ~1500 lines JS
 ```
 
 History: `dashboard.html` was 9638 lines inline in early April 2026;
 a series of seam-splits (P1..P3, commits `a08ce4a` → rail extraction)
-dropped it to **3244 lines (-66 %)** across 17 external modules.
+dropped it to **~3920 lines (-59 %)** across 20 external modules.
 
 ---
 
@@ -64,7 +67,7 @@ dropped it to **3244 lines (-66 %)** across 17 external modules.
 
 ## Load order
 
-The `<script>` tags in `dashboard.html` (lines 1759‑1774) run top-down,
+The `<script>` tags near the foot of `dashboard.html` run top-down,
 synchronously, before the inline spine. Every module is a classic
 script — `function` and top-level `const`/`let` declarations attach to
 the shared global scope and stay visible to everything that loads
@@ -72,25 +75,28 @@ later (and to anything that references them *lazily* from anywhere).
 
 | # | Module | Lines | Depends on |
 |--:|--------|------:|------------|
-| 1 | `dashboard-helpers.js` | 368 | — (pure) |
-| 2 | `dashboard-data.js` | 313 | 1 |
+| 1 | `dashboard-helpers.js` | 382 | — (pure) |
+| 2 | `dashboard-data.js` | 351 | 1 |
 | 3 | `dashboard-route.js` | 143 | 1, 2 |
-| 4 | `dashboard-offline.js` | 562 | 1, 2 |
-| 5 | `dashboard-utils.js` | 928 | 1, 2 |
-| 6 | `dashboard-rail.js` | 541 | 1, 2 |
-| 7 | `dashboard-labels.js` | 1305 | 1, 2, 4, 5 |
-| 8 | `dashboard-ui.js` | 393 | 1, 2 |
+| 4 | `dashboard-offline.js` | 733 | 1, 2 |
+| 5 | `dashboard-utils.js` | 1109 | 1, 2 |
+| 6 | `dashboard-rail.js` | 737 | 1, 2 |
+| 7 | `dashboard-labels.js` | 1400 | 1, 2, 4, 5 |
+| 8 | `dashboard-ui.js` | 578 | 1, 2 |
 | 9 | `dashboard-timeline.js` | 520 | 1, 2 |
-| 10 | `dashboard-map.js` | 833 | 1, 2 |
-| 11 | `dashboard-search.js` | 540 | 1, 2, 5 |
-| 12 | `dashboard-filters.js` | 160 | 1, 2 |
-| 13 | `dashboard-years.js` | 66 | 1, 2 |
-| 14 | `dashboard-profiles.js` | 1067 | 1, 2, 5, 6, 9, 10 |
-| 15 | `dashboard-methodology.js` | 160 | — (minimal) |
-| 16 | `dashboard-drawer-list.js` | 425 | 1, 2, 5 |
-| 17 | `dashboard-reader.js` | 367 | 1, 2, 5, 6 |
-| — | *inline* `<script>` | ~1465 | everything |
-| | **total** | **~8190** | |
+| 10 | `dashboard-map.js` | 1223 | 1, 2 |
+| 11 | `dashboard-search.js` | 684 | 1, 2, 5 |
+| 12 | `dashboard-filters.js` | 230 | 1, 2 |
+| 13 | `dashboard-years.js` | 97 | 1, 2 |
+| 14 | `dashboard-profiles.js` | 1078 | 1, 2, 5, 6, 9, 10 |
+| 15 | `dashboard-methodology.js` | 222 | — (minimal) |
+| 16 | `dashboard-about.js` | 74 | 1 |
+| 17 | `dashboard-drawer-list.js` | 450 | 1, 2, 5 |
+| 18 | `dashboard-reader.js` | 452 | 1, 2, 5, 6 |
+| 19 | `dashboard-analytics.js` | 327 | 1, 2 |
+| 20 | `dashboard-bug-report.js` | 296 | 1, 2 |
+| — | *inline* `<script>` | ~1500 | everything |
+| | **total** | **~12,600** | |
 
 Ordering beyond "helpers first, data second" rarely matters at runtime
 because cross-module calls happen inside function bodies (lazy).
@@ -427,8 +433,9 @@ returning users keep serving stale modules from the SW cache.
 
 ## Testing
 
-Playwright smoke tests live in `tests/smoke.spec.ts`. 13 scenarios,
-~18s runtime against a local `python3 -m http.server`:
+Playwright smoke tests live in `tests/smoke.spec.ts`. 22 scenarios,
+~15s runtime against a local `python3 -m http.server` (separate `a11y`,
+`user-flows`, `contracts`, and `tab-walk` suites run alongside):
 
 **Smoke (1-8)** — fast wiring checks, most catch a specific bug we've hit:
 
@@ -436,18 +443,22 @@ Playwright smoke tests live in `tests/smoke.spec.ts`. 13 scenarios,
 2. **loadOrder** — every module-level global is defined
 3. **hashRouting** — route module exposes API + tab clicks
 4. **landingSearch** — index.html hero search input is wired
-5. **datasetNumber** — "267,537" appears in footer + ⌘K hint
+5. **datasetNumber** — the count read from `scripts/counts.json` appears in footer + ⌘K hint
 6. **searchView** — extracted search module renders shell + sort
 7. **readerDrawer** — extracted reader renders a synthetic record
 8. **compareScale** — compare timelines share normalized annual max
 
-**Scenario (9-13)** — user flows, one layer deeper:
+**Scenario (9-22)** — user flows, one layer deeper:
 
 9. **hashFocusRestore** — deep-link URL restores focus country + tab
 10. **cmdPalette** — ⌘K opens, typing filters, click navigates
 11. **railFilterChip** — rail change surfaces chip + hit-count updates
 12. **savedViewPersistence** — svSave → reload → svLoad round-trip intact
 13. **countryProfile** — navigate('country') switches tab + view section
+
+14-22 cover the M49 region lookup, the UHRI xlsx mapper, raw-mode layout,
+reading-mode resize + rail restore, the methodology TOC, the About tab,
+and reader/slider/chip keyboard access.
 
 Run: `npx playwright test --reporter=list`.
 
@@ -475,7 +486,7 @@ anything that depends on boot completing — the VM at
 4. Add `<script src="./dashboard-<name>.js">` in `dashboard.html`.
 5. Extend `tests/smoke.spec.ts` test #2 with your module's exports.
 6. Bump `SHELL_CACHE` in `sw.js`.
-7. Run `npx playwright test`. All 8 should pass.
+7. Run `npx playwright test`. All scenarios should pass.
 
 ### Changing a cross-module function signature
 1. Grep for its name across every `dashboard-*.js` + `dashboard.html`
