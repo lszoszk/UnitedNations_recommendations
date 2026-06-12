@@ -1244,6 +1244,10 @@
   #field.fig-alt-active #dotCanvas, #field.fig-alt-active #countryDots { display: none; }
   #field.fig-alt-active .corner.br, #field.fig-alt-active .corner.bl { display: none; }
   .fig-loading { font: 11px var(--mono); color: var(--dim); letter-spacing: .1em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; height: 100%; }
+  /* seismo bars are links: hover/focus paints the year column */
+  #figAlt .sb { cursor: pointer; }
+  #figAlt .sb:hover .hit, #figAlt .sb:focus .hit { fill: color-mix(in oklab, var(--accent) 12%, transparent); }
+  #figAlt .sb:focus { outline: none; }
   .fig-switch { display: flex; gap: 6px; align-items: center; margin-top: 10px; font: 10px var(--mono); letter-spacing: .1em; color: var(--dim); flex-wrap: wrap; }
   .fig-switch button { font: inherit; letter-spacing: inherit; text-transform: uppercase; background: transparent; border: 1px solid var(--line); color: var(--dim); padding: 4px 8px; cursor: pointer; }
   .fig-switch button:hover { border-color: var(--ink); color: var(--ink); }
@@ -2257,6 +2261,11 @@
   }
 
   function initField() {
+    /* v2 fig rig: when an alternative figure is shown the canvases are
+       display:none — don't replay the reveal (it would tick the corner
+       counter and burn frames behind the figure; resize triggers land
+       here too). Switching back to dots keeps the last painted field. */
+    if (fieldEl && fieldEl.classList.contains('fig-alt-active')) return;
     sizeCanvas();
     buildDots();
     started = false;
@@ -2975,8 +2984,14 @@
       document.documentElement.style.removeProperty("--accent");
       document.documentElement.style.removeProperty("--accent-soft");
     }
-    document.getElementById("cursor").style.display = tw.showCursor ? "" : "none";
-    document.getElementById("tickerWrap").style.display = tw.showTicker ? "" : "none";
+    /* v2: #cursor was removed with the old headline and the excerpts ticker
+       is retired (the hero answer cards replaced it) — guard the first,
+       hard-hide the second so saved tweaks can't resurrect it via inline
+       style overriding the stylesheet. */
+    const _cur = document.getElementById("cursor");
+    if (_cur) _cur.style.display = tw.showCursor ? "" : "none";
+    const _tk = document.getElementById("tickerWrap");
+    if (_tk) _tk.style.display = "none";
 
     // redraw things that depend on CSS vars
     initField();
@@ -3364,12 +3379,19 @@
     let bars = '';
     years.forEach((y, i) => {
       const p = per[y] || { upr: 0, tb: 0, sp: 0 };
+      const tot = p.upr + p.tb + p.sp;
       const x = padL + i * bw + 1.5;
-      let yy = base;
+      let yy = base, segs = '';
       [['upr', 'var(--accent)', .95], ['tb', 'var(--ink)', .82], ['sp', 'var(--dim)', .8]].forEach(([k, col, op]) => {
         const h = (p[k] / max) * (base - top);
-        if (h > 0.4) { bars += `<rect x="${x.toFixed(1)}" y="${(yy - h).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" opacity="${op}"/>`; yy -= h; }
+        if (h > 0.4) { segs += `<rect x="${x.toFixed(1)}" y="${(yy - h).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" opacity="${op}"/>`; yy -= h; }
       });
+      /* each year is a link target: full-height invisible hit area + native
+         tooltip; click/Enter handled by the delegated listener on #figAlt */
+      bars += `<g class="sb" data-y="${y}" tabindex="0" role="link" aria-label="${y}: ${tot} records on ${esc(name)} — browse">`
+            + `<title>${y} · ${nfmt(tot)} records — click to browse</title>`
+            + `<rect class="hit" x="${(padL + i * bw).toFixed(1)}" y="${top}" width="${bw.toFixed(1)}" height="${base - top}" fill="transparent"/>`
+            + segs + `</g>`;
     });
     return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%" role="img" aria-label="${esc(name)}: recommendations per year, stacked by mechanism">
       <line x1="${padL}" y1="${base}" x2="${W - padR}" y2="${base}" stroke="var(--ink)" stroke-width="1" opacity=".4"/>
@@ -3378,6 +3400,7 @@
       <text x="${W - padR}" y="${base + 16}" font-size="10" fill="var(--dim)" font-family="JetBrains Mono,monospace" text-anchor="end">2026</text>
       <text x="${padL}" y="16" font-size="10" fill="var(--dim)" font-family="JetBrains Mono,monospace" letter-spacing="1.5">${esc(name.toUpperCase())} — RECORDS PER YEAR (ALL TYPES) · PEAK ${nfmt(max)}</text>
       <text x="${padL}" y="${base + 30}" font-size="9" fill="var(--dim)" font-family="JetBrains Mono,monospace"><tspan fill="var(--accent)">■</tspan> UPR  <tspan fill="var(--ink)">■</tspan> TREATY BODIES  <tspan fill="var(--dim)">■</tspan> SPECIAL PROCEDURES</text>
+      <text x="${W - padR}" y="${base + 30}" font-size="9" fill="var(--dim)" font-family="JetBrains Mono,monospace" text-anchor="end">CLICK A YEAR TO BROWSE →</text>
     </svg>`;
   }
 
@@ -3498,6 +3521,19 @@
     renderFig();
   }));
   document.querySelectorAll('.fig-switch button').forEach(x => x.classList.toggle('on', x.dataset.fig === curFig));
+
+  /* delegated activation for figure sub-targets (seismo year bars). One
+     listener survives every innerHTML re-render. */
+  const _figGo = (g) => {
+    if (!g || !lastData) return;
+    location.href = `./dashboard.html#country=${encodeURIComponent(lastData.name)}&y1=${g.dataset.y}&y2=${g.dataset.y}&view=search`;
+  };
+  $id('figAlt')?.addEventListener('click', (e) => _figGo(e.target.closest('[data-y]')));
+  $id('figAlt')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const g = e.target.closest('[data-y]');
+    if (g) { e.preventDefault(); _figGo(g); }
+  });
 
   function setCountry(name) {
     word.textContent = name;
