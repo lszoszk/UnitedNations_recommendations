@@ -1226,6 +1226,15 @@
     .hero .eyebrow { font-size: 9px; letter-spacing: .08em; line-height: 1.8; }
     .ans-card .q { font-size: 14px; }
   }
+
+  /* v2: the hero answer cards replaced the excerpts ticker — hide it to
+     avoid two competing "live quote" surfaces. */
+  .ticker-wrap { display: none; }
+
+  /* v2: country highlight on FIG 01 — base field fades back, the selected
+     country's share is drawn on an overlay canvas in accent. */
+  #countryDots { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #field.country-active #dotCanvas { opacity: .16; transition: opacity .5s; }
 </style>
 </head>
 <body data-palette="archive">
@@ -1282,12 +1291,12 @@
         <a class="ans-seeall" id="ansSeeAll" href="./dashboard.html">See all →</a>
       </div>
 
+      <!-- v2: single primary CTA — Methodology stays one click away in the
+           topbar and owns the HOW section below; the hero shouldn't split
+           attention between "use it" and "audit it". -->
       <div class="cta-row">
         <a class="btn" href="./dashboard.html">
           Open the dashboard <span class="arrow">→</span>
-        </a>
-        <a class="btn ghost" href="./dashboard.html#view=methodology">
-          <span>☰</span> Methodology
         </a>
       </div>
 
@@ -1323,9 +1332,10 @@
       <div class="field" id="field">
         <div class="corner tl">FIG 01 / LIVE</div>
         <div class="corner tr"><span id="fieldCounter">0</span> / 267,671</div>
-        <div class="corner bl">EACH DOT = ONE RECOMMENDATION</div>
+        <div class="corner bl" id="fieldNote">EACH DOT = ONE RECOMMENDATION</div>
         <div class="corner br">YR <span id="fieldYear">2006</span></div>
         <canvas id="dotCanvas"></canvas>
+        <canvas id="countryDots" aria-hidden="true"></canvas>
         <div class="tip" id="fieldTip"></div>
       </div>
     </div>
@@ -3117,7 +3127,56 @@
   const SEED = ['Afghanistan','Argentina','Australia','Brazil','Canada','Chile','China','Colombia','Egypt','France','Germany','India','Indonesia','Iran (Islamic Republic of)','Italy','Japan','Kenya','Mexico','Netherlands','Nigeria','Pakistan','Philippines','Poland','Russian Federation','South Africa','Spain','Sweden','Türkiye','Ukraine','United Kingdom of Great Britain and Northern Ireland','United States of America','Viet Nam'];
 
   let countries = SEED.slice();
+  let liveBodies = null;   // full body list from facets — used to exclude UPR server-side
   let aborter = null;
+  let lastHL = null;       // last highlighted {name, count} for resize redraw
+
+  const bodyName = (rec) => (rec.Body || '').replace(/^[-\s]+/, '');
+
+  /* FIG 01 country highlight: fade the base field, draw this country's
+     share on the overlay at the SAME 1800-dot scale the base uses — so
+     "how big is my country in this dataset" stays an honest proportion;
+     the corner caption carries the exact number. */
+  function highlightCountry(name, count) {
+    /* Choreography: let the base field finish its reveal animation first
+       (~1s), THEN fade it back and pop the country — full dataset, then
+       "here is your country's share". Country switches after that are
+       instant. Last selection wins if the user switches during the delay. */
+    const hl = highlightCountry;
+    hl._pending = { name, count };
+    if (!hl._ready) {
+      if (!hl._timer) hl._timer = setTimeout(() => {
+        hl._ready = true;
+        highlightCountry(hl._pending.name, hl._pending.count);
+      }, 1700);
+      return;
+    }
+    const field = $id('field'), cv = $id('countryDots');
+    if (!field || !cv) return;
+    const r = cv.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    cv.width = Math.floor(r.width * dpr); cv.height = Math.floor(r.height * dpr);
+    const x = cv.getContext('2d');
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.clearRect(0, 0, r.width, r.height);
+    const accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#b02b27';
+    const M = Math.max(3, Math.round(1800 * count / 267671));
+    const padX = 28, padY = 28;
+    for (let i = 0; i < M; i++) {
+      const px = padX + Math.random() * (r.width - padX * 2);
+      const bias = (Math.random() + Math.random() + Math.random()) / 3;
+      const py = padY + bias * (r.height - padY * 2);
+      x.beginPath(); x.fillStyle = accent; x.arc(px, py, 2.1, 0, Math.PI * 2); x.fill();
+      x.beginPath(); x.strokeStyle = accent; x.globalAlpha = .3; x.arc(px, py, 4.6, 0, Math.PI * 2); x.stroke();
+      x.globalAlpha = 1;
+    }
+    field.classList.add('country-active');
+    const note = $id('fieldNote');
+    if (note) note.textContent = `${name.toUpperCase()} = ${count.toLocaleString('en-US')} OF 267,671`;
+    lastHL = { name, count };
+  }
+  window.addEventListener('resize', () => { if (lastHL) highlightCountry(lastHL.name, lastHL.count); });
 
   function fillSelect(list, keep) {
     sel.innerHTML = list.map(c => `<option${c === keep ? ' selected' : ''}>${c.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
@@ -3157,10 +3216,26 @@
       const fetched = d.records || [];
       if (!fetched.length) { $id('heroAnswer').hidden = true; return; }
 
-      /* Prefer two cards from two different bodies — eight recent rows are
-         often one committee's batch, and variety shows the dataset's range. */
-      const recs = [fetched[0]];
-      const second = fetched.find(x => x.Body !== fetched[0].Body) || fetched[1];
+      /* Featured quotes skip the UPR: its one-line diplomatic items read
+         flat next to Treaty Body / Special Procedure paragraphs. If the
+         recent window is one big UPR batch, ask the API for the latest
+         non-UPR rows explicitly (facets gives us the body list). */
+      let pool = fetched.filter(x => bodyName(x) !== 'UPR');
+      if (!pool.length && Array.isArray(liveBodies) && liveBodies.length) {
+        const nonUpr = liveBodies.filter(b => String(b).replace(/^[-\s]+/, '') !== 'UPR').join('|');
+        try {
+          const p2 = new URLSearchParams({
+            countries: name, annotation_type: 'Recommendations', bodies: nonUpr,
+            sort_by: 'publication_date', sort_dir: 'desc', page_size: '8',
+          });
+          const r2 = await fetch(`${API}/api/data/records?${p2}`, { signal: aborter.signal });
+          if (r2.ok) pool = (await r2.json()).records || [];
+        } catch {}
+      }
+      if (!pool.length) pool = fetched;   // last resort: UPR is better than nothing
+
+      const recs = [pool[0]];
+      const second = pool.find(x => x.Body !== pool[0].Body) || pool[1];
       if (second) recs.push(second);
 
       const latestYr = (recs[0].PublicationDate || '').slice(0, 4);
@@ -3188,6 +3263,7 @@
         : `./dashboard.html#country=${encodeURIComponent(name)}&view=search`;
 
       $id('heroAnswer').hidden = false;
+      highlightCountry(name, d.total_records || 0);
     } catch (e) {
       if (e.name !== 'AbortError') $id('heroAnswer').hidden = true;
     }
@@ -3218,7 +3294,7 @@
         if (keep !== word.textContent) setCountry(keep);
       }
       if (f.total_records) $id('ebTotal').textContent = f.total_records.toLocaleString('en-US');
-      if (f.bodies) $id('ebBodies').textContent = f.bodies.length;
+      if (f.bodies) { $id('ebBodies').textContent = f.bodies.length; liveBodies = f.bodies; }
       const states = (f.countries || []).filter(n => n && n.length > 2 && n !== 'European Union');
       if (states.length) $id('ebCountries').textContent = states.length;
     })
