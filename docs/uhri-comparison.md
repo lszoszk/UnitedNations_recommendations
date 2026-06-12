@@ -5,6 +5,14 @@
 **OHCHR UHRI snapshot:** as served live from `uhri.ohchr.org` on 2026-04-24
 **Author:** L. Szoszkiewicz — independent project; not affiliated with OHCHR or the UN
 
+> ⏱️ **Historical snapshot.** This comparison was run once, on 2026-04-24,
+> against dataset version v2026.04 (267,537 records). The counts below are
+> point-in-time measurements and are **not** updated by the monthly refresh —
+> the current record count lives in [`scripts/counts.json`](../scripts/counts.json)
+> (267,671 as of the latest refresh) and the live Methodology tab. Treat the
+> *findings and ratios* here as durable; treat the *absolute counts* as of the
+> test date.
+
 ---
 
 ## Why this document exists
