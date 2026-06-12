@@ -114,7 +114,6 @@ async function main() {
     'dashboard.html',
     'index.html',
     'index2.html',
-    'index-classic.html',
     'llms.txt',
     'manifest.webmanifest',
     'dashboard-about.js',
