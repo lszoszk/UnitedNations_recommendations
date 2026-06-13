@@ -51,7 +51,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 
 <!-- Google Analytics 4 (G-F3XBX45HQC) — consent-gated, DNT-respecting,
      anonymised.  See dashboard-analytics.js for banner + event API,
@@ -1188,6 +1188,85 @@
     .how-why { font-size: 16px; }
   }
 </style>
+<style id="v2-hero">
+  /* ===== question-led hero ===============================================
+     The headline asks the visitor's actual question and answers it inline
+     with two real recommendations for a selectable (locale-detected)
+     country — the "aha" happens before any click. Long-form prose moves
+     from mono to Inter; mono stays for chrome, labels and numbers. */
+  :root { --ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .hero .lede { font-family: var(--ui); font-size: 16px; line-height: 1.6; }
+
+  /* country picker styled as the red italic word; a real <select> sits
+     transparently on top so it stays native, accessible and mobile-friendly */
+  .h1pick { position: relative; display: inline-block; color: var(--accent); font-style: italic; border-bottom: 3px solid var(--accent); padding: 0 10px 2px; cursor: pointer; background: color-mix(in oklab, var(--accent) 7%, transparent); border-radius: 5px 5px 0 0; transition: background .12s; }
+  .h1pick .h1caret { font-family: var(--mono); font-style: normal; font-size: .38em; vertical-align: .55em; margin-left: 8px; letter-spacing: 0; }
+  .h1pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+  .h1pick:hover { background: color-mix(in oklab, var(--accent) 16%, transparent); }
+  .h1pick:focus-within { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+  .ans-label { font: 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px; margin: 26px 0 10px; }
+  .ans-label::before { content: ""; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; flex: none; }
+  .ans-card { background: var(--paper-2); border: 1px solid var(--line); border-left: 3px solid var(--accent); padding: 13px 16px; margin-bottom: 8px; }
+  .ans-card .meta { font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 12px; }
+  .ans-card .meta b { color: var(--ink-2); font-weight: 500; }
+  .ans-card .q { font-family: var(--ui); font-size: 15px; line-height: 1.5; color: var(--ink); }
+  .ans-seeall { display: inline-block; font: 12px var(--mono); letter-spacing: .06em; color: var(--ink); border-bottom: 1px dotted var(--ink); text-decoration: none; margin: 6px 0 4px; }
+  .ans-seeall:hover { color: var(--accent); border-color: var(--accent); }
+
+  .hero-trust { font: 11px var(--mono); letter-spacing: .03em; color: var(--dim); line-height: 1.7; margin-top: 18px; }
+  .hero-trust b { color: var(--ink-2); font-weight: 500; }
+
+  /* eyebrow carries the dataset numbers now (KPI grid retired in v2) */
+  .eyebrow .ebn { color: var(--ink-2); font-weight: 500; }
+  @media (max-width: 540px) {
+    .hero .eyebrow { font-size: 9px; letter-spacing: .08em; line-height: 1.8; }
+    .ans-card .q { font-size: 14px; }
+  }
+
+  /* v2: the hero answer cards replaced the excerpts ticker — hide it to
+     avoid two competing "live quote" surfaces. */
+  .ticker-wrap { display: none; }
+
+  /* v2: country highlight on FIG 01 — base field fades back, the selected
+     country's share is drawn on an overlay canvas in accent. */
+  #countryDots { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #field.country-active #dotCanvas { opacity: .16; transition: opacity .5s; }
+
+  /* ===== FIG 01 — per-country seismograph =====
+     Rendered live into #figAlt, replacing the retired dot-field variant.
+     fig-alt-active hides the dot canvases and the dot-specific corner
+     captions (counter / "1 dot ≈" / year). */
+  #figAlt { position: absolute; inset: 0; padding: 36px 18px 16px; overflow: hidden; }
+  #field.fig-alt-active #dotCanvas, #field.fig-alt-active #countryDots { display: none; }
+  #field.fig-alt-active .corner.tr, #field.fig-alt-active .corner.br, #field.fig-alt-active .corner.bl { display: none; }
+  .fig-loading { font: 11px var(--mono); color: var(--dim); letter-spacing: .1em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; height: 100%; }
+  /* seismo bars are links: hover/focus paints the year column */
+  #figAlt .sb { cursor: pointer; }
+  #figAlt .sb:hover .hit, #figAlt .sb:focus .hit { fill: color-mix(in oklab, var(--accent) 12%, transparent); }
+  #figAlt .sb:focus { outline: none; }
+
+  /* fig B — the document sheet */
+  .figdoc { position: relative; width: min(420px, 92%); margin: 8px auto 0; height: calc(100% - 14px); }
+  .figdoc .sheet { position: absolute; inset: 0; background: #FBF9F3; border: 1px solid var(--line); box-shadow: 0 1px 0 var(--line); padding: 22px 24px; overflow: hidden; }
+  .figdoc .sheet.back { transform: translate(8px, -8px); background: var(--paper-2); }
+  .figdoc .doc-sym { font: 10px var(--mono); letter-spacing: .12em; color: var(--dim); display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px; text-transform: uppercase; }
+  .figdoc .doc-body { font-family: var(--ui); font-size: 12.5px; line-height: 1.65; color: var(--ink-2); }
+  .figdoc .doc-body mark { background: color-mix(in oklab, var(--accent) 12%, transparent); color: var(--ink); border-bottom: 2px solid var(--accent); padding: 0 1px; }
+  .figdoc .doc-foot { position: absolute; left: 24px; right: 24px; bottom: 14px; font: 9px var(--mono); letter-spacing: .1em; color: var(--accent); text-transform: uppercase; border-top: 1px dashed var(--line); padding-top: 8px; background: #FBF9F3; }
+
+  /* fig C — the registry tape */
+  .figreg { font: 11.5px var(--mono); color: var(--ink-2); width: min(430px, 94%); margin: 4px auto 0; height: calc(100% - 8px); display: flex; flex-direction: column; }
+  .figreg .reg-head { font-size: 9px; letter-spacing: .16em; color: var(--dim); text-transform: uppercase; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 8px; }
+  .figreg .reg-row { display: flex; gap: 10px; padding: 3.5px 0; border-bottom: 1px dotted color-mix(in oklab, var(--line) 60%, transparent); opacity: 0; animation: regin .25s forwards; white-space: nowrap; overflow: hidden; }
+  .figreg .reg-row .yr { color: var(--dim); flex: none; }
+  .figreg .reg-row .bd { color: var(--ink); font-weight: 500; flex: none; max-width: 11em; overflow: hidden; text-overflow: ellipsis; }
+  .figreg .reg-row .th { color: var(--dim); overflow: hidden; text-overflow: ellipsis; }
+  .figreg .reg-tot { margin-top: auto; border-top: 1px dashed var(--ink); padding-top: 8px; font-weight: 700; color: var(--accent); letter-spacing: .08em; }
+  .figreg .reg-sub { font-size: 9px; letter-spacing: .12em; color: var(--dim); margin-top: 3px; text-transform: uppercase; }
+  @keyframes regin { to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .figreg .reg-row { animation: none; opacity: 1; } }
+</style>
 </head>
 <body data-palette="archive">
 
@@ -1196,8 +1275,8 @@
   <div class="left">
     <span class="dot" title="live"></span>
     <span style="color:var(--ink);letter-spacing:.14em;font-weight:500">UN HUMAN RIGHTS ANALYTICS</span>
-    <span class="sep">·</span>
-    <span>Dataset v2026.04</span>
+    <!-- v2: dataset version demoted to the footer — the topbar sells the
+         product, not the build metadata. -->
   </div>
   <!-- Section nav lives inside the topbar so it never overlaps content -->
   <nav class="section-nav" id="sectionNav" aria-label="Page sections" style="justify-self:center">
@@ -1220,45 +1299,35 @@
 <section class="hero" id="hero">
   <div class="grid">
     <div>
-      <div class="eyebrow">Treaty Bodies · UPR · Special Procedures · 2006 — 2026</div>
+      <div class="eyebrow"><span><span class="ebn" id="ebTotal">267,671</span> records · <span class="ebn" id="ebCountries">198</span> countries · <span class="ebn" id="ebBodies">70</span> UN bodies · 2006 — 2026</span></div>
 
       <h1 class="headline">
-        Every UPR, Treaty Body<br>
-        &amp; Special Procedures<br>
-        <em>recommendation<span id="cursor" class="cursor"></span></em>
+        What has the UN<br>
+        told <span class="h1pick" title="Change country — pick any of 198"><span id="heroCountryWord">your country</span><span class="h1caret">▾</span><select id="heroCountry" aria-label="Choose a country"></select></span><br>
+        to fix?
       </h1>
 
       <p class="lede">
-        A single searchable dataset built on the OHCHR Universal Human Rights Index —
-        <span class="hl">267,671 country-specific observations</span> from Treaty Bodies, Special Procedures
-        and the Universal Periodic Review, assembled for advocates, researchers and journalists.
+        Every recommendation from UN Treaty Bodies, the Universal Periodic Review and
+        Special Procedures — <span class="hl">searchable, citable</span>, and defensible in a paper.
+        Built for advocates, researchers and journalists.
       </p>
 
-      <div class="kpis">
-        <div class="kpi">
-          <div class="num" data-counter="267671">0</div>
-          <div class="lbl">Recommendations</div>
-        </div>
-        <div class="kpi">
-          <div class="num" data-counter="198">0</div>
-          <div class="lbl" title="Includes Cook Islands &amp; Niue (non-UN-member states), State of Palestine* &amp; Holy See (UN observer states), and Kosovo* (contested status)" style="cursor:help">Countries*</div>
-        </div>
-        <div class="kpi">
-          <div class="num" data-counter="70">0</div>
-          <div class="lbl" title="70 distinct UN bodies in the 2006–2026 dataset after name normalisation: 1 UPR cycle, 12 treaty-body codes, and 57 Special-Procedure mandates (Special Rapporteurs, Independent Experts, Working Groups)." style="cursor:help">UN Bodies</div>
-        </div>
-        <div class="kpi">
-          <div class="num"><span class="unit">yrs</span><span data-counter="20">0</span></div>
-          <div class="lbl">2006 — 2026</div>
-        </div>
+      <!-- live answer: 2 real recommendations for the selected country.
+           Hidden until the first successful fetch; the page degrades to the
+           classic lede + CTA when the VM is unreachable. -->
+      <div id="heroAnswer" hidden>
+        <div class="ans-label" id="ansLabel">loading…</div>
+        <div id="ansCards"></div>
+        <a class="ans-seeall" id="ansSeeAll" href="./dashboard.html">See all →</a>
       </div>
 
+      <!-- v2: single primary CTA — Methodology stays one click away in the
+           topbar and owns the HOW section below; the hero shouldn't split
+           attention between "use it" and "audit it". -->
       <div class="cta-row">
         <a class="btn" href="./dashboard.html">
           Open the dashboard <span class="arrow">→</span>
-        </a>
-        <a class="btn ghost" href="./dashboard.html#view=methodology">
-          <span>☰</span> Methodology
         </a>
       </div>
 
@@ -1283,15 +1352,26 @@
         </div>
         <div class="ls-dropdown" id="landingSearchDropdown" role="listbox" hidden></div>
       </form>
+
+      <div class="hero-trust">
+        Built at <b>Adam Mickiewicz University</b>, Poznań · Supported by <b>re:constitution</b> &amp; <b>HURIDOCS</b><br>
+        Independent project — not affiliated with OHCHR or the United Nations.
+      </div>
     </div>
 
     <div>
-      <div class="field" id="field">
+      <!-- FIG 01 — per-country seismograph (records/year, stacked by
+           mechanism family). fig-alt-active from the start so the figure
+           renders straight into #figAlt; the dot-field canvases below are
+           the retired FIG 01 variant, kept hidden. -->
+      <div class="field fig-alt-active" id="field">
         <div class="corner tl">FIG 01 / LIVE</div>
         <div class="corner tr"><span id="fieldCounter">0</span> / 267,671</div>
-        <div class="corner bl">EACH DOT = ONE RECOMMENDATION</div>
+        <div class="corner bl" id="fieldNote">1 DOT ≈ 15 RECOMMENDATIONS</div>
         <div class="corner br">YR <span id="fieldYear">2006</span></div>
         <canvas id="dotCanvas"></canvas>
+        <canvas id="countryDots" aria-hidden="true"></canvas>
+        <div id="figAlt" aria-live="polite"></div>
         <div class="tip" id="fieldTip"></div>
       </div>
     </div>
@@ -2086,7 +2166,10 @@
   function buildDots() {
     dots = [];
     const density = tw.dotDensity || 1.0;
-    const N = Math.floor(1800 * density);
+    /* v2: 10× finer scale — 1 dot ≈ 15 records (18,000 dots for 267,671).
+       Affordable because draw() below paints incrementally (new dots only,
+       no per-frame clear), so the reveal stays ~1 ms/frame at any N. */
+    const N = Math.floor(18000 * density);
 
     // spread across 21 year-bands (2006..2026)
     const years = 21;
@@ -2105,7 +2188,9 @@
         const yy = padY + centerBias * (H - padY*2);
         // some dots tinted accent (e.g., "serious" recs)
         const tint = Math.random() < 0.18;
-        dots.push({ x, y: yy, r: 1.3 + Math.random()*0.7, yr: 2006 + y, tint, t0: idx * 0.9 });
+        /* smaller radius at 10× density so the field reads as texture,
+           not an ink blob */
+        dots.push({ x, y: yy, r: 0.7 + Math.random()*0.5, yr: 2006 + y, tint, t0: idx * 0.9 });
         idx++;
       }
     }
@@ -2113,19 +2198,32 @@
 
   let started = false;
   let startT = 0;
+  let prevRevealed = 0;
   function draw(ts) {
-    if (!started) { started = true; startT = ts; }
-    const elapsed = ts - startT;
-    ctx.clearRect(0,0,W,H);
-
     const ink = getCSSVar("--ink") || "#0F0F10";
     const dim = getCSSVar("--dim") || "#6B6863";
     const accent = getCSSVar("--accent") || "oklch(0.62 0.17 27)";
 
-    // faint baseline
-    ctx.strokeStyle = "rgba(0,0,0,0.05)";
-    // draw dots gradually
-    const revealPer = 6.0; // dots per ms
+    if (!started) {
+      started = true; startT = ts; prevRevealed = 0;
+      /* one-time frame: clear + static chrome (axis, tick labels). Dots
+         accumulate on top incrementally — nothing moves, so per-frame
+         clearing was pure waste and capped how many dots we can afford. */
+      ctx.clearRect(0,0,W,H);
+      ctx.strokeStyle = "rgba(0,0,0,0.18)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(24, H - 20); ctx.lineTo(W - 24, H - 20); ctx.stroke();
+      ctx.fillStyle = dim;
+      ctx.font = "10px 'JetBrains Mono', ui-monospace, monospace";
+      ctx.fillText("2006", 28, H - 6);
+      ctx.textAlign = "right";
+      ctx.fillText("2026", W - 28, H - 6);
+      ctx.textAlign = "left";
+    }
+    const elapsed = ts - startT;
+
+    // reveal pace scaled with the 10× dot count → same ~1s total reveal
+    const revealPer = 60.0; // dots per ms (÷3 below)
     const revealed = Math.min(dots.length, Math.floor(elapsed * revealPer / 3));
     fieldCounter.textContent = fmt(Math.round(267671 * (revealed / dots.length)));
     if (dots.length) {
@@ -2133,7 +2231,8 @@
       fieldYear.textContent = lastYr;
     }
 
-    for (let i = 0; i < revealed; i++) {
+    // incremental: only the dots that appeared since the last frame
+    for (let i = prevRevealed; i < revealed; i++) {
       const d = dots[i];
       ctx.beginPath();
       ctx.fillStyle = d.tint ? accent : ink;
@@ -2142,24 +2241,17 @@
       ctx.fill();
     }
     ctx.globalAlpha = 1;
-
-    // year axis baseline
-    ctx.strokeStyle = "rgba(0,0,0,0.18)";
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(24, H - 20); ctx.lineTo(W - 24, H - 20); ctx.stroke();
-
-    // year tick labels at beginning and end
-    ctx.fillStyle = dim;
-    ctx.font = "10px 'JetBrains Mono', ui-monospace, monospace";
-    ctx.fillText("2006", 28, H - 6);
-    ctx.textAlign = "right";
-    ctx.fillText("2026", W - 28, H - 6);
-    ctx.textAlign = "left";
+    prevRevealed = revealed;
 
     if (revealed < dots.length) requestAnimationFrame(draw);
   }
 
   function initField() {
+    /* v2 fig rig: when an alternative figure is shown the canvases are
+       display:none — don't replay the reveal (it would tick the corner
+       counter and burn frames behind the figure; resize triggers land
+       here too). Switching back to dots keeps the last painted field. */
+    if (fieldEl && fieldEl.classList.contains('fig-alt-active')) return;
     sizeCanvas();
     buildDots();
     started = false;
@@ -2878,8 +2970,14 @@
       document.documentElement.style.removeProperty("--accent");
       document.documentElement.style.removeProperty("--accent-soft");
     }
-    document.getElementById("cursor").style.display = tw.showCursor ? "" : "none";
-    document.getElementById("tickerWrap").style.display = tw.showTicker ? "" : "none";
+    /* v2: #cursor was removed with the old headline and the excerpts ticker
+       is retired (the hero answer cards replaced it) — guard the first,
+       hard-hide the second so saved tweaks can't resurrect it via inline
+       style overriding the stylesheet. */
+    const _cur = document.getElementById("cursor");
+    if (_cur) _cur.style.display = tw.showCursor ? "" : "none";
+    const _tk = document.getElementById("tickerWrap");
+    if (_tk) _tk.style.display = "none";
 
     // redraw things that depend on CSS vars
     initField();
@@ -3060,5 +3158,410 @@
 @media(max-width:720px){.ga-consent{left:8px;right:8px;bottom:8px;max-width:none;font-size:12px}}
 </style>
 <script defer src="./dashboard-analytics.js"></script>
+
+<script>
+/* ===== v2 hero: question-led country answer ================================
+   Self-contained module — independent of the main IIFE so a failure in
+   either cannot break the other. Flow:
+     1. populate the country <select> (static seed → live facets when up)
+     2. detect the visitor's country from the browser locale (region subtag
+        via Intl.DisplayNames), match it against the dataset's country list
+     3. fetch the 2 latest Recommendations for that country + total count
+        and render them as the hero "answer"; link out to the country
+        profile (ISO3 via __nameToIso3 from the main script)
+   Degrades silently: if the VM is unreachable the answer block stays
+   hidden and the hero reads like the classic version. */
+(() => {
+  const API = 'https://150.254.115.204/uhri-api';
+  const $id = (i) => document.getElementById(i);
+  const sel = $id('heroCountry'), word = $id('heroCountryWord');
+  if (!sel || !word) return;
+
+  /* Seed list so the picker works before facets arrive (and offline). */
+  const SEED = ['Afghanistan','Argentina','Australia','Brazil','Canada','Chile','China','Colombia','Egypt','France','Germany','India','Indonesia','Iran (Islamic Republic of)','Italy','Japan','Kenya','Mexico','Netherlands','Nigeria','Pakistan','Philippines','Poland','Russian Federation','South Africa','Spain','Sweden','Türkiye','Ukraine','United Kingdom of Great Britain and Northern Ireland','United States of America','Viet Nam'];
+
+  let countries = SEED.slice();
+  let liveBodies = null;   // full body list from facets — used to exclude UPR server-side
+  let aborter = null;
+  let lastHL = null;       // last highlighted {name, count} for resize redraw
+
+  const bodyName = (rec) => (rec.Body || '').replace(/^[-\s]+/, '');
+
+  /* FIG 01 country highlight: fade the base field, draw this country's
+     share on the overlay at the SAME 1800-dot scale the base uses — so
+     "how big is my country in this dataset" stays an honest proportion;
+     the corner caption carries the exact number. */
+  function highlightCountry(name, count) {
+    /* Choreography: let the base field finish its reveal animation first
+       (~1s), THEN fade it back and pop the country — full dataset, then
+       "here is your country's share". Country switches after that are
+       instant. Last selection wins if the user switches during the delay. */
+    const hl = highlightCountry;
+    hl._pending = { name, count };
+    if (!hl._ready) {
+      if (!hl._timer) hl._timer = setTimeout(() => {
+        hl._ready = true;
+        highlightCountry(hl._pending.name, hl._pending.count);
+      }, 1700);
+      return;
+    }
+    const field = $id('field'), cv = $id('countryDots');
+    if (!field || !cv) return;
+    const r = cv.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    cv.width = Math.floor(r.width * dpr); cv.height = Math.floor(r.height * dpr);
+    const x = cv.getContext('2d');
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.clearRect(0, 0, r.width, r.height);
+    const accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#b02b27';
+    /* same 18,000-dot scale as the base field (1 dot ≈ 15 records) so the
+       red share stays an honest proportion. Halo rings only when the
+       country is small enough that single dots need help being seen. */
+    const M = Math.max(3, Math.round(18000 * count / 267671));
+    const rings = M <= 40;
+    const padX = 28, padY = 28;
+    for (let i = 0; i < M; i++) {
+      const px = padX + Math.random() * (r.width - padX * 2);
+      const bias = (Math.random() + Math.random() + Math.random()) / 3;
+      const py = padY + bias * (r.height - padY * 2);
+      x.beginPath(); x.fillStyle = accent; x.arc(px, py, 1.6, 0, Math.PI * 2); x.fill();
+      if (rings) {
+        x.beginPath(); x.strokeStyle = accent; x.globalAlpha = .3; x.arc(px, py, 4.2, 0, Math.PI * 2); x.stroke();
+        x.globalAlpha = 1;
+      }
+    }
+    field.classList.add('country-active');
+    const note = $id('fieldNote');
+    if (note) note.textContent = `${name.toUpperCase()} = ${count.toLocaleString('en-US')} OF 267,671`;
+    lastHL = { name, count };
+  }
+  window.addEventListener('resize', () => { if (lastHL) highlightCountry(lastHL.name, lastHL.count); });
+
+  function fillSelect(list, keep) {
+    sel.innerHTML = list.map(c => `<option${c === keep ? ' selected' : ''}>${c.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
+  }
+
+  /* Browser locale → dataset country name. Loose matcher handles the long
+     official forms ("United States of America", "Iran (Islamic Republic
+     of)") by prefix/containment against the Intl.DisplayNames region name. */
+  function detectCountry(list) {
+    try {
+      const region = (navigator.language || '').split('-')[1];
+      if (!region) return null;
+      const name = new Intl.DisplayNames(['en'], { type: 'region' }).of(region.toUpperCase());
+      if (!name) return null;
+      const lc = name.toLowerCase();
+      return list.find(c => c.toLowerCase() === lc)
+          || list.find(c => c.toLowerCase().startsWith(lc))
+          || list.find(c => c.toLowerCase().includes(lc))
+          || null;
+    } catch { return null; }
+  }
+
+  const trim = (s, n) => { s = (s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+  const esc  = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  /* short code → full body name for the answer-card tooltip, so a layperson
+     can hover "CESCR" and read what it is. The treaty-body acronyms are the
+     opaque ones; SR/IE/WG mandates are expanded by prefix. */
+  const BODY_FULL = {
+    UPR: 'Universal Periodic Review', CAT: 'Committee against Torture',
+    CCPR: 'Human Rights Committee (ICCPR)', CEDAW: 'Committee on the Elimination of Discrimination against Women',
+    CERD: 'Committee on the Elimination of Racial Discrimination', CESCR: 'Committee on Economic, Social and Cultural Rights',
+    CMW: 'Committee on Migrant Workers', CRC: 'Committee on the Rights of the Child',
+    CRPD: 'Committee on the Rights of Persons with Disabilities', CED: 'Committee on Enforced Disappearances',
+    SPT: 'Subcommittee on Prevention of Torture', 'CRC-OP-AC': 'CRC — Optional Protocol on armed conflict',
+    'CRC-OP-SC': 'CRC — Optional Protocol on the sale of children',
+  };
+  const bodyFull = (code) => BODY_FULL[code]
+    || (/^SR /.test(code) ? 'Special Rapporteur on ' + code.slice(3)
+      : /^IE /.test(code) ? 'Independent Expert on ' + code.slice(3)
+      : /^WG /.test(code) ? 'Working Group on ' + code.slice(3) : code);
+
+  async function loadAnswer(name) {
+    if (aborter) aborter.abort();
+    aborter = new AbortController();
+    const p = new URLSearchParams({
+      countries: name, annotation_type: 'Recommendations',
+      sort_by: 'publication_date', sort_dir: 'desc', page_size: '24',
+    });
+    try {
+      const r = await fetch(`${API}/api/data/records?${p}`, { signal: aborter.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      const fetched = d.records || [];
+      if (!fetched.length) { $id('heroAnswer').hidden = true; return; }
+
+      /* Featured quotes skip the UPR: its one-line diplomatic items read
+         flat next to Treaty Body / Special Procedure paragraphs. If the
+         recent window is one big UPR batch, ask the API for the latest
+         non-UPR rows explicitly (facets gives us the body list). */
+      let pool = fetched.filter(x => bodyName(x) !== 'UPR');
+      if (!pool.length && Array.isArray(liveBodies) && liveBodies.length) {
+        const nonUpr = liveBodies.filter(b => String(b).replace(/^[-\s]+/, '') !== 'UPR').join('|');
+        try {
+          const p2 = new URLSearchParams({
+            countries: name, annotation_type: 'Recommendations', bodies: nonUpr,
+            sort_by: 'publication_date', sort_dir: 'desc', page_size: '8',
+          });
+          const r2 = await fetch(`${API}/api/data/records?${p2}`, { signal: aborter.signal });
+          if (r2.ok) pool = (await r2.json()).records || [];
+        } catch {}
+      }
+      if (!pool.length) pool = fetched;   // last resort: UPR is better than nothing
+
+      const recs = [pool[0]];
+      const second = pool.find(x => x.Body !== pool[0].Body) || pool[1];
+      if (second) recs.push(second);
+
+      const latestYr = (recs[0].PublicationDate || '').slice(0, 4);
+      $id('ansLabel').textContent =
+        `${(d.total_records || 0).toLocaleString('en-US')} recommendations to ${name}${latestYr ? ' · latest ' + latestYr : ''}`;
+
+      $id('ansCards').innerHTML = recs.map(rec => {
+        const rawBody = (rec.Body || '').replace(/^[-\s]+/, '');
+        const body = esc(rawBody);
+        const yr   = esc((rec.PublicationDate || '').slice(0, 4));
+        /* strip UN paragraph numbering so the card reads as a quote —
+           handles both "118. The Independent Expert…" and the UPR's
+           double form "129.106 Ensure…" / "106 Ensure…" */
+        const raw  = (rec.TextPlainCleaned || rec.Text || '')
+          .replace(/^\s*(?:\d{1,3}\s*\.\s*)+/, '')
+          .replace(/^\s*\d{1,3}\s+(?=[A-Z“"])/, '');
+        const txt  = esc(trim(raw, 180));
+        return `<div class="ans-card"><div class="meta"><b title="${esc(bodyFull(rawBody))}" style="cursor:help">${body}</b><span>${yr}</span></div><div class="q">“${txt}”</div></div>`;
+      }).join('');
+
+      const seeAll = $id('ansSeeAll');
+      seeAll.textContent = `See all ${(d.total_records || 0).toLocaleString('en-US')} recommendations to ${name} →`;
+      /* Land on the SAME slice the count promises — search filtered to this
+         country + Recommendations type — so the dashboard reads "1,191
+         matching recommendations", not the country profile's all-types total
+         (which would show e.g. 1,689 and read as a contradiction). */
+      seeAll.href = `./dashboard.html#country=${encodeURIComponent(name)}&type=Recommendations&view=search`;
+
+      $id('heroAnswer').hidden = false;
+      lastData = { name, count: d.total_records || 0, fetched, pool };
+      if (curFig === 'dots') highlightCountry(name, lastData.count);
+      else renderFig();
+    } catch (e) {
+      if (e.name !== 'AbortError') $id('heroAnswer').hidden = true;
+    }
+  }
+
+  /* FIG 01 is the per-country seismograph (figSeismo). The A/B switcher and
+     its ?fig= override are retired; the alternative renderers below are kept
+     dormant in case we want to resurface a switcher later. */
+  const curFig = 'a';
+  let lastData = null;          // {name, count, fetched, pool} from loadAnswer
+  const anCache = {};           // per-country analytics cache
+
+  async function getAnalytics(name) {
+    if (anCache[name]) return anCache[name];
+    try {
+      const r = await fetch(`${API}/api/data/analytics?${new URLSearchParams({ countries: name })}`);
+      if (!r.ok) return null;
+      return (anCache[name] = await r.json());
+    } catch { return null; }
+  }
+
+  const TB_CODES = ['CAT','CCPR','CED','CEDAW','CERD','CESCR','CMW','CRC','CRC-OP-AC','CRC-OP-SC','CRPD','SPT'];
+  const famOf = (b) => { b = String(b || '').replace(/^[-\s]+/, ''); return b === 'UPR' ? 'upr' : (TB_CODES.includes(b) ? 'tb' : 'sp'); };
+  const nfmt = (n) => (n || 0).toLocaleString('en-US');
+
+  /* A · seismograph — 21 year-bars stacked by mechanism family */
+  function figSeismo(name, count, an) {
+    const per = {};
+    (an?.trends?.yearly_body_counts || []).forEach(r => {
+      const y = r.year; if (!y || y < 2006 || y > 2026) return;
+      (per[y] = per[y] || { upr: 0, tb: 0, sp: 0 })[famOf(r.body)] += r.count || 0;
+    });
+    const years = []; for (let y = 2006; y <= 2026; y++) years.push(y);
+    const max = Math.max(1, ...years.map(y => { const p = per[y]; return p ? p.upr + p.tb + p.sp : 0; }));
+    const W = 560, H = 470, padL = 14, padR = 14, base = H - 34, top = 30;
+    const bw = (W - padL - padR) / years.length;
+    let bars = '';
+    years.forEach((y, i) => {
+      const p = per[y] || { upr: 0, tb: 0, sp: 0 };
+      const tot = p.upr + p.tb + p.sp;
+      const x = padL + i * bw + 1.5;
+      let yy = base, segs = '';
+      [['upr', 'var(--accent)', .95], ['tb', 'var(--ink)', .82], ['sp', 'var(--dim)', .8]].forEach(([k, col, op]) => {
+        const h = (p[k] / max) * (base - top);
+        if (h > 0.4) { segs += `<rect x="${x.toFixed(1)}" y="${(yy - h).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" opacity="${op}"/>`; yy -= h; }
+      });
+      /* each year is a link target: full-height invisible hit area + native
+         tooltip; click/Enter handled by the delegated listener on #figAlt */
+      bars += `<g class="sb" data-y="${y}" tabindex="0" role="link" aria-label="${y}: ${tot} records on ${esc(name)} — browse">`
+            + `<title>${y} · ${nfmt(tot)} records — click to browse</title>`
+            + `<rect class="hit" x="${(padL + i * bw).toFixed(1)}" y="${top}" width="${bw.toFixed(1)}" height="${base - top}" fill="transparent"/>`
+            + segs + `</g>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%" role="img" aria-label="${esc(name)}: recommendations per year, stacked by mechanism">
+      <line x1="${padL}" y1="${base}" x2="${W - padR}" y2="${base}" stroke="var(--ink)" stroke-width="1" opacity=".4"/>
+      ${bars}
+      <text x="${padL}" y="${base + 16}" font-size="10" fill="var(--dim)" font-family="JetBrains Mono,monospace">2006</text>
+      <text x="${W - padR}" y="${base + 16}" font-size="10" fill="var(--dim)" font-family="JetBrains Mono,monospace" text-anchor="end">2026</text>
+      <text x="${padL}" y="16" font-size="10" fill="var(--dim)" font-family="JetBrains Mono,monospace" letter-spacing="1.5">${esc(name.toUpperCase())} — RECORDS PER YEAR (ALL TYPES) · PEAK ${nfmt(max)}</text>
+      <text x="${padL}" y="${base + 30}" font-size="9" fill="var(--dim)" font-family="JetBrains Mono,monospace"><tspan fill="var(--accent)">■</tspan> UPR  <tspan fill="var(--ink)">■</tspan> TREATY BODIES  <tspan fill="var(--dim)">■</tspan> SPECIAL PROCEDURES</text>
+      <text x="${W - padR}" y="${base + 30}" font-size="9" fill="var(--dim)" font-family="JetBrains Mono,monospace" text-anchor="end">CLICK A YEAR TO BROWSE →</text>
+    </svg>`;
+  }
+
+  /* B · the document — a real paragraph on its sheet, marked in red */
+  function figDocument(name, count, rec) {
+    if (!rec) return '<div class="fig-loading">no record</div>';
+    const sym = esc(rec.Symbol || '—'), yr = esc((rec.PublicationDate || '').slice(0, 4));
+    const body = esc(bodyName(rec));
+    const raw = (rec.TextPlainCleaned || rec.Text || '').replace(/^\s*(?:\d{1,3}\s*\.\s*)+/, '').replace(/\s+/g, ' ').trim();
+    const cut = raw.slice(0, 620);
+    const dot = cut.indexOf('. ');
+    const head = esc(dot > 40 && dot < 300 ? cut.slice(0, dot + 1) : cut.slice(0, 180));
+    const rest = esc(dot > 40 && dot < 300 ? cut.slice(dot + 1, 620) : cut.slice(180, 620));
+    return `<div class="figdoc">
+      <div class="sheet back"></div>
+      <div class="sheet">
+        <div class="doc-sym"><span>UN DOC. ${sym}</span><span>${yr}</span></div>
+        <div class="doc-body"><mark>${head}</mark>${rest}${raw.length > 620 ? '…' : ''}</div>
+        <div class="doc-foot">¶ ${body} — one of ${nfmt(count)} records on ${esc(name)}</div>
+      </div>
+    </div>`;
+  }
+
+  /* C · the registry — line-printed ledger of the latest entries */
+  function figRegistry(name, count, fetched) {
+    const rows = (fetched || []).slice(0, 12).map((r, i) => {
+      const yr = esc((r.PublicationDate || '').slice(0, 4));
+      const bd = esc(bodyName(r));
+      const th = esc(String((r.Themes || [])[0] || '').replace(/^[-\s]+/, ''));
+      return `<div class="reg-row" style="animation-delay:${(i * 90)}ms"><span class="yr">${yr}</span><span class="bd">${bd}</span><span class="th">${th}</span></div>`;
+    }).join('');
+    return `<div class="figreg">
+      <div class="reg-head">OFFICIAL RECORD — ${esc(name.toUpperCase())} · LATEST ENTRIES</div>
+      ${rows}
+      <div class="reg-tot">TOTAL ${nfmt(count)} RECOMMENDATIONS</div>
+      <div class="reg-sub">SINCE 2006 · THREE UN MECHANISMS · UPDATED MONTHLY</div>
+    </div>`;
+  }
+
+  /* D · three streams — mechanism volumes flowing into the country */
+  function figRivers(name, count, an) {
+    const tot = { upr: 0, tb: 0, sp: 0 };
+    (an?.trends?.yearly_body_counts || []).forEach(r => { tot[famOf(r.body)] += r.count || 0; });
+    const sum = Math.max(1, tot.upr + tot.tb + tot.sp);
+    const W = 560, H = 470, x0 = 16, x1 = 470, cy = H / 2;
+    const maxBand = 190;
+    const th = (v) => Math.max(2, (v / sum) * maxBand);
+    const lanes = [
+      ['UPR', tot.upr, 'var(--accent)', 90],
+      ['TREATY BODIES', tot.tb, 'var(--ink)', cy],
+      ['SPECIAL PROCEDURES', tot.sp, 'var(--dim)', H - 90],
+    ];
+    let off = cy - (th(tot.upr) + th(tot.tb) + th(tot.sp)) / 2;
+    let paths = '', labels = '';
+    lanes.forEach(([lbl, v, col, ly]) => {
+      const t = th(v), tY = off;
+      paths += `<path d="M ${x0},${(ly - t / 2).toFixed(1)} C ${x0 + 200},${(ly - t / 2).toFixed(1)} ${x1 - 180},${tY.toFixed(1)} ${x1},${tY.toFixed(1)} L ${x1},${(tY + t).toFixed(1)} C ${x1 - 180},${(tY + t).toFixed(1)} ${x0 + 200},${(ly + t / 2).toFixed(1)} ${x0},${(ly + t / 2).toFixed(1)} Z" fill="${col}" opacity=".8"/>`;
+      labels += `<text x="${x0}" y="${(ly - t / 2 - 8).toFixed(1)}" font-size="10" fill="${col}" font-family="JetBrains Mono,monospace" letter-spacing="1">${lbl} ${nfmt(v)}</text>`;
+      off += t;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%" role="img" aria-label="${esc(name)}: volumes by mechanism">
+      ${paths}${labels}
+      <circle cx="${x1 + 14}" cy="${cy}" r="10" fill="var(--ink)"/>
+      <text x="${x1 + 14}" y="${cy + 30}" font-size="11" fill="var(--ink)" font-family="JetBrains Mono,monospace" text-anchor="middle" letter-spacing="1.5">${esc(name.toUpperCase())}</text>
+      <text x="${x0}" y="${H - 10}" font-size="9" fill="var(--dim)" font-family="JetBrains Mono,monospace" letter-spacing="1">ALL RECORD TYPES · 2006—2026</text>
+    </svg>`;
+  }
+
+  /* E · theme fingerprint — radial profile of what the UN criticises */
+  function figPrint(name, count, an) {
+    const themes = (an?.themes?.theme_counts || []).slice(0, 16);
+    if (!themes.length) return '<div class="fig-loading">no theme data</div>';
+    const W = 560, H = 470, cx = W / 2, cy = H / 2 - 6, R0 = 26, R1 = 175;
+    const max = Math.max(1, ...themes.map(t => t.count));
+    let spokes = '', labels = '';
+    themes.forEach((t, i) => {
+      const a = (i / themes.length) * Math.PI * 2 - Math.PI / 2;
+      const len = R0 + Math.sqrt(t.count / max) * (R1 - R0);
+      const x1 = cx + Math.cos(a) * R0, y1 = cy + Math.sin(a) * R0;
+      const x2 = cx + Math.cos(a) * len, y2 = cy + Math.sin(a) * len;
+      spokes += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" opacity="${(0.45 + 0.55 * t.count / max).toFixed(2)}"/>`;
+      if (i < 3) {
+        const lx = cx + Math.cos(a) * (len + 14), ly2 = cy + Math.sin(a) * (len + 14);
+        const anchor = Math.cos(a) > 0.3 ? 'start' : (Math.cos(a) < -0.3 ? 'end' : 'middle');
+        labels += `<text x="${lx.toFixed(1)}" y="${ly2.toFixed(1)}" font-size="9" fill="var(--dim)" font-family="JetBrains Mono,monospace" text-anchor="${anchor}">${esc(String(t.theme).slice(0, 26))}</text>`;
+      }
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%" role="img" aria-label="${esc(name)}: theme fingerprint">
+      <circle cx="${cx}" cy="${cy}" r="${R0 - 6}" fill="none" stroke="var(--ink)" stroke-width="1" opacity=".6"/>
+      ${spokes}${labels}
+      <text x="${cx}" y="${H - 14}" font-size="10" fill="var(--dim)" font-family="JetBrains Mono,monospace" text-anchor="middle" letter-spacing="1.5">THEME FINGERPRINT — ${esc(name.toUpperCase())} · SQRT SCALE</text>
+    </svg>`;
+  }
+
+  async function renderFig() {
+    const field = $id('field'), alt = $id('figAlt');
+    if (!field || !alt) return;
+    const isDots = curFig === 'dots';
+    field.classList.toggle('fig-alt-active', !isDots);
+    if (isDots) { alt.innerHTML = ''; if (lastData) highlightCountry(lastData.name, lastData.count); return; }
+    if (!lastData) { alt.innerHTML = '<div class="fig-loading">loading…</div>'; return; }
+    const { name, count, fetched, pool } = lastData;
+    if (curFig === 'b') { alt.innerHTML = figDocument(name, count, (pool && pool[0]) || fetched[0]); return; }
+    if (curFig === 'c') { alt.innerHTML = figRegistry(name, count, fetched); return; }
+    alt.innerHTML = '<div class="fig-loading">loading analytics…</div>';
+    const an = await getAnalytics(name);
+    if (curFig === 'dots') return;            // user switched away meanwhile
+    if (!an) { alt.innerHTML = '<div class="fig-loading">analytics unavailable</div>'; return; }
+    if (curFig === 'a') alt.innerHTML = figSeismo(name, count, an);
+    else if (curFig === 'd') alt.innerHTML = figRivers(name, count, an);
+    else if (curFig === 'e') alt.innerHTML = figPrint(name, count, an);
+  }
+
+  /* delegated activation for figure sub-targets (seismo year bars). One
+     listener survives every innerHTML re-render. */
+  const _figGo = (g) => {
+    if (!g || !lastData) return;
+    location.href = `./dashboard.html#country=${encodeURIComponent(lastData.name)}&y1=${g.dataset.y}&y2=${g.dataset.y}&view=search`;
+  };
+  $id('figAlt')?.addEventListener('click', (e) => _figGo(e.target.closest('[data-y]')));
+  $id('figAlt')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const g = e.target.closest('[data-y]');
+    if (g) { e.preventDefault(); _figGo(g); }
+  });
+
+  function setCountry(name) {
+    word.textContent = name;
+    fillSelect(countries, name);
+    loadAnswer(name);
+  }
+
+  sel.addEventListener('change', () => setCountry(sel.value));
+
+  /* boot: seed select immediately, then upgrade from live facets */
+  fillSelect(countries, null);
+  const initial = detectCountry(countries) || 'Poland';
+  setCountry(initial);
+
+  fetch(`${API}/api/data/facets`)
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('facets ' + r.status)))
+    .then(f => {
+      const live = (f.countries || []).filter(n => n && n.length > 2 && n !== 'European Union').sort();
+      if (live.length > 50) {
+        countries = live;
+        const det = detectCountry(countries);
+        const keep = countries.includes(sel.value) ? sel.value : (det || countries[0]);
+        fillSelect(countries, keep);
+        if (keep !== word.textContent) setCountry(keep);
+      }
+      if (f.total_records) $id('ebTotal').textContent = f.total_records.toLocaleString('en-US');
+      if (f.bodies) { $id('ebBodies').textContent = f.bodies.length; liveBodies = f.bodies; }
+      const states = (f.countries || []).filter(n => n && n.length > 2 && n !== 'European Union');
+      if (states.length) $id('ebCountries').textContent = states.length;
+    })
+    .catch(() => {});
+})();
+</script>
 </body>
 </html>
