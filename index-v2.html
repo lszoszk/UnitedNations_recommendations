@@ -1202,10 +1202,10 @@
 
   /* country picker styled as the red italic word; a real <select> sits
      transparently on top so it stays native, accessible and mobile-friendly */
-  .h1pick { position: relative; display: inline-block; color: var(--accent); font-style: italic; border-bottom: 3px solid var(--accent); padding-bottom: 2px; cursor: pointer; }
+  .h1pick { position: relative; display: inline-block; color: var(--accent); font-style: italic; border-bottom: 3px solid var(--accent); padding: 0 10px 2px; cursor: pointer; background: color-mix(in oklab, var(--accent) 7%, transparent); border-radius: 5px 5px 0 0; transition: background .12s; }
   .h1pick .h1caret { font-family: var(--mono); font-style: normal; font-size: .38em; vertical-align: .55em; margin-left: 8px; letter-spacing: 0; }
   .h1pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
-  .h1pick:hover { background: color-mix(in oklab, var(--accent) 8%, transparent); }
+  .h1pick:hover { background: color-mix(in oklab, var(--accent) 16%, transparent); }
   .h1pick:focus-within { outline: 2px solid var(--accent); outline-offset: 4px; }
 
   .ans-label { font: 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px; margin: 26px 0 10px; }
@@ -1310,7 +1310,7 @@
 
       <h1 class="headline">
         What has the UN<br>
-        told <span class="h1pick"><span id="heroCountryWord">your country</span><span class="h1caret">▾</span><select id="heroCountry" aria-label="Choose a country"></select></span><br>
+        told <span class="h1pick" title="Change country — pick any of 198"><span id="heroCountryWord">your country</span><span class="h1caret">▾</span><select id="heroCountry" aria-label="Choose a country"></select></span><br>
         to fix?
       </h1>
 
@@ -1381,8 +1381,8 @@
            #figAlt machinery once a winner is chosen. -->
       <div class="fig-switch" role="group" aria-label="Figure variant switcher">
         <span>FIG 01:</span>
-        <button data-fig="dots" class="on">Dots</button>
-        <button data-fig="a">A · Seismo</button>
+        <button data-fig="dots">Dots</button>
+        <button data-fig="a" class="on">A · Seismo</button>
         <button data-fig="b">B · Document</button>
         <button data-fig="c">C · Registry</button>
         <button data-fig="d">D · Streams</button>
@@ -3275,6 +3275,22 @@
 
   const trim = (s, n) => { s = (s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
   const esc  = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  /* short code → full body name for the answer-card tooltip, so a layperson
+     can hover "CESCR" and read what it is. The treaty-body acronyms are the
+     opaque ones; SR/IE/WG mandates are expanded by prefix. */
+  const BODY_FULL = {
+    UPR: 'Universal Periodic Review', CAT: 'Committee against Torture',
+    CCPR: 'Human Rights Committee (ICCPR)', CEDAW: 'Committee on the Elimination of Discrimination against Women',
+    CERD: 'Committee on the Elimination of Racial Discrimination', CESCR: 'Committee on Economic, Social and Cultural Rights',
+    CMW: 'Committee on Migrant Workers', CRC: 'Committee on the Rights of the Child',
+    CRPD: 'Committee on the Rights of Persons with Disabilities', CED: 'Committee on Enforced Disappearances',
+    SPT: 'Subcommittee on Prevention of Torture', 'CRC-OP-AC': 'CRC — Optional Protocol on armed conflict',
+    'CRC-OP-SC': 'CRC — Optional Protocol on the sale of children',
+  };
+  const bodyFull = (code) => BODY_FULL[code]
+    || (/^SR /.test(code) ? 'Special Rapporteur on ' + code.slice(3)
+      : /^IE /.test(code) ? 'Independent Expert on ' + code.slice(3)
+      : /^WG /.test(code) ? 'Working Group on ' + code.slice(3) : code);
 
   async function loadAnswer(name) {
     if (aborter) aborter.abort();
@@ -3317,7 +3333,8 @@
         `${(d.total_records || 0).toLocaleString('en-US')} recommendations to ${name}${latestYr ? ' · latest ' + latestYr : ''}`;
 
       $id('ansCards').innerHTML = recs.map(rec => {
-        const body = esc((rec.Body || '').replace(/^[-\s]+/, ''));
+        const rawBody = (rec.Body || '').replace(/^[-\s]+/, '');
+        const body = esc(rawBody);
         const yr   = esc((rec.PublicationDate || '').slice(0, 4));
         /* strip UN paragraph numbering so the card reads as a quote —
            handles both "118. The Independent Expert…" and the UPR's
@@ -3326,7 +3343,7 @@
           .replace(/^\s*(?:\d{1,3}\s*\.\s*)+/, '')
           .replace(/^\s*\d{1,3}\s+(?=[A-Z“"])/, '');
         const txt  = esc(trim(raw, 180));
-        return `<div class="ans-card"><div class="meta"><b>${body}</b><span>${yr}</span></div><div class="q">“${txt}”</div></div>`;
+        return `<div class="ans-card"><div class="meta"><b title="${esc(bodyFull(rawBody))}" style="cursor:help">${body}</b><span>${yr}</span></div><div class="q">“${txt}”</div></div>`;
       }).join('');
 
       const seeAll = $id('ansSeeAll');
@@ -3348,7 +3365,7 @@
 
   /* ====== FIG comparison rig (?fig=dots|a|b|c|d|e) ====================== */
   const FIGS = ['dots', 'a', 'b', 'c', 'd', 'e'];
-  let curFig = (new URLSearchParams(location.search).get('fig') || 'dots').toLowerCase();
+  let curFig = (new URLSearchParams(location.search).get('fig') || 'a').toLowerCase();
   if (!FIGS.includes(curFig)) curFig = 'dots';
   let lastData = null;          // {name, count, fetched, pool} from loadAnswer
   const anCache = {};           // per-country analytics cache
