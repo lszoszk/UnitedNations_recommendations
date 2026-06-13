@@ -233,13 +233,10 @@ function renderDrawer() {
       <button class="bm-star ${starred ? 'on' : ''}" id="drStar" title="${starred ? 'Remove bookmark' : 'Bookmark this record'} (b)" aria-label="Toggle bookmark">${starred ? '★' : '☆'}</button>
     </div>
     <div class="dr-yr">${sanitize(yr || '—')}</div>
-    ${kwCount ? `<div class="rd-kw-hint" style="margin-top:-6px;margin-bottom:8px"><kbd>${sanitize(kw)}</kbd> matched ${kwCount}× in this text</div>` : ''}
-    <div class="dr-text">${highlightKeyword(txt, kw)}</div>
-    <div class="dr-tags">
-      ${themes.slice(0, 4).map(t => `<span class="dr-tag theme" role="button" tabindex="0" data-tag-kind="theme" data-tag-value="${sanitize(t)}" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}
-      ${groups.slice(0, 4).map(g => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}
-      ${sdgs.slice(0, 3).map(s => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(s)}</span>`).join('')}
-    </div>
+    <!-- Metadata + actions sit ABOVE the (often long) text so the record's
+         identity (symbol/body/country) and the primary actions — above all
+         Cite, the expert's most-used action — are reachable without
+         scrolling to the bottom of the paragraph. -->
     <dl class="dr-meta">
       <dt>Country</dt><dd>${sanitize(country)}</dd>
       <dt>Region</dt><dd>${sanitize((r.Regions || [])[0] || '—')}</dd>
@@ -248,9 +245,8 @@ function renderDrawer() {
       <dt>Type</dt><dd>${sanitize(type)}</dd>
     </dl>
     <div class="dr-actions">
-      <button class="dr-btn primary" id="drOpen">Focus reader →</button>
       <div class="cite-picker">
-        <button class="dr-btn" id="drCite">Cite ▾</button>
+        <button class="dr-btn primary" id="drCite">Cite ▾</button>
         <div class="cite-dropdown" id="citeDropdown">
           ${CITE_FORMATS.map(c => `
             <div class="cite-item" data-cite="${c.key}">
@@ -259,8 +255,16 @@ function renderDrawer() {
             </div>`).join('')}
         </div>
       </div>
+      <button class="dr-btn" id="drOpen">Focus reader →</button>
       <button class="dr-btn" id="drPin" title="Pin for side-by-side compare">${diffIsPinned(r.AnnotationId) ? '📌 Pinned' : '📌 Pin'}</button>
       <button class="dr-btn report" id="drReport" title="Report a data-quality issue with this record">🚩 Report</button>
+    </div>
+    ${kwCount ? `<div class="rd-kw-hint" style="margin-top:-6px;margin-bottom:8px"><kbd>${sanitize(kw)}</kbd> matched ${kwCount}× in this text</div>` : ''}
+    <div class="dr-text">${highlightKeyword(txt, kw)}</div>
+    <div class="dr-tags">
+      ${themes.slice(0, 4).map(t => `<span class="dr-tag theme" role="button" tabindex="0" data-tag-kind="theme" data-tag-value="${sanitize(t)}" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}
+      ${groups.slice(0, 4).map(g => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}
+      ${sdgs.slice(0, 3).map(s => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(s)}</span>`).join('')}
     </div>
     <div class="dr-note-block">
       <label class="dr-note-label" for="drNote">📝 Your note <span class="hint">private · saved in this browser</span></label>
