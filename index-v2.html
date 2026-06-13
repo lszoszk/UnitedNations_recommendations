@@ -1306,7 +1306,7 @@
 <section class="hero" id="hero">
   <div class="grid">
     <div>
-      <div class="eyebrow"><span><span class="ebn" id="ebTotal">267,671</span> recommendations · <span class="ebn" id="ebCountries">198</span> countries · <span class="ebn" id="ebBodies">70</span> UN bodies · 2006 — 2026</span></div>
+      <div class="eyebrow"><span><span class="ebn" id="ebTotal">267,671</span> records · <span class="ebn" id="ebCountries">198</span> countries · <span class="ebn" id="ebBodies">70</span> UN bodies · 2006 — 2026</span></div>
 
       <h1 class="headline">
         What has the UN<br>
@@ -3331,10 +3331,11 @@
 
       const seeAll = $id('ansSeeAll');
       seeAll.textContent = `See all ${(d.total_records || 0).toLocaleString('en-US')} recommendations to ${name} →`;
-      const iso = (typeof window.__nameToIso3 === 'function' && window.__nameToIso3(name)) || '';
-      seeAll.href = iso
-        ? `./dashboard.html#view=country&fc=${encodeURIComponent(iso)}`
-        : `./dashboard.html#country=${encodeURIComponent(name)}&view=search`;
+      /* Land on the SAME slice the count promises — search filtered to this
+         country + Recommendations type — so the dashboard reads "1,191
+         matching recommendations", not the country profile's all-types total
+         (which would show e.g. 1,689 and read as a contradiction). */
+      seeAll.href = `./dashboard.html#country=${encodeURIComponent(name)}&type=Recommendations&view=search`;
 
       $id('heroAnswer').hidden = false;
       lastData = { name, count: d.total_records || 0, fetched, pool };
