@@ -1280,7 +1280,7 @@
   </div>
   <!-- Section nav lives inside the topbar so it never overlaps content -->
   <nav class="section-nav" id="sectionNav" aria-label="Page sections" style="justify-self:center">
-    <button class="nav-item active" data-to="#hero">      <span class="n">01</span><span class="lbl">Hero</span></button>
+    <button class="nav-item active" data-to="#hero">      <span class="n">01</span><span class="lbl">Start</span></button>
     <button class="nav-item"        data-to="#themes">    <span class="n">02</span><span class="lbl">What</span></button>
     <button class="nav-item"        data-to="#countries"> <span class="n">03</span><span class="lbl">Where</span></button>
     <button class="nav-item"        data-to="#how">       <span class="n">04</span><span class="lbl">How</span></button>
@@ -1313,49 +1313,26 @@
         Built for advocates, researchers and journalists.
       </p>
 
-      <!-- live answer: 2 real recommendations for the selected country.
-           Hidden until the first successful fetch; the page degrades to the
-           classic lede + CTA when the VM is unreachable. -->
-      <div id="heroAnswer" hidden>
-        <div class="ans-label" id="ansLabel">loading…</div>
-        <div id="ansCards"></div>
-        <a class="ans-seeall" id="ansSeeAll" href="./dashboard.html">See all →</a>
-      </div>
-
-      <!-- v2: single primary CTA — Methodology stays one click away in the
-           topbar and owns the HOW section below; the hero shouldn't split
-           attention between "use it" and "audit it". -->
+      <!-- Primary actions sit directly under the lede so they stay above the
+           fold at any zoom. The live answer block (which can be tall) is
+           rendered BELOW them as supporting proof — see #heroAnswer further
+           down — so its height can never push the actions off-screen.
+           Methodology stays one click away in the topbar and owns the HOW
+           section below; the hero shouldn't split attention between "use it"
+           and "audit it", so this is the single primary CTA. -->
       <div class="cta-row">
         <a class="btn" href="./dashboard.html">
           Open the dashboard <span class="arrow">→</span>
         </a>
       </div>
 
-      <!-- Landing search: autocomplete-on-type over countries / themes /
-           mechanisms. Picks route the user straight to the right profile
-           tab on the dashboard. Wrapped in a <form> so Enter-without-JS
-           still works — and even if JS partially runs, the onsubmit
-           fallback here routes to the currently-active suggestion
-           (same semantics as the keydown handler) before falling back
-           to full-text keyword search. -->
-      <form class="landing-search" role="search" id="landingSearchForm"
-            action="./dashboard.html" method="get"
-            onsubmit="event.preventDefault(); var dd=document.getElementById('landingSearchDropdown'); var pick=dd&&dd.querySelector('.ls-item.active')||dd&&dd.querySelector('.ls-item'); if(pick&&pick.dataset.route){location.href=pick.dataset.route;return false;} var q=this.q.value.trim(); if(q)location.href='./dashboard.html#q='+encodeURIComponent(q)+'&view=search'; return false;">
-        <div class="ls-box">
-          <span class="ls-ico" aria-hidden="true">⌕</span>
-          <input id="landingSearch" name="q" type="search" autocomplete="off"
-                 placeholder="Jump to country, theme, mechanism — or search 267K recommendations…"
-                 aria-label="Search the dataset or jump to a profile"
-                 role="combobox" aria-autocomplete="list"
-                 aria-controls="landingSearchDropdown" aria-expanded="false" />
-          <kbd class="ls-kbd">↵</kbd>
-        </div>
-        <div class="ls-dropdown" id="landingSearchDropdown" role="listbox" hidden></div>
-      </form>
-
-      <div class="hero-trust">
-        Built at <b>Adam Mickiewicz University</b>, Poznań · Supported by <b>re:constitution</b> &amp; <b>HURIDOCS</b><br>
-        Independent project — not affiliated with OHCHR or the United Nations.
+      <!-- live answer: 2 real recommendations (two different treaty bodies,
+           never UPR) for the selected country, filling the left column under
+           the pitch. Hidden until the first successful fetch. -->
+      <div id="heroAnswer" hidden>
+        <div class="ans-label" id="ansLabel">loading…</div>
+        <div id="ansCards"></div>
+        <a class="ans-seeall" id="ansSeeAll" href="./dashboard.html">See all →</a>
       </div>
     </div>
 
@@ -1373,6 +1350,13 @@
         <canvas id="countryDots" aria-hidden="true"></canvas>
         <div id="figAlt" aria-live="polite"></div>
         <div class="tip" id="fieldTip"></div>
+      </div>
+      <!-- Institutional credit + independence disclaimer, as a quiet footer
+           under the figure on the right; the recommendations now fill the
+           left column. -->
+      <div class="hero-trust">
+        Built at <b>Adam Mickiewicz University</b>, Poznań · Supported by <b>re:constitution</b> &amp; <b>HURIDOCS</b><br>
+        Independent project — not affiliated with OHCHR or the United Nations.
       </div>
     </div>
   </div>
@@ -1392,6 +1376,25 @@
       <h2 class="t">The recommendations cluster around a handful of persistent themes.</h2>
       <div class="ctx">Top 10 of 100 tags · n=267,671</div>
     </div>
+
+    <!-- Full-text search / jump bar. The hero's country picker handles "find
+         my country"; keyword + theme + mechanism search lives here, at the
+         head of the themes section it feeds into. Same #ids as before, so the
+         autocomplete wiring is unchanged by the move. -->
+    <form class="landing-search" role="search" id="landingSearchForm" style="margin:0 0 30px"
+          action="./dashboard.html" method="get"
+          onsubmit="event.preventDefault(); var dd=document.getElementById('landingSearchDropdown'); var pick=dd&&dd.querySelector('.ls-item.active')||dd&&dd.querySelector('.ls-item'); if(pick&&pick.dataset.route){location.href=pick.dataset.route;return false;} var q=this.q.value.trim(); if(q)location.href='./dashboard.html#q='+encodeURIComponent(q)+'&view=search'; return false;">
+      <div class="ls-box">
+        <span class="ls-ico" aria-hidden="true">⌕</span>
+        <input id="landingSearch" name="q" type="search" autocomplete="off"
+               placeholder="Search 267K recommendations — or jump to a theme, country, mechanism…"
+               aria-label="Search the dataset or jump to a profile"
+               role="combobox" aria-autocomplete="list"
+               aria-controls="landingSearchDropdown" aria-expanded="false" />
+        <kbd class="ls-kbd">↵</kbd>
+      </div>
+      <div class="ls-dropdown" id="landingSearchDropdown" role="listbox" hidden></div>
+    </form>
 
     <div class="bar-grid">
       <div class="bar-list" id="themeList">
@@ -3310,11 +3313,37 @@
       }
       if (!pool.length) pool = fetched;   // last resort: UPR is better than nothing
 
-      const recs = [pool[0]];
-      const second = pool.find(x => x.Body !== pool[0].Body) || pool[1];
-      if (second) recs.push(second);
+      /* Two featured quotes from TWO DIFFERENT treaty bodies (never UPR) —
+         treaty-body paragraphs are the substantive, quotable ones. The recent
+         window is often dominated by UPR + Special Procedures, so if it
+         doesn't already hold two distinct treaty bodies, fetch treaty-body
+         recommendations explicitly. Special Procedures fill in only when a
+         country genuinely lacks two distinct TBs. (TB_CODES is defined below
+         in the same scope and is initialised by the time this runs.) */
+      const distinct2 = (list) => {
+        const out = [];
+        for (const rec of list) {
+          if (out.length >= 2) break;
+          if (!out.some(r => bodyName(r) === bodyName(rec))) out.push(rec);
+        }
+        return out;
+      };
+      const tbOnly = (list) => list.filter(rec => TB_CODES.includes(bodyName(rec)));
+      let recs = distinct2(tbOnly(pool));
+      if (recs.length < 2) {
+        try {
+          const ptb = new URLSearchParams({
+            countries: name, annotation_type: 'Recommendations', bodies: TB_CODES.join('|'),
+            sort_by: 'publication_date', sort_dir: 'desc', page_size: '40',
+          });
+          const rtb = await fetch(`${API}/api/data/records?${ptb}`, { signal: aborter.signal });
+          if (rtb.ok) recs = distinct2(tbOnly((await rtb.json()).records || []));
+        } catch {}
+      }
+      if (recs.length < 2) recs = distinct2([...recs, ...pool.filter(r => bodyName(r) !== 'UPR')]);
+      if (!recs.length) recs = [pool[0] || fetched[0]];
 
-      const latestYr = (recs[0].PublicationDate || '').slice(0, 4);
+      const latestYr = (fetched[0].PublicationDate || '').slice(0, 4);
       $id('ansLabel').textContent =
         `${(d.total_records || 0).toLocaleString('en-US')} recommendations to ${name}${latestYr ? ' · latest ' + latestYr : ''}`;
 
@@ -3397,7 +3426,7 @@
             + `<rect class="hit" x="${(padL + i * bw).toFixed(1)}" y="${top}" width="${bw.toFixed(1)}" height="${base - top}" fill="transparent"/>`
             + segs + `</g>`;
     });
-    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%" role="img" aria-label="${esc(name)}: recommendations per year, stacked by mechanism">
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%" role="group" aria-label="${esc(name)}: recommendations per year, stacked by mechanism. Each year bar is a link.">
       <line x1="${padL}" y1="${base}" x2="${W - padR}" y2="${base}" stroke="var(--ink)" stroke-width="1" opacity=".4"/>
       ${bars}
       <text x="${padL}" y="${base + 16}" font-size="10" fill="var(--dim)" font-family="JetBrains Mono,monospace">2006</text>
