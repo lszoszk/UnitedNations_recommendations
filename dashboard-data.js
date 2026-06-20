@@ -323,7 +323,17 @@ function _loadProfile(entityType, entityValue, scopeOverride) {
     const combine = (analytics, mapD, records) => ({ analytics, mapD, records });
     return {
       stale: (anSwr.stale && mpSwr.stale && rcSwr.stale) ? combine(anSwr.stale, mpSwr.stale, rcSwr.stale) : null,
-      fresh: Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]).then(([analytics, mapD, records]) => combine(analytics, mapD, records)),
+      // allSettled, not all: one section 5xx-ing shouldn't blank the whole
+      // profile (the renderers already tolerate missing sections). Still reject
+      // on supersession (AbortError) so we don't paint stale partial data, and
+      // on total failure so the error path shows.
+      fresh: Promise.allSettled([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]).then((res) => {
+        const aborted = res.find(x => x.status === 'rejected' && x.reason && x.reason.name === 'AbortError');
+        if (aborted) throw aborted.reason;
+        if (res.every(x => x.status === 'rejected')) throw res[0].reason;
+        const val = x => x.status === 'fulfilled' ? x.value : null;
+        return combine(val(res[0]), val(res[1]), val(res[2]));
+      }),
     };
   };
 

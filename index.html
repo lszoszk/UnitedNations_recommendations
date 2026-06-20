@@ -2837,12 +2837,13 @@
            layout doesn't jump when data arrives. */
         const cached = _hoverAnalyticsCache.get(iso);
         const breakdownHtml = _renderBreakdown(cached);
+        hexTip.dataset.iso = iso;
         hexTip.innerHTML = `
           <div class="nb">${iso} · ${Math.round(n/HEX_MAX*100)}% of max</div>
           <div class="nm">${name}</div>
           <div class="ln"></div>
           <div class="row"><span>Recommendations</span><b>${fmt(n)}</b></div>
-          ${breakdownHtml}`;
+          <div class="brk-body">${breakdownHtml}</div>`;
         _positionTooltip(hexTip, hexWrap, e);
         // Kick off fetch if we don't have cached data yet.
         if (!cached || cached.status === 'error') _fetchCountryAnalytics(iso, name, hexTip);
@@ -2929,18 +2930,13 @@
         label: g.affected_person, count: g.count,
       }));
       _hoverAnalyticsCache.set(iso, { status: 'ready', themes, groups });
-      // If the tooltip is still showing THIS country, refresh its body.
-      if (tipEl.classList.contains('show') && tipEl.textContent.includes(iso)) {
-        const brk = tipEl.querySelector('.brk-head');
-        if (brk) {
-          // Rebuild just the trailing breakdown block, preserving the head.
-          const loadingRow = tipEl.querySelector('.row[style*="italic"]');
-          if (loadingRow) loadingRow.remove();
-        }
-        tipEl.innerHTML = tipEl.innerHTML.replace(
-          /<div class="row" style="color:var\(--dim\);font-size:10px">[\s\S]*?<\/div>/,
-          _renderBreakdown(_hoverAnalyticsCache.get(iso))
-        );
+      // If the tooltip is still showing THIS exact country, swap only the
+      // breakdown body — a targeted innerHTML on the stable .brk-body node,
+      // not a blind regex over the whole tooltip's serialized HTML (which
+      // matched nothing once the loading row was removed, dropping the data).
+      if (tipEl.classList.contains('show') && tipEl.dataset.iso === iso) {
+        const body = tipEl.querySelector('.brk-body');
+        if (body) body.innerHTML = _renderBreakdown(_hoverAnalyticsCache.get(iso));
       }
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -3417,7 +3413,9 @@
   async function getAnalytics(name) {
     if (anCache[name]) return anCache[name];
     try {
-      const r = await fetch(`${API}/api/data/analytics?${new URLSearchParams({ countries: name })}`);
+      // Cancel on the next country switch (shares loadAnswer's controller) so a
+      // slow analytics response can't paint a stale seismograph over the new one.
+      const r = await fetch(`${API}/api/data/analytics?${new URLSearchParams({ countries: name })}`, { signal: aborter?.signal });
       if (!r.ok) return null;
       return (anCache[name] = await r.json());
     } catch { return null; }
