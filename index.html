@@ -99,17 +99,24 @@
     --paper-2: #EAE6DD;
     --ink: #0F0F10;
     --ink-2: #2A2824;
-    --dim: #5F5C57;
-    --dimmer: #A39E94;
+    /* WCAG 2.2 AA contrast: ported from the dashboard's remediated tokens.
+       --dimmer #A39E94 was ~2.1:1 and --accent L=0.62 ~3.43:1 (both fail as
+       text); darkened to match the dashboard (and unify the two pages). */
+    --dim: #525049;
+    --dimmer: #67645E;
     --line: rgba(15,15,16,.14);
     --line-2: rgba(15,15,16,.06);
-    --accent: oklch(0.62 0.17 27);
-    --accent-soft: oklch(0.62 0.17 27 / .14);
+    --accent: oklch(0.50 0.17 27);
+    --accent-soft: oklch(0.50 0.17 27 / .14);
     --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     --serif: "Instrument Serif", "Times New Roman", serif;
   }
 
   html, body { background: var(--paper); color: var(--ink); }
+
+  /* Visible keyboard focus on every interactive control (the landing had none
+     — only the picker + search box had focus styling). Matches the dashboard. */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   html {
     scroll-behavior: smooth;
     scroll-snap-type: y proximity;  /* soft snap — lets users stop between sections */
@@ -1244,7 +1251,7 @@
   /* seismo bars are links: hover/focus paints the year column */
   #figAlt .sb { cursor: pointer; }
   #figAlt .sb:hover .hit, #figAlt .sb:focus .hit { fill: color-mix(in oklab, var(--accent) 12%, transparent); }
-  #figAlt .sb:focus { outline: none; }
+  #figAlt .sb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   /* fig B — the document sheet */
   .figdoc { position: relative; width: min(420px, 92%); margin: 8px auto 0; height: calc(100% - 14px); }
@@ -1321,7 +1328,7 @@
            section below; the hero shouldn't split attention between "use it"
            and "audit it", so this is the single primary CTA. -->
       <div class="cta-row">
-        <a class="btn" href="./dashboard.html">
+        <a class="btn" id="heroCta" href="./dashboard.html">
           Open the dashboard <span class="arrow">→</span>
         </a>
       </div>
@@ -2030,6 +2037,9 @@
     const dd = document.getElementById('landingSearchDropdown');
     const inp = document.getElementById('landingSearch');
     if (!dd) return;
+    // Escape every interpolated value before it reaches innerHTML — the empty
+    // state echoes the user's query, which is otherwise a DOM-XSS sink.
+    const escH = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const query = (q || '').toLowerCase().trim();
     if (!query) {
       dd.hidden = true;
@@ -2046,13 +2056,13 @@
           const it = x.it;
           const kindLbl = { country: 'COUNTRY', theme: 'THEME', body: 'BODY' }[it.type] || it.type.toUpperCase();
           const countStr = it.count ? fmt(it.count) : '';
-          return `<div class="ls-item${i === _searchActive ? ' active' : ''}" data-route="${it.route}" role="option" aria-selected="${i === _searchActive ? 'true' : 'false'}">
+          return `<div class="ls-item${i === _searchActive ? ' active' : ''}" data-route="${escH(it.route)}" role="option" aria-selected="${i === _searchActive ? 'true' : 'false'}">
             <span class="kind">${kindLbl}</span>
-            <span class="lbl">${it.label}</span>
+            <span class="lbl">${escH(it.label)}</span>
             <span class="n">${countStr}</span>
           </div>`;
         }).join('')
-      : `<div class="ls-empty">No jump-to match. Press <kbd>Enter</kbd> to search all records for "${query}".</div>`;
+      : `<div class="ls-empty">No jump-to match. Press <kbd>Enter</kbd> to search all records for "${escH(query)}".</div>`;
     const hintText = scored.length
       ? `<div class="ls-hint">Press <kbd>↵</kbd> to jump to the top match, or <kbd>↑</kbd> <kbd>↓</kbd> to pick another.</div>`
       : `<div class="ls-hint">No suggestions — <kbd>↵</kbd> runs a full-text search instead.</div>`;
@@ -2967,8 +2977,10 @@
     document.body.dataset.palette = tw.palette || "archive";
     // accent hue override only for 'archive' palette
     if ((tw.palette || "archive") === "archive") {
-      document.documentElement.style.setProperty("--accent", `oklch(0.62 0.17 ${tw.accentHue})`);
-      document.documentElement.style.setProperty("--accent-soft", `oklch(0.62 0.17 ${tw.accentHue} / .14)`);
+      // L=0.50 (was 0.62 ≈ 3.43:1, failing as text) — matches the dashboard's
+      // WCAG-remediated accent so the two pages share one red.
+      document.documentElement.style.setProperty("--accent", `oklch(0.50 0.17 ${tw.accentHue})`);
+      document.documentElement.style.setProperty("--accent-soft", `oklch(0.50 0.17 ${tw.accentHue} / .14)`);
     } else {
       document.documentElement.style.removeProperty("--accent");
       document.documentElement.style.removeProperty("--accent-soft");
@@ -3283,7 +3295,7 @@
 
   async function loadAnswer(name) {
     if (aborter) aborter.abort();
-    aborter = new AbortController();
+    const mine = aborter = new AbortController();
     const p = new URLSearchParams({
       countries: name, annotation_type: 'Recommendations',
       sort_by: 'publication_date', sort_dir: 'desc', page_size: '24',
@@ -3343,6 +3355,11 @@
       if (recs.length < 2) recs = distinct2([...recs, ...pool.filter(r => bodyName(r) !== 'UPR')]);
       if (!recs.length) recs = [pool[0] || fetched[0]];
 
+      /* A newer country switch may have aborted this request while the
+         fallback fetches above were in flight (their AbortErrors are swallowed
+         locally) — bail before writing stale cards/seismograph. */
+      if (mine.signal.aborted) return;
+
       const latestYr = (fetched[0].PublicationDate || '').slice(0, 4);
       $id('ansLabel').textContent =
         `${(d.total_records || 0).toLocaleString('en-US')} recommendations to ${name}${latestYr ? ' · latest ' + latestYr : ''}`;
@@ -3368,6 +3385,18 @@
          matching recommendations", not the country profile's all-types total
          (which would show e.g. 1,689 and read as a contradiction). */
       seeAll.href = `./dashboard.html#country=${encodeURIComponent(name)}&type=Recommendations&view=search`;
+
+      /* The primary CTA must carry the picked country into the dashboard —
+         without this it opened the default (busiest-country) overview, which
+         read as "ignored what I asked". Prefer the country profile via ISO;
+         fall back to the same filtered slice the "See all" link uses. */
+      const heroCta = $id('heroCta');
+      if (heroCta) {
+        const iso = window.__nameToIso3 ? window.__nameToIso3(name) : null;
+        heroCta.href = iso
+          ? `./dashboard.html#fc=${iso}&view=country`
+          : `./dashboard.html#country=${encodeURIComponent(name)}&type=Recommendations&view=search`;
+      }
 
       $id('heroAnswer').hidden = false;
       lastData = { name, count: d.total_records || 0, fetched, pool };
