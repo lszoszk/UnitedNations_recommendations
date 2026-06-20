@@ -8,18 +8,50 @@
    Build canonical citation strings from the record. All five formats reference
    the same UN document symbol + OHCHR UHRI as the host database; differences
    are in field ordering, punctuation, and year placement. */
+// Acronym → full institutional name. Recognised citation forms name the body
+// in full ("Human Rights Committee", not "CCPR."), so citations use this. Note
+// CCPR is the *committee*, not the ICCPR treaty it monitors; CMW carries its
+// full official title. SR/IE/WG mandates are expanded by prefix.
+const _CITE_BODY_FULL = {
+  UPR: 'Universal Periodic Review',
+  CAT: 'Committee against Torture',
+  CCPR: 'Human Rights Committee',
+  CED: 'Committee on Enforced Disappearances',
+  CEDAW: 'Committee on the Elimination of Discrimination against Women',
+  CERD: 'Committee on the Elimination of Racial Discrimination',
+  CESCR: 'Committee on Economic, Social and Cultural Rights',
+  CMW: 'Committee on the Protection of the Rights of All Migrant Workers and Members of Their Families',
+  CRC: 'Committee on the Rights of the Child',
+  CRPD: 'Committee on the Rights of Persons with Disabilities',
+  SPT: 'Subcommittee on Prevention of Torture',
+  'CRC-OP-AC': 'Committee on the Rights of the Child (Optional Protocol on armed conflict)',
+  'CRC-OP-SC': 'Committee on the Rights of the Child (Optional Protocol on the sale of children)',
+};
+function _bodyFullName(code) {
+  code = String(code || '').replace(/^[-\s]+/, '').trim();
+  if (_CITE_BODY_FULL[code]) return _CITE_BODY_FULL[code];
+  if (/^SR /.test(code)) return 'Special Rapporteur on ' + code.slice(3);
+  if (/^IE /.test(code)) return 'Independent Expert on ' + code.slice(3);
+  if (/^WG /.test(code)) return 'Working Group on ' + code.slice(3);
+  return code;   // unknown body code — cite as-is rather than guess
+}
+
 function _citeBaseFields(r) {
   const yr = (r.PublicationDate || '').slice(0, 4) || 'n.d.';
   const country = cleanCountryName((r.Countries || [])[0] || '');
   const body = cleanLabel(r.Body || '');
+  const fullBody = _bodyFullName(r.Body || body);
   const theme = (r.Themes || [])[0] || '';
   // Never fall back to AnnotationId — an internal UUID printed as a "UN Doc."
   // symbol is a fabricated-looking citation. Empty symbol is handled below.
   const symbol = (r.Symbol || '').trim();
   const txt = (r.TextPlainCleaned || r.Text || '').trim();
-  // Pinpoint: treaty-body / Special-Procedure paragraphs almost always begin
-  // with their own number ("23. The Committee recommends…"). Best-effort.
-  const pm = txt.match(/^\s*(\d{1,3})\s*\./);
+  // Pinpoint: treaty-body / Special-Procedure paragraphs begin "23. The
+  // Committee…"; UPR uses a compound "129.106 …" (session.recommendation) or a
+  // bare "106 …". Capture the full number — including the UPR compound — but
+  // only when it's clearly a leading enumerator (followed by a capitalised
+  // word or quote), so "18 years of age…" doesn't become a paragraph number.
+  const pm = txt.match(/^\s*(\d{1,3}(?:\.\d{1,3})+|\d{1,3})\.?\s+(?=[A-Z“"(])/);
   const para = pm ? pm[1] : '';
   // Title: a section heading if present, else the annotation type — never a
   // truncated sentence (which reads as a fake work title and is not how UN
@@ -27,12 +59,12 @@ function _citeBaseFields(r) {
   const sections = r.SectionHeadings || [];
   const typeLabel = (typeof cleanAnnotationType === 'function'
     ? cleanAnnotationType(r.AnnotationType || '') : '') || '';
-  const title = sections[0] || typeLabel || body || 'UN human-rights record';
+  const title = sections[0] || typeLabel || fullBody || 'UN human-rights record';
   // Primary URL = the authoritative UN document (undocs.org resolves by symbol
   // and redirects to docs.un.org). The dashboard deep-link is only a fallback.
   const sourceUrl = symbol ? 'https://undocs.org/' + encodeURI(symbol) : '';
   const shareUrl = location.origin + location.pathname + '#sel=' + encodeURIComponent(r.AnnotationId || '');
-  return { yr, country, body, theme, symbol, para, title, sourceUrl, shareUrl, id: r.AnnotationId || '' };
+  return { yr, country, body, fullBody, theme, symbol, para, title, sourceUrl, shareUrl, id: r.AnnotationId || '' };
 }
 
 /* "UN Doc. SYMBOL, para. N" — empty string when there is no official symbol. */
@@ -49,14 +81,14 @@ function _citeUrl(f) {
 
 function citeAPA(r) {
   const f = _citeBaseFields(r);
-  const author = f.body || 'United Nations';
+  const author = f.fullBody || 'United Nations';
   const doc = _citeDoc(f);
   return `${author}. (${f.yr}). ${f.title}${f.country ? ' — ' + f.country : ''}${doc ? ' [' + doc + ']' : ''}. United Nations. ${_citeUrl(f)}`;
 }
 
 function citeChicago(r) {
   const f = _citeBaseFields(r);
-  const author = f.body || 'United Nations';
+  const author = f.fullBody || 'United Nations';
   const doc = _citeDoc(f);
   return [
     `${author}, "${f.title}${f.country ? ', ' + f.country : ''},"`,
@@ -71,7 +103,7 @@ function citeBibTeX(r) {
   const key = 'UHRI_' + (f.id.replace(/-/g, '').slice(0, 10) || f.yr);
   const esc = s => String(s || '').replace(/[{}%&#_$]/g, '\\$&');
   return `@misc{${key},
-  author       = {${esc(f.body || 'United Nations')}},
+  author       = {${esc(f.fullBody || 'United Nations')}},
   title        = {${esc(f.title)}},
   year         = {${esc(f.yr)}},
   howpublished = {${f.symbol ? 'UN Doc. ' + esc(f.symbol) + (f.para ? ', para. ' + f.para : '') : 'United Nations document'}},
@@ -84,10 +116,12 @@ function citeRIS(r) {
   const f = _citeBaseFields(r);
   return [
     'TY  - GEN',
-    'AU  - ' + (f.body || 'United Nations'),
+    'AU  - ' + (f.fullBody || 'United Nations'),
     'PY  - ' + f.yr,
     'TI  - ' + f.title,
-    'PB  - United Nations (OHCHR Universal Human Rights Index)',
+    // Publisher is the UN (the issuing organ); UHRI is only the index we
+    // retrieved it through — that belongs in the note (N1), not PB.
+    'PB  - United Nations',
     f.symbol ? 'ID  - ' + f.symbol : '',
     f.para ? 'SP  - ' + f.para : '',
     f.country ? 'CY  - ' + f.country : '',
