@@ -45,12 +45,23 @@
    COMMAND PALETTE
    ========================================================================= */
 function openPalette() {
-  $('#cmdPalette').classList.remove('hidden');
+  // a11y: it's a modal dialog — remember what to return focus to, and trap Tab
+  // inside it (cmdInput is the only focusable, so Tab just stays put rather
+  // than escaping to the page behind the overlay). Esc is handled globally.
+  state._cmdReturnFocus = document.activeElement;
+  const pal = $('#cmdPalette');
+  pal.classList.remove('hidden');
+  pal.onkeydown = (e) => { if (e.key === 'Tab') { e.preventDefault(); $('#cmdInput').focus(); } };
   $('#cmdInput').value = '';
   $('#cmdInput').focus();
   renderPalette('');
 }
-function closePalette() { $('#cmdPalette').classList.add('hidden'); }
+function closePalette() {
+  $('#cmdPalette').classList.add('hidden');
+  // Restore focus to the control that opened the palette (⌘K from anywhere).
+  state._cmdReturnFocus?.focus?.();
+  state._cmdReturnFocus = null;
+}
 
 function renderPalette(q) {
   const qRaw = (q || '').trim();

@@ -220,12 +220,18 @@ window._seSetActiveRecord = _seSetActiveRecord;
    rows pay layout cost, enabling lists with thousands of records to scroll
    smoothly without a virtualization library. */
 let _seObserver = null;
+let _seLoading = false;   // in-flight guard for loadNextSearchPage (prevents double-append on rapid observer re-fire)
 async function renderSearch() {
   const root = $('#view-search');
   const kw = state.filters.kw.trim();
   state.searchPage = 1;
   state.searchLoaded = [];
   state.searchExhausted = false;
+  // Generation token: bumped on every (re-)render so an in-flight page fetch
+  // from a previous sort/filter detects it's stale and discards its rows
+  // instead of appending old-sort records into the freshly-reset list.
+  state._searchGen = (state._searchGen || 0) + 1;
+  _seLoading = false;
   state.currentResultList = [];
   state.currentResultSource = 'search';
   if (_seObserver) { _seObserver.disconnect(); _seObserver = null; }
@@ -443,7 +449,9 @@ function _seUpdateBreakdown() {
 }
 
 async function loadNextSearchPage() {
-  if (state.searchExhausted) return;
+  if (_seLoading || state.searchExhausted) return;
+  _seLoading = true;
+  const gen = state._searchGen;
   const kw = state.filters.kw.trim();
   const pageSize = state.searchPageSize;
   try {
@@ -452,6 +460,10 @@ async function loadNextSearchPage() {
       sort_by: sortOpts.by || 'publication_date',
       sort_dir: sortOpts.dir || 'desc',
     });
+    // A re-sort / re-filter (renderSearch) may have superseded this fetch while
+    // it was in flight — discard the stale page rather than appending its rows
+    // (which would duplicate / mis-map data-idx against the reset list).
+    if (gen !== state._searchGen) return;
     const total = r.total_records;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const n = $('#seN');
@@ -680,5 +692,7 @@ async function loadNextSearchPage() {
       state.searchExhausted = true;
     }
     toast('Search failed: ' + err.message, true);
+  } finally {
+    _seLoading = false;
   }
 }

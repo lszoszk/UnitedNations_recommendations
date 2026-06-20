@@ -29,6 +29,32 @@ function describeCurrentState() {
   return bits.length ? bits.join(', ') : 'no filters';
 }
 
+/* a11y: turn a freshly-built overlay into an accessible modal dialog —
+   role/aria-modal, Esc-to-close, Tab trapped inside, and focus returned to the
+   opener on close. These modals all close via m.remove() (close buttons,
+   backdrop click, item-select), so patching m.remove covers every existing
+   close path. Call AFTER the modal content is in the DOM so the first field
+   can take focus. (The Reader dialog has its own equivalent trap.) */
+function _wireModal(m, label) {
+  const prevFocus = document.activeElement;
+  m.setAttribute('role', 'dialog');
+  m.setAttribute('aria-modal', 'true');
+  if (label) m.setAttribute('aria-label', label);
+  const SEL = 'a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
+  const nodes = () => [...m.querySelectorAll(SEL)];
+  (nodes()[0] || m).focus?.();
+  m.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); m.remove(); return; }
+    if (e.key !== 'Tab') return;
+    const f = nodes(); if (!f.length) { e.preventDefault(); return; }
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  const origRemove = m.remove.bind(m);
+  m.remove = () => { origRemove(); prevFocus?.focus?.(); };
+}
+
 function openSavedViewsModal() {
   const m = document.createElement('div');
   m.className = 'sv-modal';
@@ -87,6 +113,7 @@ function openSavedViewsModal() {
   // Pre-fill with a suggested name based on current filters
   const input = $('#svName', m);
   if (input) input.value = describeCurrentState();
+  _wireModal(m, 'Saved views');
 }
 
 /* =========================================================================
@@ -125,6 +152,7 @@ function openShareModal() {
   document.body.appendChild(m);
   m.addEventListener('click', e => { if (e.target === m) m.remove(); });
   $('#shClose', m).addEventListener('click', () => m.remove());
+  _wireModal(m, 'Share this view');
   $('#shAbout', m)?.addEventListener('click', (e) => { e.preventDefault(); m.remove(); if (typeof navigate === 'function') navigate('about'); });
   $('#shCopy', m).addEventListener('click', () => {
     $('#shUrl', m).select();
@@ -167,6 +195,7 @@ function openReportModal(rec) {
   const close = () => m.remove();
   m.addEventListener('click', e => { if (e.target === m) close(); });
   $('#rptCancel', m).addEventListener('click', close);
+  _wireModal(m, 'Report a data issue');
   $('#rptSend', m).addEventListener('click', async () => {
     $('#rptSend', m).disabled = true;
     $('#rptSend', m).textContent = 'Sending…';
@@ -294,6 +323,7 @@ function triggerUpload() {
   const close = () => m.remove();
   m.addEventListener('click', e => { if (e.target === m) close(); });
   $('#uplCancel', m).addEventListener('click', close);
+  _wireModal(m, 'Upload data');
 
   // File path — JSON (canonical shape) or XLSX (UHRI standard download)
   $('#uplFile', m).addEventListener('change', async e => {
