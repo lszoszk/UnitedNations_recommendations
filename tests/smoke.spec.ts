@@ -251,14 +251,19 @@ test.describe('UHRI Dashboard smoke', () => {
     const expected = counts.cleaned.toLocaleString('en-US');   // e.g. "267,671"
 
     await page.goto('/dashboard.html', { waitUntil: 'commit' });
-    // Footer and cmdk hint are both in static HTML — always present regardless
-    // of data load. They're the canonical surfaces where the dataset number
-    // is visible to users on every view.
+    // Footer and the prominent main-search placeholder are both in static HTML
+    // — always present regardless of data load. They're the canonical surfaces
+    // where the dataset number is visible to users on every view. (The ⌘K hint
+    // intentionally no longer repeats the count; the main search bar carries it
+    // so the two affordances don't compete with duplicate "Search all N" text.)
     const footer = page.locator('.dash-footer');
     await expect(footer).toContainText(expected);
 
-    const cmdkHint = page.locator('.cmdk-hint');
-    await expect(cmdkHint).toContainText(expected);
+    const mainSearch = page.locator('#mainSearchInput');
+    await expect(mainSearch).toHaveAttribute(
+      'placeholder',
+      new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    );
   });
 
   test('6. searchView — extracted search module renders shell and keyword sort', async ({ page }) => {

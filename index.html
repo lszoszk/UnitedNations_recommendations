@@ -1224,6 +1224,15 @@
   .hero-trust { font: 11px var(--mono); letter-spacing: .03em; color: var(--dim); line-height: 1.7; margin-top: 18px; }
   .hero-trust b { color: var(--ink-2); font-weight: 500; }
 
+  /* Glossary terms — dotted-underline buttons that reveal a definition on
+     tap / focus / hover (replaces the old undiscoverable hover-only title=). */
+  .gloss { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: help; border-bottom: 1px dotted currentColor; position: relative; display: inline; }
+  .gloss:hover, .gloss:focus-visible { color: var(--accent); }
+  .gloss-pop { position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 60; width: max-content; max-width: min(320px, 80vw); background: var(--ink); color: var(--paper); font: 11px var(--mono); line-height: 1.45; letter-spacing: .02em; text-transform: none; padding: 8px 10px; box-shadow: 0 6px 20px rgba(0,0,0,.18); white-space: normal; text-align: left; }
+  .gloss-pop[hidden] { display: none; }
+  @media (max-width: 540px) { .gloss-pop { position: fixed; left: 8px; right: 8px; bottom: auto; top: auto; width: auto; max-width: none; } }
+  .ans-card .meta .gloss { color: var(--ink-2); }
+
   /* eyebrow carries the dataset numbers now (KPI grid retired in v2) */
   .eyebrow .ebn { color: var(--ink-2); font-weight: 500; }
   @media (max-width: 540px) {
@@ -1318,8 +1327,8 @@
       </h1>
 
       <p class="lede">
-        Every recommendation from UN Treaty Bodies, the Universal Periodic Review and
-        Special Procedures — <span class="hl">searchable, citable</span>, and defensible in a paper.
+        Every recommendation from UN <button type="button" class="gloss" aria-expanded="false" aria-describedby="g-treaty">Treaty Bodies<span class="gloss-pop" id="g-treaty" role="tooltip" hidden>Independent expert committees (CCPR, CEDAW, CAT…) that review States’ compliance with the core UN human-rights treaties.</span></button>, <button type="button" class="gloss" aria-expanded="false" aria-describedby="g-upr">the Universal Periodic Review<span class="gloss-pop" id="g-upr" role="tooltip" hidden>Peer review of every UN State roughly every 4.5 years — recommendations one State makes to another.</span></button> and
+        <button type="button" class="gloss" aria-expanded="false" aria-describedby="g-sp">Special Procedures<span class="gloss-pop" id="g-sp" role="tooltip" hidden>Special Rapporteurs, Working Groups and Independent Experts with thematic or country mandates.</span></button> — <span class="hl">searchable, citable</span>, and defensible in a paper.
         Built for advocates, researchers and journalists.
       </p>
 
@@ -3364,7 +3373,7 @@
       $id('ansLabel').textContent =
         `${(d.total_records || 0).toLocaleString('en-US')} recommendations to ${name}${latestYr ? ' · latest ' + latestYr : ''}`;
 
-      $id('ansCards').innerHTML = recs.map(rec => {
+      $id('ansCards').innerHTML = recs.map((rec, i) => {
         const rawBody = (rec.Body || '').replace(/^[-\s]+/, '');
         const body = esc(rawBody);
         const yr   = esc((rec.PublicationDate || '').slice(0, 4));
@@ -3375,7 +3384,7 @@
           .replace(/^\s*(?:\d{1,3}\s*\.\s*)+/, '')
           .replace(/^\s*\d{1,3}\s+(?=[A-Z“"])/, '');
         const txt  = esc(trim(raw, 180));
-        return `<div class="ans-card"><div class="meta"><b title="${esc(bodyFull(rawBody))}" style="cursor:help">${body}</b><span>${yr}</span></div><div class="q">“${txt}”</div></div>`;
+        return `<div class="ans-card"><div class="meta"><button type="button" class="gloss" aria-expanded="false" aria-describedby="acg-${i}">${body}<span class="gloss-pop" id="acg-${i}" role="tooltip" hidden>${esc(bodyFull(rawBody))}</span></button><span>${yr}</span></div><div class="q">“${txt}”</div></div>`;
       }).join('');
 
       const seeAll = $id('ansSeeAll');
@@ -3624,6 +3633,32 @@
       if (states.length) $id('ebCountries').textContent = states.length;
     })
     .catch(() => {});
+})();
+</script>
+
+<!-- Glossary popover: one delegated handler for every .gloss term (hero lede
+     terms + answer-card body acronyms). Tap/click toggles; keyboard focus and
+     mouse hover are progressive enhancements. Hover is gated behind a real
+     pointer so a touch tap doesn't open-then-immediately-close. -->
+<script>
+(function () {
+  const canHover = matchMedia('(hover:hover)').matches;
+  function close(b) { if (!b) return; b.setAttribute('aria-expanded', 'false'); const p = b.querySelector('.gloss-pop'); if (p) p.hidden = true; }
+  function open(b)  { document.querySelectorAll('.gloss[aria-expanded="true"]').forEach(close); b.setAttribute('aria-expanded', 'true'); const p = b.querySelector('.gloss-pop'); if (p) p.hidden = false; }
+  document.addEventListener('click', function (e) {
+    const b = e.target.closest('.gloss');
+    if (b) { e.preventDefault(); (b.getAttribute('aria-expanded') === 'true' ? close : open)(b); return; }
+    document.querySelectorAll('.gloss[aria-expanded="true"]').forEach(close);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { const o = document.querySelector('.gloss[aria-expanded="true"]'); if (o) { close(o); o.focus(); } }
+  });
+  document.addEventListener('focusin',  function (e) { const b = e.target.closest('.gloss'); if (b) open(b); });
+  document.addEventListener('focusout', function (e) { const b = e.target.closest('.gloss'); if (b) close(b); });
+  if (canHover) {
+    document.addEventListener('mouseover', function (e) { const b = e.target.closest('.gloss'); if (b) open(b); });
+    document.addEventListener('mouseout',  function (e) { const b = e.target.closest('.gloss'); if (b && !b.contains(e.relatedTarget)) close(b); });
+  }
 })();
 </script>
 </body>

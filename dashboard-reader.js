@@ -290,6 +290,11 @@ function renderDrawer() {
               <span class="name">${c.name}</span>
               <span class="fmt">${c.fmt}</span>
             </div>`).join('')}
+          <div class="cite-preview" id="citePreview" role="region" aria-label="Citation preview">
+            <div class="cp-warn" id="citePreviewWarn" hidden>⚠ No official UN document symbol — this citation uses the UHRI+ finding-aid URL, not a primary-source UN document. Verify before citing.</div>
+            <pre class="cp-text" id="citePreviewText" aria-live="polite"></pre>
+            <button type="button" class="cp-copy" id="citePreviewCopy">Copy this citation</button>
+          </div>
         </div>
       </div>
       <button class="dr-btn" id="drOpen">Focus reader →</button>
@@ -387,6 +392,27 @@ function renderDrawer() {
     $('#drCite').setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) $('#citeDropdown .cite-item', el)?.focus();   // move focus into the menu
   });
+
+  // Live preview of the generated citation, before copying. Reuses the same
+  // CITE_FORMATS[].build(r) builders and the _citeBaseFields(r).symbol field
+  // that drives the finding-aid fallback, so warning and citation never disagree.
+  const _citePreview = $('#citePreviewText', el);
+  const _citeWarn    = $('#citePreviewWarn', el);
+  let _citeCurrentKey = CITE_FORMATS[0].key;   // default shown = APA
+  const paintCitePreview = (key) => {
+    const fmt = CITE_FORMATS.find(f => f.key === key) || CITE_FORMATS[0];
+    _citeCurrentKey = fmt.key;
+    if (_citePreview) _citePreview.textContent = fmt.build(r);
+    const noSymbol = !_citeBaseFields(r).symbol;
+    if (_citeWarn) _citeWarn.hidden = !noSymbol;
+  };
+  paintCitePreview(_citeCurrentKey);   // prime default
+  $('#citePreviewCopy', el)?.addEventListener('click', () => {
+    const fmt = CITE_FORMATS.find(f => f.key === _citeCurrentKey) || CITE_FORMATS[0];
+    navigator.clipboard.writeText(fmt.build(r)).then(() => toast(`${fmt.name} citation copied`, false, 2800));
+    _citeClose(true);
+  });
+
   el.querySelectorAll('#citeDropdown .cite-item').forEach((item, i, items) => {
     const activate = () => {
       const key = item.dataset.cite;
@@ -398,6 +424,8 @@ function renderDrawer() {
       _citeClose(true);
     };
     item.addEventListener('click', activate);
+    item.addEventListener('focus', () => paintCitePreview(item.dataset.cite));
+    item.addEventListener('mouseenter', () => paintCitePreview(item.dataset.cite));
     item.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
       else if (e.key === 'Escape') { e.preventDefault(); _citeClose(true); }

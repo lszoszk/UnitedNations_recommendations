@@ -452,6 +452,17 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
    is set. Built to be obvious without being noisy: same paper-2 chrome
    as the filter strip, accent-coloured left border, label name in serif
    so it reads as a proper title rather than a code string. */
+.main-search{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:6}
+.main-search .ms-ico{color:var(--dim);font-size:15px;line-height:1;flex-shrink:0}
+.main-search .ms-input{flex:1;min-width:0;border:1px solid var(--line);background:var(--paper-2);padding:8px 10px;font-family:var(--mono);font-size:13px;color:var(--ink)}
+.main-search .ms-input:focus{outline:none;border-color:var(--accent)}
+.main-search .ms-input::placeholder{color:var(--dim)}
+.main-search .ms-clear{flex-shrink:0;border:0;background:transparent;color:var(--dim);font-size:18px;line-height:1;cursor:pointer;padding:2px 6px}
+.main-search .ms-clear:hover{color:var(--ink)}
+.main-search .ms-go{flex-shrink:0;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:8px 14px;cursor:pointer;min-height:36px}
+.main-search .ms-go:hover{background:var(--accent);border-color:var(--accent)}
+.main-search.has-kw .ms-input{border-color:var(--accent)}
+@media(max-width:960px){.main-search{padding:8px 12px;gap:6px;position:static}.main-search .ms-go{padding:8px 12px}}
 .scope-banner{display:none;align-items:center;gap:14px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--paper-2);border-left:3px solid var(--accent)}
 .scope-banner:not([hidden]){display:flex}
 .scope-banner .sb-icon{font-size:18px;line-height:1;flex-shrink:0}
@@ -498,6 +509,13 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .cite-item:hover{background:var(--paper-2)}
 .cite-item .name{color:var(--ink)}
 .cite-item .fmt{color:var(--dim);font-size:9px;letter-spacing:.12em;text-transform:uppercase}
+.cite-dropdown{max-width:min(360px,86vw)}
+.cite-item:nth-last-child(2){border-bottom:none}
+.cite-preview{border-top:1px solid var(--line);padding:8px 10px;max-width:min(360px,86vw)}
+.cite-preview .cp-warn{font:10px var(--mono);line-height:1.4;color:#b91c1c;background:var(--paper-2);border-left:2px solid #b91c1c;padding:6px 8px;margin-bottom:8px}
+.cite-preview .cp-text{font:11px/1.5 var(--mono);color:var(--ink-2);white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;max-height:150px;overflow-y:auto;margin:0 0 8px;background:var(--paper-2);padding:8px}
+.cite-preview .cp-copy{width:100%;padding:7px 10px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.cite-preview .cp-copy:hover{background:var(--accent);border-color:var(--accent)}
 
 /* Empty state CTA */
 .empty-state{padding:60px 24px;text-align:center;color:var(--dim);font-family:var(--mono)}
@@ -2045,7 +2063,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <button class="cmdk" id="cmdkBtn" aria-label="Open command palette">
     <span class="k cmdk-k-mac">⌘</span><span class="k cmdk-k-mac">K</span>
     <span class="cmdk-k-mobile" aria-hidden="true">🔍</span>
-    <span class="cmdk-hint">Search all 267,671 records · or jump to a country, theme, body…</span>
+    <span class="cmdk-hint">⌘K · jump to a country, theme, body, or view…</span>
   </button>
   <div class="meta">
     <!-- Instant Mode (~300MB IndexedDB download) and Upload (user-supplied
@@ -2221,6 +2239,17 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     </nav>
     <button class="tabs-chevron" id="tabsChevron" aria-label="Scroll tabs right" type="button">›</button>
     </div>
+
+    <form class="main-search" id="mainSearch" role="search" aria-label="Search recommendations">
+      <span class="ms-ico" aria-hidden="true">⌕</span>
+      <label class="sr-only" for="mainSearchInput">Search all 267,671 recommendations by keyword</label>
+      <input id="mainSearchInput" class="ms-input" type="search" autocomplete="off" enterkeyhint="search"
+             placeholder='Search all 267,671 recommendations — e.g. "forced labour", torture OR abuse'
+             aria-describedby="mainSearchHint"/>
+      <button type="button" class="ms-clear" id="mainSearchClear" aria-label="Clear search" hidden>×</button>
+      <button type="submit" class="ms-go">Search</button>
+      <span id="mainSearchHint" class="sr-only">Press Enter to open full search results. Supports quotes, * prefix, and AND/OR/NOT.</span>
+    </form>
 
     <div class="scope-banner" id="scopeBanner" role="status" aria-live="polite" hidden></div>
     <div class="active-filters" id="activeFilters"></div>
@@ -3148,6 +3177,42 @@ const _VALID_VIEWS = new Set([
   'overview','country','compare','group','theme','sdg','mechanism',
   'search','bookmarks','labels','methodology','about',
 ]);
+/* Prominent main-column search bar: a thin bidirectional mirror over the
+   rail #kwInput (the single source of truth). Typing pushes the value THROUGH
+   #kwInput so bindKwInput's own listener owns state.filters.kw, label-drop,
+   #tabSearch and the debounced refresh — no new state, no duplicate path. */
+function bindMainSearch() {
+  const form = $('#mainSearch'), inp = $('#mainSearchInput'),
+        clr = $('#mainSearchClear'), kw = $('#kwInput');
+  if (!form || !inp || !kw) return;
+  const sync = () => {
+    const v = kw.value;
+    if (inp.value !== v) inp.value = v;
+    const has = !!v.trim();
+    clr.hidden = !has;
+    form.classList.toggle('has-kw', has);
+  };
+  inp.addEventListener('input', () => {
+    if (kw.value === inp.value) return;
+    kw.value = inp.value;
+    kw.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    $('#tabSearch').textContent = (state.filters.kw || '').trim() || '—';
+    navigate('search');
+    inp.blur();
+  });
+  clr.addEventListener('click', () => {
+    kw.value = '';
+    kw.dispatchEvent(new Event('input', { bubbles: true }));
+    sync(); inp.focus();
+  });
+  kw.addEventListener('input', sync);
+  window._syncMainSearch = sync;
+  sync(); // seed from any URL-restored kw on boot
+}
+
 async function navigate(view) {
   // Fallback: typo URLs like `#view=serch` or `#view=methology` used
   // to produce a completely blank dashboard because EVERY .view got
@@ -3380,6 +3445,7 @@ async function boot() {
     try { renderDrawer(); } catch (e) { console.warn('[boot] renderDrawer failed:', e); }
   }
   bindKwInput();
+  bindMainSearch();
   // Dataset toggle — do this early so the rest of boot() (analytics,
   // facets, records) fetches with the restored dataset. Must run after
   // `state` exists but before any api.* call.

@@ -609,9 +609,15 @@ function buildBodyFacetGrouped(bodies) {
 
   const renderOpt = (b) => {
     const on = currentSet().has(b) ? 'on' : '';
-    return `<div class="opt ${on}" data-k="${sanitize(b)}" data-search="${sanitize(b.toLowerCase())}">
+    // Full name (e.g. CEDAW → "Committee on the Elimination of…") drives the
+    // hover tooltip and SR description, and folds into data-search so typing
+    // "torture"/"committee" also matches the acronym. No popover here: #f-body
+    // is a tight overflow:auto box that would clip an absolute tooltip.
+    const full = _bodyFullName(b);
+    const search = (full && full !== b) ? `${b.toLowerCase()} ${full.toLowerCase()}` : b.toLowerCase();
+    return `<div class="opt ${on}" data-k="${sanitize(b)}" data-search="${sanitize(search)}">
       <span class="box"></span>
-      <span class="txt" title="${sanitize(b)}">${sanitize(b)}</span>
+      <span class="txt" title="${sanitize(full)}">${sanitize(b)}</span>
     </div>`;
   };
 

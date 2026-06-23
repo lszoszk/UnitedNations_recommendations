@@ -140,6 +140,10 @@ function onFiltersChanged() {
   debouncedRefresh();
   _pushUrlState();
   _announceHit();
+  // Keep the prominent main-column search mirror in sync with programmatic
+  // kw clears/restores (clear-all, seKwClear, share-link). Guarded no-op when
+  // the bar isn't present; in-app typing is already covered by its own listener.
+  window._syncMainSearch?.();
 }
 
 async function refreshCurrentView() {
