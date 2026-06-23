@@ -375,7 +375,7 @@ const MECH_FAMILIES = [
     desc: 'Peer review of every UN State every ~4.5 years — recommendations from one State to another.' },
   { key: 'treaty', cls: 'tb',  label: 'Treaty Bodies',
     full: 'Treaty Bodies',
-    desc: 'Independent expert committees (CCPR, CEDAW, CAT…) reviewing compliance with the 10 core UN human-rights treaties.' },
+    desc: 'Independent expert committees (CCPR, CEDAW, CAT…) reviewing compliance with the 10 core UN human-rights treaties — plus the SPT, the OPCAT torture-prevention subcommittee.' },
   { key: 'sp',     cls: 'sp',  label: 'Special Procedures',
     full: 'Special Procedures',
     desc: 'Special Rapporteurs, Working Groups, and Independent Experts on thematic or country-specific mandates.' },
