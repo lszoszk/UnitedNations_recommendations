@@ -1142,7 +1142,7 @@ function renderGridMap(container, countryCounts) {
       const bg = `color-mix(in oklab, var(--accent) ${Math.round(8+intensity*80)}%, var(--paper-2))`;
       // Cell is "on" if ANY of its aggregated country names is filtered
       const on = cell.names.some(n => state.filters.country.has(n));
-      html += `<div class="map-cell ${on?'on':''}" data-iso="${cell.iso}" data-name="${sanitize(cell.names[0])}" style="background:${bg}" title="${sanitize(cell.names.join(', '))}: ${fmt(cell.total)} recs">${cell.iso}</div>`;
+      html += `<div class="map-cell ${on?'on':''}" data-iso="${cell.iso}" data-name="${sanitize(cell.names[0])}" role="button" tabindex="0" aria-label="${sanitize(cell.names.join(', '))}: ${fmt(cell.total)} records — Enter to filter" style="background:${bg}" title="${sanitize(cell.names.join(', '))}: ${fmt(cell.total)} recs">${cell.iso}</div>`;
     } else {
       html += `<div class="map-cell empty"></div>`;
     }
@@ -1167,6 +1167,10 @@ function renderGridMap(container, countryCounts) {
       state.focusCountry = cell.dataset.iso;
       $('#tabCountry').textContent = cell.dataset.name;
       navigate('country');
+    });
+    // Keyboard parity with the hex/choropleth cells: Enter/Space = filter.
+    cell.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cell.click(); }
     });
   });
 }

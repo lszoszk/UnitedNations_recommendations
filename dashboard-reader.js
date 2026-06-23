@@ -194,7 +194,10 @@ function renderDrawer() {
     // ~13 dirty entries (2-letter ISO leaks like "PK", "CZ"; OHCHR
     // internal labels; dupes) which inflated the at-a-glance count from
     // the canonical 199 to a misleading 212.
-    const nCountries = cleanCountryList(facets.countries || []).length;
+    // Exclude the European Union bloc so this matches the rail's "198 states"
+    // count — cleanCountryList keeps EU (it's >2 chars), which inflated this to
+    // 199 and read as a contradiction one click apart.
+    const nCountries = cleanCountryList(facets.countries || []).filter(c => c !== 'European Union').length;
     const minY = facets.min_year || 2006;
     const maxY = facets.max_year || 2026;
     const kwHint = (state.filters.kw || '').trim();
@@ -280,10 +283,10 @@ function renderDrawer() {
     </dl>
     <div class="dr-actions">
       <div class="cite-picker">
-        <button class="dr-btn primary" id="drCite">Cite ▾</button>
-        <div class="cite-dropdown" id="citeDropdown">
+        <button class="dr-btn primary" id="drCite" aria-haspopup="menu" aria-expanded="false" aria-controls="citeDropdown">Cite ▾</button>
+        <div class="cite-dropdown" id="citeDropdown" role="menu" aria-label="Citation format">
           ${CITE_FORMATS.map(c => `
-            <div class="cite-item" data-cite="${c.key}">
+            <div class="cite-item" data-cite="${c.key}" role="menuitem" tabindex="0">
               <span class="name">${c.name}</span>
               <span class="fmt">${c.fmt}</span>
             </div>`).join('')}
@@ -373,20 +376,33 @@ function renderDrawer() {
     if (state.view === 'bookmarks') renderBookmarks();
   });
 
+  const _citeClose = (refocus) => {
+    $('#citeDropdown').classList.remove('open');
+    $('#drCite').setAttribute('aria-expanded', 'false');
+    if (refocus) $('#drCite').focus();
+  };
   $('#drCite').addEventListener('click', (e) => {
     e.stopPropagation();
-    $('#citeDropdown').classList.toggle('open');
+    const open = $('#citeDropdown').classList.toggle('open');
+    $('#drCite').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) $('#citeDropdown .cite-item', el)?.focus();   // move focus into the menu
   });
-  el.querySelectorAll('#citeDropdown .cite-item').forEach(item => {
-    item.addEventListener('click', () => {
+  el.querySelectorAll('#citeDropdown .cite-item').forEach((item, i, items) => {
+    const activate = () => {
       const key = item.dataset.cite;
       const fmt = CITE_FORMATS.find(f => f.key === key);
       if (!fmt) return;
-      const text = fmt.build(r);
-      navigator.clipboard.writeText(text).then(() => {
+      navigator.clipboard.writeText(fmt.build(r)).then(() => {
         toast(`${fmt.name} citation copied`, false, 2800);
       });
-      $('#citeDropdown').classList.remove('open');
+      _citeClose(true);
+    };
+    item.addEventListener('click', activate);
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+      else if (e.key === 'Escape') { e.preventDefault(); _citeClose(true); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); (items[i + 1] || items[0]).focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
     });
   });
   el.querySelectorAll('.dr-tag').forEach(tag => tag.addEventListener('click', () => {

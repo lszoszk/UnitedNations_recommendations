@@ -1272,7 +1272,10 @@
   .figreg .reg-tot { margin-top: auto; border-top: 1px dashed var(--ink); padding-top: 8px; font-weight: 700; color: var(--accent); letter-spacing: .08em; }
   .figreg .reg-sub { font-size: 9px; letter-spacing: .12em; color: var(--dim); margin-top: 3px; text-transform: uppercase; }
   @keyframes regin { to { opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) { .figreg .reg-row { animation: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+    .figreg .reg-row { opacity: 1; }
+  }
 </style>
 </head>
 <body data-palette="archive">
@@ -1355,7 +1358,8 @@
         <div class="corner br">YR <span id="fieldYear">2006</span></div>
         <canvas id="dotCanvas"></canvas>
         <canvas id="countryDots" aria-hidden="true"></canvas>
-        <div id="figAlt" aria-live="polite"></div>
+        <div id="figAlt"></div>
+        <div id="figStatus" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap"></div>
         <div class="tip" id="fieldTip"></div>
       </div>
       <!-- Institutional credit + independence disclaimer, as a quiet footer
@@ -3572,6 +3576,9 @@
     if (curFig === 'a') alt.innerHTML = figSeismo(name, count, an);
     else if (curFig === 'd') alt.innerHTML = figRivers(name, count, an);
     else if (curFig === 'e') alt.innerHTML = figPrint(name, count, an);
+    // Concise status for screen readers — #figAlt is no longer a live region
+    // (re-injecting the SVG flooded it with all 21 year-bar link labels).
+    const _figSt = $id('figStatus'); if (_figSt) _figSt.textContent = `FIG 01 updated — records per year for ${name}`;
   }
 
   /* delegated activation for figure sub-targets (seismo year bars). One
