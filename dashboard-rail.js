@@ -536,7 +536,8 @@ function _openFamilyListDrawer(familyKey) {
    then Treaty Bodies, then Special Procedures — so UPR no longer
    sorts alphabetically between SR-entries. */
 function _dropdownOptionsWithCount(entities, selected, countsByKey) {
-  return entities.map(name => {
+  const names = Array.from(new Set([selected, ...(entities || [])].filter(Boolean)));
+  return names.map(name => {
     const c = countsByKey ? countsByKey[name] : null;
     const tail = (c != null && c >= 0) ? ` · ${fmt(c)}` : '';
     return `<option value="${sanitize(name)}" ${name===selected?'selected':''}>${sanitize(name)}${tail}</option>`;

@@ -12,6 +12,40 @@
 /* =========================================================================
    VIEW: COUNTRY PROFILE
    ========================================================================= */
+function _profilePickerAnalytics() {
+  return state.baselineAnalytics || state.analytics || null;
+}
+
+function _ensureProfilePickerAnalytics() {
+  if (state.baselineAnalytics) return Promise.resolve(state.baselineAnalytics);
+  return api.analytics({}, { scope: 'analytics:profile-picker' }).then(analytics => {
+    state.baselineAnalytics = analytics;
+    return analytics;
+  });
+}
+
+function _refreshThemePicker(root, selected, analytics) {
+  const select = $('#thSelect');
+  if (!select || !root.contains(select) || state.focusTheme !== selected) return;
+  const rows = analytics?.themes?.theme_counts || [];
+  select.innerHTML = _dropdownOptionsWithCount(
+    rows.map(row => row.theme), selected,
+    Object.fromEntries(rows.map(row => [row.theme, row.count]))
+  );
+  select.value = selected;
+}
+
+function _refreshGroupPicker(root, selected, analytics) {
+  const select = $('#gpSelect');
+  if (!select || !root.contains(select) || state.focusGroup !== selected) return;
+  const rows = analytics?.text?.affected_person_counts || [];
+  select.innerHTML = _dropdownOptionsWithCount(
+    rows.map(row => row.affected_person), selected,
+    Object.fromEntries(rows.map(row => [row.affected_person, row.count]))
+  );
+  select.value = selected;
+}
+
 async function renderCountry() {
   const root = $('#view-country');
   const iso = state.focusCountry;
@@ -177,7 +211,7 @@ async function renderTheme() {
   }
 
   // Q3a: options annotated with total counts (mirrors SDG dropdown UX)
-  const themeCountList = state.analytics?.themes?.theme_counts || [];
+  const themeCountList = _profilePickerAnalytics()?.themes?.theme_counts || [];
   const themesList = themeCountList.map(t => t.theme);
   const themeCountsByKey = Object.fromEntries(themeCountList.map(t => [t.theme, t.count]));
   const opts = _dropdownOptionsWithCount(themesList, name, themeCountsByKey);
@@ -208,6 +242,9 @@ async function renderTheme() {
     $('#tabTheme').textContent = e.target.value;
     navigate('theme');
   });
+  _ensureProfilePickerAnalytics()
+    .then(analytics => _refreshThemePicker(root, name, analytics))
+    .catch(err => { if (err.name !== 'AbortError') console.warn('theme picker catalog failed', err); });
 
   // Intersect rail filters with the focused theme (Option B).
   const themeFilter = _scopedFilter({ theme: new Set([name]) });
@@ -291,7 +328,7 @@ async function renderGroup() {
     return;
   }
   // Q3a: options annotated with counts
-  const groupCountList = state.analytics?.text?.affected_person_counts || [];
+  const groupCountList = _profilePickerAnalytics()?.text?.affected_person_counts || [];
   const groupsList = groupCountList.map(g => g.affected_person);
   const groupCountsByKey = Object.fromEntries(groupCountList.map(g => [g.affected_person, g.count]));
   const opts = _dropdownOptionsWithCount(groupsList, name, groupCountsByKey);
@@ -319,6 +356,9 @@ async function renderGroup() {
     $('#tabGroup').textContent = e.target.value;
     navigate('group');
   });
+  _ensureProfilePickerAnalytics()
+    .then(analytics => _refreshGroupPicker(root, name, analytics))
+    .catch(err => { if (err.name !== 'AbortError') console.warn('group picker catalog failed', err); });
   const filter = _scopedFilter({ group: new Set([name]) });
 
   // O6: bundled profile endpoint
@@ -415,7 +455,7 @@ async function renderSDG() {
       </optgroup>`;
     }).join('');
   } else {
-    const sdgsList = (state.analytics?.text?.sdg_counts || []).map(s => s.sdg);
+    const sdgsList = (_profilePickerAnalytics()?.text?.sdg_counts || []).map(s => s.sdg);
     opts = sdgsList.map(s => `<option value="${sanitize(s)}" ${s===sdg?'selected':''}>${sanitize(formatSdgLabel(s))}</option>`).join('');
   }
   root.innerHTML = `
@@ -448,6 +488,15 @@ async function renderSDG() {
     $('#tabSdg').textContent = e.target.value.replace(/^SDG /, 'SDG ');
     navigate('sdg');
   });
+
+  // Older facets payloads do not include `sdgs_hierarchy`. If this profile
+  // opened while filtered analytics was still current, rebuild it once the
+  // unfiltered catalog arrives so both the select and typeahead are complete.
+  if (!hierarchy.length && !state.baselineAnalytics) {
+    _ensureProfilePickerAnalytics().then(() => {
+      if (state.view === 'sdg' && state.focusSdg === sdg && root.contains($('#spSelect'))) navigate('sdg');
+    }).catch(err => { if (err.name !== 'AbortError') console.warn('SDG picker catalog failed', err); });
+  }
 
   // Typeahead — shows a visible result panel below the input as the user
   // types, renders a hierarchical (goal → targets) list with match

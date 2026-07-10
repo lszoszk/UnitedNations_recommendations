@@ -1045,4 +1045,40 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(errors, `JS errors during keyboard/focus test:\n${errors.join('\n')}`).toEqual([]);
   });
 
+  test('23. profileSwitchers — baseline catalogs survive filtered analytics and clear-all races', async ({ page }) => {
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).renderSDG === 'function', null, { timeout: 5000 });
+
+    const pickers = await page.evaluate(() => {
+      state.baselineAnalytics = {
+        themes: { theme_counts: [
+          { theme: 'Health', count: 120 }, { theme: 'Education', count: 80 },
+        ] },
+        text: {
+          affected_person_counts: [
+            { affected_person: 'Women', count: 90 }, { affected_person: 'Children', count: 70 },
+          ],
+          sdg_counts: [
+            { sdg: '16 - PEACE, JUSTICE AND STRONG INSTITUTIONS', count: 140 },
+            { sdg: '4 - QUALITY EDUCATION', count: 60 },
+          ],
+        },
+      };
+      state.analytics = { themes: { theme_counts: [] }, text: { affected_person_counts: [], sdg_counts: [] } };
+      state.facets = { ...(state.facets || {}), sdgs_hierarchy: [] };
+
+      state.focusTheme = 'Health'; renderTheme();
+      const themes = Array.from(document.querySelectorAll('#thSelect option')).map(o => o.value);
+      state.focusGroup = 'Women'; renderGroup();
+      const groups = Array.from(document.querySelectorAll('#gpSelect option')).map(o => o.value);
+      state.focusSdg = '16 - PEACE, JUSTICE AND STRONG INSTITUTIONS'; renderSDG();
+      const sdgs = Array.from(document.querySelectorAll('#spSelect option')).map(o => o.value);
+      return { themes, groups, sdgs };
+    });
+
+    expect(pickers.themes).toEqual(['Health', 'Education']);
+    expect(pickers.groups).toEqual(['Women', 'Children']);
+    expect(pickers.sdgs).toEqual(['16 - PEACE, JUSTICE AND STRONG INSTITUTIONS', '4 - QUALITY EDUCATION']);
+  });
+
 });

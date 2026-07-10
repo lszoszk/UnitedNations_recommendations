@@ -124,6 +124,9 @@ const state = {
   cmpB: null,
   facets: null,
   analytics: null,
+  // Unfiltered analytics is the stable catalog for profile switchers.
+  // `analytics` itself is intentionally replaced by filtered Overview data.
+  baselineAnalytics: null,
   searchPage: 1,
   searchPageSize: 30,
   searchSort: { by: 'publication_date', dir: 'desc' },

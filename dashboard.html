@@ -3824,6 +3824,7 @@ async function boot() {
     renderOverviewMapOnly(cachedMap);
     if (cachedAnalytics) {
       state.analytics = cachedAnalytics;
+      state.baselineAnalytics = cachedAnalytics;
       renderOverviewAnalytics(cachedAnalytics);
     }
     progressBar(35, 'REFRESHING IN BACKGROUND');
@@ -3831,6 +3832,7 @@ async function boot() {
 
   if (cachedAnalytics) {
     state.analytics = cachedAnalytics;
+    state.baselineAnalytics = cachedAnalytics;
   }
 
   // Phase 1: facets + map + health in parallel
@@ -3919,6 +3921,7 @@ async function boot() {
   try {
     const analytics = await api.analytics({});
     state.analytics = analytics;
+    state.baselineAnalytics = analytics;
     cacheSet('analytics:baseline', analytics);
 
     // Re-render analytics panels in overview
