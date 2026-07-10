@@ -58,9 +58,9 @@ jobs:
             echo "No count changes — nothing to commit."
           else
             NEW=$(node -e "const s=JSON.parse(require('fs').readFileSync('scripts/counts.json','utf8')); process.stdout.write(s.cleaned.toLocaleString('en-US'))")
-            git commit -m "chore: sync dataset counts to ${NEW} records
-
-Auto-updated by sync-counts workflow after monthly OHCHR UHRI refresh.
-Pipeline constants (artefacts_dropped, methodology stats) unchanged."
+            git commit \
+              -m "chore: sync dataset counts to ${NEW} records" \
+              -m "Auto-updated by sync-counts workflow after monthly OHCHR UHRI refresh." \
+              -m "Pipeline constants (artefacts_dropped, methodology stats) unchanged."
             git push
           fi
