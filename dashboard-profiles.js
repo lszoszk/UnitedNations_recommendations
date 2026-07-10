@@ -24,12 +24,15 @@ async function renderCountry() {
   }
 
   const countries = cleanCountryList(state.facets?.countries || []).sort();
-  // Q3a: country dropdown gets per-country totals from last analytics/map
-  // response so the user can pick Kenya over Chad because Kenya has 312
-  // records not Chad's 64 — same pattern as SDG profile.
-  const countryCountsByKey = Object.fromEntries(
-    (state._lastCountryCounts || state.analytics?.map?.country_counts || []).map(c => [c.country, c.count])
-  );
+  const countryPickerFilter = _scopedFilter({ country: new Set() });
+  const canUseCachedCountryCounts = _railIsEmpty(countryPickerFilter);
+  // Cached all-country totals are only valid for the unfiltered profile.
+  // Under keyword/rail filters they read as a mixed scope ("China · 2,540"
+  // beside a 24-record profile), so render plain names until scoped map
+  // counts arrive below.
+  const countryCountsByKey = canUseCachedCountryCounts
+    ? Object.fromEntries((state._lastCountryCounts || state.analytics?.map?.country_counts || []).map(c => [c.country, c.count]))
+    : null;
   const options = _dropdownOptionsWithCount(countries, name, countryCountsByKey);
 
   root.innerHTML = `
@@ -60,6 +63,19 @@ async function renderCountry() {
     state.focusCountry = NAME_TO_ISO[newName] || newName;
     $('#tabCountry').textContent = newName;
     navigate('country');
+  });
+
+  api.map(countryPickerFilter, { scope: 'country-picker' }).then(mapD => {
+    const select = $('#cpSelect');
+    if (!select || !root.contains(select)) return;
+    const current = select.value || name;
+    const scopedCounts = Object.fromEntries((mapD?.country_counts || []).map(c => [c.country, c.count]));
+    select.innerHTML = _dropdownOptionsWithCount(countries, current, scopedCounts);
+    select.value = current;
+    const label = root.querySelector('.cp-picker label');
+    if (label) label.textContent = _railIsEmpty(countryPickerFilter) ? 'Switch country' : 'Switch country · current filters';
+  }).catch(err => {
+    if (err.name !== 'AbortError') console.warn('country picker counts failed', err);
   });
 
   // Profile view intersects the rail with the focused country (Option B).
@@ -126,7 +142,7 @@ async function renderCountry() {
       const d = document.createElement('div');
       d.className = 'cp-sample';
       const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanLabel(r.Body)||'—')} · ${sanitize((r.Themes||[])[0]||'')}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanLabel(r.Body)||'—')} · ${sanitize((r.Themes||[])[0]||'')}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
       d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
       sampleEl.appendChild(d);
     });
@@ -241,7 +257,7 @@ async function renderTheme() {
       d.className = 'cp-sample';
       const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
       const rCountry = cleanCountryName((r.Countries||[])[0]||'');
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(rCountry)} · ${sanitize(cleanLabel(r.Body))}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(rCountry)} · ${sanitize(cleanLabel(r.Body))}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
       d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
       sampleEl.appendChild(d);
     });
@@ -345,7 +361,7 @@ async function renderGroup() {
       const d = document.createElement('div');
       d.className = 'cp-sample';
       const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
       d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
       sampleEl.appendChild(d);
     });
@@ -570,7 +586,7 @@ async function renderSDG() {
       const d = document.createElement('div');
       d.className = 'cp-sample';
       const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
+      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
       d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
       sampleEl.appendChild(d);
     });
@@ -832,7 +848,7 @@ async function renderMechanism() {
       d.className = 'cp-sample';
       const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
       const rCountry = cleanCountryName((r.Countries || [])[0] || '');
-      d.innerHTML = `<div class="meta">${sanitize((r.PublicationDate || '').slice(0,10))} · ${sanitize(rCountry)} · ${sanitize(cleanLabel(r.Body))}</div>${sanitize(txt)}${txt.length>=400?'…':''}<span class="cp-sample-arrow">→ read full</span>`;
+      d.innerHTML = `<div class="meta">${sanitize((r.PublicationDate || '').slice(0,10))} · ${sanitize(rCountry)} · ${sanitize(cleanLabel(r.Body))}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
       d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
       sampleEl.appendChild(d);
     });
