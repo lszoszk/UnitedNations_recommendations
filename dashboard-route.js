@@ -12,9 +12,12 @@ function _pushUrlState() {
   if (f.theme.size) p.set('theme', Array.from(f.theme).join('|'));
   if (f.group.size) p.set('group', Array.from(f.group).join('|'));
   if (f.region.size) p.set('region', Array.from(f.region).join(','));
+  if (f.region.size && state.regionTaxonomy === 'unGroups') p.set('rt', 'unGroups');
   if (f.sdg.size) p.set('sdg', Array.from(f.sdg).join(','));
   if (_sdgExactValues(f).length) p.set('sdgx', _sdgExactValues(f).sort().join('|'));
   if (f.type.size) p.set('type', Array.from(f.type).join(','));
+  if (f.themesMatch === 'all') p.set('tm', 'all');
+  if (f.groupsMatch === 'all') p.set('gm', 'all');
   if (f.yearA && state.facets && f.yearA !== state.facets.min_year) p.set('y1', f.yearA);
   if (f.yearB && state.facets && f.yearB !== state.facets.max_year) p.set('y2', f.yearB);
   if (state.focusCountry) p.set('fc', state.focusCountry);
@@ -73,6 +76,7 @@ function _resetRouteState() {
   state.cmpA = null;
   state.cmpB = null;
   state.view = 'overview';
+  state.regionTaxonomy = 'm49';
 }
 
 async function _applyRouteStateFromHash(hash, opts = {}) {
@@ -106,6 +110,7 @@ function _restoreUrlState(hash = location.hash.slice(1)) {
   if (p.get('theme')) p.get('theme').split('|').forEach(v => f.theme.add(v));
   if (p.get('group')) p.get('group').split('|').forEach(v => f.group.add(v));
   if (p.get('region')) p.get('region').split(',').forEach(v => f.region.add(v));
+  if (p.get('rt') === 'unGroups') state.regionTaxonomy = 'unGroups';
   if (p.get('sdg')) p.get('sdg').split(',').forEach(v => {
     const n = Number(v);
     if (!Number.isNaN(n)) f.sdg.add(n);
@@ -115,6 +120,8 @@ function _restoreUrlState(hash = location.hash.slice(1)) {
     if (raw) f.sdgExact.add(raw);
   });
   if (p.get('type')) p.get('type').split(',').forEach(v => f.type.add(v));
+  if (p.get('tm') === 'all') f.themesMatch = 'all';
+  if (p.get('gm') === 'all') f.groupsMatch = 'all';
   if (p.get('y1')) f.yearA = Number(p.get('y1'));
   if (p.get('y2')) f.yearB = Number(p.get('y2'));
   if (p.get('fc')) {
@@ -138,6 +145,9 @@ function _restoreUrlState(hash = location.hash.slice(1)) {
   if (p.get('view')) state.view = p.get('view');
 
   if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
+  $$('#themeMatch button').forEach(b => b.classList.toggle('on', b.dataset.m === f.themesMatch));
+  $$('#groupMatch button').forEach(b => b.classList.toggle('on', b.dataset.m === f.groupsMatch));
+  if (state.facets?.regions && typeof renderRegionFacet === 'function') renderRegionFacet();
   ['country', 'body', 'theme', 'group', 'region', 'type', 'sdg'].forEach(refreshFacetUI);
   _syncRouteTabLabels();
 }

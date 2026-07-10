@@ -352,7 +352,10 @@ function renderDrawer() {
 
   // Horizontal swipe on drawer body → prev/next record.
   const drawerBody = $('#drawerBody');
+  if (drawerBody?._swipeAbort) drawerBody._swipeAbort.abort();
   if (drawerBody && list.length > 1 && idx >= 0) {
+    drawerBody._swipeAbort = new AbortController();
+    const swipeOpts = { passive: true, signal: drawerBody._swipeAbort.signal };
     let sx = 0;
     let sy = 0;
     let swiping = false;
@@ -361,7 +364,7 @@ function renderDrawer() {
       sx = e.touches[0].clientX;
       sy = e.touches[0].clientY;
       swiping = true;
-    }, { passive: true });
+    }, swipeOpts);
     drawerBody.addEventListener('touchend', (e) => {
       if (!swiping) return;
       swiping = false;
@@ -371,7 +374,7 @@ function renderDrawer() {
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
         navigateRec(dx < 0 ? 1 : -1);
       }
-    }, { passive: true });
+    }, swipeOpts);
   }
 
   $('#drStar').addEventListener('click', () => {
@@ -433,7 +436,8 @@ function renderDrawer() {
       else if (e.key === 'ArrowUp') { e.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
     });
   });
-  el.querySelectorAll('.dr-tag').forEach(tag => tag.addEventListener('click', () => {
+  el.querySelectorAll('.dr-tag').forEach(tag => tag.addEventListener('click', (e) => {
+    e.stopPropagation();
     const kind  = tag.dataset.tagKind;
     const value = tag.dataset.tagValue;
     if (!kind || !value) return;

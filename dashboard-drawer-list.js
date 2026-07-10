@@ -6,6 +6,7 @@
  */
 
 let _drListObserver = null;
+let _drListDocumentClick = null;
 
 async function openListDrawer(kind, value, extraOverride = null) {
   // kind: 'theme' | 'group' | 'country' | 'body' | 'sdg' | 'selection'
@@ -345,7 +346,9 @@ function renderDrawerListMode() {
       e.stopPropagation();
       expMenu.classList.toggle('on');
     });
-    document.addEventListener('click', () => expMenu.classList.remove('on'));
+    if (_drListDocumentClick) document.removeEventListener('click', _drListDocumentClick);
+    _drListDocumentClick = () => expMenu.classList.remove('on');
+    document.addEventListener('click', _drListDocumentClick);
     expMenu.querySelectorAll('.exp-item').forEach(it => it.addEventListener('click', async (e) => {
       e.stopPropagation();
       const kind = it.dataset.exp;

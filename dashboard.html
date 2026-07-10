@@ -3508,7 +3508,7 @@ async function boot() {
   setTimeout(updateTabsOverflow, 500);
   $('#cmdInput').addEventListener('input', e => renderPalette(e.target.value));
   $('#cmdPalette').addEventListener('click', e => { if (e.target.id === 'cmdPalette') closePalette(); });
-  $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') $('#reader').classList.add('hidden'); });
+  $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') closeReader(); });
   $('#drawerClear').addEventListener('click', closeDrawerPanelSafe);
   $('#drawerReadingMode')?.addEventListener('click', toggleReadingMode);
   // N2: A−/A+ wiring (visible only in reading-mode via CSS)
@@ -3895,7 +3895,7 @@ async function boot() {
   // If we have cached analytics, render them right away
   if (cachedAnalytics) {
     renderOverviewAnalytics(cachedAnalytics);
-    state.focusTheme = (cachedAnalytics.themes?.theme_counts||[])[0]?.theme || null;
+    if (!state.focusTheme) state.focusTheme = (cachedAnalytics.themes?.theme_counts||[])[0]?.theme || null;
     if (state.focusTheme) $('#tabTheme').textContent = state.focusTheme;
   }
 

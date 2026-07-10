@@ -3643,11 +3643,24 @@
 <script>
 (function () {
   const canHover = matchMedia('(hover:hover)').matches;
+  const pointerOpenState = new WeakMap();
   function close(b) { if (!b) return; b.setAttribute('aria-expanded', 'false'); const p = b.querySelector('.gloss-pop'); if (p) p.hidden = true; }
   function open(b)  { document.querySelectorAll('.gloss[aria-expanded="true"]').forEach(close); b.setAttribute('aria-expanded', 'true'); const p = b.querySelector('.gloss-pop'); if (p) p.hidden = false; }
+  document.addEventListener('pointerdown', function (e) {
+    const b = e.target.closest('.gloss');
+    if (b) pointerOpenState.set(b, b.getAttribute('aria-expanded') === 'true');
+  });
   document.addEventListener('click', function (e) {
     const b = e.target.closest('.gloss');
-    if (b) { e.preventDefault(); (b.getAttribute('aria-expanded') === 'true' ? close : open)(b); return; }
+    if (b) {
+      e.preventDefault();
+      const wasOpen = pointerOpenState.has(b)
+        ? pointerOpenState.get(b)
+        : b.getAttribute('aria-expanded') === 'true';
+      pointerOpenState.delete(b);
+      (wasOpen ? close : open)(b);
+      return;
+    }
     document.querySelectorAll('.gloss[aria-expanded="true"]').forEach(close);
   });
   document.addEventListener('keydown', function (e) {

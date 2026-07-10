@@ -27,7 +27,12 @@ function _renderYearHistogram(minY, maxY) {
   }).join('');
 }
 
+let _yearSliderAbort = null;
+
 function bindYearSlider(minY, maxY) {
+  if (_yearSliderAbort) _yearSliderAbort.abort();
+  _yearSliderAbort = new AbortController();
+  const listenerOpts = { signal: _yearSliderAbort.signal };
   const slider = $('#yearSlider'), fill = $('#ysFill');
   const A = $('#ysA'), B = $('#ysB');
   let dragging = null;
@@ -63,10 +68,10 @@ function bindYearSlider(minY, maxY) {
     update();
   }
   function onUp() { if (dragging) { dragging = null; onFiltersChanged(); } }
-  A.addEventListener('mousedown', onDown); B.addEventListener('mousedown', onDown);
-  A.addEventListener('touchstart', onDown); B.addEventListener('touchstart', onDown);
-  document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
-  document.addEventListener('touchmove', onMove); document.addEventListener('touchend', onUp);
+  A.addEventListener('mousedown', onDown, listenerOpts); B.addEventListener('mousedown', onDown, listenerOpts);
+  A.addEventListener('touchstart', onDown, listenerOpts); B.addEventListener('touchstart', onDown, listenerOpts);
+  document.addEventListener('mousemove', onMove, listenerOpts); document.addEventListener('mouseup', onUp, listenerOpts);
+  document.addEventListener('touchmove', onMove, listenerOpts); document.addEventListener('touchend', onUp, listenerOpts);
 
   // Keyboard parity — handles are real sliders: arrows ±1yr, PgUp/PgDn ±5,
   // Home/End jump to the range edge. The global :focus-visible ring makes the
@@ -91,7 +96,7 @@ function bindYearSlider(minY, maxY) {
       else state.filters.yearB = Math.min(maxY, Math.max(state.filters.yearB + d, state.filters.yearA));
       update();
       onFiltersChanged();
-    });
+    }, listenerOpts);
   });
   update();
 }

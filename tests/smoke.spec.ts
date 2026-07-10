@@ -209,6 +209,20 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(routeApi.pushFn, '_pushUrlState should be loaded').toBe('function');
     expect(routeApi.restoreFn, '_restoreUrlState should be loaded').toBe('function');
 
+    const restoredModes = await page.evaluate(() => {
+      _resetRouteState();
+      _restoreUrlState('theme=Health|Education&group=Women|Children&region=GRULAC&rt=unGroups&tm=all&gm=all');
+      return {
+        taxonomy: state.regionTaxonomy,
+        themeMatch: state.filters.themesMatch,
+        groupMatch: state.filters.groupsMatch,
+        regions: Array.from(state.filters.region),
+      };
+    });
+    expect(restoredModes).toEqual({
+      taxonomy: 'unGroups', themeMatch: 'all', groupMatch: 'all', regions: ['GRULAC'],
+    });
+
     // Separately: clicking a tab switches the active tab. This exercises
     // the wiring between <a role="tab" data-nav=...> and the navigate()
     // function without depending on the VM being up.
@@ -1016,6 +1030,7 @@ test.describe('UHRI Dashboard smoke', () => {
       state.facets = { ...(state.facets || {}), min_year: 2006, max_year: 2026 };
       state.filters.yearA = 2006; state.filters.yearB = 2026;
       bindYearSlider(2006, 2026);
+      bindYearSlider(2006, 2026); // rebinding must replace, not accumulate, listeners
       const a = document.getElementById('ysA')!;
       const role = a.getAttribute('role');
       const valuemin = a.getAttribute('aria-valuemin');

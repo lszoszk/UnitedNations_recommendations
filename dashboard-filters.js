@@ -236,6 +236,10 @@ async function refreshHitCount() {
     if (err.name === 'AbortError') return;
     if (gen !== _hitGen) return;   // stale failure — newest call owns the UI
     console.warn('hit count failed', err);
+    state.totalHits = null;
+    $('#hitCount').textContent = '—';
+    $('#hitBar').style.width = '0%';
+    $('#hitPct').textContent = 'count unavailable';
     el.classList.remove('fr-loading');
   }
 }
