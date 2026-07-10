@@ -205,7 +205,7 @@ async function renderChoroplethMap(container, countryCounts) {
   ).join('');
 
   container.innerHTML = `
-    <div class="map-regions" id="geoRegions" role="group" aria-label="Zoom to region">${regionBtnsHtml}<button id="geoReset" class="geo-reset" title="Reset view">⟲ Reset</button></div>
+    <div class="map-regions" id="geoRegions" role="group" aria-label="Zoom to region">${regionBtnsHtml}<button id="geoZoomIn" title="Zoom in" aria-label="Zoom in">+</button><button id="geoZoomOut" title="Zoom out" aria-label="Zoom out">−</button><button id="geoReset" class="geo-reset" title="Reset view">⟲ Reset</button></div>
     <svg class="geo-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="cursor:grab;user-select:none">
       <path class="sphere" d="${spherePath}" />
       <path class="graticule" d="${gratPath}" />
@@ -278,6 +278,29 @@ async function renderChoroplethMap(container, countryCounts) {
   function setVB(x, y, w, h) {
     svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
   }
+  // Zoom bounds: without them wheel/pinch zoom-out is unbounded — a dozen
+  // scroll ticks shrinks the world to an unclickable speck that's hard to
+  // recover from (user-reported). 32× in, 1.3× out (slightly beyond full
+  // world so the reset feel isn't abrupt). Pan is clamped so at least a
+  // quarter of the frame always overlaps the world box — the map can't be
+  // dragged fully off-screen.
+  const MIN_W = initialVB[2] / 32;
+  const MAX_W = initialVB[2] * 1.3;
+  const clampW = (w) => Math.max(MIN_W, Math.min(MAX_W, w));
+  function clampedVB(x, y, w, h) {
+    const minX = initialVB[0] - w * 0.75, maxX = initialVB[0] + initialVB[2] - w * 0.25;
+    const minY = initialVB[1] - h * 0.75, maxY = initialVB[1] + initialVB[3] - h * 0.25;
+    return [Math.min(maxX, Math.max(minX, x)), Math.min(maxY, Math.max(minY, y)), w, h];
+  }
+  // Shared by the +/− buttons: zoom about the current viewBox centre.
+  function zoomBy(factor) {
+    const vb = getVB();
+    const newW = clampW(vb[2] * factor);
+    const f = newW / vb[2];
+    if (f === 1) return;
+    const cx = vb[0] + vb[2] / 2, cy = vb[1] + vb[3] / 2;
+    setVB(...clampedVB(cx - (vb[2] * f) / 2, cy - (vb[3] * f) / 2, vb[2] * f, vb[3] * f));
+  }
   function fitToRegion(region) {
     state.geoRegion = region;
     if (region === 'world') {
@@ -332,6 +355,8 @@ async function renderChoroplethMap(container, countryCounts) {
       announce('Zoomed to ' + b.dataset.region);
     }));
   $('#geoReset', container)?.addEventListener('click', () => fitToRegion('world'));
+  $('#geoZoomIn', container)?.addEventListener('click', () => zoomBy(0.75));
+  $('#geoZoomOut', container)?.addEventListener('click', () => zoomBy(1 / 0.75));
 
   // M3 · C2: Pan + pinch-zoom with Pointer Events (covers mouse, pen, touch).
   // Two-finger pinch detected by tracking active pointers; distance ratio
@@ -383,21 +408,22 @@ async function renderChoroplethMap(container, countryCounts) {
       const info = getPointerMidAndDist();
       if (!info || !pinchStartDist) return;
       const scale = pinchStartDist / info.dist;   // <1 = zoom in, >1 = zoom out
-      const newW = pinchStartVB[2] * scale;
-      const newH = pinchStartVB[3] * scale;
+      const newW = clampW(pinchStartVB[2] * scale);
+      const newH = pinchStartVB[3] * (newW / pinchStartVB[2]);
       // Keep the midpoint anchored (same SVG point under the midpoint)
       const anchorX = pinchStartVB[0] + pinchCenterRatio.rx * pinchStartVB[2];
       const anchorY = pinchStartVB[1] + pinchCenterRatio.ry * pinchStartVB[3];
       const newX = anchorX - pinchCenterRatio.rx * newW;
       const newY = anchorY - pinchCenterRatio.ry * newH;
-      setVB(newX, newY, newW, newH);
+      setVB(...clampedVB(newX, newY, newW, newH));
     } else if (activePointers.size === 1 && panning) {
       const vb = vbStart;
       const rect = svg.getBoundingClientRect();
       const scale = vb[2] / rect.width;
-      setVB(vb[0] - (e.clientX - panStart.x) * scale,
+      setVB(...clampedVB(
+            vb[0] - (e.clientX - panStart.x) * scale,
             vb[1] - (e.clientY - panStart.y) * scale,
-            vb[2], vb[3]);
+            vb[2], vb[3]));
     }
   });
 
@@ -414,7 +440,11 @@ async function renderChoroplethMap(container, countryCounts) {
   };
   svg.addEventListener('pointerup', releasePointer);
   svg.addEventListener('pointercancel', releasePointer);
-  svg.addEventListener('pointerleave', releasePointer);
+  // NOT pointerleave: with pointer capture active, pointerleave fires as soon
+  // as the cursor crosses the svg edge mid-drag, killing the pan even though
+  // the button is still held. lostpointercapture is the correct terminal
+  // event — it fires on release/cancel even off-element.
+  svg.addEventListener('lostpointercapture', releasePointer);
 
   // Scroll to zoom (centered on cursor position in SVG coords)
   svg.addEventListener('wheel', e => {
@@ -422,13 +452,15 @@ async function renderChoroplethMap(container, countryCounts) {
     const factor = e.deltaY > 0 ? 1.12 : 0.89;
     const vb = getVB();
     const rect = svg.getBoundingClientRect();
+    const newW = clampW(vb[2] * factor);
+    const f = newW / vb[2];
+    if (f === 1) return;   // at a zoom bound — nothing to do
+    const newH = vb[3] * f;
     const sx = vb[0] + (e.clientX - rect.left) / rect.width * vb[2];
     const sy = vb[1] + (e.clientY - rect.top) / rect.height * vb[3];
-    const newW = vb[2] * factor;
-    const newH = vb[3] * factor;
     const newX = sx - (e.clientX - rect.left) / rect.width * newW;
     const newY = sy - (e.clientY - rect.top) / rect.height * newH;
-    setVB(newX, newY, newW, newH);
+    setVB(...clampedVB(newX, newY, newW, newH));
   }, { passive: false });
 
   // Apply any saved region on first render

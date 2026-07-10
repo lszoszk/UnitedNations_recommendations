@@ -210,11 +210,17 @@ const _announceHit = debounce(() => {
 }, 800);
 
 /* ---------- HIT COUNT ---------- */
+let _hitGen = 0;
 async function refreshHitCount() {
+  // Generation guard: only the newest call may paint. Without it a slow
+  // filtered response can land after a faster (or cached) cleared one and
+  // overwrite the fresh count with stale numbers.
+  const gen = ++_hitGen;
   const el = $('#filterResult');
   el.classList.add('fr-loading');
   try {
     const r = await api.recordsCount(state.filters);
+    if (gen !== _hitGen) return;
     state.totalHits = r.total_records;
     $('#hitCount').textContent = fmt(r.total_records);
     const totalAll = state.facets?.total_records || 267671;
@@ -228,6 +234,7 @@ async function refreshHitCount() {
     renderScopeBanner();
   } catch (err) {
     if (err.name === 'AbortError') return;
+    if (gen !== _hitGen) return;   // stale failure — newest call owns the UI
     console.warn('hit count failed', err);
     el.classList.remove('fr-loading');
   }

@@ -216,14 +216,27 @@ async function apiGet(path, params, opts = {}) {
   const url = API_BASE + path + (params && params.toString() ? '?' + params.toString() : '');
   const key = cacheKey(path, params);
 
+  const scope = opts.scope || path;
   if (!opts.noCache) {
     const hit = memGet(key);
-    if (hit) return hit;
+    if (hit) {
+      // Serving from cache still SUPERSEDES any in-flight request in this
+      // scope with different params — abort it, or its late response will
+      // zombie-paint over the newer state. (Empirically: apply filter on a
+      // slow backend, clear-all while it's in flight; the cleared count is
+      // a cache hit that used to return here without aborting, so the old
+      // filtered response landed seconds later and "un-cleared" the UI.)
+      if (inflight[scope] && inflight[scope].key !== key) {
+        try { inflight[scope].ctrl.abort(); } catch {}
+        pendingPromises.delete(inflight[scope].key);
+        delete inflight[scope];
+      }
+      return hit;
+    }
     const pending = pendingPromises.get(key);
     if (pending) return pending.promise;
   }
 
-  const scope = opts.scope || path;
   if (inflight[scope] && inflight[scope].key !== key) {
     try { inflight[scope].ctrl.abort(); } catch {}
     pendingPromises.delete(inflight[scope].key);
