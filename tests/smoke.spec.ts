@@ -1074,12 +1074,21 @@ test.describe('UHRI Dashboard smoke', () => {
       const groups = Array.from(document.querySelectorAll('#gpSelect option')).map(o => o.value);
       state.focusSdg = '16 - PEACE, JUSTICE AND STRONG INSTITUTIONS'; renderSDG();
       const sdgs = Array.from(document.querySelectorAll('#spSelect option')).map(o => o.value);
-      return { themes, groups, sdgs };
+      const sdgGoalGroups = document.querySelectorAll('#spSelect optgroup').length;
+      const filter = document.querySelector('#spFilter') as HTMLInputElement;
+      filter.value = 'justice';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      const typeahead = document.querySelector('#spResults')?.textContent || '';
+      return { themes, groups, sdgs, sdgGoalGroups, typeahead };
     });
 
     expect(pickers.themes).toEqual(['Health', 'Education']);
     expect(pickers.groups).toEqual(['Women', 'Children']);
-    expect(pickers.sdgs).toEqual(['16 - PEACE, JUSTICE AND STRONG INSTITUTIONS', '4 - QUALITY EDUCATION']);
+    expect(pickers.sdgGoalGroups).toBe(17);
+    expect(pickers.sdgs.length).toBeGreaterThan(100);
+    expect(pickers.sdgs).toContain('SDG 16');
+    expect(pickers.sdgs).toContain('SDG 5.2');
+    expect(pickers.typeahead.toLowerCase()).toContain('justice');
   });
 
 });

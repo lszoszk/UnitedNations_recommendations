@@ -46,6 +46,41 @@ function _refreshGroupPicker(root, selected, analytics) {
   select.value = selected;
 }
 
+function _sdgPickerKey(value) {
+  return _sdgTargetKey(value) || String(_sdgToFilterValue(value) || '');
+}
+
+function _completeSdgHierarchy(analytics, apiHierarchy = []) {
+  const countsByKey = {};
+  (analytics?.text?.sdg_counts || []).forEach(row => {
+    const key = _sdgPickerKey(row.sdg);
+    if (key) countsByKey[key] = Math.max(countsByKey[key] || 0, Number(row.count) || 0);
+  });
+  (apiHierarchy || []).forEach(goal => {
+    countsByKey[String(goal.goal)] = Number(goal.count) || countsByKey[String(goal.goal)] || 0;
+    (goal.targets || []).forEach(target => {
+      const key = _sdgPickerKey(target.value);
+      if (key) countsByKey[key] = Number(target.count) || countsByKey[key] || 0;
+    });
+  });
+
+  return Object.keys(SDG_NAMES).map(goal => {
+    const targets = Object.entries(SDG_TARGET_NAMES)
+      .filter(([key]) => key.startsWith(goal + '.'))
+      .map(([key, label]) => ({
+        value: `SDG ${key}`,
+        label: `SDG ${key} — ${label}`,
+        count: countsByKey[key] || 0,
+      }));
+    return {
+      goal,
+      label: `SDG ${goal} — ${SDG_NAMES[goal]}`,
+      count: countsByKey[goal] || targets.reduce((sum, target) => sum + target.count, 0),
+      targets,
+    };
+  });
+}
+
 async function renderCountry() {
   const root = $('#view-country');
   const iso = state.focusCountry;
@@ -434,30 +469,26 @@ async function renderSDG() {
     $('#openPaletteFromSp')?.addEventListener('click', openPalette);
     return;
   }
-  // Hierarchical SDG picker: the /facets endpoint returns
-  // `sdgs_hierarchy: [{goal, label, count, targets:[{value,sub,count}]}]`.
-  // Render as a native <optgroup>-based <select> so users can pick a whole
-  // goal (e.g. "16 - PEACE, JUSTICE…") or a specific target ("16.3 - Rule
-  // of law…"). Fallback to the flat list if the hierarchy isn't available.
-  const hierarchy = state.facets?.sdgs_hierarchy || [];
-  let opts;
-  if (hierarchy.length) {
-    opts = hierarchy.map(g => {
-      const goalLabel = g.label || `${g.goal}`;
-      const goalOpt = `<option value="${sanitize(goalLabel)}" ${goalLabel===sdg?'selected':''}>${sanitize(goalLabel)}  —  ${fmt(g.count)} recs</option>`;
+  // Always build from the local UN SDG taxonomy so all 17 goals and every
+  // known target remain available. API payloads enrich the catalog with
+  // counts but never decide which options exist.
+  const hierarchy = _completeSdgHierarchy(
+    _profilePickerAnalytics(),
+    state.facets?.sdgs_hierarchy || []
+  );
+  const selectedSdgKey = _sdgPickerKey(sdg);
+  const opts = hierarchy.map(g => {
+      const goalValue = `SDG ${g.goal}`;
+      const goalOpt = `<option value="${sanitize(goalValue)}" ${String(g.goal)===selectedSdgKey?'selected':''}>${sanitize(g.label)}  —  ${fmt(g.count)} recs</option>`;
       const targetOpts = (g.targets || []).map(t => {
-        const sel = t.value === sdg ? 'selected' : '';
-        return `<option value="${sanitize(t.value)}" ${sel}>${sanitize(t.value)}  —  ${fmt(t.count)}</option>`;
+        const sel = _sdgPickerKey(t.value) === selectedSdgKey ? 'selected' : '';
+        return `<option value="${sanitize(t.value)}" ${sel}>${sanitize(t.label)}  —  ${fmt(t.count)} recs</option>`;
       }).join('');
-      return `<optgroup label="SDG ${sanitize(g.goal)} — ${sanitize((goalLabel.replace(/^\d+\s*-\s*/, '') || '').slice(0, 48))}">
+      return `<optgroup label="SDG ${sanitize(g.goal)} — ${sanitize(SDG_NAMES[g.goal])}">
         ${goalOpt}
         ${targetOpts}
       </optgroup>`;
     }).join('');
-  } else {
-    const sdgsList = (_profilePickerAnalytics()?.text?.sdg_counts || []).map(s => s.sdg);
-    opts = sdgsList.map(s => `<option value="${sanitize(s)}" ${s===sdg?'selected':''}>${sanitize(formatSdgLabel(s))}</option>`).join('');
-  }
   root.innerHTML = `
     <div class="cp-head">
       <div>
@@ -489,10 +520,9 @@ async function renderSDG() {
     navigate('sdg');
   });
 
-  // Older facets payloads do not include `sdgs_hierarchy`. If this profile
-  // opened while filtered analytics was still current, rebuild it once the
-  // unfiltered catalog arrives so both the select and typeahead are complete.
-  if (!hierarchy.length && !state.baselineAnalytics) {
+  // The catalog works immediately; rebuild once baseline counts arrive so
+  // count annotations are upgraded without narrowing the available options.
+  if (!state.baselineAnalytics) {
     _ensureProfilePickerAnalytics().then(() => {
       if (state.view === 'sdg' && state.focusSdg === sdg && root.contains($('#spSelect'))) navigate('sdg');
     }).catch(err => { if (err.name !== 'AbortError') console.warn('SDG picker catalog failed', err); });
@@ -539,17 +569,18 @@ async function renderSDG() {
       for (const g of hierarchy) {
         const rowsForGoal = [];
         // Goal row itself
-        const goalLabel = g.label || g.goal;
+        const goalLabel = g.label || `SDG ${g.goal}`;
         if (goalLabel.toLowerCase().includes(ql)) {
-          rowsForGoal.push({ value: goalLabel, label: goalLabel, count: g.count, isGoal: true });
+          rowsForGoal.push({ value: `SDG ${g.goal}`, label: goalLabel, count: g.count, isGoal: true });
         }
         for (const t of (g.targets || [])) {
-          if (t.value.toLowerCase().includes(ql)) {
-            rowsForGoal.push({ value: t.value, label: t.value, count: t.count, isGoal: false });
+          const targetLabel = t.label || formatSdgLabel(t.value);
+          if (targetLabel.toLowerCase().includes(ql)) {
+            rowsForGoal.push({ value: t.value, label: targetLabel, count: t.count, isGoal: false });
           }
         }
         if (rowsForGoal.length) {
-          out.push(`<div class="sr-goal">SDG ${sanitize(g.goal)} · ${sanitize((g.label||'').replace(/^\d+\s*-\s*/, '').slice(0, 52))}</div>`);
+          out.push(`<div class="sr-goal">SDG ${sanitize(g.goal)} · ${sanitize(SDG_NAMES[g.goal] || '')}</div>`);
           for (const r of rowsForGoal) {
             flatMatches.push(r.value);
             out.push(`<div class="sr-item" data-val="${sanitize(r.value)}" data-idx="${flatMatches.length-1}">
