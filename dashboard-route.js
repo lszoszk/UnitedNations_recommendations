@@ -147,7 +147,7 @@ function _restoreUrlState(hash = location.hash.slice(1)) {
   if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
   $$('#themeMatch button').forEach(b => b.classList.toggle('on', b.dataset.m === f.themesMatch));
   $$('#groupMatch button').forEach(b => b.classList.toggle('on', b.dataset.m === f.groupsMatch));
-  if (state.facets?.regions && typeof renderRegionFacet === 'function') renderRegionFacet();
+  if (state.facets?.regions && typeof renderRegionFacet === 'function') renderRegionFacet(state.facets);
   ['country', 'body', 'theme', 'group', 'region', 'type', 'sdg'].forEach(refreshFacetUI);
   _syncRouteTabLabels();
 }

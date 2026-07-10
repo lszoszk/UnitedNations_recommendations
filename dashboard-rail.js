@@ -193,7 +193,7 @@ function buildRail(facets, analytics) {
    the two systems; mixing them produces nonsense).  The toggle UI lives
    above the checkbox list; each side also carries a one-line caption so the
    user sees what they're picking without opening Methodology. */
-function renderRegionFacet(facets) {
+function renderRegionFacet(facets = state.facets || {}) {
   const tax = state.regionTaxonomy || 'm49';
   const body = $('#f-region');
   if (!body) return;

@@ -211,6 +211,7 @@ test.describe('UHRI Dashboard smoke', () => {
 
     const restoredModes = await page.evaluate(() => {
       _resetRouteState();
+      state.facets = { ...(state.facets || {}), regions: ['GRULAC', 'Western Europe & Others'] };
       _restoreUrlState('theme=Health|Education&group=Women|Children&region=GRULAC&rt=unGroups&tm=all&gm=all');
       return {
         taxonomy: state.regionTaxonomy,
