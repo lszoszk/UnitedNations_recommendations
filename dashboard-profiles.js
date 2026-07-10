@@ -310,7 +310,7 @@ async function renderTheme() {
 
     const _thRenderTl = () => {
       const mode = state.profileStackBy || 'family';
-      renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false, stackBy: mode });
+      renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false, stackBy: mode, yHeadroom: 1.15 });
       _renderStackToggle($('#thStackToggle'), mode, (next) => { state.profileStackBy = next; _thRenderTl(); });
     };
     _thRenderTl();
@@ -419,7 +419,7 @@ async function renderGroup() {
     root.classList.toggle('stale', !!opts.stale);
     const _gpRenderTl = () => {
       const mode = state.profileStackBy || 'family';
-      renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false, stackBy: mode });
+      renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false, stackBy: mode, yHeadroom: 1.15 });
       _renderStackToggle($('#gpStackToggle'), mode, (next) => { state.profileStackBy = next; _gpRenderTl(); });
     };
     _gpRenderTl();
@@ -649,7 +649,7 @@ async function renderSDG() {
     root.classList.toggle('stale', !!opts.stale);
     const _spRenderTl = () => {
       const mode = state.profileStackBy || 'family';
-      renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false, stackBy: mode });
+      renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false, stackBy: mode, yHeadroom: 1.15 });
       _renderStackToggle($('#spStackToggle'), mode, (next) => { state.profileStackBy = next; _spRenderTl(); });
     };
     _spRenderTl();

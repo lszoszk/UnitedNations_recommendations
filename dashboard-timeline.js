@@ -158,7 +158,12 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   // C2: allow caller to force a shared Y-axis max (Compare A-vs-B uses
   // this so both timelines share the same scale — without it, a small
   // peak in B can render at the same pixel height as a huge peak in A).
-  const max = (opts.yMax && opts.yMax > 0) ? Math.max(1, opts.yMax) : Math.max(1, ...series);
+  const baseMax = (opts.yMax && opts.yMax > 0) ? Math.max(1, opts.yMax) : Math.max(1, ...series);
+  // Dense profile charts benefit from a little breathing room above their
+  // highest peak. Callers opt in so Country and shared-scale Compare charts
+  // retain their established framing.
+  const yHeadroom = Math.max(1, Number(opts.yHeadroom) || 1);
+  const max = baseMax * yHeadroom;
   const yOf = v => pad.t + (H-pad.t-pad.b)*(1 - v/max);
 
   // Grid + Y labels

@@ -1091,4 +1091,21 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(pickers.typeahead.toLowerCase()).toContain('justice');
   });
 
+  test('24. profileTimelineHeadroom — profile peaks stay clear of the top edge', async ({ page }) => {
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).renderTimeline === 'function', null, { timeout: 5000 });
+    const minPeakY = await page.evaluate(() => {
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      renderTimeline(host, [{ year: 2020, body: 'UPR', count: 100 }], {
+        interactive: false, stackBy: 'family', yHeadroom: 1.15,
+      });
+      const points = host.querySelector('polygon')?.getAttribute('points') || '';
+      const ys = points.split(/\s+/).map(point => Number(point.split(',')[1])).filter(Number.isFinite);
+      host.remove();
+      return Math.min(...ys);
+    });
+    expect(minPeakY).toBeGreaterThan(30);
+  });
+
 });
