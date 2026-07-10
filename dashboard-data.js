@@ -353,7 +353,11 @@ function _loadProfile(entityType, entityValue, scopeOverride) {
     };
   };
 
-  if (railEmpty && _bundledProfileEndpointAvailable !== false) {
+  // SDG aliases vary between full labels, goals and granular targets. The
+  // bundled endpoint has historically returned the unfiltered dataset for
+  // canonical values such as "SDG 5.2". Use the normal filtered endpoints
+  // for SDGs so buildParams() applies sdgs= deterministically.
+  if (entityType !== 'sdg' && railEmpty && _bundledProfileEndpointAvailable !== false) {
     const pSwr = swr(`profile:${entityType}:${entityValue}`, filter, () => api.profile(entityType, entityValue));
     return {
       stale: norm(pSwr.stale),

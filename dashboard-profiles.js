@@ -70,12 +70,12 @@ function _completeSdgHierarchy(analytics, apiHierarchy = []) {
       .map(([key, label]) => ({
         value: `SDG ${key}`,
         label: `SDG ${key} — ${label}`,
-        count: countsByKey[key] || 0,
+        count: Object.prototype.hasOwnProperty.call(countsByKey, key) ? countsByKey[key] : null,
       }));
     return {
       goal,
       label: `SDG ${goal} — ${SDG_NAMES[goal]}`,
-      count: countsByKey[goal] || targets.reduce((sum, target) => sum + target.count, 0),
+      count: Object.prototype.hasOwnProperty.call(countsByKey, goal) ? countsByKey[goal] : null,
       targets,
     };
   });
@@ -479,10 +479,12 @@ async function renderSDG() {
   const selectedSdgKey = _sdgPickerKey(sdg);
   const opts = hierarchy.map(g => {
       const goalValue = `SDG ${g.goal}`;
-      const goalOpt = `<option value="${sanitize(goalValue)}" ${String(g.goal)===selectedSdgKey?'selected':''}>${sanitize(g.label)}  —  ${fmt(g.count)} recs</option>`;
+      const goalCount = g.count == null ? '' : `  —  ${fmt(g.count)} recs`;
+      const goalOpt = `<option value="${sanitize(goalValue)}" ${String(g.goal)===selectedSdgKey?'selected':''}>${sanitize(g.label)}${goalCount}</option>`;
       const targetOpts = (g.targets || []).map(t => {
         const sel = _sdgPickerKey(t.value) === selectedSdgKey ? 'selected' : '';
-        return `<option value="${sanitize(t.value)}" ${sel}>${sanitize(t.label)}  —  ${fmt(t.count)} recs</option>`;
+        const count = t.count == null ? '' : `  —  ${fmt(t.count)} recs`;
+        return `<option value="${sanitize(t.value)}" ${sel}>${sanitize(t.label)}${count}</option>`;
       }).join('');
       return `<optgroup label="SDG ${sanitize(g.goal)} — ${sanitize(SDG_NAMES[g.goal])}">
         ${goalOpt}
@@ -585,7 +587,7 @@ async function renderSDG() {
             flatMatches.push(r.value);
             out.push(`<div class="sr-item" data-val="${sanitize(r.value)}" data-idx="${flatMatches.length-1}">
               <span class="sr-label">${highlight(r.label, ql)}</span>
-              <span class="sr-count">${fmt(r.count)}</span>
+              <span class="sr-count">${r.count == null ? '' : fmt(r.count)}</span>
             </div>`);
           }
         }
@@ -626,9 +628,10 @@ async function renderSDG() {
     // Focus the filter input on load so the user can type immediately
     setTimeout(() => filterInput.focus(), 50);
   }
-  // O6: bundled /profile endpoint handles SDG shorthand → full-label
-  // alias backend-side (perf-v6 F2). When rail is empty, hits MV.
-  const spProfile = _loadProfile('sdg', sdg, {});
+  // Always scope the profile by the selected goal/target. SDG uses the split
+  // analytics/map/records path because bundled alias resolution can silently
+  // return the full dataset for canonical values such as "SDG 5.2".
+  const spProfile = _loadProfile('sdg', sdg, _sdgOverrideForValue(sdg));
 
   const paint = (analytics, mapD, records, opts = {}) => {
     updateSparklineCaches(analytics);

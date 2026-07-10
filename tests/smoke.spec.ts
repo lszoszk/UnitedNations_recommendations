@@ -1108,4 +1108,49 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(minPeakY).toBeGreaterThan(30);
   });
 
+  test('25. sdgProfileScope — switching target filters every profile request', async ({ page }) => {
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).renderSDG === 'function', null, { timeout: 5000 });
+    const calls = await page.evaluate(async () => {
+      const seen: { kind: string; sdgs: string | null }[] = [];
+      state.filters = { ...emptyFilters(), yearA: 2006, yearB: 2026 };
+      state.facets = { ...(state.facets || {}), min_year: 2006, max_year: 2026, sdgs_hierarchy: [] };
+      state.focusSdg = 'SDG 5.2';
+      state.view = 'sdg';
+      state.baselineAnalytics = {
+        themes: { theme_counts: [] },
+        text: { affected_person_counts: [], sdg_counts: [] },
+      };
+      api.profile = async () => {
+        seen.push({ kind: 'profile', sdgs: null });
+        throw new Error('bundled profile must not be used for SDGs');
+      };
+      api.analytics = async (filter) => {
+        seen.push({ kind: 'analytics', sdgs: buildParams(filter).get('sdgs') });
+        return {
+          themes: { theme_counts: [] }, text: { affected_person_counts: [], sdg_counts: [] },
+          trends: {
+            yearly_body_counts: [{ year: 2024, body: 'UPR', count: 7 }],
+            dataset_first_publication_date: '2024-01-01', dataset_last_publication_date: '2024-12-31',
+          },
+        };
+      };
+      api.map = async (filter) => {
+        seen.push({ kind: 'map', sdgs: buildParams(filter).get('sdgs') });
+        return { country_counts: [] };
+      };
+      api.records = async (filter) => {
+        seen.push({ kind: 'records', sdgs: buildParams(filter).get('sdgs') });
+        return { total_records: 7, records: [] };
+      };
+      await renderSDG();
+      return seen;
+    });
+
+    expect(calls.some(call => call.kind === 'profile')).toBe(false);
+    expect(calls.filter(call => call.kind !== 'profile').map(call => call.sdgs)).toEqual([
+      'SDG 5.2', 'SDG 5.2', 'SDG 5.2',
+    ]);
+  });
+
 });
