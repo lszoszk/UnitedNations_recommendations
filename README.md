@@ -1,5 +1,8 @@
 # UHRI+ — UN Human Rights Recommendations Dashboard (GitHub Pages)
 
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue.svg)](LICENSE)
+[![Dataset: Hugging Face](https://img.shields.io/badge/dataset-Hugging%20Face-yellow.svg)](https://huggingface.co/datasets/lszoszk/uhri-recommendations)
+
 Static, zero-build dashboard for searching and analysing **267,671** cleaned
 country-specific UN human-rights observations and recommendations (Treaty
 Bodies, Universal Periodic Review, Special Procedures, 2006–2026), built on
@@ -62,3 +65,17 @@ backfill from document symbols → artefact drop). Full detail is on the
 dashboard's **Methodology** tab and in the HuggingFace dataset card. The
 canonical record count is maintained in `scripts/counts.json` and synced across
 the UI by `scripts/update-counts.mjs`.
+
+## Citation
+
+> Szoszkiewicz, Ł. (2026). *UHRI+ — UN Human Rights Recommendations
+> Dashboard* (Version 1.0.0) [Computer software].
+
+GitHub exposes machine-readable citation metadata from
+[`CITATION.cff`](CITATION.cff). When citing a specific query result, also
+record the dataset version and exact query and filters.
+
+The cleaned dataset is a separate research object distributed through
+[Hugging Face](https://huggingface.co/datasets/lszoszk/uhri-recommendations)
+under CC BY-NC 4.0. Its citation should be used when the data, rather than the
+dashboard software, is the object of reuse.

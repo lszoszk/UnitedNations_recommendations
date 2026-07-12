@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+title: "UHRI+ — UN Human Rights Recommendations Dashboard"
+message: >-
+  Cite this software using the metadata below. If you reuse the cleaned
+  recommendations corpus, cite the related dataset separately and identify
+  the dataset version, query, and filters used.
+type: software
+authors:
+  - family-names: "Szoszkiewicz"
+    given-names: "Łukasz"
+    email: "l.szoszkiewicz@amu.edu.pl"
+    affiliation: "Adam Mickiewicz University, Poznań"
+    orcid: "https://orcid.org/0000-0001-6671-2893"
+abstract: >-
+  UHRI+ is a public research dashboard for searching and analysing 267,671
+  cleaned country-specific observations and recommendations from UN Treaty
+  Bodies, the Universal Periodic Review, and Special Procedures. It provides
+  faceted full-text search, comparative country and mechanism profiles,
+  timelines, maps, SDG analysis, exports, and transparent methodology.
+keywords:
+  - "human rights"
+  - "United Nations"
+  - "Universal Human Rights Index"
+  - "Treaty Bodies"
+  - "Universal Periodic Review"
+  - "Special Procedures"
+  - "recommendations"
+  - "legal data"
+license: "PolyForm-Noncommercial-1.0.0"
+repository-code: "https://github.com/lszoszk/UnitedNations_recommendations"
+url: "https://lszoszk.github.io/UnitedNations_recommendations/"
+version: "1.0.0"
+date-released: "2026-07-12"

@@ -1,7 +1,7 @@
 {
-  "name": "dashboard-codex-pages",
+  "name": "uhri-plus-dashboard",
   "version": "1.0.0",
-  "description": "Static dashboard deployed to GitHub Pages. npm is used only for dev-time Playwright smoke tests — production is zero-build vanilla JS served straight from this directory.",
+  "description": "UHRI+ static dashboard for searching and analysing cleaned UN human-rights recommendations.",
   "private": true,
   "scripts": {
     "test":               "playwright test --project=chromium",
@@ -23,8 +23,9 @@
     "type": "git",
     "url": "git+https://github.com/lszoszk/UnitedNations_recommendations.git"
   },
+  "homepage": "https://lszoszk.github.io/UnitedNations_recommendations/",
   "author": "L. Szoszkiewicz",
-  "license": "ISC",
+  "license": "SEE LICENSE IN LICENSE",
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",
     "@playwright/test": "^1.59.1",

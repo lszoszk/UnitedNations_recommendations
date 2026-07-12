@@ -1,0 +1,38 @@
+{
+  "@context": "https://w3id.org/codemeta/3.0",
+  "type": "SoftwareSourceCode",
+  "name": "UHRI+ — UN Human Rights Recommendations Dashboard",
+  "description": "Search and analytics dashboard for cleaned recommendations from UN Treaty Bodies, the Universal Periodic Review, and Special Procedures.",
+  "codeRepository": "https://github.com/lszoszk/UnitedNations_recommendations",
+  "url": "https://lszoszk.github.io/UnitedNations_recommendations/",
+  "version": "1.0.0",
+  "datePublished": "2026-07-12",
+  "license": "https://polyformproject.org/licenses/noncommercial/1.0.0/",
+  "applicationCategory": "Legal research software",
+  "programmingLanguage": ["JavaScript", "HTML", "CSS"],
+  "keywords": [
+    "human rights",
+    "United Nations",
+    "Universal Human Rights Index",
+    "Treaty Bodies",
+    "Universal Periodic Review",
+    "Special Procedures",
+    "recommendations",
+    "legal data"
+  ],
+  "author": {
+    "type": "Person",
+    "givenName": "Łukasz",
+    "familyName": "Szoszkiewicz",
+    "email": "l.szoszkiewicz@amu.edu.pl",
+    "affiliation": {
+      "type": "Organization",
+      "name": "Adam Mickiewicz University, Poznań"
+    },
+    "id": "https://orcid.org/0000-0001-6671-2893"
+  },
+  "relatedLink": [
+    "https://huggingface.co/datasets/lszoszk/uhri-recommendations",
+    "https://github.com/lszoszk/mcp-unhrdb"
+  ]
+}
