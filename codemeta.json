@@ -31,6 +31,7 @@
     },
     "id": "https://orcid.org/0000-0001-6671-2893"
   },
+  "identifier": "https://doi.org/10.5281/zenodo.21319464",
   "relatedLink": [
     "https://huggingface.co/datasets/lszoszk/uhri-recommendations",
     "https://github.com/lszoszk/mcp-unhrdb"

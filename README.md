@@ -1,5 +1,6 @@
 # UHRI+ — UN Human Rights Recommendations Dashboard (GitHub Pages)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21319464.svg)](https://doi.org/10.5281/zenodo.21319464)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 [![Dataset: Hugging Face](https://img.shields.io/badge/dataset-Hugging%20Face-yellow.svg)](https://huggingface.co/datasets/lszoszk/uhri-recommendations)
 
@@ -69,7 +70,8 @@ the UI by `scripts/update-counts.mjs`.
 ## Citation
 
 > Szoszkiewicz, Ł. (2026). *UHRI+ — UN Human Rights Recommendations
-> Dashboard* (Version 1.0.0) [Computer software].
+> Dashboard* (Version 1.0.0) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.21319464
 
 GitHub exposes machine-readable citation metadata from
 [`CITATION.cff`](CITATION.cff). When citing a specific query result, also
