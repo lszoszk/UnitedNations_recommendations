@@ -4,7 +4,7 @@
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 [![Dataset: Hugging Face](https://img.shields.io/badge/dataset-Hugging%20Face-yellow.svg)](https://huggingface.co/datasets/lszoszk/uhri-recommendations)
 
-Static, zero-build dashboard for searching and analysing **267,671** cleaned
+Static, zero-build dashboard for searching and analysing **267,942** cleaned
 country-specific UN human-rights observations and recommendations (Treaty
 Bodies, Universal Periodic Review, Special Procedures, 2006–2026), built on
 the OHCHR Universal Human Rights Index.

@@ -101,7 +101,7 @@ function renderScopeBanner() {
     el.innerHTML = '';
     return;
   }
-  const total = state.facets?.total_records || 267671;
+  const total = state.facets?.total_records || 267942;
   const hits = state.totalHits;
   const hitsTxt = (hits == null) ? '…' : fmt(hits);
   const pctTxt = (hits == null) ? '' : `(${pct(hits / total)})`;
@@ -223,7 +223,7 @@ async function refreshHitCount() {
     if (gen !== _hitGen) return;
     state.totalHits = r.total_records;
     $('#hitCount').textContent = fmt(r.total_records);
-    const totalAll = state.facets?.total_records || 267671;
+    const totalAll = state.facets?.total_records || 267942;
     const p = r.total_records / totalAll;
     $('#hitBar').style.width = (p * 100) + '%';
     $('#hitPct').textContent = pct(p);

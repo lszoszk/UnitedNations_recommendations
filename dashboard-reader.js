@@ -188,7 +188,7 @@ function renderDrawer() {
     const mechCounts = _computeMechCounts();
     const hasMech = mechCounts && (mechCounts.upr + mechCounts.treaty + mechCounts.sp) > 0;
     const facets = state.facets || {};
-    const total = facets.total_records || (mechCounts?._total) || 267671;
+    const total = facets.total_records || (mechCounts?._total) || 267942;
     // Use cleanCountryList — same canonical filter the rail uses for its
     // "02 COUNTRY 199" badge.  Raw facets.countries from the API contains
     // ~13 dirty entries (2-letter ISO leaks like "PK", "CZ"; OHCHR

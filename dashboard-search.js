@@ -510,7 +510,7 @@ async function loadNextSearchPage() {
       $('#seList').innerHTML = `
         <div class="empty-state">
           <div class="es-title">${kwActive ? `No matches for &ldquo;${sanitize(kwActive.slice(0, 60))}&rdquo;` : 'No records match your filters'}</div>
-          <div class="es-sub">${hasFilters ? 'Try removing one or two filters, broadening the year range, or using a different keyword.' : 'Hmm, the dataset should have 267,671 records — something went wrong.'}</div>
+          <div class="es-sub">${hasFilters ? 'Try removing one or two filters, broadening the year range, or using a different keyword.' : 'Hmm, the dataset should have 267,942 records — something went wrong.'}</div>
           ${kwActive ? `
             <div class="se-warn-hint">
               <span class="ico">!</span><strong>A zero result is not proof that none exists.</strong>

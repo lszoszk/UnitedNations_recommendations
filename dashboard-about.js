@@ -16,7 +16,7 @@ function renderAbout() {
   root.innerHTML = `
     <div class="me">
       <h1>About <em style="color:var(--accent)">·</em> this project</h1>
-      <p>This dashboard is an <strong>independent research tool</strong> that aggregates <strong>267,671 observations and recommendations</strong> issued by UN human-rights mechanisms — Treaty Bodies, Special Procedures and the Universal Periodic Review — in their review of States, covering the twenty-year period <strong>2006 – 2026</strong>. It is built for human-rights advocates, researchers, journalists and civil-society practitioners who need to <em>search, cite and compare</em> the primary material — not a substitute for reading the underlying reports.</p>
+      <p>This dashboard is an <strong>independent research tool</strong> that aggregates <strong>267,942 observations and recommendations</strong> issued by UN human-rights mechanisms — Treaty Bodies, Special Procedures and the Universal Periodic Review — in their review of States, covering the twenty-year period <strong>2006 – 2026</strong>. It is built for human-rights advocates, researchers, journalists and civil-society practitioners who need to <em>search, cite and compare</em> the primary material — not a substitute for reading the underlying reports.</p>
 
       <section class="me-sec" id="ab-independence">
         <h2>Independence</h2>
