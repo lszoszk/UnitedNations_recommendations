@@ -834,12 +834,17 @@
     font-family: var(--ui, system-ui); font-size: 14px; line-height: 1.6;
     color: var(--ink-2, #444); margin: 16px 0 22px;
   }
-  .fig3 .hex-wrap { aspect-ratio: auto; height: min(76vh, 760px); }
+  /* Keep aspect-ratio (NOT a fixed viewport height): renderHex fits the
+     viewBox to the box's aspect and falls back to 5/3 when it can't
+     measure mid-layout — so the box aspect MUST equal that fallback,
+     or the map letterboxes into a corner. In the rail layout the map
+     column is ~1/2–2/3 of the width, so 5/3 still yields a tall, filled
+     map (~600–960px) without depending on when the first paint fires. */
+  .fig3 .hex-wrap { aspect-ratio: 5 / 3; }
   .fig3 .hex-scale { flex-wrap: wrap; row-gap: 6px; }
   @media (max-width: 980px) {
     .fig3 { grid-template-columns: 1fr; gap: 20px; }
     .fig3-rail { position: static; }
-    .fig3 .hex-wrap { aspect-ratio: 5 / 3; height: auto; }
   }
   /* inline-flex auto-sizes the tab row to content width instead of
      stretching to fill its grid cell — fixes the "Oceania tab very
@@ -1458,7 +1463,12 @@
      Side-by-side only on wide monitors (≥1600px); on laptops the map
      takes the full container width and the breakdown chips sit below. -->
 <section class="band" id="countries">
-  <div class="wrap" style="max-width:none">
+  <!-- width:100% is load-bearing: the section is flex-column and .wrap
+       has margin:0 auto, whose auto side-margins disable align stretch —
+       so without an explicit width the wrap shrinks to its content and the
+       grid's 1fr map column collapses to the SVG's ~300px intrinsic size.
+       A definite width breaks that circular sizing. -->
+  <div class="wrap" style="max-width:1600px;width:100%">
     <div class="fig3">
       <aside class="fig3-rail">
         <div class="no">FIG 03 / WHERE</div>
@@ -3007,9 +3017,13 @@
     renderHex(b.dataset.r);
   });
 
-  // Initial render — defer a tick so the container has width
+  // Initial render — defer a tick so the container has width. The box
+  // carries aspect-ratio:5/3 (see .fig3 .hex-wrap), which matches
+  // renderHex's fallback aspect, so this fills correctly even if the
+  // rAF fires before layout fully settles.
+  const _activeRegion = () => document.querySelector('#hexRegions button.active')?.dataset.r || 'world';
   requestAnimationFrame(() => renderHex('world'));
-  window.addEventListener('resize', () => renderHex(document.querySelector('#hexRegions button.active')?.dataset.r || 'world'));
+  window.addEventListener('resize', () => renderHex(_activeRegion()));
 
   /* Top-5 leaderboard renderer. Reads from window.__LIVE_TOP5_COUNTRIES
      (populated by loadLive) or falls back to the first 5 of the
