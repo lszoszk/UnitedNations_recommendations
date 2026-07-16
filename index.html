@@ -525,7 +525,10 @@
   .wrap { max-width: 1480px; margin: 0 auto; }
   .section-head {
     display: grid;
-    grid-template-columns: 180px 1fr auto;
+    /* ctx column must be capped: with `auto` it sized to max-content
+       (~890px for FIG 03's long caption), starving the 1fr headline
+       into a one-word-per-line tower on <1700px viewports. */
+    grid-template-columns: 180px minmax(0, 1fr) minmax(0, 34ch);
     gap: 24px;
     align-items: baseline;
     padding-bottom: 28px;
@@ -806,14 +809,38 @@
   }
 
   /* -------- hex tile map (Fig 03) -------- */
-  /* 2-column layout: hex map + top-5 leaderboard. Grid gives us an
-     exact split without needing inline-block / float tricks, and the
-     `fr 320px` template pins the leaderboard at a fixed comfortable
-     width while the map takes whatever space is left. */
-  /* FIG 03 map: full-width single column (leaderboard sidebar removed
-     April 2026 — the hover tooltip now carries the per-country ranking
-     + theme/group breakdown, so a separate ranked list felt redundant). */
-  .hex-only { display: block; }
+  /* Figure-with-caption-rail (July 2026): narrative text, region tabs
+     and the colour legend live in a sticky 320px rail on the left; the
+     map takes the remaining width at near-viewport height. Replaces
+     the stacked section-head + full-width map, whose long caption
+     starved the headline column and pushed the map below the fold. */
+  .fig3 {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 44px;
+    align-items: start;
+  }
+  .fig3-rail { position: sticky; top: 70px; }
+  .fig3-rail .no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--dim); margin-bottom: 14px;
+  }
+  .fig3-t {
+    font-family: var(--serif); font-weight: 400; letter-spacing: -.01em;
+    line-height: 1.05; font-size: clamp(26px, 2.2vw, 34px); margin: 0;
+    text-wrap: balance;
+  }
+  .fig3-note {
+    font-family: var(--ui, system-ui); font-size: 14px; line-height: 1.6;
+    color: var(--ink-2, #444); margin: 16px 0 22px;
+  }
+  .fig3 .hex-wrap { aspect-ratio: auto; height: min(76vh, 760px); }
+  .fig3 .hex-scale { flex-wrap: wrap; row-gap: 6px; }
+  @media (max-width: 980px) {
+    .fig3 { grid-template-columns: 1fr; gap: 20px; }
+    .fig3-rail { position: static; }
+    .fig3 .hex-wrap { aspect-ratio: 5 / 3; height: auto; }
+  }
   /* inline-flex auto-sizes the tab row to content width instead of
      stretching to fill its grid cell — fixes the "Oceania tab very
      long and mostly empty" complaint. The max-width cap stays as a
@@ -1432,38 +1459,42 @@
      takes the full container width and the breakdown chips sit below. -->
 <section class="band" id="countries">
   <div class="wrap" style="max-width:none">
-    <div class="section-head">
-      <div class="no">FIG 03 / WHERE</div>
-      <h2 class="t">One hex per country. <em style="color:var(--accent)">No country is bigger than another.</em></h2>
-      <div class="ctx">198 states + EU · color = record volume · how often a country was reviewed, not its human-rights performance or ranking</div>
-    </div>
+    <div class="fig3">
+      <aside class="fig3-rail">
+        <div class="no">FIG 03 / WHERE</div>
+        <h2 class="fig3-t">One hex per country. <em style="color:var(--accent)">No country is bigger than another.</em></h2>
+        <p class="fig3-note">198 states + the EU. Colour shows <strong>record
+        volume</strong> on a log scale — how often a country was reviewed, not
+        its human-rights performance or ranking: states party to more treaties
+        simply receive more recommendations. Click any hex to open its country
+        profile; hover for top themes and concerned groups.</p>
 
-    <div class="hex-only">
-      <div class="hex-regions" id="hexRegions">
-        <button data-r="world" class="active">World</button>
-        <button data-r="africa">Africa</button>
-        <button data-r="americas">Americas</button>
-        <button data-r="asia">Asia</button>
-        <button data-r="europe">Europe</button>
-        <button data-r="oceania">Oceania</button>
-      </div>
+        <div class="hex-regions" id="hexRegions">
+          <button data-r="world" class="active">World</button>
+          <button data-r="africa">Africa</button>
+          <button data-r="americas">Americas</button>
+          <button data-r="asia">Asia</button>
+          <button data-r="europe">Europe</button>
+          <button data-r="oceania">Oceania</button>
+        </div>
+
+        <div class="hex-scale">
+          <span>0</span>
+          <div class="scale">
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 28%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 40%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 52%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 64%, var(--paper-2))"></span>
+            <span class="s" style="background:color-mix(in oklab, var(--accent) 78%, var(--paper-2))"></span>
+          </div>
+          <span data-hex-scale-max>—</span>
+          <span class="hint">log-scaled · each hex = one state</span>
+        </div>
+      </aside>
 
       <div class="hex-wrap">
         <svg id="hexSvg" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="hex-tip" id="hexTip"></div>
-      </div>
-
-      <div class="hex-scale">
-        <span>0</span>
-        <div class="scale">
-          <span class="s" style="background:color-mix(in oklab, var(--accent) 28%, var(--paper-2))"></span>
-          <span class="s" style="background:color-mix(in oklab, var(--accent) 40%, var(--paper-2))"></span>
-          <span class="s" style="background:color-mix(in oklab, var(--accent) 52%, var(--paper-2))"></span>
-          <span class="s" style="background:color-mix(in oklab, var(--accent) 64%, var(--paper-2))"></span>
-          <span class="s" style="background:color-mix(in oklab, var(--accent) 78%, var(--paper-2))"></span>
-        </div>
-        <span data-hex-scale-max>—</span>
-        <span class="hint">log-scaled · each hex = one state · click any hex to open its country profile · hover for top themes &amp; groups</span>
       </div>
     </div>
   </div>
@@ -2705,6 +2736,13 @@
      Priority: __LIVE_COUNTRY_BY_ISO3 (populated by loadLive from /api/data/map,
      ~212 countries) > COUNTRIES fallback > small random for uncovered states.
      Kept as a let + rebuildable object so applyLiveData() can refresh it. */
+  /* Full per-country snapshot (API /api/data/map via the page's own
+     name->ISO3 mapping, captured 2026-07-16). Used when the live API is
+     unreachable (offline, CORS on localhost) so the hex map still colours
+     all ~199 states instead of only the top-20 hero list — the truncated
+     fallback made everything grey except a few red outliers, which read
+     as a naming-and-shaming ranking the figure explicitly is not. */
+  const FALLBACK_COUNT_BY_ISO3 = {"AFG":1320,"AGO":1586,"ALB":1766,"AND":557,"ARE":1351,"ARG":1991,"ARM":1894,"ATG":566,"AUS":2041,"AUT":1570,"AZE":1974,"BDI":1325,"BEL":1734,"BEN":1451,"BFA":1392,"BGD":1515,"BGR":1412,"BHR":1304,"BHS":636,"BIH":1816,"BLR":1463,"BLZ":675,"BOL":1902,"BRA":2245,"BRB":634,"BRN":858,"BTN":1149,"BWA":1349,"CAF":1033,"CAN":1901,"CHE":1736,"CHL":2341,"CHN":2540,"CIV":1152,"CMR":1487,"COD":1597,"COG":1222,"COK":232,"COL":2006,"COM":694,"CPV":1068,"CRI":1666,"CUB":1669,"CYP":1463,"CZE":1427,"DEU":2087,"DJI":1161,"DMA":539,"DNK":1466,"DOM":1413,"DZA":1336,"ECU":1988,"EGY":1680,"ERI":1267,"ESP":2151,"EST":1368,"ETH":1709,"EUU":233,"FIN":1247,"FJI":1142,"FRA":2164,"FSM":352,"GAB":986,"GBR":2309,"GEO":1465,"GHA":1231,"GIN":1305,"GMB":1393,"GNB":985,"GNQ":920,"GRC":1504,"GRD":661,"GTM":1741,"GUY":1049,"HND":1900,"HRV":1119,"HTI":856,"HUN":1446,"IDN":1540,"IND":1506,"IRL":1395,"IRN":1517,"IRQ":1965,"ISL":1022,"ISR":1898,"ITA":2208,"JAM":1042,"JOR":1525,"JPN":1749,"KAZ":2019,"KEN":2195,"KGZ":2225,"KHM":1534,"KIR":678,"KNA":573,"KOR":1736,"KWT":2009,"LAO":1485,"LBN":1137,"LBR":909,"LBY":783,"LCA":343,"LIE":907,"LKA":2360,"LSO":1034,"LTU":1322,"LUX":1177,"LVA":1107,"MAR":1610,"MCO":660,"MDA":1487,"MDG":1216,"MDV":1735,"MEX":2389,"MHL":497,"MKD":1398,"MLI":1104,"MLT":1081,"MMR":872,"MNE":1520,"MNG":1616,"MOZ":1166,"MRT":1599,"MUS":1483,"MWI":1165,"MYS":1561,"NAM":1331,"NER":1264,"NGA":1315,"NIC":1247,"NIU":68,"NLD":1945,"NOR":1825,"NPL":1220,"NRU":506,"NZL":1888,"OMN":1190,"PAK":1525,"PAN":1311,"PER":1863,"PHL":1732,"PLW":502,"PNG":563,"POL":1689,"PRK":1219,"PRT":1799,"PRY":1868,"PSE":368,"QAT":1810,"ROU":1351,"RUS":2141,"RWA":1531,"SAU":1417,"SDN":1258,"SEN":1704,"SGP":1118,"SLB":570,"SLE":1020,"SLV":1887,"SMR":502,"SOM":929,"SRB":1819,"SSD":675,"STP":609,"SUR":818,"SVK":1593,"SVN":1347,"SWE":2124,"SWZ":711,"SYC":915,"SYR":1244,"TCD":1382,"TGO":1410,"THA":1401,"TJK":1602,"TKM":1506,"TLS":976,"TON":479,"TTO":529,"TUN":1658,"TUR":2142,"TUV":792,"TZA":1021,"UGA":1170,"UKR":1765,"URY":1891,"USA":2029,"UZB":1692,"VAT":153,"VCT":654,"VEN":1464,"VNM":1649,"VUT":752,"WSM":610,"XKX":75,"YEM":1496,"ZAF":1419,"ZMB":1117,"ZWE":1184};
   let COUNT_BY_ISO = {};
   let HEX_MAX = 1;
   function _rebuildCountByIso() {
@@ -2713,7 +2751,12 @@
     if (live) {
       Object.assign(COUNT_BY_ISO, live);
     } else {
+      /* Seed from the (older) top-20 hero list, then let the fuller and
+         fresher snapshot win — its values postdate the dataset cleaning,
+         so the hardcoded COUNTRIES numbers run high (e.g. CHN 3218 vs
+         2540) and would skew HEX_MAX + the legend if they overlaid it. */
       COUNTRIES.forEach(([iso,name,v]) => { COUNT_BY_ISO[iso] = v; });
+      Object.assign(COUNT_BY_ISO, FALLBACK_COUNT_BY_ISO3);
     }
     /* Any country without a recorded count (neither live nor COUNTRIES
        fallback) stays at 0 — renders as neutral grey, same as post-live
