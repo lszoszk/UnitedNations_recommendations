@@ -65,6 +65,23 @@ function _syncRouteTabLabels() {
 
   const searchTab = $('#tabSearch');
   if (searchTab) searchTab.textContent = state.filters.kw || '';
+
+  // Consolidated "Profiles" tab (2026-07): its context mirrors the entity
+  // of the ACTIVE profile view, so the tab reads "Profiles · Poland" while
+  // you're on the Poland profile and stays quiet elsewhere. The per-type
+  // spans written above live in the profile-type switcher strip now.
+  const profilesTab = $('#tabProfiles');
+  if (profilesTab) {
+    const v = state.view;
+    let ctx = '';
+    if (v === 'country') ctx = countryTab?.textContent || '';
+    else if (v === 'theme') ctx = themeTab?.textContent || '';
+    else if (v === 'group') ctx = groupTab?.textContent || '';
+    else if (v === 'sdg') ctx = sdgTab?.textContent || '';
+    else if (v === 'mechanism') ctx = mechanismTab?.textContent || '';
+    else if (v === 'compare') ctx = (state.cmpA && state.cmpB) ? `${state.cmpA} vs ${state.cmpB}` : 'A vs B';
+    profilesTab.textContent = ctx;
+  }
 }
 
 function _resetRouteState() {

@@ -97,8 +97,11 @@ test.describe('UHRI Dashboard smoke', () => {
     // The tab bar is rendered in HTML (not JS), so it appears even when the
     // IIFE bails. But we want them PRESENT — their absence means the HTML
     // itself failed to parse, which is a far worse regression.
+    // (2026-07 nav consolidation: Labels moved into the ⋯ overflow menu, so
+    // it's attached-but-hidden until the menu opens; the trigger is visible.)
     await expect(page.locator('[data-nav="overview"]')).toBeVisible();
-    await expect(page.locator('[data-nav="labels"]')).toBeVisible();
+    await expect(page.locator('#tabsMore')).toBeVisible();
+    await expect(page.locator('.tabs-more-pop [data-nav="labels"]')).toBeAttached();
     // Let the IIFE run so synchronous errors surface.
     await page.waitForTimeout(800);
     expect(errors, `JS errors during boot:\n${errors.join('\n')}`).toEqual([]);

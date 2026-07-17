@@ -460,6 +460,28 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
    advertise "China" / "Women & girls" etc. as if they were applied filters.
    The active tab still shows the entity you're actually looking at. */
 .tab:not(.active) .t-ctx{display:none}
+/* ⋯ overflow menu (Labels β · Methodology) */
+.tabs-more-wrap{position:relative;display:flex;margin-left:auto}
+.tab.tabs-more{min-width:44px;max-width:none;align-items:center;justify-content:center;font-size:16px;letter-spacing:.1em;cursor:pointer;border-left:1px solid var(--line);background:var(--paper);border-top:0;border-bottom:0;color:var(--dim)}
+.tab.tabs-more:hover{color:var(--ink);background:var(--paper-2)}
+.tab.tabs-more.active{color:var(--accent)}
+.tabs-more-pop{display:none;position:absolute;top:100%;right:0;z-index:60;background:var(--paper);border:1px solid var(--ink);box-shadow:0 16px 48px rgba(0,0,0,.25);min-width:220px;padding:4px}
+.tabs-more-wrap.open .tabs-more-pop{display:block}
+.tabs-more-pop a{display:block;padding:9px 12px;color:var(--ink);text-decoration:none;cursor:pointer;font:11px var(--mono);letter-spacing:.04em}
+.tabs-more-pop a:hover{background:var(--paper-2)}
+.tabs-more-pop .tmp-hint{display:block;margin-top:2px;color:var(--dim);font-size:10px;letter-spacing:0}
+/* Profile-type switcher — second nav tier under the tab strip, shown
+   only while a profile view is active (navigate() toggles [hidden]). */
+.profile-switch{display:flex;gap:2px;align-items:center;flex-wrap:wrap;padding:5px 16px;border-bottom:1px solid var(--line);background:var(--paper-2);font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.profile-switch[hidden]{display:none}
+.profile-switch .ps-lbl{color:var(--dimmer);margin-right:10px}
+.profile-switch .ps-opt{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;color:var(--dim);cursor:pointer;text-decoration:none;border:1px solid transparent}
+.profile-switch .ps-opt:hover{color:var(--ink);background:var(--paper)}
+.profile-switch .ps-opt.active{background:var(--ink);color:var(--paper)}
+.profile-switch .ps-ctx{font-family:var(--serif);font-style:italic;text-transform:none;letter-spacing:0;font-size:11px;opacity:.8;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-switch .ps-ctx:empty{display:none}
+/* Inactive profile types keep their entity quiet — same rule as tabs. */
+.profile-switch .ps-opt:not(.active) .ps-ctx{display:none}
 
 .view{padding:0}
 .view.loading{opacity:.5;pointer-events:none}
@@ -2284,20 +2306,43 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   <!-- MAIN -->
   <main class="main" id="main" tabindex="-1" aria-label="Dashboard main content">
     <div class="tabs-wrap" id="tabsWrap">
+    <!-- Consolidated nav (audit 2026-07): 11 tabs → 4 destinations. The six
+         profile views (country / compare / group / theme / sdg / mechanism)
+         share one "Profiles" tab; a secondary type-switcher strip below
+         (id=profileSwitch) appears whenever a profile view is active. Labels β
+         and Methodology moved into the ⋯ overflow (Methodology also keeps its
+         topbar + footer links). Deep links are untouched — state.view still
+         holds the concrete view id, only its tab representation collapsed. -->
     <nav class="tabs" id="tabs" role="tablist" aria-label="Dashboard views">
       <a class="tab active" data-nav="overview" role="tab" aria-selected="true" tabindex="0" title="Overview"><span class="t-idx">01</span><span class="t-lbl">Overview</span></a>
-      <a class="tab" data-nav="country" role="tab" aria-selected="false" tabindex="-1" title="Country profile"><span class="t-idx">02</span><span class="t-lbl">Country</span><span class="t-ctx" id="tabCountry"></span></a>
-      <a class="tab" data-nav="compare" role="tab" aria-selected="false" tabindex="-1" title="Compare two countries"><span class="t-idx">03</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
-      <a class="tab" data-nav="group" role="tab" aria-selected="false" tabindex="-1" title="Concerned-group profile"><span class="t-idx">04</span><span class="t-lbl">Group</span><span class="t-ctx" id="tabGroup"></span></a>
-      <a class="tab" data-nav="theme" role="tab" aria-selected="false" tabindex="-1" title="Theme profile"><span class="t-idx">05</span><span class="t-lbl">Theme</span><span class="t-ctx" id="tabTheme"></span></a>
-      <a class="tab" data-nav="sdg" role="tab" aria-selected="false" tabindex="-1" title="SDG profile"><span class="t-idx">06</span><span class="t-lbl">SDG</span><span class="t-ctx" id="tabSdg"></span></a>
-      <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1" title="Recommending-body profile"><span class="t-idx">07</span><span class="t-lbl">Mechanism</span><span class="t-ctx" id="tabMechanism"></span></a>
-      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1" title="Full-text search results"><span class="t-idx">08</span><span class="t-lbl">Search</span><span class="t-ctx" id="tabSearch"></span></a>
-      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1" title="Bookmarked records"><span class="t-idx">09</span><span class="t-lbl">★ Saved</span><span class="t-ctx" id="tabBookmarks"></span></a>
-      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Define your own labels as boolean keyword queries — deterministic, explainable, server-side (experimental)"><span class="t-idx">10</span><span class="t-lbl">Labels <span class="tab-beta" aria-label="experimental feature">β</span></span><span class="t-ctx" id="tabLabels"></span></a>
-      <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1" title="Dataset notes & caveats"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
+      <a class="tab" data-nav="profiles" role="tab" aria-selected="false" tabindex="-1" title="Profiles — country, compare, group, theme, SDG, mechanism"><span class="t-idx">02</span><span class="t-lbl">Profiles</span><span class="t-ctx" id="tabProfiles"></span></a>
+      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1" title="Full-text search results"><span class="t-idx">03</span><span class="t-lbl">Search</span><span class="t-ctx" id="tabSearch"></span></a>
+      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1" title="Bookmarked records"><span class="t-idx">04</span><span class="t-lbl">★ Saved</span><span class="t-ctx" id="tabBookmarks"></span></a>
+      <span class="tabs-more-wrap">
+        <button class="tab tabs-more" id="tabsMore" type="button" aria-haspopup="true" aria-expanded="false" title="More workspaces">⋯</button>
+        <div class="tabs-more-pop" id="tabsMorePop" role="menu" aria-label="More workspaces">
+          <a data-nav="labels" role="menuitem" title="Define your own labels as boolean keyword queries — deterministic, explainable, server-side (experimental)">Labels <span class="tab-beta" aria-label="experimental feature">β</span><span class="tmp-hint">boolean rule builder</span></a>
+          <a data-nav="methodology" role="menuitem" title="Dataset notes & caveats">Methodology<span class="tmp-hint">dataset notes &amp; caveats</span></a>
+        </div>
+      </span>
     </nav>
     <button class="tabs-chevron" id="tabsChevron" aria-label="Scroll tabs right" type="button">›</button>
+    </div>
+
+    <!-- Profile-type switcher — second nav tier, visible only on profile
+         views. Buttons carry data-nav so the existing global [data-nav]
+         delegation routes them; the per-type context ids (#tabCountry …)
+         live here now so _syncRouteTabLabels and the profile renderers
+         keep writing to the same targets they always did. -->
+    <div class="profile-switch" id="profileSwitch" hidden role="tablist" aria-label="Profile type">
+      <span class="ps-lbl">Profile</span>
+      <a class="ps-opt" data-nav="country" role="tab" aria-selected="false" tabindex="-1" title="Country profile">Country<span class="ps-ctx" id="tabCountry"></span></a>
+      <a class="ps-opt" data-nav="compare" role="tab" aria-selected="false" tabindex="-1" title="Compare two countries">Compare</a>
+      <a class="ps-opt" data-nav="group" role="tab" aria-selected="false" tabindex="-1" title="Concerned-group profile">Group<span class="ps-ctx" id="tabGroup"></span></a>
+      <a class="ps-opt" data-nav="theme" role="tab" aria-selected="false" tabindex="-1" title="Theme profile">Theme<span class="ps-ctx" id="tabTheme"></span></a>
+      <a class="ps-opt" data-nav="sdg" role="tab" aria-selected="false" tabindex="-1" title="SDG profile">SDG<span class="ps-ctx" id="tabSdg"></span></a>
+      <a class="ps-opt" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1" title="Recommending-body profile">Mechanism<span class="ps-ctx" id="tabMechanism"></span></a>
+      <span class="ps-ctx" id="tabLabels" hidden></span>
     </div>
 
     <form class="main-search" id="mainSearch" role="search" aria-label="Search recommendations">
@@ -3291,7 +3336,17 @@ function bindMainSearch() {
   sync(); // seed from any URL-restored kw on boot
 }
 
+/* Views that live under the consolidated "Profiles" tab (audit 2026-07).
+   state.view still holds the concrete view id, so URL deep links, the
+   route serializer and every render dispatcher are untouched — only the
+   tab-strip representation collapsed from six tabs to one. */
+const _PROFILE_VIEWS = new Set(['country','compare','group','theme','sdg','mechanism']);
+
 async function navigate(view) {
+  // The "Profiles" tab is a door, not a view: it resolves to the last
+  // profile type the user had open (cold start: Country, whose empty
+  // state is the country picker).
+  if (view === 'profiles') view = state.lastProfileView || 'country';
   // Fallback: typo URLs like `#view=serch` or `#view=methology` used
   // to produce a completely blank dashboard because EVERY .view got
   // the `hidden` class (none matched the unknown view id).  Caught by
@@ -3302,16 +3357,34 @@ async function navigate(view) {
     view = 'overview';
   }
   state.view = view;
+  const isProfile = _PROFILE_VIEWS.has(view);
+  if (isProfile) state.lastProfileView = view;
   // Expose current view to CSS so view-specific rules can react
   // (e.g. suppress the rail Country facet on Country/Compare tabs
   // where a dedicated country picker is already shown above).
   document.body.dataset.view = view;
   $$('.tab').forEach(t => {
-    const isActive = t.dataset.nav === view;
+    if (!t.dataset.nav) return;   // ⋯ overflow trigger is not a view tab
+    const isActive = t.dataset.nav === view || (t.dataset.nav === 'profiles' && isProfile);
     t.classList.toggle('active', isActive);
     t.setAttribute('aria-selected', isActive ? 'true' : 'false');
     t.setAttribute('tabindex', isActive ? '0' : '-1');
   });
+  // ⋯ trigger lights up for the views it hosts; the popover always closes.
+  const more = $('#tabsMore');
+  if (more) more.classList.toggle('active', view === 'labels' || view === 'methodology');
+  document.querySelector('.tabs-more-wrap')?.classList.remove('open');
+  // Second nav tier: profile-type switcher, only on profile views.
+  const ps = $('#profileSwitch');
+  if (ps) {
+    ps.hidden = !isProfile;
+    ps.querySelectorAll('.ps-opt').forEach(o => {
+      const on = o.dataset.nav === view;
+      o.classList.toggle('active', on);
+      o.setAttribute('aria-selected', on ? 'true' : 'false');
+      o.setAttribute('tabindex', on ? '0' : '-1');
+    });
+  }
   $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + view));
   announce('Navigated to ' + view);
   _pushUrlState();
@@ -3331,6 +3404,9 @@ async function navigate(view) {
   else if (view === 'labels') renderRules();
   else if (view === 'methodology') renderMethodology();
   else if (view === 'about') renderAbout();
+  // After the renderer settled focus entities, mirror the active profile's
+  // context onto the consolidated Profiles tab (and refresh the rest).
+  if (typeof _syncRouteTabLabels === 'function') _syncRouteTabLabels();
 }
 
 /* TW (palette/density/rail/drawer/reading) lives in dashboard-ui.js but is
@@ -3583,6 +3659,27 @@ async function boot() {
   // Initial check after DOM ready + one more after fonts load (font swap can change scrollWidth)
   setTimeout(updateTabsOverflow, 50);
   setTimeout(updateTabsOverflow, 500);
+  // ⋯ overflow menu (Labels β · Methodology). Its links carry data-nav, so
+  // the global delegation routes them; navigate() closes the popover.
+  const moreWrap = document.querySelector('.tabs-more-wrap');
+  const moreBtn = $('#tabsMore');
+  moreBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = moreWrap.classList.toggle('open');
+    moreBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
+  });
+  document.addEventListener('click', (e) => {
+    if (moreWrap && !moreWrap.contains(e.target)) {
+      moreWrap.classList.remove('open');
+      moreBtn?.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && moreWrap?.classList.contains('open')) {
+      moreWrap.classList.remove('open');
+      moreBtn?.setAttribute('aria-expanded', 'false');
+    }
+  });
   $('#cmdInput').addEventListener('input', e => renderPalette(e.target.value));
   $('#cmdPalette').addEventListener('click', e => { if (e.target.id === 'cmdPalette') closePalette(); });
   $('#reader').addEventListener('click', e => { if (e.target.id === 'reader') closeReader(); });

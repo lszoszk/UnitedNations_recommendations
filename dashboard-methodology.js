@@ -215,7 +215,7 @@ function renderMethodology() {
         </dl>
       </section>
 
-      <p style="color:var(--dim);font-size:12px;margin-top:18px">Project identity, citation, acknowledgements and feedback contact live on the <a data-nav="about" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;cursor:pointer">About tab</a>. How the Labels workspace (Tab 10) evaluates rules is documented on the <a data-nav="labels" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;cursor:pointer">Labels tab</a> itself.</p>
+      <p style="color:var(--dim);font-size:12px;margin-top:18px">Project identity, citation, acknowledgements and feedback contact live on the <a data-nav="about" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;cursor:pointer">About tab</a>. How the Labels workspace (⋯ menu in the tab bar) evaluates rules is documented on the <a data-nav="labels" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;cursor:pointer">Labels workspace</a> itself.</p>
     </div>`;
   _wireMethodologyToc(root);
   renderFreshnessCard().catch(err => console.warn('[freshness] render failed:', err));
