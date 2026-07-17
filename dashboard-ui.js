@@ -191,17 +191,16 @@ function renderPalette(q) {
    2. Keyboard: t (palette cycle), [ (rail), ] (drawer)
    3. Command palette: type "palette archive" / "density cozy" / "toggle rail"
    All changes persist to localStorage. */
-// Drawer starts OPEN by default — it now hosts the at-a-glance panel
-// (UHRI dataset stats + the three-mechanism explainer with descriptions
-// of UPR / Treaty Bodies / Special Procedures) so first-time visitors
-// learn what each mechanism IS without having to click around.  The
-// previous "drawer hidden on first visit" heuristic left the right
-// panel either empty or stuck on a stale "SELECTED · RECOMMENDATION"
-// header until the user clicked CLEAR — confusing UX, fixed by always
-// painting the explainer up front. User can still toggle the drawer
-// via `]` keyboard shortcut or the topbar tweak panel.
+// Drawer resting state is CLOSED (declutter 2026-07). It opens the
+// instant a record is selected (see renderDrawer), so its content is
+// only ever on screen when it's relevant to what the user is doing.
+// The old default kept it permanently open to host an at-a-glance
+// explainer, which restated FIG.00 and cost ~340px on every view; the
+// mechanism descriptions now ride as tooltips on the FIG.00 tiles, and
+// the at-a-glance panel survives as the drawer's empty state for anyone
+// who opens it via `]`. Persisted choice still wins (loadTweaks).
 const _firstVisit = !localStorage.getItem('uhri_v2_tour_done');
-const TW = { palette: 'archive', density: 'cozy', rail: true, drawer: true };
+const TW = { palette: 'archive', density: 'cozy', rail: true, drawer: false };
 const PALETTES = ['archive', 'terminal', 'ink'];
 const PALETTE_PREVIEW = { archive: '#F2EFE8', terminal: '#0b0d0b', ink: '#ffffff' };
 const DRAWER_W_KEY = 'uhri_v2_drawer_w_px';
@@ -243,11 +242,15 @@ function loadDrawerWidth() {
 }
 
 function _persistTweaks() {
+  // `drawer` is intentionally NOT persisted (declutter 2026-07): its
+  // resting state is always closed and it auto-opens on record selection,
+  // so persisting it would (a) re-inflate every existing user's saved
+  // `drawer:true` from the old always-open era, and (b) pin it open
+  // forever after the first record click (auto-open runs applyTweaks).
   const persisted = {
     palette: TW.palette,
     density: TW.density,
     rail: !!TW.rail,
-    drawer: !!TW.drawer,
   };
   try { localStorage.setItem('uhri_v2_tw', JSON.stringify(persisted)); } catch {}
 }
@@ -279,7 +282,7 @@ function loadTweaks() {
     if (saved.palette) TW.palette = saved.palette;
     if (saved.density) TW.density = saved.density;
     if (typeof saved.rail === 'boolean') TW.rail = saved.rail;
-    if (typeof saved.drawer === 'boolean') TW.drawer = saved.drawer;
+    // `drawer` deliberately not restored — always boots closed (declutter).
     // Migrate legacy snapshots written while reading mode was active. Those
     // used to persist `_preReadingRail` plus `rail:false`, which could leave
     // the left rail hidden forever after pressing R to exit.

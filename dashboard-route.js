@@ -36,17 +36,20 @@ function _pushUrlState() {
 }
 
 function _syncRouteTabLabels() {
+  // Empty (not "—") when there's no live selection: a `.t-ctx:empty` CSS
+  // rule then hides the slot entirely, so inactive profile tabs stop
+  // showing placeholder dashes / stale seeded entities (declutter 2026-07).
   const countryTab = $('#tabCountry');
-  if (countryTab) countryTab.textContent = state.focusCountry ? (ISO_TO_NAME[state.focusCountry] || state.focusCountry) : '—';
+  if (countryTab) countryTab.textContent = state.focusCountry ? (ISO_TO_NAME[state.focusCountry] || state.focusCountry) : '';
 
   const themeTab = $('#tabTheme');
-  if (themeTab) themeTab.textContent = state.focusTheme || '—';
+  if (themeTab) themeTab.textContent = state.focusTheme || '';
 
   const groupTab = $('#tabGroup');
-  if (groupTab) groupTab.textContent = state.focusGroup || '—';
+  if (groupTab) groupTab.textContent = state.focusGroup || '';
 
   const sdgTab = $('#tabSdg');
-  if (sdgTab) sdgTab.textContent = state.focusSdg || '—';
+  if (sdgTab) sdgTab.textContent = state.focusSdg || '';
 
   const mechanismTab = $('#tabMechanism');
   if (mechanismTab) {
@@ -56,12 +59,12 @@ function _syncRouteTabLabels() {
       const fam = MECH_FAMILIES.find(f => f.key === state.focusFamily);
       mechanismTab.textContent = fam?.full || 'Family rollup';
     } else {
-      mechanismTab.textContent = state.focusMechanism || '—';
+      mechanismTab.textContent = state.focusMechanism || '';
     }
   }
 
   const searchTab = $('#tabSearch');
-  if (searchTab) searchTab.textContent = state.filters.kw || '—';
+  if (searchTab) searchTab.textContent = state.filters.kw || '';
 }
 
 function _resetRouteState() {

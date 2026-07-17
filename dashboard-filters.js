@@ -133,7 +133,24 @@ function renderScopeBanner() {
 /* ---------- Filter-changed pipeline ---------- */
 const debouncedHit = debounce(() => refreshHitCount(), 200);
 const debouncedRefresh = debounce(() => refreshCurrentView(), 650);
+/* Facets that boot collapsed (country / group / region — see the
+   `collapsed` class in the rail markup) auto-expand the moment they hold
+   an active selection, so a filter applied from the map, a shared URL, or
+   the command palette is never hidden behind a collapsed header. Expand-
+   only: a user who manually collapses a facet without changing its filter
+   keeps it collapsed (onFiltersChanged only fires on filter changes). */
+const _AUTO_EXPAND_FACETS = ['country', 'group', 'region'];
+function syncFacetAutoExpand() {
+  _AUTO_EXPAND_FACETS.forEach(key => {
+    const set = state.filters?.[key];
+    if (set && set.size > 0) {
+      document.querySelector(`.facet[data-facet="${key}"]`)?.classList.remove('collapsed');
+    }
+  });
+}
+
 function onFiltersChanged() {
+  syncFacetAutoExpand();
   renderActiveFilters();
   renderScopeBanner();
   debouncedHit();

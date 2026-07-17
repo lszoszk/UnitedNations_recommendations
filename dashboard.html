@@ -344,6 +344,16 @@ a{color:inherit;text-decoration:none}
 .facet-body::-webkit-scrollbar{width:6px}
 .facet-body::-webkit-scrollbar-thumb{background:var(--paper-3)}
 .facet.collapsed .facet-body{display:none}
+/* Collapsed facets hide EVERY body element, not just .facet-body — the
+   match-mode (ANY/ALL) row and country context-note are siblings of the
+   body, so without this they'd float in a collapsed facet with no list. */
+.facet.collapsed .match-mode,
+.facet.collapsed .facet-context-note{display:none}
+/* Keyword syntax help is deferred: shown only while the keyword input (or
+   its examples link) has focus, so the rail doesn't lead with a boolean
+   tutorial before the first query. The examples ▾ disclosure still works. */
+.facet[data-facet="kw"] .kw-hint{display:none}
+.facet[data-facet="kw"] .facet-body:focus-within .kw-hint{display:block}
 
 /* Country facet on Country / Compare tabs: a dedicated picker is shown
    above the chart, so the rail filter would be redundant + confusing.
@@ -442,6 +452,14 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
    eab308 12% wash so the warm amber identity is intact. */
 .tab-beta{display:inline-block;margin-left:4px;padding:0 4px;font-size:8px;letter-spacing:.1em;color:#7a5500;background:color-mix(in oklab,#eab308 12%, var(--paper));border:1px solid color-mix(in oklab,#eab308 30%, var(--paper));border-radius:2px;text-transform:uppercase;font-weight:700;vertical-align:text-top}
 .tab .t-ctx{font-size:11px;color:var(--dim);font-family:var(--serif);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+/* Empty context slot collapses entirely — inactive profile tabs show no
+   placeholder dash and no stale seeded entity (declutter 2026-07). */
+.tab .t-ctx:empty{display:none}
+/* Context sub-label shows ONLY on the active tab. Profiles seed a default
+   focus entity at boot (top-by-volume), so inactive tabs would otherwise
+   advertise "China" / "Women & girls" etc. as if they were applied filters.
+   The active tab still shows the entity you're actually looking at. */
+.tab:not(.active) .t-ctx{display:none}
 
 .view{padding:0}
 .view.loading{opacity:.5;pointer-events:none}
@@ -1204,6 +1222,7 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .se-item .se-tags span.tg-val::after{content:' +';opacity:0;font-size:9px;transition:opacity .12s}
 .se-item .se-tags span.tg-val:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .se-item .se-tags span.tg-val:hover::after{opacity:.6}
+.se-item .se-tags .tg-more{font:9px var(--mono);color:var(--dim);padding:2px 6px;letter-spacing:.04em;align-self:center}
 /* Action buttons on search-result rows — show muted-but-readable in
    the default state, full-strength on hover / focus-within / expanded.
    Previously opacity:.25 hid them visually but failed WCAG 4.5:1 (the
@@ -1213,7 +1232,16 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
    interaction.  Both states pass 4.5:1, and keyboard users now get a
    visibility lift on focus-within (the previous opacity rule had no
    focus reveal). */
-.se-item .se-actions{display:flex;gap:6px;margin-top:var(--density-action-gap);transition:opacity .15s}
+/* Per-row actions (Bookmark / Pin / Copy quote) are quiet until the row is
+   engaged (declutter 2026-07) — hover, keyboard focus, open in the reader,
+   or selected for bulk. Mobile forces them visible (rule further down).
+   Space is reserved (opacity, not display) so revealing never shifts layout. */
+.se-item .se-actions{display:flex;gap:6px;margin-top:var(--density-action-gap);opacity:0;transition:opacity .15s}
+.se-item:hover .se-actions,
+.se-item:focus-within .se-actions,
+.se-item.is-open .se-actions,
+.se-item.selected .se-actions,
+.se-item.expanded .se-actions{opacity:1}
 .se-item .se-actions button{padding:4px 10px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--paper);color:var(--dim);cursor:pointer;transition:color .12s,border-color .12s,background .12s}
 .se-item:hover .se-actions button,
 .se-item.expanded .se-actions button,
@@ -1685,6 +1713,15 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 .ds-popover .ds-foot{margin-top:4px;padding-top:8px;border-top:1px dotted var(--line);font-size:10px;color:var(--dim)}
 .ds-popover .ds-foot a{color:var(--accent);text-decoration:none}
 .ds-popover .ds-foot a:hover{text-decoration:underline}
+.ds-popover .ds-foot-meta{margin-top:6px;color:var(--dimmer);font-size:9px;letter-spacing:.06em}
+/* Data-tools section inside the Data menu (Instant Mode + Upload,
+   relocated from the topbar). Full-width menu rows matching the label
+   rows above; the offline module toggles #offlineBtn's .is-active. */
+.ds-popover .ds-tools{margin-top:2px;padding-top:10px;border-top:1px dotted var(--line)}
+.ds-popover .ds-tool{display:block;width:100%;text-align:left;padding:8px 10px;border:1px solid var(--line);margin-bottom:8px;cursor:pointer;background:var(--paper);font:11px var(--mono);color:var(--ink);letter-spacing:.02em}
+.ds-popover .ds-tool:hover{background:var(--paper-2);border-color:var(--ink)}
+.ds-popover .ds-tool.is-active{border-color:var(--accent);background:color-mix(in oklab,var(--accent) 12%, var(--paper))}
+.ds-popover .ds-tool .ds-tool-hint{display:block;margin-top:3px;color:var(--dim);font-size:10px;letter-spacing:0}
 
 /* Raw mode — subtle amber outline around the whole app plus a sticky
    banner reminding the user they're looking at unprocessed data. Gets
@@ -2059,7 +2096,6 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <a href="./index.html" class="mono-sq" title="Back to landing page" style="cursor:pointer" aria-label="Back to landing"></a>
     <a href="./index.html" class="b-name" style="cursor:pointer;color:inherit;text-decoration:none" title="Back to landing">UHRI+</a>
     <span class="b-sub">/ analytics</span>
-    <span class="b-version" title="Beta release · monthly OHCHR sync · feedback welcome via the bug-report button or l.szoszkiewicz@amu.edu.pl">β · v2026.04</span>
   </div>
   <button class="cmdk" id="cmdkBtn" aria-label="Open command palette">
     <span class="k cmdk-k-mac">⌘</span><span class="k cmdk-k-mac">K</span>
@@ -2067,20 +2103,6 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <span class="cmdk-hint">⌘K · jump to a country, theme, body, or view…</span>
   </button>
   <div class="meta">
-    <!-- Instant Mode (~300MB IndexedDB download) and Upload (user-supplied
-         JSON file import) are desktop-only workflows. On mobile they eat
-         header space, can't actually complete (cellular data, storage
-         limits), and the existing server-side O6 profile endpoint already
-         serves profile tabs in <100ms. Hidden below 960px. -->
-    <button class="offline-btn desktop-only" id="uploadBtn" title="Upload your own UHRI JSON export to analyse locally">
-      <span>↑</span>
-      <span>UPLOAD</span>
-    </button>
-    <button class="offline-btn desktop-only" id="offlineBtn" title="Enable Instant Mode — download the full dataset to your browser. Everything filters locally, nothing leaves your machine, and queries run at ~50ms instead of ~10s.">
-      <span id="offlineIcon">⚡</span>
-      <span id="offlineLbl">INSTANT MODE</span>
-    </button>
-    <span class="sep">·</span>
     <!-- Unified live-status pill: pulsing dot + dataset size in a single
          compact unit. Replaces the old "● LIVE · VM · 267,942 records"
          triple-group. Tooltip on the chip (updated by setStatus) covers
@@ -2100,7 +2122,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <button class="ds-pill" id="dsToggle" title="Switch between the cleaned pipeline and raw upstream data" aria-haspopup="true" aria-expanded="false">
         DATA · <span class="ds-val" id="dsVal">cleaned</span> ▾
       </button>
-      <div class="ds-popover" id="dsPopover" role="dialog" aria-label="Dataset chooser">
+      <div class="ds-popover" id="dsPopover" role="dialog" aria-label="Data menu">
         <div class="ds-title">Dataset</div>
         <label data-ds="cleaned" id="dsOptCleaned">
           <input type="radio" name="dsRadio" value="cleaned" />
@@ -2112,8 +2134,25 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
           <strong>Raw upstream</strong>
           <span class="desc">Original HTML-stripped text · 267 953 records incl. 11 artefacts. Metadata stays pipeline-canonical.</span>
         </label>
+        <!-- Power-user data tools, relocated out of the topbar (declutter
+             2026-07). IDs preserved so their boot-time click handlers and
+             the offline module's live state updates still target them. -->
+        <div class="ds-tools desktop-only">
+          <div class="ds-title">Tools</div>
+          <button class="ds-tool" id="offlineBtn" title="Enable Instant Mode — download the full dataset to your browser. Everything filters locally, nothing leaves your machine, and queries run at ~50ms instead of ~10s.">
+            <span id="offlineIcon">⚡</span>
+            <span id="offlineLbl">Instant Mode</span>
+            <span class="ds-tool-hint">full dataset local · ~50ms queries</span>
+          </button>
+          <button class="ds-tool" id="uploadBtn" title="Upload your own UHRI JSON export to analyse locally">
+            <span>↑</span>
+            <span>Upload your export</span>
+            <span class="ds-tool-hint">analyse a UHRI JSON file locally</span>
+          </button>
+        </div>
         <div class="ds-foot">
           Shareable URL includes <code>?dataset=raw</code> · <a href="#methodology" data-nav="methodology">what's the difference?</a>
+          <div class="ds-foot-meta" title="Beta release · monthly OHCHR sync · feedback: l.szoszkiewicz@amu.edu.pl">β · v2026.04 · monthly OHCHR sync</div>
         </div>
       </div>
     </span>
@@ -2179,17 +2218,17 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
         </div>
       </div>
     </div>
-    <div class="facet" data-facet="country"><div class="facet-head"><span class="fh-idx">02</span><span>COUNTRY</span><span class="fh-n" id="n-country">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-country"></div><div class="facet-context-note">Use the <b>country picker above</b> for this view — it replaces the rail filter.</div></div>
+    <div class="facet collapsed" data-facet="country"><div class="facet-head"><span class="fh-idx">02</span><span>COUNTRY</span><span class="fh-n" id="n-country">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-country"></div><div class="facet-context-note">Use the <b>country picker above</b> for this view — it replaces the rail filter.</div></div>
     <div class="facet" data-facet="body"><div class="facet-head"><span class="fh-idx">03</span><span>RECOMMENDING BODY</span><span class="fh-n" id="n-body">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-body"></div></div>
     <div class="facet" data-facet="theme"><div class="facet-head"><span class="fh-idx">04</span><span>THEME</span><span class="fh-n" id="n-theme">—</span><span class="fh-toggle">▾</span></div>
       <div class="match-mode" id="themeMatch"><span style="margin-right:auto">match:</span><button data-m="any" class="on">ANY</button><button data-m="all">ALL</button></div>
       <div class="facet-body" id="f-theme"></div>
     </div>
-    <div class="facet" data-facet="group"><div class="facet-head"><span class="fh-idx">05</span><span>CONCERNED GROUPS</span><span class="fh-n" id="n-group">—</span><span class="fh-toggle">▾</span></div>
+    <div class="facet collapsed" data-facet="group"><div class="facet-head"><span class="fh-idx">05</span><span>CONCERNED GROUPS</span><span class="fh-n" id="n-group">—</span><span class="fh-toggle">▾</span></div>
       <div class="match-mode" id="groupMatch"><span style="margin-right:auto">match:</span><button data-m="any" class="on">ANY</button><button data-m="all">ALL</button></div>
       <div class="facet-body" id="f-group"></div>
     </div>
-    <div class="facet" data-facet="region"><div class="facet-head"><span class="fh-idx">06</span><span>REGION</span><span class="fh-n" id="n-region">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-region"></div></div>
+    <div class="facet collapsed" data-facet="region"><div class="facet-head"><span class="fh-idx">06</span><span>REGION</span><span class="fh-n" id="n-region">—</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-region"></div></div>
     <div class="facet collapsed" data-facet="sdg"><div class="facet-head"><span class="fh-idx">07</span><span>SDG</span><span class="fh-toggle">▾</span></div><div class="facet-body sdg-grid" id="f-sdg"></div></div>
     <div class="facet collapsed" data-facet="type"><div class="facet-head"><span class="fh-idx">08</span><span>TYPE</span><span class="fh-toggle">▾</span></div><div class="facet-body" id="f-type"></div></div>
     <div class="facet" data-facet="year"><div class="facet-head"><span class="fh-idx">09</span><span>YEAR</span><span class="fh-n"><span id="yrAL">—</span>–<span id="yrBL">—</span></span><span class="fh-toggle">▾</span></div>
@@ -2227,15 +2266,15 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
     <div class="tabs-wrap" id="tabsWrap">
     <nav class="tabs" id="tabs" role="tablist" aria-label="Dashboard views">
       <a class="tab active" data-nav="overview" role="tab" aria-selected="true" tabindex="0" title="Overview"><span class="t-idx">01</span><span class="t-lbl">Overview</span></a>
-      <a class="tab" data-nav="country" role="tab" aria-selected="false" tabindex="-1" title="Country profile"><span class="t-idx">02</span><span class="t-lbl">Country</span><span class="t-ctx" id="tabCountry">—</span></a>
+      <a class="tab" data-nav="country" role="tab" aria-selected="false" tabindex="-1" title="Country profile"><span class="t-idx">02</span><span class="t-lbl">Country</span><span class="t-ctx" id="tabCountry"></span></a>
       <a class="tab" data-nav="compare" role="tab" aria-selected="false" tabindex="-1" title="Compare two countries"><span class="t-idx">03</span><span class="t-lbl">Compare</span><span class="t-ctx">A vs B</span></a>
-      <a class="tab" data-nav="group" role="tab" aria-selected="false" tabindex="-1" title="Concerned-group profile"><span class="t-idx">04</span><span class="t-lbl">Group</span><span class="t-ctx" id="tabGroup">—</span></a>
-      <a class="tab" data-nav="theme" role="tab" aria-selected="false" tabindex="-1" title="Theme profile"><span class="t-idx">05</span><span class="t-lbl">Theme</span><span class="t-ctx" id="tabTheme">—</span></a>
-      <a class="tab" data-nav="sdg" role="tab" aria-selected="false" tabindex="-1" title="SDG profile"><span class="t-idx">06</span><span class="t-lbl">SDG</span><span class="t-ctx" id="tabSdg">—</span></a>
-      <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1" title="Recommending-body profile"><span class="t-idx">07</span><span class="t-lbl">Mechanism</span><span class="t-ctx" id="tabMechanism">—</span></a>
-      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1" title="Full-text search results"><span class="t-idx">08</span><span class="t-lbl">Search</span><span class="t-ctx" id="tabSearch">—</span></a>
-      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1" title="Bookmarked records"><span class="t-idx">09</span><span class="t-lbl">★ Saved</span><span class="t-ctx" id="tabBookmarks">—</span></a>
-      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Define your own labels as boolean keyword queries — deterministic, explainable, server-side (experimental)"><span class="t-idx">10</span><span class="t-lbl">Labels <span class="tab-beta" aria-label="experimental feature">β</span></span><span class="t-ctx" id="tabLabels">—</span></a>
+      <a class="tab" data-nav="group" role="tab" aria-selected="false" tabindex="-1" title="Concerned-group profile"><span class="t-idx">04</span><span class="t-lbl">Group</span><span class="t-ctx" id="tabGroup"></span></a>
+      <a class="tab" data-nav="theme" role="tab" aria-selected="false" tabindex="-1" title="Theme profile"><span class="t-idx">05</span><span class="t-lbl">Theme</span><span class="t-ctx" id="tabTheme"></span></a>
+      <a class="tab" data-nav="sdg" role="tab" aria-selected="false" tabindex="-1" title="SDG profile"><span class="t-idx">06</span><span class="t-lbl">SDG</span><span class="t-ctx" id="tabSdg"></span></a>
+      <a class="tab" data-nav="mechanism" role="tab" aria-selected="false" tabindex="-1" title="Recommending-body profile"><span class="t-idx">07</span><span class="t-lbl">Mechanism</span><span class="t-ctx" id="tabMechanism"></span></a>
+      <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1" title="Full-text search results"><span class="t-idx">08</span><span class="t-lbl">Search</span><span class="t-ctx" id="tabSearch"></span></a>
+      <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1" title="Bookmarked records"><span class="t-idx">09</span><span class="t-lbl">★ Saved</span><span class="t-ctx" id="tabBookmarks"></span></a>
+      <a class="tab" data-nav="labels" role="tab" aria-selected="false" tabindex="-1" title="Define your own labels as boolean keyword queries — deterministic, explainable, server-side (experimental)"><span class="t-idx">10</span><span class="t-lbl">Labels <span class="tab-beta" aria-label="experimental feature">β</span></span><span class="t-ctx" id="tabLabels"></span></a>
       <a class="tab" data-nav="methodology" role="tab" aria-selected="false" tabindex="-1" title="Dataset notes & caveats"><span class="t-idx">11</span><span class="t-lbl">Methodology</span></a>
     </nav>
     <button class="tabs-chevron" id="tabsChevron" aria-label="Scroll tabs right" type="button">›</button>
@@ -2317,7 +2356,7 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
      / providing research infrastructure for this work. -->
 <footer class="dash-footer" role="contentinfo">
   <div class="df-left">
-    <span>Built on <b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> data · 267,942 records · cleaned pipeline</span>
+    <span>Built on <b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> data · 267,942 records</span>
     <span class="df-sep">·</span>
     <span>Developed by <b style="color:var(--ink);font-weight:500">L. Szoszkiewicz</b></span>
     <span class="df-sep">·</span>
@@ -3430,18 +3469,18 @@ async function boot() {
   // Clean up any lingering focus-mode preference from the previous build
   try { localStorage.removeItem('uhri_v2_focus_mode'); } catch {}
   loadTweaks();
-  TW.drawer = true;  // always-open drawer in the new stacked layout
+  // Drawer resting state is CLOSED (declutter 2026-07): it opens the
+  // moment a record is selected (renderDrawer auto-opens on selection).
+  // Previously boot() force-opened it to host the at-a-glance explainer,
+  // but that cost ~340px of every view to restate FIG.00 + a mechanism
+  // blurb. The mechanism descriptions now live as hover tooltips on the
+  // FIG.00 tiles; the at-a-glance panel remains as the drawer's empty
+  // state for anyone who opens it via `]`. Honour the persisted choice —
+  // loadTweaks() already restored TW.drawer, so we don't override it.
   bindTweaks(); applyTweaks();
-  // Paint the drawer at-a-glance immediately so the right panel shows
-  // the UHRI orientation explainer (dataset stats + mechanism
-  // descriptions) from the first frame.  Without this the drawer
-  // boots with just the static "SELECTED · RECOMMENDATION" header
-  // and an empty body — users had to click CLEAR to trigger the
-  // first render.  renderOverview() also calls this on tab re-entry,
-  // but boot() bypasses renderOverview() on first paint (it hand-
-  // builds the shell + invokes renderOverviewMapOnly /
-  // renderOverviewAnalytics directly), so we explicitly seed the
-  // drawer here too.
+  // Seed the drawer body so its empty-state at-a-glance is ready if the
+  // user opens it (boot() bypasses renderOverview() on first paint, which
+  // otherwise seeds it). Rendering into a closed drawer is a no-op cost.
   if (typeof renderDrawer === 'function') {
     try { renderDrawer(); } catch (e) { console.warn('[boot] renderDrawer failed:', e); }
   }

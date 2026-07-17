@@ -128,8 +128,11 @@ function _renderSearchItem(rec, idx, kw) {
   const hasNote = noteHas(rec.AnnotationId);
   const isPinned = diffIsPinned(rec.AnnotationId);
   const yr = (rec.PublicationDate||'').slice(0,4);
-  const themes = (rec.Themes||[]).slice(0,4);
-  const groups = (rec.AffectedPersons||[]).slice(0,3);
+  // Cap taxonomy chips (declutter 2026-07): 3 themes / 2 groups / 2 SDGs,
+  // with a "+N" overflow pill so a heavily-tagged row doesn't render a wall
+  // of chips that buries the excerpt. Full set stays in the side reader.
+  const allThemes = rec.Themes||[]; const themes = allThemes.slice(0,3); const themesMore = allThemes.length - themes.length;
+  const allGroups = rec.AffectedPersons||[]; const groups = allGroups.slice(0,2); const groupsMore = allGroups.length - groups.length;
   const sdgs = (rec.Sdgs||[]).slice(0,2);
   const body = cleanLabel(rec.Body);
   const country = cleanCountryName((rec.Countries||[])[0] || '');
@@ -195,8 +198,8 @@ function _renderSearchItem(rec, idx, kw) {
     <div class="se-tx" data-full-text="${sanitize(fullTxt)}" data-kw="${sanitize(kw||'')}"${serverHintsAttr} data-mode="${snippet.isKwic ? 'kwic' : 'full'}">${snippet.html}</div>
     ${isLong ? `<button class="se-more-btn">↓ Show full text (${fullTxt.length.toLocaleString()} chars)</button>` : ''}
     ${(themes.length || groups.length || sdgs.length) ? `<div class="se-tags">
-      ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val" role="button" tabindex="0" title="Filter by this theme" data-tag-kind="theme" data-tag-value="${sanitize(t)}">${sanitize(t)}</span>`).join('')}` : ''}
-      ${groups.length ? `<span class="tg-kind">Groups</span>${groups.map(g=>`<span class="tg-val" role="button" tabindex="0" title="Filter by this affected group" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}` : ''}
+      ${themes.length ? `<span class="tg-kind">Themes</span>${themes.map(t=>`<span class="tg-val" role="button" tabindex="0" title="Filter by this theme" data-tag-kind="theme" data-tag-value="${sanitize(t)}">${sanitize(t)}</span>`).join('')}${themesMore>0?`<span class="tg-more" title="${themesMore} more theme${themesMore!==1?'s':''} — open the record to see all">+${themesMore}</span>`:''}` : ''}
+      ${groups.length ? `<span class="tg-kind">Groups</span>${groups.map(g=>`<span class="tg-val" role="button" tabindex="0" title="Filter by this affected group" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}${groupsMore>0?`<span class="tg-more" title="${groupsMore} more group${groupsMore!==1?'s':''} — open the record to see all">+${groupsMore}</span>`:''}` : ''}
       ${sdgs.length ? `<span class="tg-kind">SDGs</span>${sdgs.map(s=>`<span class="tg-val" role="button" tabindex="0" title="Filter by this SDG" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(formatSdgLabel(s))}</span>`).join('')}` : ''}
     </div>` : ''}
     <div class="se-actions">
@@ -263,13 +266,14 @@ async function renderSearch() {
       <button id="seCollapseAll" title="Collapse all result texts">↑ Collapse all</button>
     </div>
     ${kw ? `<div class="se-exhaustive-note" role="note" style="font-size:11px;color:var(--dim);padding:6px 2px 0;line-height:1.5">Results match word forms found in the text — a low or zero count is <strong>not proof none exists</strong>. Broaden with a trailing <code>*</code> (e.g. <code>detentio*</code>) or a synonym. <a href="#view=methodology" onclick="event.preventDefault();navigate('methodology')">How search works →</a></div>` : ''}
+    <!-- Type-breakdown pills only: the "each row is one paragraph" prose and
+         the "click row → …" interaction cheat-sheet were deferred (declutter
+         2026-07) — that guidance now lives behind the "How search works →"
+         link in the note above, so the first result rises ~two bands higher. -->
     <div class="se-explainer">
-      <span>Each row is <strong>one paragraph</strong> extracted from a UN concluding observation, UPR report or Special Procedure communication.</span>
       <span class="pill rec" id="seBreakRec" title="Formal UN recommendations — 'The Committee recommends that…'"><span class="v">…</span> Recommendations</span>
       <span class="pill" id="seBreakObs" title="Observations — findings, concerns, notes"><span class="v">…</span> Observations</span>
       <span class="pill" id="seBreakOther" title="Follow-up requests, procedural paragraphs, etc."><span class="v">…</span> Other</span>
-      <span style="flex:1"></span>
-      <span style="color:var(--dim)">Click row → side reader + notes · checkbox → bulk · <kbd>/</kbd> focus keyword</span>
     </div>
     <div class="se-bulk" id="seBulk" aria-live="polite">
       <span class="cnt" id="seBulkCount">0 selected</span>

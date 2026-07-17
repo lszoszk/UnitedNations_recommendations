@@ -186,6 +186,10 @@ function buildRail(facets, analytics) {
     });
     _railCollapseWired = true;
   }
+
+  // Restored filters (shared URL, back/forward) land before this rebuild —
+  // reveal any collapsed facet that already holds a selection.
+  if (typeof syncFacetAutoExpand === 'function') syncFacetAutoExpand();
 }
 
 /* Region facet render — driven by state.regionTaxonomy ('m49' | 'unGroups').
@@ -422,7 +426,7 @@ function renderMechTiles(container, counts, { mode = 'full', showDesc, showActiv
     const pct = counts._total ? Math.round(100 * n / counts._total) : null;
     const active = activeFamilies.some(sel => sel.key === f.key);
     return `
-      <button class="mech-tile ${f.cls}${active ? ' on' : ''}" data-family="${f.key}" aria-pressed="${active ? 'true' : 'false'}" aria-label="${f.full} — ${n} records">
+      <button class="mech-tile ${f.cls}${active ? ' on' : ''}" data-family="${f.key}" aria-pressed="${active ? 'true' : 'false'}" aria-label="${f.full} — ${n} records" title="${f.full} — ${f.desc}">
         <div class="mt-family">${f.label}</div>
         <div class="mt-name">${f.full}</div>
         <div class="mt-count">${fmt(n)}${pct !== null ? ` <span class="mt-sub" style="display:inline;font-size:11px;margin-left:4px">${pct}%</span>` : ''}</div>

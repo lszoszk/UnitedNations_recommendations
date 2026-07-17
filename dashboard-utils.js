@@ -1037,7 +1037,9 @@ function noteSet(id, text) {
 function updateBookmarkCount() {
   const n = bmLoad().length;
   const badge = $('#tabBookmarks');
-  if (badge) badge.textContent = n ? `${n} saved` : '—';
+  // Empty (not "—") when there are no bookmarks so the `.t-ctx:empty`
+  // rule hides the slot — no placeholder dash on the inactive tab.
+  if (badge) badge.textContent = n ? `${n} saved` : '';
 }
 
 function renderBookmarks() {
