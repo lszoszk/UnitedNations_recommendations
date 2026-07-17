@@ -815,6 +815,14 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .hex-tip .row{display:flex;justify-content:space-between;gap:20px;color:rgba(255,255,255,.7)}
 .hex-tip .row b{color:var(--paper);font-weight:500}
 .map-export,.chart-export{padding:3px 8px;border:1px solid var(--line);background:var(--paper);color:var(--dim);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-left:8px}
+/* Per-panel exports are quiet until the panel is engaged (audit 2026-07):
+   7 always-on CSV/SVG buttons above the fold read as chrome noise. Space
+   is reserved (opacity) so nothing shifts; touch devices keep them
+   visible since there is no hover. */
+.panel .map-export,.panel .chart-export{opacity:0;transition:opacity .15s}
+.panel:hover .map-export,.panel:focus-within .map-export,
+.panel:hover .chart-export,.panel:focus-within .chart-export{opacity:1}
+@media (hover:none){.panel .map-export,.panel .chart-export{opacity:1}}
 .map-export:hover,.chart-export:hover{border-color:var(--ink);color:var(--ink)}
 .chart-export.small{padding:2px 6px;margin-left:4px;font-size:9px}
 
@@ -834,6 +842,11 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 /* bars / rows — optional 4th column with sparkline */
 .row-list{display:flex;flex-direction:column}
 .rl-row{display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:var(--density-row-pad-y) 2px;min-height:var(--row-h);border-bottom:1px dotted var(--line);cursor:pointer;align-items:center;font-size:11px;position:relative}
+/* Top-5 clip: container class hides ranked rows 6+ (rows are <div>s, the
+   .rl-more toggle is a <button>, so nth-of-type only counts rows). */
+.rl-clipped .rl-row:nth-of-type(n+6){display:none}
+.rl-more{display:block;width:100%;text-align:left;padding:6px 2px;border:0;background:none;color:var(--dim);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.rl-more:hover{color:var(--ink)}
 .rl-row.has-spark{grid-template-columns:22px 1fr 56px auto}
 .rl-row:hover{background:var(--paper-2)}
 .rl-row .rnk{color:var(--dim);font-variant-numeric:tabular-nums;font-size:10px}
@@ -2801,6 +2814,24 @@ function renderRowList(el, rows, opts = {}) {
       <div class="v">${fmt(r.v)}</div>
     </div>`;
   }).join('');
+  // Top-5 clip (audit 2026-07): five stacked ranked lists put ~50 rows on
+  // Overview at once. Rows 6+ hide via CSS (no re-render, so the async
+  // country-sparkline backfill keeps its DOM) behind an "all N →" toggle.
+  const CLIP_AT = 5;
+  const wantClip = rows.length > CLIP_AT + 1 && !opts.noClip;
+  el.classList.toggle('rl-clipped', wantClip);
+  if (wantClip) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'rl-more';
+    more.textContent = `all ${rows.length} →`;
+    more.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const clipped = el.classList.toggle('rl-clipped');
+      more.textContent = clipped ? `all ${rows.length} →` : '↑ top 5';
+    });
+    el.appendChild(more);
+  }
   if (opts.facet) {
     el.querySelectorAll('.rl-row').forEach(row => {
       row.addEventListener('click', (e) => {
@@ -3905,17 +3936,15 @@ async function boot() {
     // Build rail with partial data (no theme/group counts yet — will refresh on analytics)
     buildRail(facets, cachedAnalytics || { themes:{theme_counts:[]}, text:{affected_person_counts:[], sdg_counts:[]}, trends:{} });
 
-    // Defaults. focusCountry stays at top-by-volume (the first Country
-    // profile the user lands on is "the busiest one" which is genuinely
-    // useful context). Compare A / B were previously also top-by-volume
-    // which defaulted to China + Colombia — politically charged for a
-    // research tool. D5: Compare now resolves defaults via a three-layer
-    // lookup — URL params (link-shareable), then localStorage (user's
-    // last pick across sessions), then alphabetical (neutral cold-start).
-    const topByVolume = (mapD.country_counts || [])
-      .map(c => cleanCountryName(c.country))
-      .filter(n => n && n.length > 2);
-    if (!state.focusCountry) state.focusCountry = NAME_TO_ISO[topByVolume[0]] || 'COL';
+    // Defaults. focusCountry is deliberately NOT seeded (audit 2026-07):
+    // top-by-volume made a cold click on the Country tab silently open
+    // China's full profile — the same politically-charged-default problem
+    // the D5 Compare fix removed, and inconsistent with Group/Theme/SDG,
+    // which show a picker until the user chooses. renderCountry's existing
+    // "Pick a country" empty state now serves the cold path; fc= URLs,
+    // map clicks, ⌘K and rail shift-click set focusCountry as before.
+    // Compare resolves via a three-layer lookup — URL params, then
+    // localStorage (user's last pick), then alphabetical (neutral).
     _resolveCompareDefaults();
 
     _restoreUrlState();

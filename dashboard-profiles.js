@@ -179,7 +179,7 @@ async function renderCountry() {
       <div class="cp-kpi"><div class="n">${nBodies}</div><div class="l">Bodies</div></div>
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:220px;line-height:1.2">${sanitize(topTheme)}</div><div class="l">Leading theme</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date || '—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date || '—')} · all mechanisms${staleBadge}`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))} · all mechanisms${staleBadge}`;
     _renderRailNoteInto($('#cpRailNote'), 'country');
     root.classList.toggle('stale', !!opts.stale);
 
@@ -304,7 +304,7 @@ async function renderTheme() {
       <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
       <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Concerned groups</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}`;
     _renderRailNoteInto($('#thRailNote'), 'theme');
     root.classList.toggle('stale', !!opts.stale);
 
@@ -414,7 +414,7 @@ async function renderGroup() {
       <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}`;
     _renderRailNoteInto($('#gpRailNote'), 'group');
     root.classList.toggle('stale', !!opts.stale);
     const _gpRenderTl = () => {
@@ -647,7 +647,7 @@ async function renderSDG() {
       <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
       <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Groups</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}`;
     _renderRailNoteInto($('#spRailNote'), 'sdg');
     root.classList.toggle('stale', !!opts.stale);
     const _spRenderTl = () => {
@@ -912,7 +912,7 @@ async function renderMechanism() {
       <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
       <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
       <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(analytics?.trends?.dataset_first_publication_date||'—')} → ${sanitize(analytics?.trends?.dataset_last_publication_date||'—')}${staleBadge}`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}`;
     _renderRailNoteInto($('#mpRailNote'), 'body');
     root.classList.toggle('stale', !!opts.stale);
 
@@ -997,6 +997,16 @@ function _wireScopeBar(root) {
    The old "top-by-volume" default (China vs Colombia) was removed because
    it pinned the first Compare view to the most politically scrutinised
    state, reading as editorial choice in a research tool. Tag: compare-d5. */
+/* "2006-06-02T00:00:00" → "Jun 2006" — the raw ISO strings the API
+   returns for dataset coverage read as developer debris at subtitle
+   position (audit 2026-07). Month+year is all the subtitle claims. */
+function _fmtCoverageDate(v) {
+  const m = String(v || '').match(/^(\d{4})-(\d{2})/);
+  if (!m) return v || '—';
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${MON[+m[2] - 1] || ''} ${m[1]}`.trim();
+}
+
 const CMP_A_KEY = 'uhri_v2_compare_a';
 const CMP_B_KEY = 'uhri_v2_compare_b';
 
