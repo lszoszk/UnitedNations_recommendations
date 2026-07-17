@@ -1043,6 +1043,39 @@ function _persistCompareChoice() {
 async function renderCompare() {
   const root = $('#view-compare');
   const countries = cleanCountryList(state.facets?.countries || []).sort();
+  // Normalize deep-linked values BEFORE rendering. cmpA/cmpB are display
+  // NAMES ("Poland"), but the hash schema's country-profile param is ISO3
+  // (fc=POL), so hand-written links naturally use ca=POL&cb=DEU too. An
+  // unvalidated value used to render a three-way desync: header "POL",
+  // selects falling back to the first option (Afghanistan), and a
+  // country="POL" query returning zero records. Accept ISO3 and
+  // case-insensitive names; anything unrecognized falls back to defaults.
+  if (countries.length) {
+    const norm = (value) => {
+      if (!value) return null;
+      if (countries.includes(value)) return value;
+      const viaIso = typeof ISO_TO_NAME === 'object' ? ISO_TO_NAME[String(value).toUpperCase()] : null;
+      if (viaIso && countries.includes(viaIso)) return viaIso;
+      const lc = String(value).toLowerCase();
+      return countries.find(c => c.toLowerCase() === lc) || null;
+    };
+    const normA = norm(state.cmpA);
+    const normB = norm(state.cmpB);
+    if (state.cmpA && !normA) console.warn('[compare] unrecognized country in URL, falling back to default:', state.cmpA);
+    if (state.cmpB && !normB) console.warn('[compare] unrecognized country in URL, falling back to default:', state.cmpB);
+    state.cmpA = normA;
+    state.cmpB = normB;
+    // Re-fill only the missing side(s) so one bad param doesn't clobber a
+    // valid one (_resolveCompareDefaults overwrites both).
+    if (!normA || !normB) {
+      _resolveCompareDefaults();
+      if (normA) state.cmpA = normA;
+      if (normB) state.cmpB = normB;
+      if (state.cmpA && state.cmpA === state.cmpB) {
+        state.cmpB = countries.find(c => c !== state.cmpA) || state.cmpB;
+      }
+    }
+  }
   // Defaults resolved once at boot (_resolveCompareDefaults in boot()).
   // Keep the guards so direct nav to Compare without boot init still works.
   if (!state.cmpA) _resolveCompareDefaults();
