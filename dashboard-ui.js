@@ -628,7 +628,14 @@ function maybeShowTour() {
     const t0 = Date.now();
     const tryShow = () => {
       const bannerUp = !!document.getElementById('gaConsent');
-      if (!bannerUp && Date.now() - t0 > 1500) { _showTourInvite(); return; }
+      if (!bannerUp && Date.now() - t0 > 1500) {
+        // Only surface the invite while the user is still on Overview —
+        // the tour's spotlight targets live there, and someone who has
+        // already navigated into a profile/search is past needing it.
+        // Nothing is marked, so it can still offer itself next visit.
+        if ((state.view || 'overview') === 'overview') _showTourInvite();
+        return;
+      }
       if (Date.now() - t0 > 120_000) return;
       setTimeout(tryShow, 500);
     };
