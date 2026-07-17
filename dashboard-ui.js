@@ -108,7 +108,7 @@ function renderPalette(q) {
     { kind:'ACTION', label:'Density: Roomy',    sub:'comfortable',          action:()=>{closePalette();setDensity('roomy');} },
     { kind:'ACTION', label:'Toggle left rail',  sub:'hide / show filters ([)', action:()=>{closePalette();toggleRail();} },
     { kind:'ACTION', label:'Toggle drawer',     sub:'hide / show record details (])', action:()=>{closePalette();toggleDrawer();} },
-    { kind:'ACTION', label:'Open tour',         sub:'4-step walkthrough',   action:()=>{closePalette();startTour();} },
+    { kind:'ACTION', label:'Open tour',         sub:`${TOUR_STEPS.length}-step walkthrough`,   action:()=>{closePalette();startTour();} },
     { kind:'ACTION', label:'Clear all filters', sub:'reset to baseline',    action:()=>{closePalette();$('#clearFilters').click();} },
     { kind:'ACTION', label:'Share this view',   sub:'copy URL / email / social', action:()=>{closePalette();openShareModal();} },
     { kind:'ACTION', label:'Saved views',       sub:'load / name current state', action:()=>{closePalette();openSavedViewsModal();} },
@@ -453,13 +453,18 @@ function bindTweaks() {
    =========================================================================
    Shown once, dismissible, skip-all available. Uses localStorage flag
    uhri_v2_tour_done so returning users don't see it again. */
+/* Task-first, 4 steps (declutter 2026-07): the old 6-step version led
+   with a keyboard shortcut and closed on a ~420 MB download pitch —
+   power-user content fronted to first-timers. Steps now follow the
+   actual first task (search → map → refine → navigate); power tools
+   get one line inside the last step. NOTE: don't target elements that
+   are hidden at rest (#drawer is closed by default, #offlineBtn lives
+   inside the collapsed DATA menu) — a 0-size rect breaks the spotlight. */
 const TOUR_STEPS = [
-  { target: '#cmdkBtn',       title: 'Fast jump with ⌘K',     text: 'Fuzzy-search any country, theme, body or view. Two keystrokes — no menus.' },
-  { target: '#rail',          title: 'Filter from the rail',  text: 'Country, body, theme, year, SDG — live hit count updates as you click. Clicking a country, theme or SDG on the map also filters here.' },
-  { target: '#tabs',          title: 'Eleven workspaces',     text: 'Overview · Country / Group / Theme / SDG / Mechanism profiles · Compare two countries · Search · Bookmarks · Labels · Methodology. Shift-click a country / body / theme in the rail to jump straight to its profile.' },
-  { target: '#drawer',        title: 'Drawer follows you',    text: 'Click any record in a list, map cell or search result — it opens here. Use <kbd>j</kbd> / <kbd>k</kbd> to flip between results, <kbd>b</kbd> to bookmark.' },
-  { target: '#offlineBtn',    title: '⚡ Instant Mode',       text: 'Load the full dataset (~420 MB) into your browser once — filters drop from ~10 s to ~50 ms, works offline, fully private.' },
-  { target: '[data-nav="labels"]', title: 'Build your own labels', text: 'Define each label as a boolean FTS5 query — <em>MUST / AND / NOT</em> term lists. Tag 10–20 examples, hit <strong>⚡ Suggest terms</strong>, and the dashboard proposes candidate terms from your tags. Queries are deterministic, explainable, and exportable as CSV × rules matrices.' },
+  { target: '#mainSearch',    title: 'Start with search',     text: 'Full-text across all 267,942 recommendations. Plain words, <code>"exact phrase"</code>, <code>term*</code>, or <code>AND / OR / NOT</code> — syntax help appears under the keyword box in the rail.' },
+  { target: '.p-map',         title: '…or click the map',     text: 'Click a country to filter everything; click again to clear. Any record in any list opens in a side reader — <kbd>j</kbd> / <kbd>k</kbd> flips between results, <kbd>b</kbd> bookmarks.' },
+  { target: '#rail',          title: 'Refine from the rail',  text: 'Country, body, theme, year, SDG — the hit count at the top reacts live. Collapsed sections expand on click and auto-open whenever they hold an active filter.' },
+  { target: '#tabs',          title: 'Workspaces',            text: 'Profiles (Country / Group / Theme / SDG / Mechanism), Compare, Search, Saved. Press <kbd>⌘K</kbd> to jump anywhere; power tools (Instant Mode, Upload, raw data) live under <strong>DATA</strong>.' },
 ];
 
 function startTour() {
@@ -572,21 +577,61 @@ function startTour() {
   render();
 }
 
+/* First-visit invite chip — replaces the auto-opened tour popover.
+   Declutter 2026-07: the old flow stacked THREE decision layers on the
+   very first paint (tour popover + GA consent banner + the live UI).
+   Now the consent banner resolves first, then a one-line invite chip
+   offers the tour instead of hijacking the screen with it. */
+function _showTourInvite() {
+  if (document.getElementById('tourInvite')) return;
+  const chip = document.createElement('div');
+  chip.id = 'tourInvite';
+  chip.className = 'tour-invite';
+  chip.setAttribute('role', 'status');
+  chip.innerHTML = `
+    <span>First time here? A 30-second tour shows the basics.</span>
+    <button id="tourInviteStart" class="primary" type="button">Start tour</button>
+    <button id="tourInviteSkip" type="button" title="Dismiss — the tour stays available in ⌘K">Not now</button>`;
+  document.body.appendChild(chip);
+  const dismiss = (mark) => {
+    if (mark) { try { localStorage.setItem('uhri_v2_tour_done', 'invite-dismissed'); } catch {} }
+    chip.remove();
+  };
+  chip.querySelector('#tourInviteStart').addEventListener('click', () => { chip.remove(); startTour(); });
+  chip.querySelector('#tourInviteSkip').addEventListener('click', () => dismiss(true));
+  document.addEventListener('keydown', function escInvite(e) {
+    if (e.key === 'Escape' && document.body.contains(chip)) {
+      document.removeEventListener('keydown', escInvite);
+      dismiss(true);
+    }
+  });
+}
+
 function maybeShowTour() {
   try {
     if (localStorage.getItem('uhri_v2_tour_done')) return;
     // N3: tour spots are anchored via getBoundingClientRect to specific
-    // desktop elements (rail, drawer, tabs). On mobile the rail is
-    // hidden behind the hamburger and several steps target off-screen
-    // elements — the tour pops up in empty space and confuses users.
-    // Skip entirely under 960px; mobile users learn via the empty-state
-    // CTAs + command palette. Mark as seen so desktop revisits don't
-    // re-trigger after the user has been on mobile.
+    // desktop elements (rail, tabs). On mobile the rail is hidden behind
+    // the hamburger and several steps target off-screen elements — the
+    // tour pops up in empty space and confuses users. Skip entirely
+    // under 960px; mobile users learn via the empty-state CTAs + command
+    // palette. Mark as seen so desktop revisits don't re-trigger after
+    // the user has been on mobile.
     if (window.innerWidth < 960) {
       localStorage.setItem('uhri_v2_tour_done', 'skipped:mobile');
       return;
     }
-    // Delay a beat so the layout settles
-    setTimeout(startTour, 900);
+    // Consent first, tour second — never both at once. Wait until the GA
+    // banner is answered (or was never inserted: DNT, prior answer, Esc-
+    // dismissed). Poll instead of coupling to the analytics module; give
+    // up silently after 2 min and try again next visit (nothing marked).
+    const t0 = Date.now();
+    const tryShow = () => {
+      const bannerUp = !!document.getElementById('gaConsent');
+      if (!bannerUp && Date.now() - t0 > 1500) { _showTourInvite(); return; }
+      if (Date.now() - t0 > 120_000) return;
+      setTimeout(tryShow, 500);
+    };
+    setTimeout(tryShow, 900);
   } catch {}
 }

@@ -1741,6 +1741,13 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
 
 
 /* Onboarding tour — first-visit spotlight */
+/* First-visit tour INVITE chip — one quiet line above the footer instead
+   of an auto-opened tour popover (declutter 2026-07). */
+.tour-invite{position:fixed;bottom:42px;left:50%;transform:translateX(-50%);z-index:200;display:flex;gap:10px;align-items:center;background:var(--paper);border:1px solid var(--ink);box-shadow:0 12px 40px rgba(0,0,0,.22);padding:8px 8px 8px 14px;font:11px var(--mono);color:var(--ink);letter-spacing:.02em;animation:fadeIn .3s}
+.tour-invite button{padding:5px 10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.tour-invite button:hover{border-color:var(--ink);background:var(--paper-2)}
+.tour-invite button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tour-invite button.primary:hover{background:var(--accent);border-color:var(--accent)}
 .tour-backdrop{position:fixed;inset:0;background:rgba(15,15,16,.72);z-index:240;animation:fadeIn .25s}
 .tour-pop{position:fixed;z-index:241;background:var(--paper);color:var(--ink);font-family:var(--mono);max-width:340px;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.4);border-left:3px solid var(--accent)}
 .tour-pop h4{margin:0 0 8px;font-family:var(--serif);font-size:22px;line-height:1.1;font-weight:400;letter-spacing:-.01em}

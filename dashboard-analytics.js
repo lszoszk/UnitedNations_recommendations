@@ -212,35 +212,19 @@ window.trackEvent = trackEvent;
 window.trackWebVital = trackWebVital;
 window.trackSearch = trackSearch;
 
-/* The first-visit onboarding tour (dashboard.html) puts up a full-
-   viewport backdrop with z-index:240 that intercepts all pointer
-   events — including clicks on our consent banner.  Rather than
-   racing it with a higher z-index (confusing UX: banner floating
-   over tour content), we wait until the tour is dismissed and then
-   show the banner.  Also handles the case where the tour never runs
-   (returning dashboard users, landing page) by resolving immediately. */
-function _waitForTourDismissal() {
-  return new Promise(resolve => {
-    const check = () => !document.querySelector('.tour-backdrop');
-    if (check()) return resolve();
-    const interval = setInterval(() => {
-      if (check()) { clearInterval(interval); resolve(); }
-    }, 400);
-    // Safety: give up after 2 min — don't leave the banner indefinitely
-    // suspended if something weird happens with the tour.
-    setTimeout(() => { clearInterval(interval); resolve(); }, 120_000);
-  });
-}
-
 /* Consent banner — inserted at end of <body> when neither acceptance
    nor rejection has been recorded.  Two plain buttons.  Dismissed with
    Esc.  No tracking pixel, no fingerprinting, no third-party calls
-   until after user clicks Accept. */
+   until after user clicks Accept.
+   Sequencing (declutter 2026-07): the banner goes FIRST — it's the
+   blocking decision — and the first-visit tour (dashboard-ui.js
+   maybeShowTour) waits for it to be answered before offering its
+   invite chip. The old order (tour first, banner polling for the tour
+   backdrop) raced the tour's 900 ms start delay and routinely stacked
+   both overlays on the first paint. */
 async function _insertGaConsentBanner() {
   if (_gaDoNotTrack()) return;           // DNT respected — don't even ask
   if (_gaConsentState() !== null) return; // already answered
-  await _waitForTourDismissal();          // don't collide with onboarding
-  if (_gaConsentState() !== null) return; // user may have decided in the meantime
 
   const host = document.createElement('div');
   host.id = 'gaConsent';
