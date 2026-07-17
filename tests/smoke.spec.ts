@@ -239,11 +239,22 @@ test.describe('UHRI Dashboard smoke', () => {
     // a fixed wait — that's the last thing the inline IIFE attaches and is
     // the proper signal that click handlers are live.
     await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
-    const methodologyTab = page.locator('a[role="tab"][data-nav="methodology"]');
-    const overviewTab    = page.locator('a[role="tab"][data-nav="overview"]');
-    await methodologyTab.click();
-    await expect(methodologyTab).toHaveAttribute('aria-selected', 'true', { timeout: 3000 });
+    // 2026-07 nav consolidation: Methodology lives in the ⋯ overflow menu,
+    // so the plain tab-switch contract is exercised on Search, and the
+    // overflow path is exercised separately below.
+    const searchTab   = page.locator('#tabs a[role="tab"][data-nav="search"]');
+    const overviewTab = page.locator('#tabs a[role="tab"][data-nav="overview"]');
+    await searchTab.click();
+    await expect(searchTab).toHaveAttribute('aria-selected', 'true', { timeout: 3000 });
     await expect(overviewTab).toHaveAttribute('aria-selected', 'false');
+
+    // Overflow path: ⋯ opens the menu, Methodology navigates, the trigger
+    // lights up as the active-nav marker for its hosted views.
+    await page.locator('#tabsMore').click();
+    await page.locator('.tabs-more-pop [data-nav="methodology"]').click();
+    await expect(page.locator('#view-methodology')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('#tabsMore')).toHaveClass(/active/);
+    await expect(searchTab).toHaveAttribute('aria-selected', 'false');
   });
 
   test('4. landingSearch — index.html hero search input is wired and opens dropdown', async ({ page }) => {
@@ -506,7 +517,10 @@ test.describe('UHRI Dashboard smoke', () => {
       .click();
 
     await expect(palette).toHaveClass(/hidden/, { timeout: 2000 });
-    await expect(page.locator('a[role="tab"][data-nav="methodology"]')).toHaveAttribute('aria-selected', 'true', { timeout: 2000 });
+    // 2026-07 nav consolidation: Methodology has no tab of its own — the
+    // view becoming visible plus the lit ⋯ trigger is the navigation proof.
+    await expect(page.locator('#view-methodology')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('#tabsMore')).toHaveClass(/active/);
 
     expect(errors, `JS errors during cmdk flow:\n${errors.join('\n')}`).toEqual([]);
   });
