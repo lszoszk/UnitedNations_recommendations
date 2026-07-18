@@ -641,25 +641,51 @@ async function getCountrySparkline(country) {
    writes SVG into already-rendered `.spark` cells. */
 async function backfillCountrySparklines(listEl, minY, maxY) {
   const rows = listEl.querySelectorAll('.rl-row[data-facet="country"]');
-  const tasks = [];
-  for (const row of rows) {
+  const fetchFor = (row) => {
     const country = row.dataset.key;
-    if (!country) continue;
     const sparkEl = row.querySelector('.spark');
-    if (!sparkEl) continue;
+    if (!country || !sparkEl || sparkEl.dataset.done === '1') return;
+    sparkEl.dataset.done = '1';
     if (_countrySparkCache[country]) {
       sparkEl.innerHTML = buildSparklineSVG(_countrySparkCache[country], minY, maxY);
-    } else {
-      row.classList.add('loading-spark');
-      tasks.push(
-        getCountrySparkline(country).then(data => {
-          if (data) sparkEl.innerHTML = buildSparklineSVG(data, minY, maxY);
-          row.classList.remove('loading-spark');
-        })
-      );
+      return;
     }
+    row.classList.add('loading-spark');
+    getCountrySparkline(country).then(data => {
+      if (data) sparkEl.innerHTML = buildSparklineSVG(data, minY, maxY);
+      row.classList.remove('loading-spark');
+    });
+  };
+
+  /* Sparklines cost ONE analytics round-trip per row, so only fetch the
+     ones a user can actually see (perf 2026-07). Two gates:
+       1. rows hidden by the top-5 clip (display:none → no offsetParent)
+          are skipped entirely — they used to fetch all 10-12 rows while
+          five were on screen;
+       2. remaining rows load when scrolled into view.
+     Cached rows paint immediately regardless. Without IntersectionObserver
+     (old browsers) everything visible is fetched eagerly, as before. */
+  if (typeof IntersectionObserver !== 'function') {
+    rows.forEach(row => { if (row.offsetParent !== null) fetchFor(row); });
+    return;
   }
-  // Don't await — let them fill in as they arrive
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      obs.unobserve(en.target);
+      fetchFor(en.target);
+    });
+  }, { rootMargin: '200px' });
+  rows.forEach(row => {
+    const country = row.dataset.key;
+    const sparkEl = row.querySelector('.spark');
+    if (!country || !sparkEl) return;
+    // Already-cached rows: paint now, no request, no observer.
+    if (_countrySparkCache[country]) { fetchFor(row); return; }
+    if (row.offsetParent === null) return;   // clipped by the top-5 toggle
+    io.observe(row);
+  });
+  // Don't await — they fill in as they arrive
 }
 
 /* =========================================================================

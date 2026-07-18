@@ -432,7 +432,10 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 /* M3 · H6 — Tabs overflow chevron. Wraps .tabs in a positioned parent;
    chevron floats at the right edge when there's more content than fits.
    JS toggles .has-overflow based on scrollWidth vs clientWidth. */
-.tabs-wrap{position:relative}
+/* The tab strip and the ⋯ overflow are siblings (the menu button must not
+   live inside role="tablist"), so the wrap is the flex row that seats them. */
+.tabs-wrap{position:relative;display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--paper)}
+.tabs-wrap > .tabs{flex:1 1 auto;min-width:0;border-bottom:0}
 .tabs-chevron{display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:14px;line-height:1;cursor:pointer;z-index:11;align-items:center;justify-content:center}
 .tabs-chevron:hover{border-color:var(--ink);background:var(--paper-2)}
 .tabs-wrap.has-overflow .tabs-chevron{display:flex}
@@ -461,7 +464,7 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
    The active tab still shows the entity you're actually looking at. */
 .tab:not(.active) .t-ctx{display:none}
 /* ⋯ overflow menu (Labels β · Methodology) */
-.tabs-more-wrap{position:relative;display:flex;margin-left:auto}
+.tabs-more-wrap{position:relative;display:flex;flex:0 0 auto;align-self:stretch}
 .tab.tabs-more{min-width:44px;max-width:none;align-items:center;justify-content:center;font-size:16px;letter-spacing:.1em;cursor:pointer;border-left:1px solid var(--line);background:var(--paper);border-top:0;border-bottom:0;color:var(--dim)}
 .tab.tabs-more:hover{color:var(--ink);background:var(--paper-2)}
 .tab.tabs-more.active{color:var(--accent)}
@@ -2318,14 +2321,17 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <a class="tab" data-nav="profiles" role="tab" aria-selected="false" tabindex="-1" title="Profiles — country, compare, group, theme, SDG, mechanism"><span class="t-idx">02</span><span class="t-lbl">Profiles</span><span class="t-ctx" id="tabProfiles"></span></a>
       <a class="tab" data-nav="search" role="tab" aria-selected="false" tabindex="-1" title="Full-text search results"><span class="t-idx">03</span><span class="t-lbl">Search</span><span class="t-ctx" id="tabSearch"></span></a>
       <a class="tab" data-nav="bookmarks" role="tab" aria-selected="false" tabindex="-1" title="Bookmarked records"><span class="t-idx">04</span><span class="t-lbl">★ Saved</span><span class="t-ctx" id="tabBookmarks"></span></a>
-      <span class="tabs-more-wrap">
-        <button class="tab tabs-more" id="tabsMore" type="button" aria-haspopup="true" aria-expanded="false" title="More workspaces">⋯</button>
-        <div class="tabs-more-pop" id="tabsMorePop" role="menu" aria-label="More workspaces">
-          <a data-nav="labels" role="menuitem" title="Define your own labels as boolean keyword queries — deterministic, explainable, server-side (experimental)">Labels <span class="tab-beta" aria-label="experimental feature">β</span><span class="tmp-hint">boolean rule builder</span></a>
-          <a data-nav="methodology" role="menuitem" title="Dataset notes & caveats">Methodology<span class="tmp-hint">dataset notes &amp; caveats</span></a>
-        </div>
-      </span>
     </nav>
+    <!-- The ⋯ overflow sits OUTSIDE <nav role="tablist">: axe's
+         aria-required-children rule (critical) requires a tablist to contain
+         only role="tab" children, and this is a menu button, not a tab. -->
+    <span class="tabs-more-wrap">
+      <button class="tab tabs-more" id="tabsMore" type="button" aria-haspopup="true" aria-expanded="false" title="More workspaces" aria-label="More workspaces">⋯</button>
+      <div class="tabs-more-pop" id="tabsMorePop" role="menu" aria-label="More workspaces">
+        <a data-nav="labels" role="menuitem" tabindex="0" title="Define your own labels as boolean keyword queries — deterministic, explainable, server-side (experimental)">Labels <span class="tab-beta" aria-label="experimental feature">β</span><span class="tmp-hint">boolean rule builder</span></a>
+        <a data-nav="methodology" role="menuitem" tabindex="0" title="Dataset notes & caveats">Methodology<span class="tmp-hint">dataset notes &amp; caveats</span></a>
+      </div>
+    </span>
     <button class="tabs-chevron" id="tabsChevron" aria-label="Scroll tabs right" type="button">›</button>
     </div>
 
@@ -2874,6 +2880,11 @@ function renderRowList(el, rows, opts = {}) {
       e.stopPropagation();
       const clipped = el.classList.toggle('rl-clipped');
       more.textContent = clipped ? `all ${rows.length} →` : '↑ top 5';
+      // Rows 6+ were skipped by the sparkline backfill while clipped
+      // (no offsetParent). Now that they're visible, observe them.
+      if (!clipped && opts.facet === 'country' && !sparkSource) {
+        backfillCountrySparklines(el, minY, maxY);
+      }
     });
     el.appendChild(more);
   }

@@ -760,9 +760,18 @@ async function renderMechanism() {
       Promise.all([
         api.analytics(filter, { scope: 'analytics:family:'+f.key }),
         api.map(filter, { scope: 'map:family:'+f.key }),
-        api.recordsCount(filter),
-      ]).then(([analytics, mapD, count]) => {
-        const k = $(`#mcKpi-${f.key}`); if (k) k.textContent = fmt(count.total_records);
+      ]).then(([analytics, mapD]) => {
+        /* KPI is derived from the analytics payload we already have rather
+           than a third round-trip (perf 2026-07). trends.yearly_counts is
+           exact — unlike the `text` section it is never sampled — and its
+           sum matches records.total_records to the record across the whole
+           dataset (267,942) and every filter shape we checked (country,
+           body, theme). Dropping the count call removed the slowest request
+           on this view: the SP family enumerates ~46 mandate names, a
+           1.2 kB query string that took ~1.9 s on its own. */
+        const total = (analytics?.trends?.yearly_counts || [])
+          .reduce((sum, r) => sum + (+r.count || 0), 0);
+        const k = $(`#mcKpi-${f.key}`); if (k) k.textContent = fmt(total);
         // Per-family sparkline maps — built LOCALLY from this family's own
         // yearly arrays, never written into the global _themeSparklines /
         // _groupSparklines caches.  Three parallel family fetches land in

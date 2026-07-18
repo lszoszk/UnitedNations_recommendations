@@ -288,11 +288,18 @@ const api = {
     if (opts.sort_dir) p.set('sort_dir', opts.sort_dir);
     return apiGet(E.records, p, { scope: 'records', ...opts });
   },
-  recordsCount: (f) => {
+  // opts.scope lets a caller opt OUT of the shared 'recordsCount' race
+  // guard. The guard aborts any in-flight request in the same scope, which
+  // is right when a newer filter supersedes an older one — but wrong when a
+  // view legitimately fires several counts at once (Mechanism → "compare
+  // all 3" runs one per family). Sharing the scope there meant the first
+  // two counts were aborted ~5 ms in and their columns hung on "loading"
+  // forever, since the catch swallows AbortError.
+  recordsCount: (f, opts = {}) => {
     const p = buildParams(f || state.filters);
     p.set('page', 1);
     p.set('page_size', 1);
-    return apiGet(E.records, p, { scope: 'recordsCount' });
+    return apiGet(E.records, p, { scope: 'recordsCount', ...opts });
   },
   profile: (entityType, entityValue, opts = {}) => {
     const p = new URLSearchParams();
