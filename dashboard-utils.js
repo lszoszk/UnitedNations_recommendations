@@ -1063,9 +1063,21 @@ function noteSet(id, text) {
 function updateBookmarkCount() {
   const n = bmLoad().length;
   const badge = $('#tabBookmarks');
+  if (!badge) return;
   // Empty (not "—") when there are no bookmarks so the `.t-ctx:empty`
-  // rule hides the slot — no placeholder dash on the inactive tab.
-  if (badge) badge.textContent = n ? `${n} saved` : '';
+  // rule hides the slot — no placeholder dash on the tab.
+  const next = n ? `${n} saved` : '';
+  if (badge.textContent === next) return;
+  badge.textContent = next;
+  // Visible confirmation pulse on every change (user feedback 2026-07:
+  // "widzę, czy się na pewno dodało"). The count itself stays rendered on
+  // the inactive tab via the :not([data-nav="bookmarks"]) CSS exemption.
+  if (n) {
+    badge.classList.remove('ctx-bump');
+    void badge.offsetWidth;   // restart the animation when re-adding fast
+    badge.classList.add('ctx-bump');
+    badge.addEventListener('animationend', () => badge.classList.remove('ctx-bump'), { once: true });
+  }
 }
 
 function renderBookmarks() {
