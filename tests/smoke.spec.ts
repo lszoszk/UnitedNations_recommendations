@@ -11,7 +11,11 @@ import * as path from 'path';
  *   3. hashRouting  — dashboard-route.js fails to expose its routing API
  *   4. landingSearch — index.html hero search input isn't wired (bec17a1)
  *   5. datasetNumber — hardcoded "267,548" drifts from reality (pre-c87b355)
- *   6. searchView   — extracted search module no longer renders its shell
+ *   6. searchView   — extracted search module no longer renders its shell,
+ *                     or the #seSort dropdown advertises an order the page
+ *                     fetch didn't ask for (2026-07: a keyword search showed
+ *                     "date · newest first" and sorted by date because the
+ *                     relevance default was unreachable dead code)
  *   7. readerDrawer — extracted reader module still renders record chrome
  *   8. compareScale — shared Y scale in Compare must normalize API row arrays
  *
@@ -295,26 +299,110 @@ test.describe('UHRI Dashboard smoke', () => {
     );
   });
 
-  test('6. searchView — extracted search module renders shell and keyword sort', async ({ page }) => {
+  test('6. searchView — search shell renders and the sort dropdown matches what was fetched', async ({ page }) => {
     const errors = collectConsoleErrors(page);
+
+    /* The selected dropdown option is only half the contract — the other half
+       is that loadNextSearchPage requests the SAME order.  The two used to be
+       computed independently (renderSearch had its own expression,
+       loadNextSearchPage read state.searchSort raw) and could disagree.
+
+       `wireSorts` is what actually left over HTTP; `sortsAsked()` (installed
+       below) is what loadNextSearchPage asked api.records for.  Both are
+       needed: the wire proves the sort reaches the URL, but re-selecting an
+       order the user already used is served from the 5-minute memo cache
+       without a round-trip, so only the api.records hook sees it.
+       Only the search view passes sort_by, so filtering on it keeps drawer /
+       profile / label record fetches out of the wire capture. */
+    const wireSorts: string[] = [];
+    await page.route('**/uhri-api/api/data/records*', async route => {
+      const p = new URL(route.request().url()).searchParams;
+      if (p.get('sort_by')) wireSorts.push(`${p.get('sort_by')}:${p.get('sort_dir')}`);
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ok: true,
+          total_records: 1,
+          page: 1,
+          page_size: 30,
+          records: [{
+            AnnotationId: 'smoke-search-0001',
+            PublicationDate: '2024-05-06',
+            Countries: ['China'],
+            Body: 'CCPR',
+            Symbol: 'CCPR/C/CHN/CO/1',
+            AnnotationType: 'Recommendations',
+            TextPlainCleaned: 'The Committee recommends that the State party strengthen safeguards.',
+          }],
+        }),
+      });
+    });
     await page.goto('/dashboard.html');
     await page.waitForFunction(() => typeof (globalThis as any).navigate === 'function', null, { timeout: 5000 });
 
-    await page.evaluate(async () => {
-      state.filters.kw = 'china';
-      state.searchSort = null;
-      const kw = document.getElementById('kwInput') as HTMLInputElement | null;
-      if (kw) kw.value = 'china';
-      await navigate('search');
+    /* Observe (don't replace) the records call, so every sort the search view
+       resolves is recorded whether or not it reaches the network. */
+    await page.evaluate(() => {
+      const seen: string[] = [];
+      (globalThis as any).__searchSorts = () => seen;
+      const orig = api.records;
+      api.records = (f: any, pg: any, size: any, opts: any = {}) => {
+        if (opts.sort_by) seen.push(`${opts.sort_by}:${opts.sort_dir}`);
+        return orig(f, pg, size, opts);
+      };
+    });
+    const sortsAsked = () => page.evaluate(() => (globalThis as any).__searchSorts().slice());
+    /* Run an action, wait for the page fetch it triggers, return that fetch's sort. */
+    const sortSentBy = async (act: () => Promise<void>): Promise<string> => {
+      const before = (await sortsAsked()).length;
+      await act();
+      await expect.poll(async () => (await sortsAsked()).length, { timeout: 6000 }).toBeGreaterThan(before);
+      return (await sortsAsked()).at(-1) as string;
+    };
+
+    /* Production path only: type into the visible main search bar and submit,
+       exactly as a user does.  Nothing here pre-seeds state.searchSort — the
+       previous version of this test set it to null by hand, so the relevance
+       default was only ever exercised in a state the app never reaches, and
+       the default could rot in production without failing here. */
+    const kwSort = await sortSentBy(async () => {
+      await page.locator('#mainSearchInput').fill('china');
+      await page.locator('#mainSearchInput').press('Enter');
     });
 
     const searchTab = page.locator('a[role="tab"][data-nav="search"]');
     await expect(searchTab).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#view-search .se-head .lbl')).toHaveText('Search results');
     await expect(page.locator('#view-search .se-head .q')).toHaveText('"china"');
-    await expect(page.locator('#seSort')).toHaveValue('relevance:asc');
     await expect(page.locator('#seBulkCount')).toHaveText('0 selected');
-    await expect(page.locator('#seSentinel')).toContainText('Loading more');
+    // A keyword query with no explicit user choice sorts by relevance, and
+    // the dropdown says so.
+    await expect(page.locator('#seSort')).toHaveValue('relevance:asc');
+    expect(kwSort, 'keyword search must FETCH relevance, not just display it').toBe('relevance:asc');
+    // …and it survives the trip through api.records into the request URL.
+    expect(wireSorts).toContain('relevance:asc');
+
+    // An explicit pick beats the keyword default, in the dropdown and the fetch.
+    const pickedSort = await sortSentBy(async () => {
+      await page.locator('#seSort').selectOption('publication_date:asc');
+    });
+    await expect(page.locator('#seSort')).toHaveValue('publication_date:asc');
+    expect(pickedSort).toBe('publication_date:asc');
+
+    // Back to relevance, then drop the keyword with the × on the query badge.
+    // Relevance can't rank anything without a query, so the option disappears
+    // and both the dropdown and the fetch fall back to newest-first — no
+    // orphaned sort_by=relevance behind a dropdown showing a date order.
+    await sortSentBy(async () => {
+      await page.locator('#seSort').selectOption('relevance:asc');
+    });
+    const clearedSort = await sortSentBy(async () => {
+      await page.locator('#seKwClear').click();
+    });
+    await expect(page.locator('#seSort')).toHaveValue('publication_date:desc');
+    await expect(page.locator('#seSort option[value="relevance:asc"]')).toHaveCount(0);
+    expect(clearedSort).toBe('publication_date:desc');
 
     expect(errors, `JS errors while rendering search view:\n${errors.join('\n')}`).toEqual([]);
   });
