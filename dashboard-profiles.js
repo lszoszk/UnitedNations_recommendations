@@ -769,9 +769,15 @@ async function renderMechanism() {
            body, theme). Dropping the count call removed the slowest request
            on this view: the SP family enumerates ~46 mandate names, a
            1.2 kB query string that took ~1.9 s on its own. */
-        const total = (analytics?.trends?.yearly_counts || [])
-          .reduce((sum, r) => sum + (+r.count || 0), 0);
-        const k = $(`#mcKpi-${f.key}`); if (k) k.textContent = fmt(total);
+        /* Guard the derivation: if `trends` were ever absent the reduce
+           would yield a confident-looking 0 — a wrong number is worse
+           than a missing one in a research tool — so fall back to the
+           map payload's own total and, failing that, show an em dash. */
+        const yc = analytics?.trends?.yearly_counts;
+        const total = Array.isArray(yc) && yc.length
+          ? yc.reduce((sum, r) => sum + (+r.count || 0), 0)
+          : (Number.isFinite(+mapD?.total_records) ? +mapD.total_records : null);
+        const k = $(`#mcKpi-${f.key}`); if (k) k.textContent = total === null ? '—' : fmt(total);
         // Per-family sparkline maps — built LOCALLY from this family's own
         // yearly arrays, never written into the global _themeSparklines /
         // _groupSparklines caches.  Three parallel family fetches land in
@@ -781,7 +787,7 @@ async function renderMechanism() {
         // every column consistent with its own KPI.
         const themeSparks = _yearlyCountsByKey(analytics?.themes?.yearly_theme_counts, 'theme');
         const groupSparks = _yearlyCountsByKey(analytics?.text?.yearly_affected_person_counts, 'affected_person');
-        renderRowList($(`#mcCountries-${f.key}`), (mapD?.country_counts || []).slice(0,5).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country', extraFilter: { body: new Set(bodies) } });
+        renderRowList($(`#mcCountries-${f.key}`), (mapD?.country_counts || []).slice(0,5).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country', extraFilter: { body: new Set(bodies) }, noSparklines: true });
         renderRowList($(`#mcThemes-${f.key}`),    (analytics?.themes?.theme_counts || []).slice(0,5).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme',   extraFilter: { body: new Set(bodies) }, sparklines: themeSparks });
         renderRowList($(`#mcGroups-${f.key}`),    (analytics?.text?.affected_person_counts || []).slice(0,5).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', extraFilter: { body: new Set(bodies) }, sparklines: groupSparks });
       }).catch(err => {
@@ -1182,7 +1188,10 @@ async function renderCompare() {
     try {
       const [an, recs] = await Promise.all([
         api.analytics(f, { scope: 'analytics:' + scope }),
-        api.records(f, 1, 1, { scope: 'records:' + scope }),
+        // Count only — recordsCount (i.e. /summary) instead of a
+        // page_size=1 /records page: same total_records, ~10x cheaper
+        // cold, and it doesn't occupy a slow /records slot (perf 2026-07).
+        api.recordsCount(f, { scope: 'records:' + scope }),
       ]);
       const subEl = $(`#cmpSub${letter}`);
       if (subEl) subEl.textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes · ${(an?.text?.affected_person_counts||[]).length} groups`;

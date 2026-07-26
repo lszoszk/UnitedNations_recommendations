@@ -627,7 +627,7 @@ function saveCountrySparkCache() {
 async function getCountrySparkline(country) {
   if (_countrySparkCache[country]) return _countrySparkCache[country];
   try {
-    const an = await api.analytics({...emptyFilters(), country: new Set([country])}, { scope: 'spark:' + country });
+    const an = await api.analytics({...emptyFilters(), country: new Set([country])}, { scope: 'spark:' + country, priority: 'low' });
     const yearly = (an?.trends?.yearly_counts || []);
     const data = {};
     yearly.forEach(r => data[r.year] = r.count);
@@ -700,8 +700,8 @@ function preloadCountryOnHover(country) {
   if (_preloadQueued.has('country:' + country)) return;
   _preloadQueued.add('country:' + country);
   const f = { ...emptyFilters(), country: new Set([country]) };
-  api.analytics(f, { scope: 'preload-analytics:' + country }).catch(()=>{});
-  api.map(f, { scope: 'preload-map:' + country }).catch(()=>{});
+  api.analytics(f, { scope: 'preload-analytics:' + country, priority: 'low' }).catch(()=>{});
+  api.map(f, { scope: 'preload-map:' + country, priority: 'low' }).catch(()=>{});
 }
 /* Generic preload for any entity kind the user might click → open profile.
    Intersects with the current rail so the warm cache matches what the

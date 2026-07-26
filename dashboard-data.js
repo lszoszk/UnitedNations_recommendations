@@ -179,8 +179,25 @@ function buildParams(f) {
   const sdgValues = _sdgParamValues(f);
   if (sdgValues.length) p.set('sdgs', sdgValues.join('|'));
   if (f.type && f.type.size) p.set('annotation_type', Array.from(f.type).join(','));
-  if (f.yearA) p.set('year_start', f.yearA);
-  if (f.yearB) p.set('year_end', f.yearB);
+  /* Year bounds are sent ONLY when they actually narrow the range
+     (perf 2026-07). The slider rests at the dataset's full span, so we
+     used to append `year_start=2006&year_end=2026` — a semantic no-op
+     — to every single request. It cost two ways:
+       1. nginx's precompute map only recognises `""` / `dataset=cleaned`
+          / `dataset=raw` as cacheable arg-strings, so the year pair
+          bypassed the precomputed .json.gz and hit FastAPI every time;
+       2. the year-filtered query path in the backend is pathologically
+          slow — measured against the live VM, the SAME query went
+          86-138 ms → 5.3-6.0 s on /records and 166 ms → 25.4 s on
+          /analytics purely by adding the full-range pair.
+     Verified equivalent (identical total_records unfiltered / by
+     country / theme / body) before removing. A genuinely narrowed
+     range still sends the bound it narrows, and only that one. */
+  const _fy = (typeof state !== 'undefined' && state.facets) || null;
+  const _fullMin = _fy && Number.isFinite(+_fy.min_year) ? +_fy.min_year : null;
+  const _fullMax = _fy && Number.isFinite(+_fy.max_year) ? +_fy.max_year : null;
+  if (f.yearA && !(_fullMin !== null && +f.yearA <= _fullMin)) p.set('year_start', f.yearA);
+  if (f.yearB && !(_fullMax !== null && +f.yearB >= _fullMax)) p.set('year_end', f.yearB);
   if (f.themesMatch === 'all') p.set('themes_match', 'all');
   if (f.groupsMatch === 'all') p.set('affected_persons_match', 'all');
   if (f.dataset) p.set('dataset', f.dataset);
@@ -215,6 +232,58 @@ function memSet(key, data) {
 const inflight = {};
 const pendingPromises = new Map();
 
+/* ---------- REQUEST GATE: bounded client-side concurrency ----------
+   The API degrades sharply when several requests land together: measured
+   against the live VM with a realistic 8-request view mix, one random
+   request in the batch gets starved for seconds while the others answer
+   in ~150 ms. Throttling the CLIENT fixes it, and counter-intuitively
+   makes the whole batch finish sooner — the same mix, 3 trials each:
+
+     concurrency 8 -> p50 321ms  p95 2934ms  wall 3.77s
+     concurrency 4 -> p50 167ms  p95 1512ms  wall 1.70s
+     concurrency 2 -> p50 117ms  p95  770ms  wall 1.20s
+
+   (Hedging the straggler — firing a duplicate after a delay — was also
+   tried and made things worse: p95 2331ms -> 5878ms, because the extra
+   load feeds the same contention. Measured, then discarded.)
+
+   Two tiers so speculative work can never delay what the user is waiting
+   for: 'low' is for hover-preloads and sparkline backfill, and is only
+   dequeued when no normal-priority request is waiting. */
+const GATE_LIMIT = 2;
+let _gateActive = 0;
+const _gateQ = [];       // normal priority
+const _gateQLow = [];    // speculative
+
+function _gatePump() {
+  while (_gateActive < GATE_LIMIT) {
+    const next = _gateQ.shift() || _gateQLow.shift();
+    if (!next) return;
+    _gateActive++;
+    next();
+  }
+}
+
+/* Runs fn() once a slot is free. Aborted-while-queued requests are
+   dropped without ever hitting the network. */
+function _gate(fn, { signal, priority } = {}) {
+  return new Promise((resolve, reject) => {
+    const start = () => {
+      if (signal && signal.aborted) {
+        _gateActive--; _gatePump();
+        const e = new Error('aborted'); e.name = 'AbortError';
+        return reject(e);
+      }
+      Promise.resolve()
+        .then(fn)
+        .then(resolve, reject)
+        .finally(() => { _gateActive--; _gatePump(); });
+    };
+    (priority === 'low' ? _gateQLow : _gateQ).push(start);
+    _gatePump();
+  });
+}
+
 async function apiGet(path, params, opts = {}) {
   const url = API_BASE + path + (params && params.toString() ? '?' + params.toString() : '');
   const key = cacheKey(path, params);
@@ -248,7 +317,10 @@ async function apiGet(path, params, opts = {}) {
 
   const promise = (async () => {
     try {
-      const res = await fetch(url, { signal: ctrl.signal });
+      const res = await _gate(
+        () => fetch(url, { signal: ctrl.signal }),
+        { signal: ctrl.signal, priority: opts.priority },
+      );
       if (!res.ok) {
         const err = new Error(`${path} -> HTTP ${res.status}`);
         err.status = res.status;
@@ -288,18 +360,24 @@ const api = {
     if (opts.sort_dir) p.set('sort_dir', opts.sort_dir);
     return apiGet(E.records, p, { scope: 'records', ...opts });
   },
-  // opts.scope lets a caller opt OUT of the shared 'recordsCount' race
-  // guard. The guard aborts any in-flight request in the same scope, which
-  // is right when a newer filter supersedes an older one — but wrong when a
-  // view legitimately fires several counts at once (Mechanism → "compare
-  // all 3" runs one per family). Sharing the scope there meant the first
-  // two counts were aborted ~5 ms in and their columns hung on "loading"
-  // forever, since the catch swallows AbortError.
+  /* Counts come from /summary, NOT /records?page_size=1 (perf 2026-07).
+     /records is index-poor for most filters — measured cold against the
+     live VM, the identical count cost 0.60-1.18 s there versus a flat
+     0.05-0.06 s on /summary, and because the API serialises work, one
+     slow /records call also head-of-line blocks every other request in
+     flight (in-browser we measured a 22 s analytics call queued behind
+     one). Equivalence verified before switching: identical total_records
+     on 17 filter shapes — unfiltered, country, theme, multi-theme with
+     themes_match=all, body, multi-body, group, groups_match=all, type,
+     text_query, regions, sdgs, year ranges and combinations.
+
+     opts.scope lets a caller opt OUT of the shared race guard, which
+     aborts in-flight requests in the same scope. That is right when a
+     newer filter supersedes an older one, but wrong when a view fires
+     several counts at once (Mechanism → "compare all 3", one per family). */
   recordsCount: (f, opts = {}) => {
     const p = buildParams(f || state.filters);
-    p.set('page', 1);
-    p.set('page_size', 1);
-    return apiGet(E.records, p, { scope: 'recordsCount', ...opts });
+    return apiGet(E.summary, p, { scope: 'recordsCount', ...opts });
   },
   profile: (entityType, entityValue, opts = {}) => {
     const p = new URLSearchParams();
@@ -309,7 +387,34 @@ const api = {
   },
 };
 
-let _bundledProfileEndpointAvailable = null;
+/* The bundled /api/data/profile/{type}/{value} endpoint does not exist on
+   the current backend — it 404s (confirmed: absent from openapi.json).
+   The fallback to analytics+map+records is correct, but the probe used to
+   run again on EVERY page load: one wasted round-trip that also occupied a
+   request slot and delayed the fallback calls behind it, since the split
+   fetch can only start once the probe has failed.
+
+   Remember the 404 across loads (24 h, per dataset) so a cold visit goes
+   straight to the working path, while still re-checking often enough that
+   the dashboard picks the endpoint up automatically if the VM ever ships
+   it. Any success clears the flag immediately. */
+const _BUNDLED_404_KEY = 'uhri_v2_profile_ep_404_until';
+const _BUNDLED_404_TTL_MS = 24 * 3600 * 1000;
+
+function _readBundledProbeMemo() {
+  try {
+    const until = +(localStorage.getItem(_BUNDLED_404_KEY) || 0);
+    return until > Date.now() ? false : null;   // false = known-missing
+  } catch { return null; }
+}
+function _memoBundledUnavailable() {
+  try { localStorage.setItem(_BUNDLED_404_KEY, String(Date.now() + _BUNDLED_404_TTL_MS)); } catch {}
+}
+function _clearBundledMemo() {
+  try { localStorage.removeItem(_BUNDLED_404_KEY); } catch {}
+}
+
+let _bundledProfileEndpointAvailable = _readBundledProbeMemo();
 
 function _isBundledProfileUnavailable(err) {
   const status = Number(
@@ -371,11 +476,13 @@ function _loadProfile(entityType, entityValue, scopeOverride) {
       fresh: pSwr.fresh
         .then(d => {
           _bundledProfileEndpointAvailable = true;
+          _clearBundledMemo();
           return norm(d);
         })
         .catch(err => {
           if (_isBundledProfileUnavailable(err)) {
             _bundledProfileEndpointAvailable = false;
+            _memoBundledUnavailable();
             console.warn('Bundled profile endpoint unavailable; falling back to analytics/map/records.', err);
             return loadSplitProfile().fresh;
           }

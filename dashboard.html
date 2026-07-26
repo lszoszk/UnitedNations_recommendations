@@ -2856,7 +2856,13 @@ function renderRowList(el, rows, opts = {}) {
   const sparkSource = opts.sparklines;  // dict key → {year→count}
   const minY = state.facets?.min_year || 2006;
   const maxY = state.facets?.max_year || 2026;
-  const showSpark = !!sparkSource || opts.facet === 'country';
+  /* Country rows carry a sparkline by default, but a caller can opt out
+     with noSparklines. Two reasons to opt out (2026-07): each row costs
+     one analytics round-trip, and getCountrySparkline fetches the
+     country's GLOBAL trend — so in a scoped column (e.g. the per-family
+     columns of Mechanism → compare all 3) the curve would describe all
+     mechanisms, not that column's family. Wrong and expensive. */
+  const showSpark = !opts.noSparklines && (!!sparkSource || opts.facet === 'country');
   el.innerHTML = rows.map((r, i) => {
     let sparkHtml = '';
     if (showSpark) {

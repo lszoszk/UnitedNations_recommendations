@@ -390,6 +390,10 @@ test.describe('UHRI Dashboard smoke', () => {
         return analyticsByCountry[country] || mk([]);
       };
       api.records = async () => ({ total_records: 1, records: [] });
+      // Compare takes its per-side count from recordsCount (backed by
+      // /summary since the 2026-07 perf work), not from a page_size=1
+      // /records page — stub both so the assertion targets the real path.
+      api.recordsCount = async () => ({ total_records: 1 });
 
       state.cmpA = 'Aland';
       state.cmpB = 'Borland';
