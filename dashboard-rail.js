@@ -726,7 +726,7 @@ function bindKwInput() {
 
   $('#kwInput').addEventListener('input', e => {
     state.filters.kw = e.target.value;
-    $('#tabSearch').textContent = e.target.value.trim() || '—';
+    $('#tabSearch').textContent = e.target.value.trim();
     /* If the keyword was applied from a label rule and the user is now
        editing it, drop the label association — they're no longer running
        the label, just an inspired-by query. The chip + scope banner will
@@ -739,7 +739,7 @@ function bindKwInput() {
   });
   $('#kwInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') {
-      $('#tabSearch').textContent = state.filters.kw || '—';
+      $('#tabSearch').textContent = state.filters.kw || '';
       navigate('search');
     }
   });

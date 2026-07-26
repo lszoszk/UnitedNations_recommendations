@@ -2236,7 +2236,15 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
       <div class="fr-sub"><span id="hitPct">100%</span> of full dataset</div>
     </div>
 
-    <div class="facet" data-facet="kw">
+    <!-- Collapsed at rest (2026-07): #kwInput and the prominent
+         #mainSearchInput are the SAME state — bindMainSearch mirrors one
+         onto the other — so showing both left the user picking between
+         two identical boxes. The rail keeps the field (keyword is a
+         filter, and the syntax help lives here), but only one input is
+         visible until you ask for it. syncFacetAutoExpand re-opens this
+         facet whenever a keyword is active, so a running query still
+         reads as part of the filter stack. -->
+    <div class="facet collapsed" data-facet="kw">
       <div class="facet-head"><span class="fh-idx">01</span><span>KEYWORD</span><span class="fh-toggle">▾</span></div>
       <div class="facet-body">
         <input id="kwInput" class="kwinput" aria-label="Search recommendations by keyword" placeholder='e.g. forced labour, "death penalty", torture OR abuse'/>
@@ -2582,7 +2590,7 @@ function _renderRailNoteInto(hostEl, excludeKey) {
     if (minY) f.yearA = minY; if (maxY) f.yearB = maxY;
     if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
     ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
-    $('#tabSearch').textContent = '—';
+    $('#tabSearch').textContent = '';
     onFiltersChanged();
   });
 }
@@ -3353,7 +3361,9 @@ function bindMainSearch() {
   });
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    $('#tabSearch').textContent = (state.filters.kw || '').trim() || '—';
+    // Empty (not "—") so the `.t-ctx:empty` rule hides the slot; the
+    // em dash here re-introduced the placeholder removed in the declutter.
+    $('#tabSearch').textContent = (state.filters.kw || '').trim();
     navigate('search');
     inp.blur();
   });
@@ -3767,7 +3777,7 @@ async function boot() {
     state.filters = { ...emptyFilters(),
       yearA: state.facets?.min_year, yearB: state.facets?.max_year };
     $('#kwInput').value = '';
-    $('#tabSearch').textContent = '—';
+    $('#tabSearch').textContent = '';
     ['country','body','theme','group','region','type','sdg'].forEach(refreshFacetUI);
     // Reset slider
     if (typeof window._syncYearSlider === 'function') window._syncYearSlider();

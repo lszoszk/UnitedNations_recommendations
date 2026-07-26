@@ -298,7 +298,7 @@ async function renderSearch() {
   $('#seKwClear')?.addEventListener('click', () => {
     state.filters.kw = '';
     if ($('#kwInput')) $('#kwInput').value = '';
-    $('#tabSearch').textContent = '—';
+    $('#tabSearch').textContent = '';
     onFiltersChanged();
   });
   // F. Sort dropdown — round-trips through state.searchSort + re-renders.

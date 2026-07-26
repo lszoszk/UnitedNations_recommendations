@@ -284,7 +284,7 @@ function applyOhchrUrlFilters(parsed) {
   if (parsed.yearB) { state.filters.yearB = parsed.yearB; n++; }
   if (typeof window._syncYearSlider === 'function') window._syncYearSlider();
   ['country','body','theme'].forEach(refreshFacetUI);
-  $('#tabSearch').textContent = state.filters.kw || '—';
+  $('#tabSearch').textContent = state.filters.kw || '';
   renderActiveFilters();
   return n;
 }

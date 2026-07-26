@@ -76,7 +76,7 @@ function renderActiveFilters() {
     refreshFacetUI(k === 'group' ? 'group'
                  : (k === 'kw' || k === 'label' || k === 'year') ? null
                  : k);
-    if (k === 'kw' || k === 'label') $('#tabSearch').textContent = '—';
+    if (k === 'kw' || k === 'label') $('#tabSearch').textContent = '';
     if (k === 'country') state.hexRegion = 'world';
     onFiltersChanged();
   }));
@@ -125,7 +125,7 @@ function renderScopeBanner() {
     f.kw = '';
     f.activeLabel = null;
     const inp = $('#kwInput'); if (inp) { inp.value = ''; delete inp.dataset.fromLabel; }
-    $('#tabSearch').textContent = '—';
+    $('#tabSearch').textContent = '';
     onFiltersChanged();
   });
 }
@@ -141,12 +141,16 @@ const debouncedRefresh = debounce(() => refreshCurrentView(), 650);
    keeps it collapsed (onFiltersChanged only fires on filter changes). */
 const _AUTO_EXPAND_FACETS = ['country', 'group', 'region'];
 function syncFacetAutoExpand() {
+  const open = (key) => document.querySelector(`.facet[data-facet="${key}"]`)?.classList.remove('collapsed');
   _AUTO_EXPAND_FACETS.forEach(key => {
     const set = state.filters?.[key];
-    if (set && set.size > 0) {
-      document.querySelector(`.facet[data-facet="${key}"]`)?.classList.remove('collapsed');
-    }
+    if (set && set.size > 0) open(key);
   });
+  // Keyword is a string, not a Set — same rule, different shape. Typing in
+  // the prominent main bar reveals the rail's keyword facet so the active
+  // query is visible as part of the filter stack (and its syntax help is
+  // one click away), without two identical inputs competing at rest.
+  if ((state.filters?.kw || '').trim()) open('kw');
 }
 
 function onFiltersChanged() {
