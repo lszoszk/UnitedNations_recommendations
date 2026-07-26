@@ -10,6 +10,93 @@
  */
 
 /* =========================================================================
+   PROFILE SAMPLE ROWS (lazy)
+   =========================================================================
+   Every profile ends with a five-row "sample recommendations" list, and it is
+   the only part of a profile that needs record ROWS rather than aggregates.
+   /records is the one endpoint that does not get faster on repeat for the
+   filters profiles use: measured against the live VM, page_size=5 with
+   themes=Reservations took 1.84s cold and 0.83s warm, versus 0.04s for the
+   same count from /summary, because /records is not route-cached. It used to
+   be awaited next to analytics + map, so those five rows at the very bottom
+   of the page gated the whole profile paint.
+
+   Now the KPI count comes from /summary and the rows are fetched only when
+   the section actually scrolls into view, at 'low' priority so they can
+   never delay something the user is waiting for. Same two-gate shape as the
+   country sparklines in dashboard-utils.js: no IntersectionObserver means
+   fetch immediately, as before. */
+let _profileSampleGen = 0;
+let _profileSampleIO = null;
+
+function _renderProfileSamples(sampleEl, rows, source, meta) {
+  if (!sampleEl) return;
+  sampleEl.innerHTML = '';
+  sampleEl._sampleRows = rows || [];
+  state.currentResultList = rows || [];
+  state.currentResultSource = source;
+  (rows || []).forEach((r, i) => {
+    const d = document.createElement('div');
+    d.className = 'cp-sample';
+    const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
+    d.innerHTML = `<div class="meta">${meta(r)}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
+    d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
+    sampleEl.appendChild(d);
+  });
+  if (!(rows || []).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+}
+
+/* `preloaded` is the rows the bundled /profile endpoint returns inline, if it
+   is ever alive — nothing to fetch in that case. */
+function _mountProfileSamples(sampleEl, entityType, entityValue, filter, source, meta, preloaded) {
+  if (!sampleEl) return;
+  /* paint() runs twice when SWR has a cached copy — once stale, once fresh.
+     Rows already on screen for this same entity are re-claimed rather than
+     re-fetched, so the second paint neither flashes the placeholder over them
+     nor leaves the reader's j/k navigation with an empty list mid-read. */
+  const key = `${source}|${entityValue}`;
+  if (sampleEl.dataset.sampleKey === key && sampleEl._sampleRows) {
+    state.currentResultList = sampleEl._sampleRows;
+    state.currentResultSource = source;
+    return;
+  }
+  /* Different entity: claim the result list straight away, empty. paint() used
+     to set it from the rows it had in hand, and leaving it alone until the
+     rows arrive would let j/k keep stepping through the PREVIOUS view's list. */
+  sampleEl.dataset.sampleKey = key;
+  sampleEl._sampleRows = null;
+  state.currentResultList = [];
+  state.currentResultSource = source;
+  const gen = ++_profileSampleGen;
+  if (_profileSampleIO) { _profileSampleIO.disconnect(); _profileSampleIO = null; }
+  if (preloaded) { _renderProfileSamples(sampleEl, preloaded, source, meta); return; }
+  sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">Loading sample records…</div>';
+
+  const load = () => {
+    if (gen !== _profileSampleGen) return;      // a newer profile superseded us
+    api.records(filter, 1, 5, { scope: `records:${entityType}:${entityValue}`, priority: 'low' })
+      .then(d => {
+        if (gen !== _profileSampleGen) return;
+        _renderProfileSamples(sampleEl, d?.records || [], source, meta);
+      })
+      .catch(err => {
+        if (err?.name === 'AbortError' || gen !== _profileSampleGen) return;
+        sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">Sample records unavailable</div>';
+      });
+  };
+
+  if (typeof IntersectionObserver !== 'function') { load(); return; }
+  _profileSampleIO = new IntersectionObserver((entries, obs) => {
+    entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      obs.unobserve(en.target);
+      load();
+    });
+  }, { rootMargin: '200px' });
+  _profileSampleIO.observe(sampleEl);
+}
+
+/* =========================================================================
    VIEW: COUNTRY PROFILE
    ========================================================================= */
 function _profilePickerAnalytics() {
@@ -155,10 +242,10 @@ async function renderCountry() {
   // to fetch (free from MV). Fallback 3-call when rail has filters.
   const cpProfile = _loadProfile('country', name, { country: new Set([name]) });
 
-  const paint = (analytics, records, opts = {}) => {
+  const paint = (analytics, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !records) return;
-    const total = records.total_records;
+    if (!analytics || !count) return;
+    const total = count.total_records;
     const themes = analytics?.themes?.theme_counts || [];
     const topTheme = themes[0]?.theme || '—';
     const bodyTotals = {};
@@ -203,25 +290,15 @@ async function renderCountry() {
     const sdgs = analytics?.text?.sdg_counts || [];
     renderRowList($('#cpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines, extraFilter: countryScope });
 
-    const sampleEl = $('#cpSamples');
-    sampleEl.innerHTML = '';
-    state.currentResultList = records.records || [];
-    state.currentResultSource = 'country';
-    (records.records || []).forEach((r, i) => {
-      const d = document.createElement('div');
-      d.className = 'cp-sample';
-      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanLabel(r.Body)||'—')} · ${sanitize((r.Themes||[])[0]||'')}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
-      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
-      sampleEl.appendChild(d);
-    });
-    if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+    _mountProfileSamples($('#cpSamples'), 'country', name, cpProfile.filter, 'country',
+      r => `${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanLabel(r.Body)||'—')} · ${sanitize((r.Themes||[])[0]||'')}`,
+      opts.samples);
   };
 
-  if (cpProfile.stale) paint(cpProfile.stale.analytics, cpProfile.stale.records, { stale: true });
+  if (cpProfile.stale) paint(cpProfile.stale.analytics, cpProfile.stale.count, { stale: true, samples: cpProfile.stale.samples });
   try {
     const d = await cpProfile.fresh;
-    paint(d.analytics, d.records, { stale: false });
+    paint(d.analytics, d.count, { stale: false, samples: d.samples });
     $('#cpSeeAll')?.addEventListener('click', () => {
       state.filters.country = new Set([name]);
       refreshFacetUI('country');
@@ -290,10 +367,10 @@ async function renderTheme() {
   const thProfile = _loadProfile('theme', name, { theme: new Set([name]) });
 
   // Reusable painter — called once with stale (if any) then again with fresh
-  const paint = (analytics, mapD, records, opts = {}) => {
+  const paint = (analytics, mapD, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !mapD || !records) return;
-    const total = records.total_records;
+    if (!analytics || !mapD || !count) return;
+    const total = count.total_records;
     const countries = mapD.country_counts || [];
     const topC = countries[0]?.country || '—';
     const groups = analytics?.text?.affected_person_counts || [];
@@ -321,25 +398,15 @@ async function renderTheme() {
     const sdgs = analytics?.text?.sdg_counts || [];
     renderRowList($('#thSdgs'),   sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
 
-    const sampleEl = $('#thSamples'); sampleEl.innerHTML = '';
-    state.currentResultList = records.records || [];
-    state.currentResultSource = 'theme';
-    (records.records || []).forEach((r, i) => {
-      const d = document.createElement('div');
-      d.className = 'cp-sample';
-      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      const rCountry = cleanCountryName((r.Countries||[])[0]||'');
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(rCountry)} · ${sanitize(cleanLabel(r.Body))}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
-      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
-      sampleEl.appendChild(d);
-    });
-    if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+    _mountProfileSamples($('#thSamples'), 'theme', name, thProfile.filter, 'theme',
+      r => `${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}`,
+      opts.samples);
   };
 
-  if (thProfile.stale) paint(thProfile.stale.analytics, thProfile.stale.mapD, thProfile.stale.records, { stale: true });
+  if (thProfile.stale) paint(thProfile.stale.analytics, thProfile.stale.mapD, thProfile.stale.count, { stale: true, samples: thProfile.stale.samples });
   try {
     const d = await thProfile.fresh;
-    paint(d.analytics, d.mapD, d.records, { stale: false });
+    paint(d.analytics, d.mapD, d.count, { stale: false, samples: d.samples });
     $('#thSeeAll')?.addEventListener('click', () => {
       state.filters.theme = new Set([name]);
       refreshFacetUI('theme');
@@ -399,10 +466,10 @@ async function renderGroup() {
   // O6: bundled profile endpoint
   const gpProfile = _loadProfile('group', name, { group: new Set([name]) });
 
-  const paint = (analytics, mapD, records, opts = {}) => {
+  const paint = (analytics, mapD, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !mapD || !records) return;
-    const total = records.total_records;
+    if (!analytics || !mapD || !count) return;
+    const total = count.total_records;
     const countries = mapD.country_counts || [];
     const themes = analytics?.themes?.theme_counts || [];
     const sdgs = analytics?.text?.sdg_counts || [];
@@ -429,24 +496,15 @@ async function renderGroup() {
     renderRowList($('#gpGroups'), coGroups.map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
     renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
 
-    const sampleEl = $('#gpSamples'); sampleEl.innerHTML = '';
-    state.currentResultList = records.records || [];
-    state.currentResultSource = 'group';
-    (records.records || []).forEach((r, i) => {
-      const d = document.createElement('div');
-      d.className = 'cp-sample';
-      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
-      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
-      sampleEl.appendChild(d);
-    });
-    if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+    _mountProfileSamples($('#gpSamples'), 'group', name, gpProfile.filter, 'group',
+      r => `${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}`,
+      opts.samples);
   };
 
-  if (gpProfile.stale) paint(gpProfile.stale.analytics, gpProfile.stale.mapD, gpProfile.stale.records, { stale: true });
+  if (gpProfile.stale) paint(gpProfile.stale.analytics, gpProfile.stale.mapD, gpProfile.stale.count, { stale: true, samples: gpProfile.stale.samples });
   try {
     const d = await gpProfile.fresh;
-    paint(d.analytics, d.mapD, d.records, { stale: false });
+    paint(d.analytics, d.mapD, d.count, { stale: false, samples: d.samples });
     $('#gpSeeAll')?.addEventListener('click', () => {
       state.filters.group = new Set([name]);
       refreshFacetUI('group');
@@ -633,10 +691,10 @@ async function renderSDG() {
   // return the full dataset for canonical values such as "SDG 5.2".
   const spProfile = _loadProfile('sdg', sdg, _sdgOverrideForValue(sdg));
 
-  const paint = (analytics, mapD, records, opts = {}) => {
+  const paint = (analytics, mapD, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !mapD || !records) return;
-    const total = records.total_records;
+    if (!analytics || !mapD || !count) return;
+    const total = count.total_records;
     const countries = mapD.country_counts || [];
     const themes = analytics?.themes?.theme_counts || [];
     const groups = analytics?.text?.affected_person_counts || [];
@@ -662,24 +720,15 @@ async function renderSDG() {
     const coSdgs = (analytics?.text?.sdg_counts || []).filter(s => s.sdg !== sdg).slice(0,12);
     renderRowList($('#spSdgs'), coSdgs.map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
 
-    const sampleEl = $('#spSamples'); sampleEl.innerHTML = '';
-    state.currentResultList = records.records || [];
-    state.currentResultSource = 'sdg';
-    (records.records || []).forEach((r, i) => {
-      const d = document.createElement('div');
-      d.className = 'cp-sample';
-      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      d.innerHTML = `<div class="meta">${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
-      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
-      sampleEl.appendChild(d);
-    });
-    if (!(records.records||[]).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+    _mountProfileSamples($('#spSamples'), 'sdg', sdg, spProfile.filter, 'sdg',
+      r => `${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}`,
+      opts.samples);
   };
 
-  if (spProfile.stale) paint(spProfile.stale.analytics, spProfile.stale.mapD, spProfile.stale.records, { stale: true });
+  if (spProfile.stale) paint(spProfile.stale.analytics, spProfile.stale.mapD, spProfile.stale.count, { stale: true, samples: spProfile.stale.samples });
   try {
     const d = await spProfile.fresh;
-    paint(d.analytics, d.mapD, d.records, { stale: false });
+    paint(d.analytics, d.mapD, d.count, { stale: false, samples: d.samples });
     $('#spSeeAll')?.addEventListener('click', () => {
       _replaceSdgFilters(sdg);
       refreshFacetUI('sdg');
@@ -908,13 +957,14 @@ async function renderMechanism() {
   } else {
     anSwr = swr('analytics:mech:'+cacheKey, filter, () => api.analytics(filter));
     mpSwr = swr('map:mech:'+cacheKey,       filter, () => api.map(filter));
-    rcSwr = swr('records:mech:'+cacheKey,   filter, () => api.records(filter, 1, 5));
+    // Count from /summary, sample rows lazily — see _mountProfileSamples.
+    rcSwr = swr('count:mech:'+cacheKey,     filter, () => api.recordsCount(filter, { scope: 'count:mech:'+cacheKey }));
   }
 
-  const paint = (analytics, mapD, records, opts = {}) => {
+  const paint = (analytics, mapD, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !mapD || !records) return;
-    const total = records.total_records;
+    if (!analytics || !mapD || !count) return;
+    const total = count.total_records;
     const countries = mapD.country_counts || [];
     const themes = analytics?.themes?.theme_counts || [];
     const groups = analytics?.text?.affected_person_counts || [];
@@ -938,35 +988,25 @@ async function renderMechanism() {
     renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines, extraFilter });
     renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines, extraFilter });
 
-    const sampleEl = $('#mpSamples'); sampleEl.innerHTML = '';
-    state.currentResultList = records.records || [];
-    state.currentResultSource = 'mechanism';
-    (records.records || []).forEach((r, i) => {
-      const d = document.createElement('div');
-      d.className = 'cp-sample';
-      const txt = (r.TextPlainCleaned || r.Text || '').slice(0, 400);
-      const rCountry = cleanCountryName((r.Countries || [])[0] || '');
-      d.innerHTML = `<div class="meta">${sanitize((r.PublicationDate || '').slice(0,10))} · ${sanitize(rCountry)} · ${sanitize(cleanLabel(r.Body))}</div><div class="cp-sample-text">${sanitize(txt)}${txt.length>=400?'…':''}</div><span class="cp-sample-arrow">→ read full</span>`;
-      d.addEventListener('click', () => { state.selectedRec = r; state.currentResultIndex = i; renderDrawer(); openReader(r); });
-      sampleEl.appendChild(d);
-    });
-    if (!(records.records || []).length) sampleEl.innerHTML = '<div class="panel-loading" style="padding:20px 0">No sample records</div>';
+    _mountProfileSamples($('#mpSamples'), 'mech', cacheKey, filter, 'mechanism',
+      r => `${sanitize((r.PublicationDate || '').slice(0,10))} · ${sanitize(cleanCountryName((r.Countries || [])[0] || ''))} · ${sanitize(cleanLabel(r.Body))}`,
+      opts.samples);
   };
 
   if (useBundle) {
-    if (profileLoader.stale) paint(profileLoader.stale.analytics, profileLoader.stale.mapD, profileLoader.stale.records, { stale: true });
+    if (profileLoader.stale) paint(profileLoader.stale.analytics, profileLoader.stale.mapD, profileLoader.stale.count, { stale: true, samples: profileLoader.stale.samples });
   } else if (anSwr.stale && mpSwr.stale && rcSwr.stale) {
     paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
   }
   try {
-    let analytics, mapD, records;
+    let analytics, mapD, count, samples = null;
     if (useBundle) {
       const d = await profileLoader.fresh;
-      analytics = d.analytics; mapD = d.mapD; records = d.records;
+      analytics = d.analytics; mapD = d.mapD; count = d.count; samples = d.samples;
     } else {
-      [analytics, mapD, records] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
+      [analytics, mapD, count] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
     }
-    paint(analytics, mapD, records, { stale: false });
+    paint(analytics, mapD, count, { stale: false, samples });
     $('#mpSeeAll')?.addEventListener('click', () => {
       // "See all" pipes the current scope into the rail filter + Search tab.
       state.filters.body = new Set(Array.from(filterOverride.body || []));

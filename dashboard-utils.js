@@ -706,7 +706,13 @@ function preloadCountryOnHover(country) {
 /* Generic preload for any entity kind the user might click → open profile.
    Intersects with the current rail so the warm cache matches what the
    Option-B profile renderers actually request. Fire-and-forget; errors
-   are swallowed because this is speculative. */
+   are swallowed because this is speculative.
+
+   All four fetches below are priority:'low' — same as preloadCountryOnHover.
+   They were on the normal queue, which _gatePump drains before the low one,
+   so a 250ms hover could put two purely speculative requests into both of
+   the request gate's slots and make the click the user then actually makes
+   wait behind them. Nothing on screen depends on these. */
 function preloadEntityOnHover(kind, value) {
   if (!value || offline.enabled) return;
   const tag = kind + ':' + value;
@@ -723,13 +729,13 @@ function preloadEntityOnHover(kind, value) {
     const f = _scopedFilter({ sdg: new Set(), sdgExact: new Set() });
     const p = buildParams(f);
     p.set('sdgs', value);
-    apiGet(E.analytics, p, { scope: 'preload-analytics:sdg-' + value }).catch(()=>{});
-    apiGet(E.map,       p, { scope: 'preload-map:sdg-' + value }).catch(()=>{});
+    apiGet(E.analytics, p, { scope: 'preload-analytics:sdg-' + value, priority: 'low' }).catch(()=>{});
+    apiGet(E.map,       p, { scope: 'preload-map:sdg-' + value, priority: 'low' }).catch(()=>{});
     return;
   } else return;
   const f = _scopedFilter(override);
-  api.analytics(f, { scope: 'preload-analytics:' + tag }).catch(()=>{});
-  api.map(f, { scope: 'preload-map:' + tag }).catch(()=>{});
+  api.analytics(f, { scope: 'preload-analytics:' + tag, priority: 'low' }).catch(()=>{});
+  api.map(f, { scope: 'preload-map:' + tag, priority: 'low' }).catch(()=>{});
 }
 
 function attachPreloadHover(el) {

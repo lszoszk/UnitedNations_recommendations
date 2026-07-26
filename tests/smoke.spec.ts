@@ -664,6 +664,9 @@ test.describe('UHRI Dashboard smoke', () => {
         },
       });
       api.records = async () => ({ total_records: 1, records: [] });
+      // Profile KPI count is recordsCount (/summary) — stub it so the shell
+      // render under test doesn't depend on reaching the live VM.
+      api.recordsCount = async () => ({ total_records: 1 });
       await navigate('country');
     });
 
@@ -1164,14 +1167,25 @@ test.describe('UHRI Dashboard smoke', () => {
         seen.push({ kind: 'records', sdgs: buildParams(filter).get('sdgs') });
         return { total_records: 7, records: [] };
       };
+      // The headline count comes from recordsCount (/summary) since the sample
+      // rows moved to a lazy, scroll-triggered fetch (perf 2026-07 round 2),
+      // so `records` may or may not fire depending on whether #spSamples is in
+      // view. Both are stubbed; the invariant under test is that whatever the
+      // profile requests is scoped to the focused target.
+      api.recordsCount = async (filter) => {
+        seen.push({ kind: 'recordsCount', sdgs: buildParams(filter).get('sdgs') });
+        return { total_records: 7 };
+      };
       await renderSDG();
       return seen;
     });
 
     expect(calls.some(call => call.kind === 'profile')).toBe(false);
-    expect(calls.filter(call => call.kind !== 'profile').map(call => call.sdgs)).toEqual([
-      'SDG 5.2', 'SDG 5.2', 'SDG 5.2',
-    ]);
+    const scoped = calls.filter(call => call.kind !== 'profile');
+    expect(scoped.map(call => call.sdgs)).toEqual(scoped.map(() => 'SDG 5.2'));
+    expect(scoped.map(call => call.kind)).toContain('analytics');
+    expect(scoped.map(call => call.kind)).toContain('map');
+    expect(scoped.map(call => call.kind)).toContain('recordsCount');
   });
 
 });

@@ -4050,13 +4050,18 @@ async function boot() {
     state.baselineAnalytics = cachedAnalytics;
   }
 
-  // Phase 1: facets + map + health in parallel
-  let facets, mapD, health;
+  /* Phase 1: facets + map in parallel.
+     /health used to be the third leg of this Promise.all, which made boot
+     the worst possible place for it: three requests through a gate that
+     allows two, so facets and map serialised behind a call whose ONLY
+     consumer is the #datasetSize fallback below — and that fallback only
+     fires when facets could not supply total_records, which it always can.
+     It is now requested lazily, on the branch that actually needs it. */
+  let facets, mapD;
   try {
-    [facets, mapD, health] = await Promise.all([
+    [facets, mapD] = await Promise.all([
       api.facets(),
       api.map({}),
-      api.health().catch(()=>null),
     ]);
     state.facets = facets;
     cacheSet('facets:baseline', facets);
@@ -4065,7 +4070,11 @@ async function boot() {
     // (ambiguous — original vs cleaned). Fall back to MB if facets absent.
     const n = facets?.total_records;
     if (n != null) $('#datasetSize').textContent = fmt(n) + ' records';
-    else if (health?.size_bytes) $('#datasetSize').textContent = (health.size_bytes / 1024 / 1024).toFixed(0) + ' MB';
+    else {
+      api.health()
+        .then(h => { if (h?.size_bytes) $('#datasetSize').textContent = (h.size_bytes / 1024 / 1024).toFixed(0) + ' MB'; })
+        .catch(() => {});
+    }
     progressBar(40, 'RENDERING MAP');
 
     // Render map + top countries immediately — user sees content at ~1s

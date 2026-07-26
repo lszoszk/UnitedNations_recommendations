@@ -388,33 +388,48 @@ const api = {
 };
 
 /* The bundled /api/data/profile/{type}/{value} endpoint does not exist on
-   the current backend — it 404s (confirmed: absent from openapi.json).
-   The fallback to analytics+map+records is correct, but the probe used to
-   run again on EVERY page load: one wasted round-trip that also occupied a
-   request slot and delayed the fallback calls behind it, since the split
-   fetch can only start once the probe has failed.
+   the current backend — it 404s (confirmed: absent from openapi.json). The
+   fallback to analytics+map+records is correct, but the probe cost a wasted
+   round-trip IN FRONT of the profile, because the split fetch can only start
+   once the probe has failed.
 
-   Remember the 404 across loads (24 h, per dataset) so a cold visit goes
-   straight to the working path, while still re-checking often enough that
-   the dashboard picks the endpoint up automatically if the VM ever ships
-   it. Any success clears the flag immediately. */
-const _BUNDLED_404_KEY = 'uhri_v2_profile_ep_404_until';
-const _BUNDLED_404_TTL_MS = 24 * 3600 * 1000;
+   Remembering the 404 for 24h fixed that for returning visitors but not for
+   first-time ones, who still paid it on every cold visit. So the default is
+   now the path that works, and the question "does the endpoint exist yet?"
+   is asked in the BACKGROUND at 'low' priority, at most once a day — the
+   dashboard still picks the endpoint up automatically if the VM ever ships
+   it (there IS a materialised view behind it: /api/data/mv/status reports
+   618 per-entity rows), without a cold visit ever waiting on the answer. */
+const _BUNDLED_OK_KEY = 'uhri_v2_profile_ep_ok';
+const _BUNDLED_PROBED_KEY = 'uhri_v2_profile_ep_probed_at';
+const _BUNDLED_PROBE_EVERY_MS = 24 * 3600 * 1000;
 
 function _readBundledProbeMemo() {
-  try {
-    const until = +(localStorage.getItem(_BUNDLED_404_KEY) || 0);
-    return until > Date.now() ? false : null;   // false = known-missing
-  } catch { return null; }
+  try { return localStorage.getItem(_BUNDLED_OK_KEY) === '1'; }
+  catch { return false; }
 }
 function _memoBundledUnavailable() {
-  try { localStorage.setItem(_BUNDLED_404_KEY, String(Date.now() + _BUNDLED_404_TTL_MS)); } catch {}
+  try { localStorage.removeItem(_BUNDLED_OK_KEY); } catch {}
 }
 function _clearBundledMemo() {
-  try { localStorage.removeItem(_BUNDLED_404_KEY); } catch {}
+  try { localStorage.setItem(_BUNDLED_OK_KEY, '1'); } catch {}
 }
 
 let _bundledProfileEndpointAvailable = _readBundledProbeMemo();
+
+/* Fire-and-forget: never awaited, so it cannot delay a profile, and it burns
+   at most one request per day per browser. */
+function _probeBundledProfileLater(entityType, entityValue) {
+  if (_bundledProfileEndpointAvailable) return;
+  try {
+    const last = +(localStorage.getItem(_BUNDLED_PROBED_KEY) || 0);
+    if (Date.now() - last < _BUNDLED_PROBE_EVERY_MS) return;
+    localStorage.setItem(_BUNDLED_PROBED_KEY, String(Date.now()));
+  } catch { return; }
+  api.profile(entityType, entityValue, { priority: 'low' })
+    .then(() => { _bundledProfileEndpointAvailable = true; _clearBundledMemo(); })
+    .catch(() => {});
+}
 
 function _isBundledProfileUnavailable(err) {
   const status = Number(
@@ -442,20 +457,40 @@ function _railIsEmpty(filter) {
 function _loadProfile(entityType, entityValue, scopeOverride) {
   const filter = _scopedFilter(scopeOverride || {});
   const railEmpty = _railIsEmpty();
-  const norm = d => d ? { analytics: d.analytics, mapD: d.map, records: d.records_sample || d.records } : null;
+  const norm = d => {
+    if (!d) return null;
+    // The bundled endpoint ships the sample rows inline, so when it is alive
+    // there is nothing left to fetch lazily.
+    const rec = d.records_sample || d.records || null;
+    return { analytics: d.analytics, mapD: d.map, count: rec, samples: (rec && rec.records) || null };
+  };
 
   const loadSplitProfile = () => {
     const anSwr = swr(`analytics:${entityType}:${entityValue}`, filter, () => api.analytics(filter));
     const mpSwr = swr(`map:${entityType}:${entityValue}`, filter, () => api.map(filter));
-    const rcSwr = swr(`records:${entityType}:${entityValue}`, filter, () => api.records(filter, 1, 5));
-    const combine = (analytics, mapD, records) => ({ analytics, mapD, records });
+    /* The profile's headline count comes from /summary, and the sample ROWS
+       are no longer part of the load at all (perf 2026-07, round 2).
+       /records is the one endpoint that stays slow for the filters profiles
+       use — measured against the live VM, `themes=Reservations&page_size=5`
+       took 1.84s cold and still 0.83s warm, because unlike /summary,
+       /analytics and /map it is not served from the route cache. Since
+       paint() was gated on all three responses, that single call for five
+       rows at the very bottom of the page delayed the entire profile.
+       Verified equivalent before switching: /summary and /records report an
+       identical total_records on theme, group, sdg, body, country and
+       theme+country shapes. The rows now load on visibility — see
+       _mountProfileSamples in dashboard-profiles.js. */
+    const ctScope = `count:${entityType}:${entityValue}`;
+    const ctSwr = swr(ctScope, filter, () => api.recordsCount(filter, { scope: ctScope }));
+    const combine = (analytics, mapD, count) => ({ analytics, mapD, count, samples: null });
     return {
-      stale: (anSwr.stale && mpSwr.stale && rcSwr.stale) ? combine(anSwr.stale, mpSwr.stale, rcSwr.stale) : null,
+      filter,
+      stale: (anSwr.stale && mpSwr.stale && ctSwr.stale) ? combine(anSwr.stale, mpSwr.stale, ctSwr.stale) : null,
       // allSettled, not all: one section 5xx-ing shouldn't blank the whole
       // profile (the renderers already tolerate missing sections). Still reject
       // on supersession (AbortError) so we don't paint stale partial data, and
       // on total failure so the error path shows.
-      fresh: Promise.allSettled([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]).then((res) => {
+      fresh: Promise.allSettled([anSwr.fresh, mpSwr.fresh, ctSwr.fresh]).then((res) => {
         const aborted = res.find(x => x.status === 'rejected' && x.reason && x.reason.name === 'AbortError');
         if (aborted) throw aborted.reason;
         if (res.every(x => x.status === 'rejected')) throw res[0].reason;
@@ -469,9 +504,10 @@ function _loadProfile(entityType, entityValue, scopeOverride) {
   // bundled endpoint has historically returned the unfiltered dataset for
   // canonical values such as "SDG 5.2". Use the normal filtered endpoints
   // for SDGs so buildParams() applies sdgs= deterministically.
-  if (entityType !== 'sdg' && railEmpty && _bundledProfileEndpointAvailable !== false) {
+  if (entityType !== 'sdg' && railEmpty && _bundledProfileEndpointAvailable === true) {
     const pSwr = swr(`profile:${entityType}:${entityValue}`, filter, () => api.profile(entityType, entityValue));
     return {
+      filter,
       stale: norm(pSwr.stale),
       fresh: pSwr.fresh
         .then(d => {
@@ -491,5 +527,6 @@ function _loadProfile(entityType, entityValue, scopeOverride) {
     };
   }
 
+  if (entityType !== 'sdg' && railEmpty) _probeBundledProfileLater(entityType, entityValue);
   return loadSplitProfile();
 }
