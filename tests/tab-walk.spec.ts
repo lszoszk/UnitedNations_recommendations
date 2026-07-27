@@ -403,6 +403,138 @@ test('search result opens in resizable drawer without modal reader', async ({ pa
   expect(errors).toEqual([]);
 });
 
+test('search — an empty page 2 ends infinite scroll instead of looping /records', async ({ page }) => {
+  /* Regression test for the missing exhaustion guard in loadNextSearchPage
+     (dashboard-search.js).  The empty-result branch there is gated on
+     `state.searchPage === 1`, and the only exhaustion check compared
+     `state.searchPage >= totalPages`.  So when the backend handed back an
+     empty `records` array on any page >= 2 while `total_records` still
+     implied more pages, `state.searchExhausted` was never set: the
+     sentinel's IntersectionObserver stayed armed, saw itself still
+     intersecting an unchanged list, and re-fired loadNextSearchPage —
+     an unbounded /records loop against the VM.  The drawer-list
+     equivalent (loadMoreListDrawer) already carried both halves of the
+     guard: `ctx.page >= totalPages || !newRecs.length`. */
+  const errors = collectConsoleErrors(page);
+
+  /* Page numbers of the /records calls the SEARCH VIEW made.  Search is the
+     only api.records caller that sends sort_by, which is how we tell its
+     fetches apart from drawer-list / profile / label-rule ones. */
+  const searchPages: number[] = [];
+
+  const mkRecord = (i: number) => ({
+    AnnotationId: `se-exhaust-${String(i).padStart(4, '0')}`,
+    Text: `Recommendation ${i}: the State party should strengthen detention safeguards.`,
+    TextPlainCleaned: `Recommendation ${i}: the State party should strengthen detention safeguards.`,
+    Countries: ['Poland'],
+    Regions: ['Eastern Europe'],
+    Themes: ['Liberty and security of person'],
+    AffectedPersons: [],
+    Sdgs: [],
+    Body: 'CCPR',
+    Symbol: 'CCPR/C/POL/CO/8',
+    AnnotationType: 'Recommendations',
+    PublicationDate: '2024-02-01',
+  });
+  const PAGE_ONE = Array.from({ length: 30 }, (_, i) => mkRecord(i));
+
+  await page.addInitScript(() => localStorage.setItem('uhri-ga-consent', 'denied'));
+
+  await page.route('**/uhri-api/api/data/**', async route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    let body: unknown = { ok: true };
+    if (path.endsWith('/records')) {
+      const pageNo = Number(url.searchParams.get('page') || '1');
+      if (url.searchParams.has('sort_by')) searchPages.push(pageNo);
+      /* total_records claims 10 pages of 30, but page 2 comes back empty.
+         That mismatch is the shape the guard has to survive. */
+      body = {
+        ok: true,
+        total_records: 300,
+        page: pageNo,
+        page_size: 30,
+        records: pageNo === 1 ? PAGE_ONE : [],
+      };
+    } else if (path.endsWith('/facets')) {
+      body = {
+        ok: true,
+        countries: ['Poland'],
+        bodies: ['CCPR'],
+        regions: ['Eastern Europe'],
+        types: ['Recommendations'],
+        min_year: 2006,
+        max_year: 2026,
+        total_records: 300,
+      };
+    } else if (path.endsWith('/analytics')) {
+      body = {
+        ok: true,
+        trends: {
+          yearly_counts: [{ year: 2024, count: 300 }],
+          yearly_body_counts: [{ year: 2024, body: 'CCPR', count: 300 }],
+        },
+        themes: { theme_counts: [], yearly_theme_counts: [] },
+        text: { affected_person_counts: [], sdg_counts: [] },
+      };
+    } else if (path.endsWith('/map')) {
+      body = { ok: true, country_counts: [{ country: 'Poland', count: 300 }] };
+    } else if (path.endsWith('/summary')) {
+      body = { ok: true, total_records: 300, yearly_counts: [] };
+    }
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  });
+
+  await page.goto('/dashboard.html#view=search', { waitUntil: 'commit' });
+  await expect(page.locator('#seList .se-item')).toHaveCount(30, { timeout: 5000 });
+  // Let the rest of boot settle — a late phase can re-run renderSearch(),
+  // which resets searchPage/searchExhausted and would race the assertions.
+  await page.waitForTimeout(500);
+  await expect.poll(() => page.evaluate(() => (globalThis as any).__state.searchPage), { timeout: 5000 }).toBe(2);
+
+  /* Ask for the next page.  The sentinel observer may beat us to it in a
+     short viewport — either way we only care that page 2 went out once. */
+  await expect.poll(async () => {
+    if (!searchPages.includes(2)) {
+      await page.evaluate(() => (globalThis as any).loadNextSearchPage?.());
+    }
+    return searchPages.includes(2);
+  }, { timeout: 5000 }).toBe(true);
+
+  /* Now nudge the loader the way a scrolling user would.  Pre-fix these
+     left the browser as page=3, 4, 5 …; with the guard nothing is
+     requested — searchExhausted short-circuits at the top of
+     loadNextSearchPage, and the sentinel observer is disconnected. */
+  const sentinel = page.locator('#seSentinel');
+  for (let i = 0; i < 3; i++) {
+    await sentinel.scrollIntoViewIfNeeded();
+    await page.evaluate(() => (globalThis as any).loadNextSearchPage?.());
+    await page.waitForTimeout(150);
+  }
+
+  // The empty page must END the scroll, not extend it.
+  expect(
+    searchPages.filter(p => p >= 3),
+    `no /records request past the empty page (search fetched pages: ${searchPages.join(', ')})`,
+  ).toEqual([]);
+  expect(
+    await page.evaluate(() => (globalThis as any).__state.searchExhausted),
+    'searchExhausted set by the empty page',
+  ).toBe(true);
+  expect(
+    await page.evaluate(() => (globalThis as any).__state.searchPage),
+    'searchPage parks on the empty page rather than advancing',
+  ).toBe(2);
+  await expect(sentinel).toHaveClass(/\bdone\b/);
+  await expect(sentinel).toContainText('end of results');
+  await expect(page.locator('#seList .se-item')).toHaveCount(30);
+  expect(errors).toEqual([]);
+});
+
 test('country profile row click scopes drawer records to the focused country', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const recordsUrls: string[] = [];

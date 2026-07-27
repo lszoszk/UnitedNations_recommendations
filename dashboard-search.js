@@ -635,7 +635,16 @@ async function loadNextSearchPage() {
     _seUpdateBreakdown();
 
     // Are we done?
-    if (state.searchPage >= totalPages) {
+    // Two halves, and both are load-bearing (same guard as
+    // loadMoreListDrawer in dashboard-drawer-list.js):
+    //   1. page >= totalPages — the normal end, derived from total_records.
+    //   2. !newRows.length    — the backend handed back a short/empty page
+    //      while total_records still implies more.  Without this, nothing
+    //      ever sets searchExhausted: the sentinel observer stays armed,
+    //      sees itself intersecting an unchanged list, and fires
+    //      loadNextSearchPage again — an unbounded /records loop against
+    //      the VM.  (The empty-state branch above only covers page 1.)
+    if (state.searchPage >= totalPages || !newRows.length) {
       state.searchExhausted = true;
       _seUpdateBreakdown();
       const sentinel = $('#seSentinel');
