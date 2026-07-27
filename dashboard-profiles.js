@@ -103,6 +103,107 @@ function _profilePickerAnalytics() {
   return state.baselineAnalytics || state.analytics || null;
 }
 
+/* =========================================================================
+   INLINE ENTITY PICKER — the empty state of every profile view
+   =========================================================================
+   Previously each of the four profile views rendered a near-blank page that
+   *described* three other places you could pick from ("use the command
+   palette, the map on Overview, or the rail facet") and offered a single
+   button for the third one. On the Country view that advice was also
+   circular: the page pointed at the rail, while the rail's own note said
+   "use the country picker above" — and there is no picker above until a
+   country is chosen, with the rail's list hidden on that view. Two of the
+   three routes worked; the page delegated its whole job to its side panels.
+
+   Now the page IS the picker: type-ahead + the full list with record counts,
+   so choosing is one click and the counts show where the material actually
+   is. Counts come from the same baseline analytics the profile header's
+   switcher uses, so the number here matches the number you land on.
+
+   Sort order differs by intent: countries A-Z (you usually look up a known
+   one), everything else by volume (you browse for the biggest). */
+/* Backfill true record counts for pickers whose listed counts come from a
+   SAMPLED source. analytics.text.* (concerned groups, SDGs) is computed on
+   a 5,000-record sample, so its numbers are not record counts at all:
+   "Women & girls" reads 1,245 there against 67,360 actual. Showing that
+   next to an entity you are about to open would promise one number and
+   deliver another. themes.theme_counts and map.country_counts are exact
+   and need none of this. Counts arrive progressively at low priority, so
+   they never delay the list you are already able to click. */
+function _backfillPickerCounts(root, items, paramName) {
+  items.forEach(it => {
+    const el = root.querySelector(`.ep-item[data-key="${CSS.escape(String(it.key))}"] .ep-n`);
+    if (!el) return;
+    const f = { ...emptyFilters(), [paramName]: new Set([it.key]) };
+    api.recordsCount(f, { scope: 'picker-count:' + it.key, priority: 'low' })
+      .then(r => {
+        const n = r?.total_records;
+        if (Number.isFinite(n) && root.isConnected) { el.textContent = fmt(n); el.classList.remove('ep-pending'); }
+      })
+      .catch(() => { el.remove(); });
+  });
+}
+
+function _renderEntityPicker(root, opts) {
+  const { title, hint, items, onPick, sortBy = 'count', columns = true, countsAreSampled = false, countParam = null } = opts;
+  const sorted = [...items].sort(
+    sortBy === 'label'
+      ? (a, b) => a.label.localeCompare(b.label)
+      : (a, b) => (b.count || 0) - (a.count || 0) || a.label.localeCompare(b.label)
+  );
+  root.innerHTML = `
+    <div class="ep-wrap">
+      <h1 class="ep-title">${sanitize(title)}</h1>
+      <p class="ep-hint">${hint}</p>
+      <input class="ep-filter" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Type to filter ${sorted.length} — then Enter for the first match"
+             aria-label="${sanitize(title)}" />
+      <div class="ep-list${columns ? ' cols' : ''}">
+        ${sorted.map((it, i) => `
+          <button class="ep-item" type="button" data-key="${sanitize(String(it.key))}" data-i="${i}">
+            <span class="ep-lbl">${sanitize(it.label)}</span>
+            ${it.count != null ? `<span class="ep-n${countsAreSampled ? ' ep-pending' : ''}">${countsAreSampled ? '…' : fmt(it.count)}</span>` : ''}
+          </button>`).join('')}
+      </div>
+      <div class="ep-empty" hidden>No match. Clear the filter to see all ${sorted.length}.</div>
+    </div>`;
+
+  const list = $('.ep-list', root);
+  const filter = $('.ep-filter', root);
+  const pick = (key) => { if (key) onPick(key); };
+
+  list.querySelectorAll('.ep-item').forEach(el =>
+    el.addEventListener('click', () => pick(el.dataset.key)));
+
+  const visibleItems = () => [...list.querySelectorAll('.ep-item')].filter(el => !el.hidden);
+  filter.addEventListener('input', () => {
+    const q = filter.value.trim().toLowerCase();
+    let shown = 0;
+    list.querySelectorAll('.ep-item').forEach(el => {
+      const hit = !q || el.querySelector('.ep-lbl').textContent.toLowerCase().includes(q);
+      el.hidden = !hit;
+      if (hit) shown++;
+    });
+    $('.ep-empty', root).hidden = shown > 0;
+  });
+  // Enter picks the first visible match; arrows walk the list.
+  filter.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); pick(visibleItems()[0]?.dataset.key); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); visibleItems()[0]?.focus(); }
+  });
+  list.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const vis = visibleItems();
+    const i = vis.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') (vis[i + 1] || vis[0])?.focus();
+    else if (i <= 0) filter.focus();
+    else vis[i - 1].focus();
+  });
+  if (countsAreSampled && countParam) _backfillPickerCounts(root, sorted, countParam);
+  filter.focus();
+}
+
 function _ensureProfilePickerAnalytics() {
   if (state.baselineAnalytics) return Promise.resolve(state.baselineAnalytics);
   return api.analytics({}, { scope: 'analytics:profile-picker' }).then(analytics => {
@@ -174,8 +275,21 @@ async function renderCountry() {
   const name = iso ? (ISO_TO_NAME[iso] || iso) : null;
 
   if (!iso || !name) {
-    root.innerHTML = `<div class="me"><h1>Pick a country</h1><p>Use the command palette (⌘K), the map on the Overview tab, or the country filter in the left rail to choose a country.</p><button class="dr-btn primary" id="openPaletteFromCP">Open command palette</button></div>`;
-    $('#openPaletteFromCP')?.addEventListener('click', openPalette);
+    const all = cleanCountryList(state.facets?.countries || []);
+    const counts = Object.fromEntries(
+      (state._lastCountryCounts || _profilePickerAnalytics()?.map?.country_counts || [])
+        .map(c => [c.country, c.count]));
+    _renderEntityPicker(root, {
+      title: 'Pick a country',
+      hint: 'Or click a country on the Overview map, or press <kbd>⌘K</kbd>.',
+      sortBy: 'label',
+      items: all.map(n => ({ key: n, label: n, count: counts[n] })),
+      onPick: (n) => {
+        state.focusCountry = NAME_TO_ISO[n] || n;
+        $('#tabCountry').textContent = n;
+        navigate('country');
+      },
+    });
     return;
   }
 
@@ -317,8 +431,22 @@ async function renderTheme() {
   const root = $('#view-theme');
   const name = state.focusTheme;
   if (!name) {
-    root.innerHTML = `<div class="me"><h1>Pick a theme</h1><p>Click a theme in Overview's Top Themes, pick one from the rail, or search via the command palette.</p><button class="dr-btn primary" id="openPaletteFromTh">Open command palette</button></div>`;
-    $('#openPaletteFromTh')?.addEventListener('click', openPalette);
+        /* The picker's source is the baseline analytics, which may not have
+       landed yet on a cold deep-link. navigate() awaits this renderer, so
+       wait for the data rather than painting an empty list and hoping a
+       re-render guard fires. */
+    if (!(_profilePickerAnalytics()?.themes?.theme_counts || []).length) {
+      root.innerHTML = '<div class="me"><p class="panel-loading">loading…</p></div>';
+      await _ensureProfilePickerAnalytics().catch(() => {});
+      if (state.view !== 'theme') return;
+    }
+    _renderEntityPicker(root, {
+      title: 'Pick a theme',
+      hint: 'Sorted by volume. Or click a bar in Overview\u2019s Top Themes, or press <kbd>\u2318K</kbd>.',
+      items: (_profilePickerAnalytics()?.themes?.theme_counts || [])
+        .map(t => ({ key: t.theme, label: t.theme, count: t.count })),
+      onPick: (v) => { state.focusTheme = v; $('#tabTheme').textContent = v; navigate('theme'); },
+    });
     return;
   }
 
@@ -425,8 +553,23 @@ async function renderGroup() {
   const root = $('#view-group');
   const name = state.focusGroup;
   if (!name) {
-    root.innerHTML = `<div class="me"><h1>Pick a concerned group</h1><p>Click a group on Overview's Top Groups, use the rail facet, or search via the command palette.</p><button class="dr-btn primary" id="openPaletteFromGp">Open command palette</button></div>`;
-    $('#openPaletteFromGp')?.addEventListener('click', openPalette);
+        /* The picker's source is the baseline analytics, which may not have
+       landed yet on a cold deep-link. navigate() awaits this renderer, so
+       wait for the data rather than painting an empty list and hoping a
+       re-render guard fires. */
+    if (!(_profilePickerAnalytics()?.text?.affected_person_counts || []).length) {
+      root.innerHTML = '<div class="me"><p class="panel-loading">loading…</p></div>';
+      await _ensureProfilePickerAnalytics().catch(() => {});
+      if (state.view !== 'group') return;
+    }
+    _renderEntityPicker(root, {
+      title: 'Pick a concerned group',
+      hint: 'Sorted by volume. Or click a bar in Overview\u2019s Concerned Groups, or press <kbd>\u2318K</kbd>.',
+      items: (_profilePickerAnalytics()?.text?.affected_person_counts || [])
+        .map(g => ({ key: g.affected_person, label: g.affected_person, count: g.count })),
+      countsAreSampled: true, countParam: 'group',
+      onPick: (v) => { state.focusGroup = v; $('#tabGroup').textContent = v; navigate('group'); },
+    });
     return;
   }
   // Q3a: options annotated with counts
@@ -523,8 +666,24 @@ async function renderSDG() {
   const root = $('#view-sdg');
   const sdg = state.focusSdg;
   if (!sdg) {
-    root.innerHTML = `<div class="me"><h1>Pick an SDG</h1><p>Use the SDG grid in the left rail, then click "Open SDG profile". Or search for a specific target via the command palette.</p><button class="dr-btn primary" id="openPaletteFromSp">Open command palette</button></div>`;
-    $('#openPaletteFromSp')?.addEventListener('click', openPalette);
+        /* The picker's source is the baseline analytics, which may not have
+       landed yet on a cold deep-link. navigate() awaits this renderer, so
+       wait for the data rather than painting an empty list and hoping a
+       re-render guard fires. */
+    if (!(_profilePickerAnalytics()?.text?.sdg_counts || []).length) {
+      root.innerHTML = '<div class="me"><p class="panel-loading">loading…</p></div>';
+      await _ensureProfilePickerAnalytics().catch(() => {});
+      if (state.view !== 'sdg') return;
+    }
+    _renderEntityPicker(root, {
+      title: 'Pick an SDG',
+      hint: 'Goals and targets, sorted by volume. Or press <kbd>\u2318K</kbd>.',
+      columns: false,
+      items: (_profilePickerAnalytics()?.text?.sdg_counts || [])
+        .map(s => ({ key: s.sdg, label: formatSdgLabel(s.sdg), count: s.count })),
+      countsAreSampled: true, countParam: 'sdgExact',
+      onPick: (v) => { state.focusSdg = v; const t = $('#tabSdg'); if (t) t.textContent = formatSdgLabel(v); navigate('sdg'); },
+    });
     return;
   }
   // Always build from the local UN SDG taxonomy so all 17 goals and every

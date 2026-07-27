@@ -361,11 +361,18 @@ a{color:inherit;text-decoration:none}
    (The numbering on the facet head stays so the rail layout doesn't reflow.) */
 .facet-context-note{display:none;padding:8px 14px;font:10px var(--mono);color:var(--dim);background:var(--paper-2);line-height:1.55;letter-spacing:.01em}
 .facet-context-note b{color:var(--ink);font-weight:600}
-body[data-view="country"] .facet[data-facet="country"] .facet-body,
+/* Both the blanked body and the "use the picker above" note only make sense
+   once a country IS chosen — that is when the switcher above exists and the
+   rail filter would genuinely be redundant. With nothing chosen the view
+   renders its own inline picker, so the note used to point at a control that
+   does not exist while the page pointed back at the rail: a loop. Without an
+   entity the facet is simply left alone (collapsed by default like the other
+   facets, expandable on click). body.has-entity is set by navigate(). */
+body[data-view="country"].has-entity .facet[data-facet="country"] .facet-body,
 body[data-view="compare"] .facet[data-facet="country"] .facet-body{display:none}
-body[data-view="country"] .facet[data-facet="country"] .facet-context-note,
+body[data-view="country"].has-entity .facet[data-facet="country"] .facet-context-note,
 body[data-view="compare"] .facet[data-facet="country"] .facet-context-note{display:block}
-body[data-view="country"] .facet[data-facet="country"] .fh-toggle,
+body[data-view="country"].has-entity .facet[data-facet="country"] .fh-toggle,
 body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 
 /* Body-facet group headers + quick-select chips */
@@ -1304,6 +1311,24 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 
 /* ---------- METHODOLOGY ---------- */
 .me{padding:40px 24px;max-width:900px;margin:0 auto}
+/* Inline entity picker — the empty state of every profile view. The page
+   does the choosing itself instead of describing where else to choose. */
+.ep-wrap{padding:28px 32px 60px;max-width:1100px;margin:0 auto}
+.ep-title{font-family:var(--serif);font-size:34px;font-weight:500;letter-spacing:-.01em;line-height:1.1;margin:0 0 6px;color:var(--ink)}
+.ep-hint{font-size:12px;color:var(--dim);margin:0 0 16px}
+.ep-hint kbd{border:1px solid var(--line);padding:0 4px;font-family:var(--mono);font-size:11px}
+.ep-filter{width:100%;max-width:520px;font-family:var(--mono);font-size:13px;padding:9px 12px;border:1px solid var(--line);background:var(--paper);color:var(--ink);margin-bottom:18px}
+.ep-filter:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.ep-list{display:flex;flex-direction:column;gap:1px;max-height:60vh;overflow-y:auto}
+.ep-list.cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1px 22px}
+.ep-item{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;padding:6px 8px;border:0;border-bottom:1px dotted var(--line);background:none;color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.ep-item:hover{background:var(--paper-2)}
+.ep-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;background:var(--paper-2)}
+.ep-item[hidden]{display:none}
+.ep-item .ep-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep-item .ep-n{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;flex-shrink:0}
+.ep-empty{padding:14px 8px;font-size:12px;color:var(--dim);font-style:italic}
+.ep-n.ep-pending{color:var(--dimmer)}
 .me h1{font-family:var(--serif);font-size:52px;line-height:1;letter-spacing:-.015em;margin:0 0 24px}
 .me h2{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin:32px 0 10px}
 .me p{font-family:var(--serif);font-size:16px;line-height:1.55;color:var(--ink-2);max-width:64ch}
@@ -3426,6 +3451,15 @@ async function navigate(view) {
       o.setAttribute('tabindex', on ? '0' : '-1');
     });
   }
+  /* Does the active profile view actually have an entity chosen? Drives the
+     rail's "use the picker above" note, which must not claim a picker that
+     does not exist yet (the empty state renders an inline picker instead). */
+  const _entityFor = {
+    country: () => state.focusCountry, theme: () => state.focusTheme,
+    group: () => state.focusGroup, sdg: () => state.focusSdg,
+    mechanism: () => state.focusMechanism, compare: () => state.cmpA,
+  };
+  document.body.classList.toggle('has-entity', !!(_entityFor[view] && _entityFor[view]()));
   $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + view));
   announce('Navigated to ' + view);
   _pushUrlState();
