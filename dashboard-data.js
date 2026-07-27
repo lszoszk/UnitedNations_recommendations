@@ -446,7 +446,7 @@ function _isBundledProfileUnavailable(err) {
 function _railIsEmpty(filter) {
   const f = filter || state.filters;
   if ((f.kw || '').trim()) return false;
-  for (const key of ['country', 'body', 'theme', 'group', 'region', 'sdg', 'type']) {
+  for (const key of ['country', 'body', 'theme', 'group', 'region', 'sdg', 'sdgExact', 'type']) {
     const setValue = f[key];
     if (setValue && typeof setValue.size === 'number' && setValue.size > 0) return false;
   }
