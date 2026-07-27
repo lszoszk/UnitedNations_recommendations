@@ -224,6 +224,34 @@ window._seSetActiveRecord = _seSetActiveRecord;
    smoothly without a virtualization library. */
 let _seObserver = null;
 let _seLoading = false;   // in-flight guard for loadNextSearchPage (prevents double-append on rapid observer re-fire)
+
+/* Effective sort order for the search view — the ONE place that decides it.
+   renderSearch (which option the #seSort dropdown shows as selected) and
+   loadNextSearchPage (the sort_by/sort_dir the fetch sends) both resolve
+   through here, so the dropdown can never advertise an order the API wasn't
+   asked for.  They used to compute it independently and disagreed.
+
+   `state.searchSort` stays null until the user picks an order from the
+   dropdown; null means "no preference", not "date · newest first":
+     · null + keyword     → relevance, best match first
+     · null, no keyword   → publication_date desc, newest first
+   An explicit pick wins and sticks across keyword edits.  The one exception
+   is relevance, which is meaningless with no keyword to rank against — and
+   which renderSearch drops from the dropdown entirely once the keyword is
+   cleared.  So it degrades to newest-first for as long as the query is
+   empty, while the choice itself is left in state and resumes the moment a
+   keyword comes back. */
+function _resolveSearchSort() {
+  const kw = (state.filters?.kw || '').trim();
+  const chosen = state.searchSort;
+  if (!chosen || !chosen.by || (chosen.by === 'relevance' && !kw)) {
+    return kw
+      ? { by: 'relevance', dir: 'asc' }
+      : { by: 'publication_date', dir: 'desc' };
+  }
+  return { by: chosen.by, dir: chosen.dir || 'desc' };
+}
+
 async function renderSearch() {
   const root = $('#view-search');
   const kw = state.filters.kw.trim();
@@ -239,10 +267,9 @@ async function renderSearch() {
   state.currentResultSource = 'search';
   if (_seObserver) { _seObserver.disconnect(); _seObserver = null; }
 
-  // Auto-default to relevance sort when a keyword query is active AND the
-  // user hasn't explicitly chosen another sort. Otherwise date desc.
-  const sortBy  = state.searchSort?.by  || (kw ? 'relevance' : 'publication_date');
-  const sortDir = state.searchSort?.dir || (kw ? 'asc' : 'desc');
+  // Which option the dropdown below shows as selected — same resolver
+  // loadNextSearchPage uses for the fetch, so the two always agree.
+  const { by: sortBy, dir: sortDir } = _resolveSearchSort();
   const sortKey = sortBy + ':' + sortDir;
 
   root.innerHTML = `
@@ -459,10 +486,13 @@ async function loadNextSearchPage() {
   const kw = state.filters.kw.trim();
   const pageSize = state.searchPageSize;
   try {
-    const sortOpts = state.searchSort || {};
+    // Same resolver renderSearch used to pick the selected dropdown option —
+    // reading state.searchSort directly here is what let the fetch fall back
+    // to date while the dropdown claimed something else.
+    const sort = _resolveSearchSort();
     const r = await api.records(state.filters, state.searchPage, pageSize, {
-      sort_by: sortOpts.by || 'publication_date',
-      sort_dir: sortOpts.dir || 'desc',
+      sort_by: sort.by,
+      sort_dir: sort.dir,
     });
     // A re-sort / re-filter (renderSearch) may have superseded this fetch while
     // it was in flight — discard the stale page rather than appending its rows

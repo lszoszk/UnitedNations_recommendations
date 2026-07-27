@@ -129,7 +129,14 @@ const state = {
   baselineAnalytics: null,
   searchPage: 1,
   searchPageSize: 30,
-  searchSort: { by: 'publication_date', dir: 'desc' },
+  /* null = "the user has not picked a sort yet", which is NOT the same as
+     "date · newest first". While it's null, _resolveSearchSort() (in
+     dashboard-search.js) defaults a keyword query to relevance and an
+     unfiltered browse to newest-first. Seeding a concrete sort here made
+     that keyword default dead code: every read saw a truthy `by` and fell
+     straight through to date, so a keyword search silently sorted by date
+     while claiming nothing. Only the #seSort change handler writes here. */
+  searchSort: null,
   searchSelection: new Set(),
   totalHits: 0,
   bootstrapDone: false,
