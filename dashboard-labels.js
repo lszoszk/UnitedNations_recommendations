@@ -438,7 +438,28 @@ async function rulesFetchCount(rule) {
   rulesPaintCount(rule);
   try {
     const f = { ...state.filters, kw: compiled };
-    const r = await api.recordsCount(f);
+    /* Per-rule scope, NOT the shared 'recordsCount' default. Every rule card
+       counts independently and they all fire together (renderRules ->
+       rulesRefreshAllCounts, and the 350ms debounce timers are set in the
+       same tick so they expire in the same tick). On the shared scope each
+       new rule's request aborted the previous rule's, so only the last rule
+       ever resolved and the rest sat on "counting…" forever — the AbortError
+       branch below returns without clearing {loading:true}, by design, since
+       a genuine supersession is followed by a fetch that repaints. Scoping
+       per rule makes that assumption true again: the only thing that can now
+       abort rule X's count is a newer count for rule X. Same fix as the
+       profile headline count in dashboard-data.js.
+
+       The trade-off, measured: this turns ~1 surviving request into N real
+       ones. Concurrency does NOT go up — the client gate pins it at
+       GATE_LIMIT=2 — but the queue gets longer, and a user action fired
+       mid-sweep waits behind it (5 rules 149ms, 20 rules 672ms, 50 rules
+       1.6s at a 60ms backend). Fine at the sizes this workspace produces:
+       starter sets are 4-5 rules and rules are added one at a time. Left at
+       NORMAL priority deliberately — 'low' only dequeues when nothing normal
+       is waiting, and these counts are the headline metric on every card,
+       i.e. exactly what the user is sitting there watching. */
+    const r = await api.recordsCount(f, { scope: 'rules:count:' + rule.id });
     state.rules.counts[rule.id] = { n: r.total_records || 0 };
   } catch (e) {
     if (e && e.name === 'AbortError') return;

@@ -374,7 +374,10 @@ const api = {
      opts.scope lets a caller opt OUT of the shared race guard, which
      aborts in-flight requests in the same scope. That is right when a
      newer filter supersedes an older one, but wrong when a view fires
-     several counts at once (Mechanism → "compare all 3", one per family). */
+     several counts at once — Mechanism → "compare all 3" (one per family)
+     and Labels → the rule cards (one per rule) both pass their own scope.
+     Any new fan-out caller must do the same, or its counts cancel one
+     another and only the last one issued survives. */
   recordsCount: (f, opts = {}) => {
     const p = buildParams(f || state.filters);
     return apiGet(E.summary, p, { scope: 'recordsCount', ...opts });
