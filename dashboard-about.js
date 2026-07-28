@@ -41,6 +41,11 @@ function renderAbout() {
         <h2>Acknowledgements</h2>
         <p>Supported by <a href="https://reconstitution.eu" target="_blank" rel="noopener"><strong>re:constitution — Exchange and Analysis on Democracy and the Rule of Law in Europe</strong></a>, a joint programme of the <em>Forum Transregionale Studien</em> and <em>Democracy Reporting International</em>, funded by <em>Stiftung Mercator</em>.</p>
         <p style="color:var(--dim);font-size:12px;margin-top:-6px">Research hosted by <strong>Adam Mickiewicz University, Poznań</strong>. Documentation-standards expertise provided by <strong>HURIDOCS</strong>. Upstream data: <strong>OHCHR Universal Human Rights Index</strong>. The supporters listed fund, host and advise the project; they do not speak for it.</p>
+        <!-- Personal thanks kept as its own sentence rather than folded into
+             the institutional line above: that line is deliberately formal and
+             ends with a disclaimer ("they do not speak for it"), which is the
+             wrong register for thanking a person. -->
+        <p>Particular thanks to <strong>Gabriel Piles Gonzalez</strong> (HURIDOCS), who supervised the fellowship during which this dashboard was built.</p>
       </section>
 
       <section class="me-sec" id="ab-privacy">
