@@ -2,6 +2,23 @@
    URL STATE (hash)
    ========================================================================= */
 
+/* The focus params (fc/ft/fg/fsdg/fm) name an entity and are restored
+   verbatim from a URL anyone can craft, then flow into profile headers.
+   `mf` and `ms` below already validate against an allow-list; these did
+   not, and `fc` reached an unescaped `innerHTML` in renderCountry —
+   `#view=country&fc=<img src=x onerror=…>` executed script on the page's
+   own origin, which is shared with the other dashboards on this domain.
+
+   The sinks are escaped now (that is the actual fix); this is the second
+   layer. It rejects only the characters that can open a tag or break out
+   of an attribute — an allow-list of known entities would be brittle here
+   because these values legitimately carry `&`, apostrophes and commas
+   ("Rule of law & impunity", "Côte d'Ivoire") and the facet vocabulary is
+   not loaded yet on every restore path. */
+function _safeFocusParam(v) {
+  return (v && !/[<>"']/.test(v)) ? v : null;
+}
+
 function _pushUrlState() {
   const f = state.filters;
   const p = new URLSearchParams();
@@ -144,14 +161,14 @@ function _restoreUrlState(hash = location.hash.slice(1)) {
   if (p.get('gm') === 'all') f.groupsMatch = 'all';
   if (p.get('y1')) f.yearA = Number(p.get('y1'));
   if (p.get('y2')) f.yearB = Number(p.get('y2'));
-  if (p.get('fc')) {
+  if (_safeFocusParam(p.get('fc'))) {
     state.focusCountry = p.get('fc');
     $('#tabCountry').textContent = ISO_TO_NAME[state.focusCountry] || state.focusCountry;
   }
-  if (p.get('ft')) { state.focusTheme = p.get('ft'); $('#tabTheme').textContent = state.focusTheme; }
-  if (p.get('fg')) { state.focusGroup = p.get('fg'); $('#tabGroup').textContent = state.focusGroup; }
-  if (p.get('fsdg')) { state.focusSdg = p.get('fsdg'); const t = $('#tabSdg'); if (t) t.textContent = state.focusSdg; }
-  if (p.get('fm')) { state.focusMechanism = p.get('fm'); const t = $('#tabMechanism'); if (t) t.textContent = state.focusMechanism; }
+  if (_safeFocusParam(p.get('ft'))) { state.focusTheme = p.get('ft'); $('#tabTheme').textContent = state.focusTheme; }
+  if (_safeFocusParam(p.get('fg'))) { state.focusGroup = p.get('fg'); $('#tabGroup').textContent = state.focusGroup; }
+  if (_safeFocusParam(p.get('fsdg'))) { state.focusSdg = p.get('fsdg'); const t = $('#tabSdg'); if (t) t.textContent = state.focusSdg; }
+  if (_safeFocusParam(p.get('fm'))) { state.focusMechanism = p.get('fm'); const t = $('#tabMechanism'); if (t) t.textContent = state.focusMechanism; }
   if (p.get('mf')) {
     const family = p.get('mf');
     if (MECH_FAMILIES.some(fam => fam.key === family)) state.focusFamily = family;

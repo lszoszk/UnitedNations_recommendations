@@ -395,7 +395,7 @@ async function renderCountry() {
   root.innerHTML = `
     <div class="cp-head">
       <div>
-        <div class="cp-iso">${iso} · COUNTRY PROFILE</div>
+        <div class="cp-iso">${sanitize(iso)} · COUNTRY PROFILE</div>
         <h1 class="cp-name">${sanitize(name)}</h1>
         <div class="cp-sub">Loading profile…</div>
         <div class="cp-kpis" id="cpKpis"></div>

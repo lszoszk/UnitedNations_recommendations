@@ -237,7 +237,7 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   else if (mode === 'total-line') modeHint = 'annual total (all bodies)';
   else if (stackKeys.length === 0) modeHint = 'no data';
   else if (stackBy === 'family') modeHint = 'annual · stacked by mechanism family (click legend to toggle)';
-  else if (stackKeys.length === 1) modeHint = `annual · only ${String(stackKeys[0]).replace(/^-\s*/, '')}`;
+  else if (stackKeys.length === 1) modeHint = `annual · only ${sanitize(String(stackKeys[0]).replace(/^-\s*/, ''))}`;
   else if (stackKeys.includes('__other__')) {
     const otherN = (opts._otherBodies || []).length;
     const namedN = stackKeys.length - 1; // minus '__other__'
