@@ -74,9 +74,30 @@ const offline = {
     return true;
   },
 
+  /* The record side of the country test runs through cleanCountryName();
+     the filter side used to arrive raw from the facet vocabulary, so the
+     two never met for any label the cleaner rewrites (static audit H-02).
+     The rail shows two such labels — "State of Palestine*" and "Kosovo*",
+     whose OHCHR observer asterisk is stripped off the record — and picking
+     either matched zero records in Instant Mode with no error: the corpus
+     simply looked empty for those two states. A `#country=PK`-style deep
+     link hits the same wall via the 2-letter fold.
+
+     Normalise once per query rather than inside _matches, which runs per
+     record (267,942 of them) — and do it here rather than caching on the
+     Set, because several call sites mutate state.filters.country in place
+     (dashboard-drawer-list.js:299, dashboard-utils.js:280) and an identity
+     cache would go stale. Body already normalises both sides inline; this
+     brings country in line with it. */
+  _normaliseFilter(f) {
+    if (!f?.country?.size) return f;
+    return { ...f, country: new Set([...f.country].map(cleanCountryName)) };
+  },
+
   filter(f) {
     if (!this.data) return [];
-    return this.data.filter(r => this._matches(r, f || state.filters));
+    const src = this._normaliseFilter(f || state.filters);
+    return this.data.filter(r => this._matches(r, src));
   },
 
   analytics(f) {
