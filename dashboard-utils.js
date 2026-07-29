@@ -618,20 +618,41 @@ function updateSparklineCaches(analyticsArg) {
 /* Lazy country sparklines — fetch per country on demand, cache in localStorage
    (small: 10 countries × 20 years × ~30 bytes ≈ 6KB) */
 const _countrySparkCache = {};
-const COUNTRY_SPARK_CACHE_KEY = 'uhri_v2_country_sparks_v1';
+const COUNTRY_SPARK_CACHE_KEY = 'uhri_v2_country_sparks_v2';
 try { Object.assign(_countrySparkCache, JSON.parse(localStorage.getItem(COUNTRY_SPARK_CACHE_KEY) || '{}')); } catch {}
+
+/* A curve is only comparable to one computed over the same corpus, so the
+   cache is keyed by provenance and dataset — both change the numbers under
+   an unchanged country name. Keyed by name alone (the _v1 blob), a sparkline
+   built from a user's uploaded 800-record export was written as plain
+   "Colombia" and then served as the live dataset's trend on the default
+   Overview route, permanently: nothing evicts this cache, and neither
+   offline.disable() nor _switchDataset's memCache.clear() touched it.
+   Upload-derived curves additionally never reach localStorage — upload mode
+   is deliberately not restored across reloads (dashboard-offline.js), so a
+   persisted curve from one would outlive the data it describes. */
+const _COUNTRY_SPARK_UPLOAD = 'upload';
+function _countrySparkKey(country) {
+  const src = (typeof offline !== 'undefined' && offline.enabled)
+    ? (offline.source || 'offline')
+    : 'live';
+  return `${src}|${state.filters?.dataset || 'cleaned'}|${country}`;
+}
 function saveCountrySparkCache() {
-  try { localStorage.setItem(COUNTRY_SPARK_CACHE_KEY, JSON.stringify(_countrySparkCache)); } catch {}
+  const persistable = Object.fromEntries(
+    Object.entries(_countrySparkCache).filter(([k]) => !k.startsWith(_COUNTRY_SPARK_UPLOAD + '|')));
+  try { localStorage.setItem(COUNTRY_SPARK_CACHE_KEY, JSON.stringify(persistable)); } catch {}
 }
 
 async function getCountrySparkline(country) {
-  if (_countrySparkCache[country]) return _countrySparkCache[country];
+  const key = _countrySparkKey(country);
+  if (_countrySparkCache[key]) return _countrySparkCache[key];
   try {
     const an = await api.analytics({...emptyFilters(), country: new Set([country])}, { scope: 'spark:' + country, priority: 'low' });
     const yearly = (an?.trends?.yearly_counts || []);
     const data = {};
     yearly.forEach(r => data[r.year] = r.count);
-    _countrySparkCache[country] = data;
+    _countrySparkCache[key] = data;
     saveCountrySparkCache();
     return data;
   } catch { return null; }
@@ -646,8 +667,9 @@ async function backfillCountrySparklines(listEl, minY, maxY) {
     const sparkEl = row.querySelector('.spark');
     if (!country || !sparkEl || sparkEl.dataset.done === '1') return;
     sparkEl.dataset.done = '1';
-    if (_countrySparkCache[country]) {
-      sparkEl.innerHTML = buildSparklineSVG(_countrySparkCache[country], minY, maxY);
+    const cached = _countrySparkCache[_countrySparkKey(country)];
+    if (cached) {
+      sparkEl.innerHTML = buildSparklineSVG(cached, minY, maxY);
       return;
     }
     row.classList.add('loading-spark');
@@ -681,7 +703,7 @@ async function backfillCountrySparklines(listEl, minY, maxY) {
     const sparkEl = row.querySelector('.spark');
     if (!country || !sparkEl) return;
     // Already-cached rows: paint now, no request, no observer.
-    if (_countrySparkCache[country]) { fetchFor(row); return; }
+    if (_countrySparkCache[_countrySparkKey(country)]) { fetchFor(row); return; }
     if (row.offsetParent === null) return;   // clipped by the top-5 toggle
     io.observe(row);
   });

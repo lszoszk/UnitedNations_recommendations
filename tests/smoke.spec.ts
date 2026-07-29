@@ -131,6 +131,7 @@ test.describe('UHRI Dashboard smoke', () => {
       _recordMatchesSdgFilters: typeof _recordMatchesSdgFilters,
       formatSdgLabel:           typeof formatSdgLabel,
       emptyFilters:             typeof emptyFilters,
+      hasActiveFilters:         typeof hasActiveFilters,
       sanitize:                 typeof sanitize,
       // From the other extracted modules — they all depend on helpers,
       // so proving they're loaded proves load order is correct:
@@ -1274,6 +1275,130 @@ test.describe('UHRI Dashboard smoke', () => {
     expect(scoped.map(call => call.kind)).toContain('analytics');
     expect(scoped.map(call => call.kind)).toContain('map');
     expect(scoped.map(call => call.kind)).toContain('recordsCount');
+  });
+
+  test('26. geoFilterNeverVanishes — a region that resolves to nothing means 0 records, not the whole corpus', async ({ page }) => {
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => typeof (globalThis as any).buildParams === 'function', null, { timeout: 5000 });
+
+    // Static audit J1-02: an M49 expansion yielding an empty Set is truthy,
+    // so the old code intersected it away and then skipped `countries=`
+    // entirely because `.size` was 0 — dropping the region AND the user's
+    // explicit country pick, and querying all ~268k records while the rail
+    // still showed both chips. Every geo-empty shape must now send the
+    // impossible-match sentinel.
+    const probe = await page.evaluate(() => {
+      const params = (filter: any, taxonomy = 'm49') => {
+        state.regionTaxonomy = taxonomy;
+        const p = buildParams({ ...emptyFilters(), ...filter });
+        return { countries: p.get('countries'), regions: p.get('regions') };
+      };
+      return {
+        sentinel:     typeof NO_MATCHING_COUNTRY === 'string' ? NO_MATCHING_COUNTRY : null,
+        disjoint:     params({ country: new Set(['Poland']), region: new Set(['africa']) }),
+        unknownKey:   params({ country: new Set(['Poland']), region: new Set(['GRULAC']) }),
+        countryOnly:  params({ country: new Set(['Poland']) }),
+        regionOnly:   params({ region: new Set(['africa']) }),
+        overlap:      params({ country: new Set(['Kenya']), region: new Set(['africa']) }),
+        unGroups:     params({ region: new Set(['WEOG']) }, 'unGroups'),
+        unGroupsBlank: params({ region: new Set(['']) }, 'unGroups'),
+      };
+    });
+
+    expect(probe.sentinel).toBeTruthy();
+    // (a) Poland ∩ Africa is empty — 0 records, not 267,942.
+    expect(probe.disjoint).toEqual({ countries: probe.sentinel, regions: null });
+    // (b) A stale Treaty Body key in an m49 URL must not wipe the country too.
+    expect(probe.unknownKey).toEqual({ countries: probe.sentinel, regions: null });
+    // Unaffected shapes still send exactly what the user picked.
+    expect(probe.countryOnly).toEqual({ countries: 'Poland', regions: null });
+    expect(probe.regionOnly.countries!.split(',')).toContain('Kenya');
+    expect(probe.regionOnly.countries).not.toContain(probe.sentinel);
+    expect(probe.overlap).toEqual({ countries: 'Kenya', regions: null });
+    // Sibling branch: unGroups forwards `regions=`, but an all-blank
+    // selection would serialise to `regions=` — which the server reads as
+    // "no region filter" — so it takes the sentinel path instead.
+    expect(probe.unGroups).toEqual({ countries: null, regions: 'WEOG' });
+    expect(probe.unGroupsBlank).toEqual({ countries: probe.sentinel, regions: null });
+  });
+
+  test('27. overviewDeepLinkFilters — an Overview URL with a country filter shows filtered totals', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+
+    /* Static audit A-01. _pushUrlState omits `view` for Overview, so a shared
+       or cited Overview link is just `#country=Poland`. boot() restored the
+       filter and drew its chip, but only re-rendered when the restored view
+       was NOT overview — and then painted `api.analytics({})`, an explicitly
+       UNFILTERED result, into the same panels. The recipient read worldwide
+       totals under a Poland chip, next to a hit count that did apply Poland.
+
+       The stub answers filtered and unfiltered requests with deliberately
+       different theme labels, so the assertion is about what the page
+       PAINTED, not merely which URL it requested. */
+    await page.addInitScript(() => {
+      (window as any).__analyticsUrls = [];
+      const realFetch = window.fetch;
+      const json = (body: unknown) => new Response(JSON.stringify(body), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      });
+      const analytics = (theme: string, count: number) => ({
+        trends: { yearly_body_counts: [], yearly_counts: [] },
+        themes: { theme_counts: [{ theme, count }], body_counts: [] },
+        text:   { affected_person_counts: [], sdg_counts: [] },
+      });
+      (window as any).fetch = async (input: RequestInfo, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        const filtered = url.includes('countries=Poland');
+        if (url.includes('/api/data/analytics')) {
+          (window as any).__analyticsUrls.push(url);
+          return json(filtered ? analytics('Poland-scoped theme', 111)
+                               : analytics('Worldwide theme', 999));
+        }
+        if (url.includes('/api/data/facets')) return json({
+          countries: ['Poland', 'Kenya'], bodies: [], themes: [], groups: [], sdgs: [],
+          min_year: 2006, max_year: 2026, total_records: 267942,
+        });
+        if (url.includes('/api/data/map')) return json({
+          country_counts: filtered
+            ? [{ country: 'Poland', count: 111 }]
+            : [{ country: 'Poland', count: 111 }, { country: 'Kenya', count: 888 }],
+        });
+        if (url.includes('/api/data/summary')) return json({ total_records: filtered ? 111 : 267942 });
+        if (url.includes('/api/data/records')) return json({ total_records: 0, records: [] });
+        if (url.includes('/api/data/health'))  return json({ modified_at: new Date().toISOString() });
+        return realFetch(input, init);
+      };
+    });
+
+    await page.goto('/dashboard.html#country=Poland');
+    // bootstrapDone is set after Phase 2's baseline analytics resolves — i.e.
+    // after the exact moment the unfiltered repaint used to happen. `state`
+    // is a top-level const, so it is reachable by bare name (not on window).
+    await page.waitForFunction(() => state?.bootstrapDone === true,
+      null, { timeout: 15000 });
+
+    // The chip and the hit count always agreed with the filter; the charts
+    // beside them are what regressed.
+    await expect(page.locator('#activeFilters')).toContainText('Poland');
+    await expect(page.locator('#hitCount')).toHaveText('111');
+    await expect(page.locator('#topThemes')).toContainText('Poland-scoped theme');
+    await expect(page.locator('#topThemes')).not.toContainText('Worldwide theme');
+
+    const probe = await page.evaluate(() => ({
+      urls: (window as any).__analyticsUrls as string[],
+      // The unfiltered baseline is still needed — it feeds picker option
+      // counts and the next visit's 'USING CACHED ANALYTICS' fast path — so
+      // the fix must suppress its PAINT, not its fetch.
+      hasBaseline: !!state.baselineAnalytics,
+      currentSlice: state.analytics?.themes?.theme_counts?.[0]?.theme,
+    }));
+    expect(probe.urls.some(u => u.includes('countries=Poland'))).toBe(true);
+    expect(probe.urls.some(u => !u.includes('countries='))).toBe(true);
+    expect(probe.hasBaseline).toBe(true);
+    // state.analytics is the CURRENT slice; the baseline must not claim it.
+    expect(probe.currentSlice).toBe('Poland-scoped theme');
+
+    expect(errors, `JS errors during filtered Overview deep link:\n${errors.join('\n')}`).toEqual([]);
   });
 
 });

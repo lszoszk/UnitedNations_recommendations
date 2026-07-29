@@ -206,7 +206,14 @@ const offline = {
     this.source = opts.source || 'vm';
     this.uploadMeta = opts.uploadMeta || null;
 
-    this._savedApi = {
+    /* Snapshot the REAL api only when we are not already installed over it.
+       enable() is re-entered without an intervening disable() — a second
+       upload, or the download modal being reopened — and re-snapshotting
+       then captured the stubs from the first enable(). disable() would
+       later "restore" those stubs as the live API while setting data=null,
+       so every call returned 0 records under a LIVE status chip, with no
+       recovery short of a reload. */
+    if (!this._savedApi) this._savedApi = {
       facets: api.facets,
       analytics: api.analytics,
       map: api.map,

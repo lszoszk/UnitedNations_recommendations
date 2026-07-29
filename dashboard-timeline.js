@@ -327,9 +327,9 @@ function renderTimeline(container, yearlyBodyCountsRaw, opts={}) {
   // Replaces the primitive SVG <title> tooltips with a floating HTML
   // card showing year · total · top 3 contributors. Attached to the
   // container (not the SVG) so it can escape SVG clipping. Uses native
-  // mousemove to compute the year under the cursor and pull the
-  // top-3 breakdown from the original (non-hidden-filtered) data so
-  // numbers match what the user sees in the stack.
+  // mousemove to compute the year under the cursor and pull the top-3
+  // breakdown from the original yearlyBodyCounts — renderTooltip drops the
+  // legend-hidden layers from it so the rows sum to the header total.
   _wireTimelineTooltip(container, {
     years, xStep, pad, W, H,
     stackBy, stackKeys, stackLabels, stackColors,
@@ -405,25 +405,31 @@ function _wireTimelineTooltip(container, ctx) {
     const total = mode === 'cumulative' ? cumulTotals[yearIdx] : annualTotals[yearIdx];
 
     const yearMap = yearlyBodyCounts[year] || {};
+    /* The header total comes from annualTotals / cumulTotals, which zero the
+       layers the user switched off in the legend. The rows below are
+       re-aggregated from the raw yearlyBodyCounts, so without this filter a
+       hidden UPR layer kept contributing its 3,000 to a row list printed
+       under a 4,000 header. Same set, same scope, rows sum to the total. */
+    const hidden = state._hiddenBodies || new Set();
     let breakdownRows = [];
     if (stackBy === 'family') {
       const agg = { upr: 0, treaty: 0, sp: 0, other: 0 };
       Object.entries(yearMap).forEach(([b, c]) => { agg[classifyBody(b)] += c; });
       breakdownRows = stackKeys
         .map(k => ({ key: k, label: stackLabels[k], count: agg[k], color: stackColors[k] }))
-        .filter(r => r.count > 0);
+        .filter(r => r.count > 0 && !hidden.has(r.key));
     } else {
       // Body mode — top 3 named bodies. If the stack contains an
       // "__other__" aggregate AND at least one of the Other bodies
       // contributed this year, append a dedicated "Other (N)" row so
       // the tooltip covers the same categories the stack shows.
-      const namedKeys = new Set(stackKeys.filter(k => k !== '__other__'));
+      const namedKeys = new Set(stackKeys.filter(k => k !== '__other__' && !hidden.has(k)));
       breakdownRows = Object.entries(yearMap)
         .filter(([b]) => namedKeys.has(b))
         .map(([b, c]) => ({ key: b, label: cleanLabel(b), count: c, color: stackColors[b] || 'var(--dim)' }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 3);
-      if (stackKeys.includes('__other__') && otherBodies.length) {
+      if (stackKeys.includes('__other__') && !hidden.has('__other__') && otherBodies.length) {
         const otherSum = otherBodies.reduce((sum, b) => sum + (yearMap[b] || 0), 0);
         if (otherSum > 0) {
           breakdownRows.push({

@@ -370,8 +370,14 @@ async function renderSearch() {
 
 /* ---------- Bulk-selection helpers for search results (F+G) ----------
    Selection is keyed by AnnotationId so toggling off-screen items (after
-   scrolling + re-sorting) still works. UI is additive: the bulk bar only
-   appears when ≥1 item is selected. */
+   scrolling + re-sorting) still works, and holds the record itself so a
+   re-render that resets `searchLoaded` cannot shrink what the bulk actions
+   see (see state.searchSelection in dashboard-data.js). UI is additive:
+   the bulk bar only appears when ≥1 item is selected. */
+/* Every selected record, in the order the user ticked them. */
+function _seSelectedRecords() {
+  return [...state.searchSelection.values()].filter(Boolean);
+}
 function _seUpdateBulkBar() {
   const n = state.searchSelection.size;
   const bar = $('#seBulk'); const cnt = $('#seBulkCount');
@@ -392,7 +398,7 @@ function _seToggleSelect(rec, onClass) {
   if (!rec || !rec.AnnotationId) return;
   const id = rec.AnnotationId;
   if (state.searchSelection.has(id)) state.searchSelection.delete(id);
-  else state.searchSelection.add(id);
+  else state.searchSelection.set(id, rec);
   _seUpdateBulkBar();
   // Selection → drawer (third drawer mode). Auto-switch iff the drawer
   // isn't currently busy with another context:
@@ -420,10 +426,8 @@ function _seToggleSelect(rec, onClass) {
 }
 function _seBulkBookmark() {
   let added = 0;
-  state.searchLoaded.forEach(r => {
-    if (r && state.searchSelection.has(r.AnnotationId) && !bmHas(r.AnnotationId)) {
-      bmToggle(r); added++;
-    }
+  _seSelectedRecords().forEach(r => {
+    if (!bmHas(r.AnnotationId)) { bmToggle(r); added++; }
   });
   toast(`Bookmarked ${added} record${added !== 1 ? 's' : ''}`, false, 2200);
   // Refresh the star state on-screen so the user sees the effect
@@ -436,14 +440,14 @@ function _seBulkBookmark() {
   });
 }
 function _seBulkPin() {
-  const picks = state.searchLoaded.filter(r => r && state.searchSelection.has(r.AnnotationId)).slice(0, 2);
+  const picks = _seSelectedRecords().slice(0, 2);
   if (picks.length < 2) { toast('Select at least 2 records to compare', true, 2000); return; }
   state.diffPins = picks;
   _renderDiffTray();
   toast(`Pinned ${picks.length} record(s) · check the tray bottom-right`, false, 2400);
 }
 function _seExportSelected(kind) {
-  const picks = state.searchLoaded.filter(r => r && state.searchSelection.has(r.AnnotationId));
+  const picks = _seSelectedRecords();
   if (!picks.length) { toast('Nothing selected', true, 1800); return; }
   const fakeCtx = {
     kind: 'search',

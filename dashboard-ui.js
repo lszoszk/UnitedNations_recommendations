@@ -137,7 +137,12 @@ function renderPalette(q) {
     });
   });
 
-  bodies.slice(0, 60).forEach(b => {
+  /* Uncapped, like themes and countries above. A `.slice(0, 60)` here ran
+     BEFORE the query filter, so the last 10 of the dataset's 70 issuing
+     bodies — UPR among them, the largest mechanism in the corpus — could
+     never be produced as a result no matter what was typed. The
+     `results.slice(0, 14)` below is what actually bounds the render. */
+  bodies.forEach(b => {
     const s = scoreMatch(b);
     if (s < 0 && q) return;
     results.push({

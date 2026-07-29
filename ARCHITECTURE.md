@@ -415,6 +415,22 @@ declaration (`dashboard-data.js:~120`). Key subtrees:
 `_pushUrlState()`. Back/forward replays the reverse map via
 `_applyRouteStateFromHash()`.
 
+**A restored filter must reach the view, not just the chips.**
+`_pushUrlState` omits `view` when it is `overview`, so a shared Overview
+link is a bare `#country=Poland` — and `#view-overview` is the one
+section that is already visible without a `navigate()`. `boot()`
+therefore has to re-render Overview itself when `_restoreUrlState()`
+produced a non-empty filter (`hasActiveFilters()` in
+`dashboard-helpers.js`); `navigate()` covers every other view, and
+`_applyRouteStateFromHash` covers back/forward. The corollary is that
+the *unfiltered* slices boot fetches — the cached `analytics:baseline`
+and Phase 2's `api.analytics({})` — may only be painted into an
+Overview that has no filter. They are still fetched and still own
+`state.baselineAnalytics` (picker option counts, the next visit's fast
+path); what the filter suppresses is the paint, not the request.
+Painting them over a filtered Overview is what made cited Overview URLs
+show world totals under a country chip (static audit A-01).
+
 ### Lazy cross-module calls
 Every module's header documents which external symbols it consumes.
 The general rule:
@@ -423,6 +439,67 @@ The general rule:
 - References inside function bodies / default params ⇒ free to
   reference anything, including inline `<script>`, because lookup
   happens at call time, by which point all scripts have loaded.
+
+### Awaited paints — the generation-token rule
+
+**Any renderer that `await`s and then writes to the DOM must check a
+generation token after the await, before it paints.**
+
+The dashboard has no virtual DOM and no per-view component instance.
+Renderers paint by re-querying ids (`$('#cpKpis')`, `$('#thTime')`, …)
+at call time, and those ids belong to *whatever profile is on screen
+when the response lands* — not to the one that made the request. So a
+response that arrives after the user has moved on silently repaints the
+new entity's panels with the old entity's numbers, while the heading,
+the tab label and the URL still name the new one. Nothing looks broken;
+the numbers are simply the wrong country's.
+
+The idiom, one shared module-level counter per renderer family:
+
+```js
+let _profileRenderGen = 0;          // module level
+
+async function renderCountry() {
+  const gen = ++_profileRenderGen;  // claim the view
+  …
+  const d = await cpProfile.fresh;
+  if (gen !== _profileRenderGen) return;   // superseded — drop it
+  paint(d);
+}
+```
+
+One counter shared across sibling renderers, so switching profile
+*type* supersedes as well. Put the guard after the `await` rather than
+inside `paint()`, so the listener bindings that follow the paint (which
+close over the old entity name) are skipped too.
+
+Live instances: `_profileRenderGen` (the five profile renderers plus
+Compare) and `_profileSampleGen` (the lazy sample rows) in
+`dashboard-profiles.js`.
+
+Per-request abort scopes do not remove the need for the token, and
+Compare is the clearest illustration: each side has its own scope, yet
+changing only side B re-issues side A with identical params, apiGet
+de-duplicates onto the pending promise, and both the old and new render
+resume from it. The old closure's `_reconcileSharedY()` then repaints
+*both* timelines from its stale `cmpState`, putting the previously
+compared country's chart under the new one's name. There it self-corrects
+about a tick later — the newer render registered its continuation second,
+so it writes last — which makes Compare a *flash* rather than a wrong
+final reading. Do not treat that as protection: it holds only while both
+awaiters share one promise, and it is the ordering accident, not a
+guarantee. The five profile renderers have no such second writer, which
+is why the identical mistake there was a live S1 (B-01).
+
+**Aborting is not a substitute.** `apiGet` supersedes the previous
+in-flight request in a scope — it aborts it, including on the cache-hit
+and de-duplication paths (`dashboard-data.js`). That is necessary but
+not sufficient: a response can be served from `memCache` synchronously,
+be shared with another scope that legitimately still wants it, or
+resolve in the moment before the abort lands. The abort is the sending
+end, the token is the receiving end, and a late paint needs both. Both
+halves of this were live S1 bugs in the 2026-07-28 static audit (B-01
+and J1-01) — they were one race reported twice.
 
 ### Service worker
 `sw.js` caches the app shell + static modules under `uhri-v2-shell-v*`

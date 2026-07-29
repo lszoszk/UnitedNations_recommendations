@@ -191,6 +191,43 @@ function emptyFilters() {
   };
 }
 
+/* The label rule currently DRIVING the filter, or null.
+   `activeLabel` is set by the Labels workspace alongside the compiled FTS5
+   it wrote into `kw` (dashboard-labels.js `_applyRuleAsActiveFilter`), but
+   several paths overwrite `kw` without clearing the tag — the ⌘K palette
+   (dashboard-ui.js) and the drawer-list keyword links among them. Trusting
+   the tag alone made the scope banner attribute a live hit count to a rule
+   the user is not running. Attribution is only claimed while `kw` is still
+   verbatim the rule's compiled query; otherwise callers fall back to
+   describing the raw keyword. */
+function activeLabelIfLive(f = (typeof state !== 'undefined' ? state?.filters : null)) {
+  const lbl = f && f.activeLabel;
+  if (!lbl || !lbl.name) return null;
+  const kw = (f.kw || '').trim();
+  return kw && (lbl.query || '').trim() === kw ? lbl : null;
+}
+
+/* True when the current filter state actually narrows the corpus.
+   boot() uses it to decide whether an Overview deep link needs its own
+   filtered render, and whether the unfiltered baseline analytics may be
+   painted into the Overview panels (static audit A-01: a shared
+   `#country=Poland` URL used to show world totals under a Poland chip).
+   `dataset` is a corpus choice, not a filter, so it is not counted; the
+   year bounds count only when they sit inside the dataset's own range,
+   because the slider is seeded to min_year/max_year. */
+function hasActiveFilters(f = (typeof state !== 'undefined' ? state?.filters : null)) {
+  if (!f) return false;
+  if ((f.kw || '').trim()) return true;
+  for (const k of ['country', 'body', 'theme', 'group', 'region', 'sdg', 'sdgExact', 'type']) {
+    if (f[k] && f[k].size) return true;
+  }
+  const minY = (typeof state !== 'undefined' ? state?.facets?.min_year : null);
+  const maxY = (typeof state !== 'undefined' ? state?.facets?.max_year : null);
+  if (minY != null && f.yearA != null && f.yearA > minY) return true;
+  if (maxY != null && f.yearB != null && f.yearB < maxY) return true;
+  return false;
+}
+
 /* =========================================================================
    SDG CONSTANTS
    ========================================================================= */

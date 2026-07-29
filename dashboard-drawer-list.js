@@ -28,12 +28,13 @@ const _LIST_KIND_LABEL = {
   rule: '🏷 LABEL RULE',
 };
 /* Selection drawer mode — shows records the user has ticked in Search as
-   a reviewable list in the drawer. Doesn't fetch from API (records are
-   already loaded in `state.searchLoaded`), just pulls them by AnnotationId. */
+   a reviewable list in the drawer. Doesn't fetch from API: state.searchSelection
+   holds the record next to each ticked AnnotationId, so the list matches the
+   header count even after a re-render emptied `searchLoaded`. */
 function openSelectionDrawer() {
-  const sel = state.searchSelection || new Set();
+  const sel = state.searchSelection || new Map();
   if (!sel.size) return;
-  const recs = (state.searchLoaded || []).filter(r => sel.has(r.AnnotationId));
+  const recs = [...sel.values()].filter(Boolean);
   state.drawerMode = 'list';
   state.drawerList = {
     kind: 'selection',
@@ -226,7 +227,11 @@ function renderDrawerListMode() {
     if (ctx.kind !== 'body')    f.body    = new Set();
     if (ctx.kind !== 'theme')   f.theme   = new Set();
     if (ctx.kind !== 'group')   f.group   = new Set();
-    if (ctx.kind !== 'sdg')     f.sdg     = new Set();
+    // Both SDG sets, as the profile-level clear does (dashboard.html:2612):
+    // a target picked in the rail lives in sdgExact, so clearing only `sdg`
+    // left the drawer count, its export and the shared URL still narrowed
+    // to that target after a "clear rail".
+    if (ctx.kind !== 'sdg')   { f.sdg = new Set(); f.sdgExact = new Set(); }
     f.region = new Set(); f.type = new Set(); f.kw = '';
     const minY = state.facets?.min_year, maxY = state.facets?.max_year;
     if (minY) f.yearA = minY; if (maxY) f.yearB = maxY;

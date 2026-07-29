@@ -10,6 +10,73 @@
  */
 
 /* =========================================================================
+   PAINT GENERATION TOKEN
+   =========================================================================
+   Every profile renderer below awaits its data and then paints by re-querying
+   ids (#cpKpis, #thTime, …) that belong to whatever profile is on screen at
+   that moment — not to the one that made the request. A late response
+   therefore used to overwrite a DIFFERENT entity's panels while the heading
+   still named the new one: open Poland, switch to Germany, and Poland's
+   numbers land under Germany's <h1> with nothing to warn the reader
+   (audit 2026-07-28 B-01).
+
+   Rule: bump this counter at the top of every renderer, capture the value,
+   and drop the response after any `await` if the counter has moved on. One
+   shared counter across all six renderers in this module (the five profiles
+   plus Compare), so switching profile TYPE supersedes too. See
+   ARCHITECTURE.md § "Awaited paints".
+
+   The API layer aborts superseded requests (dashboard-data.js apiGet), but
+   it cannot be the only guard: a response that is already cached, already
+   in flight for another scope, or resolved before the abort lands still
+   arrives late. This is the receiving end of the same race. */
+let _profileRenderGen = 0;
+
+/* =========================================================================
+   PARTIAL PROFILE LOADS
+   =========================================================================
+   _loadProfile resolves with a null for each of analytics / map / count whose
+   request failed, and every paint() below used to open with
+   `if (!analytics || !mapD || !count) return;` — so one 5xx left the whole
+   profile frozen on "Loading…" with no toast, no error and no stale badge,
+   while the other five panels' data sat unused in memory (audit 2026-07-28
+   B-03 / J1-03). The comment in dashboard-data.js claimed the renderers
+   tolerated missing sections; they did not.
+
+   Rule: paint what arrived, and make what didn't arrive say so. `d.failed`
+   (from _loadProfile) names the missing sections; _profileFailBadge marks the
+   header, _profileSectionUnavailable marks each panel that has no data. A
+   number is never shown for a section that failed — the KPI reads n/a — so
+   nothing on the page can be read as a real count when it isn't one. */
+const _PROFILE_SECTION_LABEL = { analytics: 'analytics', map: 'country map', count: 'record count' };
+const _PROFILE_NA = '<span class="cp-na" title="This section failed to load">n/a</span>';
+
+/* `used` limits the report to the sections this view actually renders —
+   the Country profile ignores the map leg, so a failed map is not its
+   problem. */
+function _profileFailed(opts, used) {
+  return (opts.failed || []).filter(k => used.includes(k));
+}
+
+function _profileFailBadge(failed) {
+  if (!failed.length) return '';
+  const what = failed.map(k => _PROFILE_SECTION_LABEL[k] || k).join(' + ');
+  return `<span class="cp-stale-badge cp-failed-badge" title="These sections failed to load — reload to retry">partial · ${sanitize(what)} unavailable</span>`;
+}
+
+function _profileSectionUnavailable(el) {
+  if (!el) return;
+  el.innerHTML = '<div class="panel-loading is-unavailable">Unavailable — this section failed to load. Reload to retry.</div>';
+}
+
+/* Toast once per profile load, on the fresh paint only: the stale paint that
+   may precede it is not the failure the user needs to hear about. */
+function _profileFailToast(failed, opts, label) {
+  if (!failed.length || opts.stale) return;
+  toast(`${label} profile loaded partially — ${failed.map(k => _PROFILE_SECTION_LABEL[k] || k).join(' + ')} unavailable.`, true, 6000);
+}
+
+/* =========================================================================
    PROFILE SAMPLE ROWS (lazy)
    =========================================================================
    Every profile ends with a five-row "sample recommendations" list, and it is
@@ -212,13 +279,32 @@ function _ensureProfilePickerAnalytics() {
   });
 }
 
+/* ------------- Switcher-dropdown count scope -------------
+   Every profile switcher sits in the same header block as the KPI strip.
+   The KPIs come from _loadProfile, which intersects the rail; the option
+   counts come from analytics fetched at some other scope. Under any rail
+   filter the two read as one scope and are two — "Reservations · 2,540"
+   an inch from a 24-record profile. renderCountry has guarded this since
+   its picker gained scoped counts (L318-329); theme / group / mechanism
+   have no cheap scoped source, so they drop the annotation instead of
+   rescoping it, and say so in the picker label.
+
+   `sampled` forces the same drop at every scope: analytics.text.* is
+   computed on a 5,000-record SAMPLE (see _backfillPickerCounts) —
+   "Women & girls" reads 1,245 there against 67,360 actual — so there is
+   no rail state in which annotating from it would be truthful. */
+function _switcherScope(dimension, countsByKey, sampled = false) {
+  const inScope = !sampled && _railIsEmpty(_scopedFilter({ [dimension]: new Set() }));
+  return { counts: inScope ? countsByKey : null, suffix: inScope ? '' : ' · current filters' };
+}
+
 function _refreshThemePicker(root, selected, analytics) {
   const select = $('#thSelect');
   if (!select || !root.contains(select) || state.focusTheme !== selected) return;
   const rows = analytics?.themes?.theme_counts || [];
   select.innerHTML = _dropdownOptionsWithCount(
     rows.map(row => row.theme), selected,
-    Object.fromEntries(rows.map(row => [row.theme, row.count]))
+    _switcherScope('theme', Object.fromEntries(rows.map(row => [row.theme, row.count]))).counts
   );
   select.value = selected;
 }
@@ -227,9 +313,9 @@ function _refreshGroupPicker(root, selected, analytics) {
   const select = $('#gpSelect');
   if (!select || !root.contains(select) || state.focusGroup !== selected) return;
   const rows = analytics?.text?.affected_person_counts || [];
+  // No counts at any scope — this source is sampled, see _switcherScope.
   select.innerHTML = _dropdownOptionsWithCount(
-    rows.map(row => row.affected_person), selected,
-    Object.fromEntries(rows.map(row => [row.affected_person, row.count]))
+    rows.map(row => row.affected_person), selected, null
   );
   select.value = selected;
 }
@@ -270,6 +356,7 @@ function _completeSdgHierarchy(analytics, apiHierarchy = []) {
 }
 
 async function renderCountry() {
+  const gen = ++_profileRenderGen;
   const root = $('#view-country');
   const iso = state.focusCountry;
   const name = iso ? (ISO_TO_NAME[iso] || iso) : null;
@@ -358,8 +445,9 @@ async function renderCountry() {
 
   const paint = (analytics, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !count) return;
-    const total = count.total_records;
+    if (!analytics && !count) return;             // nothing arrived — the caller's catch owns this
+    const failed = _profileFailed(opts, ['analytics', 'count']);
+    _profileFailToast(failed, opts, 'Country');
     const themes = analytics?.themes?.theme_counts || [];
     const topTheme = themes[0]?.theme || '—';
     const bodyTotals = {};
@@ -376,11 +464,11 @@ async function renderCountry() {
     const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
     $('#cpKpis').innerHTML = `
-      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
-      <div class="cp-kpi"><div class="n">${nBodies}</div><div class="l">Bodies</div></div>
-      <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
-      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:220px;line-height:1.2">${sanitize(topTheme)}</div><div class="l">Leading theme</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))} · all mechanisms${staleBadge}`;
+      <div class="cp-kpi"><div class="n">${count ? fmt(count.total_records) : _PROFILE_NA}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${analytics ? nBodies : _PROFILE_NA}</div><div class="l">Bodies</div></div>
+      <div class="cp-kpi"><div class="n">${analytics ? themes.length : _PROFILE_NA}</div><div class="l">Themes</div></div>
+      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:220px;line-height:1.2">${analytics ? sanitize(topTheme) : _PROFILE_NA}</div><div class="l">Leading theme</div></div>`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))} · all mechanisms${staleBadge}${_profileFailBadge(failed)}`;
     _renderRailNoteInto($('#cpRailNote'), 'country');
     root.classList.toggle('stale', !!opts.stale);
 
@@ -409,10 +497,11 @@ async function renderCountry() {
       opts.samples);
   };
 
-  if (cpProfile.stale) paint(cpProfile.stale.analytics, cpProfile.stale.count, { stale: true, samples: cpProfile.stale.samples });
+  if (cpProfile.stale) paint(cpProfile.stale.analytics, cpProfile.stale.count, { stale: true, samples: cpProfile.stale.samples, failed: cpProfile.stale.failed });
   try {
     const d = await cpProfile.fresh;
-    paint(d.analytics, d.count, { stale: false, samples: d.samples });
+    if (gen !== _profileRenderGen) return;   // superseded — this is another country's page now
+    paint(d.analytics, d.count, { stale: false, samples: d.samples, failed: d.failed });
     $('#cpSeeAll')?.addEventListener('click', () => {
       state.filters.country = new Set([name]);
       refreshFacetUI('country');
@@ -428,6 +517,7 @@ async function renderCountry() {
    VIEW: THEME PROFILE
    ========================================================================= */
 async function renderTheme() {
+  const gen = ++_profileRenderGen;
   const root = $('#view-theme');
   const name = state.focusTheme;
   if (!name) {
@@ -450,11 +540,13 @@ async function renderTheme() {
     return;
   }
 
-  // Q3a: options annotated with total counts (mirrors SDG dropdown UX)
+  // Q3a: options annotated with total counts (mirrors SDG dropdown UX),
+  // but only while the rail leaves those totals in the profile's own scope.
   const themeCountList = _profilePickerAnalytics()?.themes?.theme_counts || [];
   const themesList = themeCountList.map(t => t.theme);
   const themeCountsByKey = Object.fromEntries(themeCountList.map(t => [t.theme, t.count]));
-  const opts = _dropdownOptionsWithCount(themesList, name, themeCountsByKey);
+  const thScope = _switcherScope('theme', themeCountsByKey);
+  const opts = _dropdownOptionsWithCount(themesList, name, thScope.counts);
 
   root.innerHTML = `
     <div class="cp-head">
@@ -465,7 +557,7 @@ async function renderTheme() {
         <div class="cp-kpis" id="thKpis"></div>
         <div id="thRailNote"></div>
       </div>
-      <div class="cp-picker"><label>Switch theme</label>
+      <div class="cp-picker"><label>Switch theme${thScope.suffix}</label>
         <select id="thSelect">${opts}</select></div>
     </div>
     <div class="cp-body">
@@ -497,19 +589,20 @@ async function renderTheme() {
   // Reusable painter — called once with stale (if any) then again with fresh
   const paint = (analytics, mapD, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !mapD || !count) return;
-    const total = count.total_records;
-    const countries = mapD.country_counts || [];
+    if (!analytics && !mapD && !count) return;    // nothing arrived — the caller's catch owns this
+    const failed = _profileFailed(opts, ['analytics', 'map', 'count']);
+    _profileFailToast(failed, opts, 'Theme');
+    const countries = mapD?.country_counts || [];
     const topC = countries[0]?.country || '—';
     const groups = analytics?.text?.affected_person_counts || [];
     const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
     $('#thKpis').innerHTML = `
-      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
-      <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
-      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
-      <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Concerned groups</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}`;
+      <div class="cp-kpi"><div class="n">${count ? fmt(count.total_records) : _PROFILE_NA}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${mapD ? countries.length : _PROFILE_NA}</div><div class="l">Countries</div></div>
+      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${mapD ? sanitize(topC) : _PROFILE_NA}</div><div class="l">Most-cited</div></div>
+      <div class="cp-kpi"><div class="n">${analytics ? groups.length : _PROFILE_NA}</div><div class="l">Concerned groups</div></div>`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}${_profileFailBadge(failed)}`;
     _renderRailNoteInto($('#thRailNote'), 'theme');
     root.classList.toggle('stale', !!opts.stale);
 
@@ -518,23 +611,32 @@ async function renderTheme() {
       renderTimeline($('#thTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#thLegend'), interactive: false, stackBy: mode, yHeadroom: 1.15 });
       _renderStackToggle($('#thStackToggle'), mode, (next) => { state.profileStackBy = next; _thRenderTl(); });
     };
-    _thRenderTl();
-    renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
-    const themes = (analytics?.themes?.theme_counts || []).filter(t => t.theme !== name).slice(0,12);
-    renderRowList($('#thThemes'), themes.map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
-    renderRowList($('#thGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
-    const sdgs = analytics?.text?.sdg_counts || [];
-    renderRowList($('#thSdgs'),   sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
+    if (mapD) {
+      renderRowList($('#thCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
+    } else {
+      _profileSectionUnavailable($('#thCountries'));
+    }
+    if (analytics) {
+      _thRenderTl();
+      const themes = (analytics?.themes?.theme_counts || []).filter(t => t.theme !== name).slice(0,12);
+      renderRowList($('#thThemes'), themes.map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
+      renderRowList($('#thGroups'), groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
+      const sdgs = analytics?.text?.sdg_counts || [];
+      renderRowList($('#thSdgs'),   sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
+    } else {
+      ['#thTime', '#thThemes', '#thGroups', '#thSdgs'].forEach(id => _profileSectionUnavailable($(id)));
+    }
 
     _mountProfileSamples($('#thSamples'), 'theme', name, thProfile.filter, 'theme',
       r => `${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}`,
       opts.samples);
   };
 
-  if (thProfile.stale) paint(thProfile.stale.analytics, thProfile.stale.mapD, thProfile.stale.count, { stale: true, samples: thProfile.stale.samples });
+  if (thProfile.stale) paint(thProfile.stale.analytics, thProfile.stale.mapD, thProfile.stale.count, { stale: true, samples: thProfile.stale.samples, failed: thProfile.stale.failed });
   try {
     const d = await thProfile.fresh;
-    paint(d.analytics, d.mapD, d.count, { stale: false, samples: d.samples });
+    if (gen !== _profileRenderGen) return;   // superseded — this is another theme's page now
+    paint(d.analytics, d.mapD, d.count, { stale: false, samples: d.samples, failed: d.failed });
     $('#thSeeAll')?.addEventListener('click', () => {
       state.filters.theme = new Set([name]);
       refreshFacetUI('theme');
@@ -550,6 +652,7 @@ async function renderTheme() {
    VIEW: GROUP PROFILE — mirrors Theme profile, scoped by concerned group
    ========================================================================= */
 async function renderGroup() {
+  const gen = ++_profileRenderGen;
   const root = $('#view-group');
   const name = state.focusGroup;
   if (!name) {
@@ -572,11 +675,14 @@ async function renderGroup() {
     });
     return;
   }
-  // Q3a: options annotated with counts
+  /* Q3a wanted counts here as elsewhere, but affected_person_counts is the
+     sampled section — the KPI strip one DOM block to the left shows the
+     exact /summary total for the same group, so annotating from a 5,000-row
+     sample put a ~50x-too-small figure beside it, both unlabelled. */
   const groupCountList = _profilePickerAnalytics()?.text?.affected_person_counts || [];
   const groupsList = groupCountList.map(g => g.affected_person);
-  const groupCountsByKey = Object.fromEntries(groupCountList.map(g => [g.affected_person, g.count]));
-  const opts = _dropdownOptionsWithCount(groupsList, name, groupCountsByKey);
+  const gpScope = _switcherScope('group', null, true);
+  const opts = _dropdownOptionsWithCount(groupsList, name, gpScope.counts);
   root.innerHTML = `
     <div class="cp-head">
       <div>
@@ -586,7 +692,7 @@ async function renderGroup() {
         <div class="cp-kpis" id="gpKpis"></div>
         <div id="gpRailNote"></div>
       </div>
-      <div class="cp-picker"><label>Switch group</label><select id="gpSelect">${opts}</select></div>
+      <div class="cp-picker"><label>Switch group${gpScope.suffix}</label><select id="gpSelect">${opts}</select></div>
     </div>
     <div class="cp-body">
       <div class="panel" style="grid-column:1 / span 2"><div class="panel-head"><div class="panel-title"><span class="idx">FIG.A</span><span class="t">Volume over time</span></div><div class="panel-actions"><span id="gpStackToggle"></span><span id="gpLegend"></span></div></div><div class="tl-wrap" id="gpTime"><div class="panel-loading">loading</div></div></div>
@@ -611,20 +717,21 @@ async function renderGroup() {
 
   const paint = (analytics, mapD, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !mapD || !count) return;
-    const total = count.total_records;
-    const countries = mapD.country_counts || [];
+    if (!analytics && !mapD && !count) return;    // nothing arrived — the caller's catch owns this
+    const failed = _profileFailed(opts, ['analytics', 'map', 'count']);
+    _profileFailToast(failed, opts, 'Group');
+    const countries = mapD?.country_counts || [];
     const themes = analytics?.themes?.theme_counts || [];
     const sdgs = analytics?.text?.sdg_counts || [];
     const topC = countries[0]?.country || '—';
     const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
     $('#gpKpis').innerHTML = `
-      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
-      <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
-      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>
-      <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}`;
+      <div class="cp-kpi"><div class="n">${count ? fmt(count.total_records) : _PROFILE_NA}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${mapD ? countries.length : _PROFILE_NA}</div><div class="l">Countries</div></div>
+      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${mapD ? sanitize(topC) : _PROFILE_NA}</div><div class="l">Most-cited</div></div>
+      <div class="cp-kpi"><div class="n">${analytics ? themes.length : _PROFILE_NA}</div><div class="l">Themes</div></div>`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}${_profileFailBadge(failed)}`;
     _renderRailNoteInto($('#gpRailNote'), 'group');
     root.classList.toggle('stale', !!opts.stale);
     const _gpRenderTl = () => {
@@ -632,22 +739,31 @@ async function renderGroup() {
       renderTimeline($('#gpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#gpLegend'), interactive: false, stackBy: mode, yHeadroom: 1.15 });
       _renderStackToggle($('#gpStackToggle'), mode, (next) => { state.profileStackBy = next; _gpRenderTl(); });
     };
-    _gpRenderTl();
-    renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
-    renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
-    const coGroups = (analytics?.text?.affected_person_counts || []).filter(g => g.affected_person !== name).slice(0,12);
-    renderRowList($('#gpGroups'), coGroups.map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
-    renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
+    if (mapD) {
+      renderRowList($('#gpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
+    } else {
+      _profileSectionUnavailable($('#gpCountries'));
+    }
+    if (analytics) {
+      _gpRenderTl();
+      renderRowList($('#gpThemes'), themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
+      const coGroups = (analytics?.text?.affected_person_counts || []).filter(g => g.affected_person !== name).slice(0,12);
+      renderRowList($('#gpGroups'), coGroups.map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
+      renderRowList($('#gpSdgs'), sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
+    } else {
+      ['#gpTime', '#gpThemes', '#gpGroups', '#gpSdgs'].forEach(id => _profileSectionUnavailable($(id)));
+    }
 
     _mountProfileSamples($('#gpSamples'), 'group', name, gpProfile.filter, 'group',
       r => `${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}`,
       opts.samples);
   };
 
-  if (gpProfile.stale) paint(gpProfile.stale.analytics, gpProfile.stale.mapD, gpProfile.stale.count, { stale: true, samples: gpProfile.stale.samples });
+  if (gpProfile.stale) paint(gpProfile.stale.analytics, gpProfile.stale.mapD, gpProfile.stale.count, { stale: true, samples: gpProfile.stale.samples, failed: gpProfile.stale.failed });
   try {
     const d = await gpProfile.fresh;
-    paint(d.analytics, d.mapD, d.count, { stale: false, samples: d.samples });
+    if (gen !== _profileRenderGen) return;   // superseded — this is another group's page now
+    paint(d.analytics, d.mapD, d.count, { stale: false, samples: d.samples, failed: d.failed });
     $('#gpSeeAll')?.addEventListener('click', () => {
       state.filters.group = new Set([name]);
       refreshFacetUI('group');
@@ -663,6 +779,7 @@ async function renderGroup() {
    VIEW: SDG PROFILE — scoped by SDG target (e.g. "SDG 16.3")
    ========================================================================= */
 async function renderSDG() {
+  const gen = ++_profileRenderGen;
   const root = $('#view-sdg');
   const sdg = state.focusSdg;
   if (!sdg) {
@@ -852,19 +969,20 @@ async function renderSDG() {
 
   const paint = (analytics, mapD, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !mapD || !count) return;
-    const total = count.total_records;
-    const countries = mapD.country_counts || [];
+    if (!analytics && !mapD && !count) return;    // nothing arrived — the caller's catch owns this
+    const failed = _profileFailed(opts, ['analytics', 'map', 'count']);
+    _profileFailToast(failed, opts, 'SDG');
+    const countries = mapD?.country_counts || [];
     const themes = analytics?.themes?.theme_counts || [];
     const groups = analytics?.text?.affected_person_counts || [];
     const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
     $('#spKpis').innerHTML = `
-      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
-      <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
-      <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
-      <div class="cp-kpi"><div class="n">${groups.length}</div><div class="l">Groups</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}`;
+      <div class="cp-kpi"><div class="n">${count ? fmt(count.total_records) : _PROFILE_NA}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${mapD ? countries.length : _PROFILE_NA}</div><div class="l">Countries</div></div>
+      <div class="cp-kpi"><div class="n">${analytics ? themes.length : _PROFILE_NA}</div><div class="l">Themes</div></div>
+      <div class="cp-kpi"><div class="n">${analytics ? groups.length : _PROFILE_NA}</div><div class="l">Groups</div></div>`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}${_profileFailBadge(failed)}`;
     _renderRailNoteInto($('#spRailNote'), 'sdg');
     root.classList.toggle('stale', !!opts.stale);
     const _spRenderTl = () => {
@@ -872,22 +990,31 @@ async function renderSDG() {
       renderTimeline($('#spTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#spLegend'), interactive: false, stackBy: mode, yHeadroom: 1.15 });
       _renderStackToggle($('#spStackToggle'), mode, (next) => { state.profileStackBy = next; _spRenderTl(); });
     };
-    _spRenderTl();
-    renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
-    renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
-    renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
-    const coSdgs = (analytics?.text?.sdg_counts || []).filter(s => s.sdg !== sdg).slice(0,12);
-    renderRowList($('#spSdgs'), coSdgs.map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
+    if (mapD) {
+      renderRowList($('#spCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country' });
+    } else {
+      _profileSectionUnavailable($('#spCountries'));
+    }
+    if (analytics) {
+      _spRenderTl();
+      renderRowList($('#spThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines });
+      renderRowList($('#spGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines });
+      const coSdgs = (analytics?.text?.sdg_counts || []).filter(s => s.sdg !== sdg).slice(0,12);
+      renderRowList($('#spSdgs'), coSdgs.map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines });
+    } else {
+      ['#spTime', '#spThemes', '#spGroups', '#spSdgs'].forEach(id => _profileSectionUnavailable($(id)));
+    }
 
     _mountProfileSamples($('#spSamples'), 'sdg', sdg, spProfile.filter, 'sdg',
       r => `${sanitize(r.PublicationDate||'').slice(0,10)} · ${sanitize(cleanCountryName((r.Countries||[])[0]||''))} · ${sanitize(cleanLabel(r.Body))}`,
       opts.samples);
   };
 
-  if (spProfile.stale) paint(spProfile.stale.analytics, spProfile.stale.mapD, spProfile.stale.count, { stale: true, samples: spProfile.stale.samples });
+  if (spProfile.stale) paint(spProfile.stale.analytics, spProfile.stale.mapD, spProfile.stale.count, { stale: true, samples: spProfile.stale.samples, failed: spProfile.stale.failed });
   try {
     const d = await spProfile.fresh;
-    paint(d.analytics, d.mapD, d.count, { stale: false, samples: d.samples });
+    if (gen !== _profileRenderGen) return;   // superseded — this is another SDG's page now
+    paint(d.analytics, d.mapD, d.count, { stale: false, samples: d.samples, failed: d.failed });
     $('#spSeeAll')?.addEventListener('click', () => {
       _replaceSdgFilters(sdg);
       refreshFacetUI('sdg');
@@ -912,6 +1039,7 @@ async function renderSDG() {
    Sub-functions below each render one mode; renderMechanism() is the
    dispatcher + picker host. */
 async function renderMechanism() {
+  const gen = ++_profileRenderGen;
   const root = $('#view-mechanism');
   const scope = state.mechScope || 'single';
 
@@ -1022,9 +1150,13 @@ async function renderMechanism() {
     filterOverride = { body: new Set(bodies) };
     headerClass = fam.cls;
     // Q3a: family picker also gets counts (UPR · 133,510 / Treaty Bodies · 70,420 etc.)
-    const famCounts = _computeMechCounts() || { upr: 0, treaty: 0, sp: 0 };
+    // _computeMechCounts reads state.analytics, whose scope is whatever was
+    // last fetched — dropped under a rail filter rather than paired with the
+    // rail-scoped KPIs beside it. See _switcherScope.
+    const famScope = _switcherScope('body', _computeMechCounts() || { upr: 0, treaty: 0, sp: 0 });
+    const famCounts = famScope.counts || {};
     picker = `
-      <label>Family</label>
+      <label>Family${famScope.suffix}</label>
       <select id="mpFamSelect">
         ${MECH_FAMILIES.map(f => {
           const c = famCounts[f.key];
@@ -1061,9 +1193,9 @@ async function renderMechanism() {
     // Prevents UPR from sorting alphabetically between SR and WG bodies
     // in the flat list, and surfaces the body's record count as the SDG
     // dropdown already does.
-    const bodyCounts = _bodyTotalsFromAnalytics();
-    const opts = _bodyDropdownGroupedOptions(bodies, state.focusMechanism, bodyCounts);
-    picker = `<label>Switch body</label><select id="mpSelect">${opts}</select>`;
+    const bodyScope = _switcherScope('body', _bodyTotalsFromAnalytics());
+    const opts = _bodyDropdownGroupedOptions(bodies, state.focusMechanism, bodyScope.counts);
+    picker = `<label>Switch body${bodyScope.suffix}</label><select id="mpSelect">${opts}</select>`;
   }
 
   root.innerHTML = `
@@ -1122,9 +1254,10 @@ async function renderMechanism() {
 
   const paint = (analytics, mapD, count, opts = {}) => {
     updateSparklineCaches(analytics);
-    if (!analytics || !mapD || !count) return;
-    const total = count.total_records;
-    const countries = mapD.country_counts || [];
+    if (!analytics && !mapD && !count) return;    // nothing arrived — the caller's catch owns this
+    const failed = _profileFailed(opts, ['analytics', 'map', 'count']);
+    _profileFailToast(failed, opts, 'Mechanism');
+    const countries = mapD?.country_counts || [];
     const themes = analytics?.themes?.theme_counts || [];
     const groups = analytics?.text?.affected_person_counts || [];
     const sdgs = analytics?.text?.sdg_counts || [];
@@ -1132,20 +1265,28 @@ async function renderMechanism() {
     const staleBadge = opts.stale ? '<span class="cp-stale-badge">refreshing</span>' : '';
 
     $('#mpKpis').innerHTML = `
-      <div class="cp-kpi"><div class="n">${fmt(total)}</div><div class="l">Total</div></div>
-      <div class="cp-kpi"><div class="n">${countries.length}</div><div class="l">Countries</div></div>
-      <div class="cp-kpi"><div class="n">${themes.length}</div><div class="l">Themes</div></div>
-      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${sanitize(topC)}</div><div class="l">Most-cited</div></div>`;
-    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}`;
+      <div class="cp-kpi"><div class="n">${count ? fmt(count.total_records) : _PROFILE_NA}</div><div class="l">Total</div></div>
+      <div class="cp-kpi"><div class="n">${mapD ? countries.length : _PROFILE_NA}</div><div class="l">Countries</div></div>
+      <div class="cp-kpi"><div class="n">${analytics ? themes.length : _PROFILE_NA}</div><div class="l">Themes</div></div>
+      <div class="cp-kpi"><div class="n" style="font-size:16px;max-width:180px;line-height:1.2">${mapD ? sanitize(topC) : _PROFILE_NA}</div><div class="l">Most-cited</div></div>`;
+    root.querySelector('.cp-sub').innerHTML = `${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_first_publication_date))} – ${sanitize(_fmtCoverageDate(analytics?.trends?.dataset_last_publication_date))}${staleBadge}${_profileFailBadge(failed)}`;
     _renderRailNoteInto($('#mpRailNote'), 'body');
     root.classList.toggle('stale', !!opts.stale);
 
-    renderTimeline($('#mpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#mpLegend'), interactive: false });
     const extraFilter = filterOverride;
-    renderRowList($('#mpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country', extraFilter });
-    renderRowList($('#mpThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines, extraFilter });
-    renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines, extraFilter });
-    renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines, extraFilter });
+    if (mapD) {
+      renderRowList($('#mpCountries'), countries.slice(0,12).map(c => ({ key:c.country, label:c.country, v:c.count })), { facet:'country', extraFilter });
+    } else {
+      _profileSectionUnavailable($('#mpCountries'));
+    }
+    if (analytics) {
+      renderTimeline($('#mpTime'), analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#mpLegend'), interactive: false });
+      renderRowList($('#mpThemes'),    themes.slice(0,12).map(t => ({ key:t.theme, label:t.theme, v:t.count })), { facet:'theme', sparklines: _themeSparklines, extraFilter });
+      renderRowList($('#mpGroups'),    groups.slice(0,12).map(g => ({ key:g.affected_person, label:g.affected_person, v:g.count })), { facet:'group', sparklines: _groupSparklines, extraFilter });
+      renderRowList($('#mpSdgs'),      sdgs.slice(0,12).map(s => ({ key:s.sdg, label:formatSdgLabel(s.sdg), v:s.count })), { facet:'sdg', sparklines: _sdgSparklines, extraFilter });
+    } else {
+      ['#mpTime', '#mpThemes', '#mpGroups', '#mpSdgs'].forEach(id => _profileSectionUnavailable($(id)));
+    }
 
     _mountProfileSamples($('#mpSamples'), 'mech', cacheKey, filter, 'mechanism',
       r => `${sanitize((r.PublicationDate || '').slice(0,10))} · ${sanitize(cleanCountryName((r.Countries || [])[0] || ''))} · ${sanitize(cleanLabel(r.Body))}`,
@@ -1153,19 +1294,26 @@ async function renderMechanism() {
   };
 
   if (useBundle) {
-    if (profileLoader.stale) paint(profileLoader.stale.analytics, profileLoader.stale.mapD, profileLoader.stale.count, { stale: true, samples: profileLoader.stale.samples });
+    if (profileLoader.stale) paint(profileLoader.stale.analytics, profileLoader.stale.mapD, profileLoader.stale.count, { stale: true, samples: profileLoader.stale.samples, failed: profileLoader.stale.failed });
   } else if (anSwr.stale && mpSwr.stale && rcSwr.stale) {
     paint(anSwr.stale, mpSwr.stale, rcSwr.stale, { stale: true });
   }
   try {
-    let analytics, mapD, count, samples = null;
+    let analytics, mapD, count, samples = null, failed = [];
     if (useBundle) {
       const d = await profileLoader.fresh;
-      analytics = d.analytics; mapD = d.mapD; count = d.count; samples = d.samples;
+      analytics = d.analytics; mapD = d.mapD; count = d.count; samples = d.samples; failed = d.failed;
     } else {
+      /* Family / compare scope: swr() resolves an aborted leg to null rather
+         than rejecting, so this Promise.all can hand back a hole without ever
+         reaching the catch below. Report it the same way the bundled path
+         does instead of letting paint() bail (B-03). */
       [analytics, mapD, count] = await Promise.all([anSwr.fresh, mpSwr.fresh, rcSwr.fresh]);
+      failed = [['analytics', analytics], ['map', mapD], ['count', count]]
+        .filter(([, v]) => !v).map(([k]) => k);
     }
-    paint(analytics, mapD, count, { stale: false, samples });
+    if (gen !== _profileRenderGen) return;   // superseded — this is another mechanism/scope now
+    paint(analytics, mapD, count, { stale: false, samples, failed });
     $('#mpSeeAll')?.addEventListener('click', () => {
       // "See all" pipes the current scope into the rail filter + Search tab.
       state.filters.body = new Set(Array.from(filterOverride.body || []));
@@ -1265,6 +1413,7 @@ function _persistCompareChoice() {
 }
 
 async function renderCompare() {
+  const gen = ++_profileRenderGen;
   const root = $('#view-compare');
   const countries = cleanCountryList(state.facets?.countries || []).sort();
   // Normalize deep-linked values BEFORE rendering. cmpA/cmpB are display
@@ -1392,6 +1541,22 @@ async function renderCompare() {
         // cold, and it doesn't occupy a slow /records slot (perf 2026-07).
         api.recordsCount(f, { scope: 'records:' + scope }),
       ]);
+      /* Superseded — every id below (#cmpSubA, #cmpTimeB, …) now belongs to a
+         newer Compare. Per-side abort scopes do NOT cover this: when the user
+         changes only ONE side, the other side is re-issued with identical
+         params, so apiGet de-duplicates onto the same pending promise and
+         BOTH renders resume from it. The older closure then runs
+         _reconcileSharedY() against its own stale `cmpState` and repaints the
+         side that DID change with the country it used to hold.
+
+         Today that stale write is corrected ~1 tick later, because the newer
+         render registered its continuation on the shared promise second and
+         therefore always writes last — so the damage is a visible flash of
+         the previous country rather than a wrong final reading. That is an
+         accident of continuation ordering, not a guarantee anyone should
+         rely on: it holds only while both awaiters share one promise. Guard
+         it like every other awaited paint in this module. */
+      if (gen !== _profileRenderGen) return;
       const subEl = $(`#cmpSub${letter}`);
       if (subEl) subEl.textContent = `${fmt(recs.total_records)} recs · ${(an?.themes?.theme_counts||[]).length} themes · ${(an?.text?.affected_person_counts||[]).length} groups`;
       cmpState[letter] = an;
@@ -1426,7 +1591,7 @@ async function renderCompare() {
         renderRowList(sdgEl, s, { facet: 'sdg', extraFilter: cmpScope });
       }
     } catch (err) {
-      if (err.name === 'AbortError') return;
+      if (err.name === 'AbortError' || gen !== _profileRenderGen) return;
       const subEl = $(`#cmpSub${letter}`);
       if (subEl) subEl.textContent = 'load failed: ' + (err.message || err);
       console.error('compare side ' + letter + ' failed:', err);

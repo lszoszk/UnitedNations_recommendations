@@ -11,13 +11,16 @@ function renderActiveFilters() {
   const chips = [];
   const push = (kind, label, value, remove, opts) => chips.push({ kind, label, value, remove, ...(opts || {}) });
 
-  /* Keyword chip — branches on whether the keyword came from a label
-     rule (📊 Analyze / 🔎 Search on a rule card). Label-driven kw shows
+  /* Keyword chip — branches on whether the keyword STILL is the one a label
+     rule wrote (📊 Analyze / 🔎 Search on a rule card). Label-driven kw shows
      the label NAME with the FTS5 in the tooltip, instead of leaking the
-     compiled query into the visible chip text. */
+     compiled query into the visible chip text; a kw that has since been
+     overwritten degrades to a plain Q chip rather than keeping a rule name
+     that no longer describes the query. */
   if (f.kw && f.kw.trim()) {
-    if (f.activeLabel && f.activeLabel.name) {
-      push('label', '🏷', f.activeLabel.name,
+    const liveLabel = activeLabelIfLive(f);
+    if (liveLabel) {
+      push('label', '🏷', liveLabel.name,
         () => { f.kw = ''; f.activeLabel = null; const inp = $('#kwInput'); if (inp) { inp.value = ''; delete inp.dataset.fromLabel; } },
         { tooltip: f.kw });
     } else {
@@ -95,8 +98,8 @@ function renderScopeBanner() {
   const el = $('#scopeBanner');
   if (!el) return;
   const f = state.filters;
-  const lbl = f.activeLabel;
-  if (!lbl || !f.kw) {
+  const lbl = activeLabelIfLive(f);
+  if (!lbl) {
     el.hidden = true;
     el.innerHTML = '';
     return;
@@ -178,6 +181,11 @@ async function refreshCurrentView() {
     else if (state.view === 'sdg')     await renderSDG();
     else if (state.view === 'mechanism') await renderMechanism();
     else if (state.view === 'compare') await renderCompare();
+    /* Labels is a live view like any other: its rule counts and the note
+       claiming what they are scoped to both follow the rail. Without this
+       branch a rail change left every card on the previous scope while the
+       toolbar still read "Dataset-wide (no rail filter active)". */
+    else if (state.view === 'labels') refreshRulesScope();
   } finally {
     _slowLoadClear();
   }

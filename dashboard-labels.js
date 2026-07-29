@@ -80,7 +80,11 @@ if (!state.rules) {
 function compileRule(r) {
   if (!r) return '';
   if (r.rawQuery && r.rawQuery.trim()) return r.rawQuery.trim();
-  const clean = (arr) => (arr || [])
+  /* Array.isArray, not `arr || []`: a rule whose term list is a bare string
+     (hand-edited JSON, see the import boundary below) used to throw here —
+     inside renderRules' template literal, which then left the whole Labels
+     tab blank on every load (C-08). */
+  const clean = (arr) => (Array.isArray(arr) ? arr : [])
     .map(s => String(s || '').trim())
     .filter(Boolean);
   const wrap = (arr) => arr.length === 1 ? arr[0] : '(' + arr.join(' OR ') + ')';
@@ -127,12 +131,43 @@ function rulesSaveSets(list) {
   try { localStorage.setItem(RULES_KEY, JSON.stringify(list)); }
   catch { toast('localStorage full — cannot save rule set', true, 4000); }
 }
+/* Coerce an imported RuleSet into the shape the renderers assume, or return
+   null if it isn't one at all. The import path used to check only
+   `Array.isArray(s.rules)` and persist immediately, so a hand-edited file
+   with `"must": "judiciary"` (a string) was written to localStorage and then
+   threw on every render of the Labels tab (C-08). JSON export/sharing is the
+   documented team workflow, so this is a real boundary, not a hypothetical. */
+function rulesNormalizeImportedSet(s) {
+  if (!s || typeof s !== 'object' || !Array.isArray(s.rules)) return null;
+  const terms = (v) => (Array.isArray(v) ? v : typeof v === 'string' ? [v] : [])
+    .map(t => String(t == null ? '' : t).trim())
+    .filter(Boolean);
+  return {
+    ...s,
+    name: String(s.name || 'Imported rule set'),
+    rules: s.rules
+      .filter(r => r && typeof r === 'object')
+      .map(r => ({
+        ...r,
+        id: (typeof r.id === 'string' && r.id) ? r.id : ruleGenId(),
+        name: String(r.name || 'Untitled rule'),
+        must: terms(r.must),
+        also: terms(r.also),
+        not:  terms(r.not),
+        rawQuery: typeof r.rawQuery === 'string' ? r.rawQuery : '',
+      })),
+  };
+}
 function rulesLoadSet(id) {
   const s = rulesLoadSets().find(x => x.id === id);
   if (!s) return false;
   state.rules.active = s.id;
   state.rules.rules  = JSON.parse(JSON.stringify(s.rules || []));
   state.rules.counts = {};
+  /* Coverage is keyed by the OLD set's rule ids — carrying it over would
+     print set A's union/overlap under set B's cards as if it were current,
+     and rulesExportCsv would reuse the same perRule payload. */
+  state.rules.coverage = null;
   try { localStorage.setItem(RULES_ACTIVE_KEY, id); } catch {}
   return true;
 }
@@ -468,6 +503,38 @@ async function rulesFetchCount(rule) {
   rulesPaintCount(rule);
 }
 
+/* ------------- Percentage denominator for the rule cards -------------
+   Every rule count is measured with `kw` REPLACED by that rule's compiled
+   query (rulesFetchCount, L440), so state.totalHits — which counts the rail
+   *including* state.filters.kw — describes a different universe. Dividing
+   one by the other produced "8,000 (666.7%)" whenever a keyword or an
+   applied label was live. Count the rail once with kw stripped instead, and
+   cache it against that rail's shape. Until it lands, rulesPaintCount shows
+   the bare count rather than a precise-looking wrong percentage. */
+let _rulesDenomKey = null;
+let _rulesDenomValue = null;
+function _rulesRailFilter() { return { ...state.filters, kw: '' }; }
+function _rulesDenomKeyFor(f) { return cacheKey('rules:denom', buildParams(f)); }
+function _rulesRailDenom() {
+  const f = _rulesRailFilter();
+  if (_railIsEmpty(f)) return state.facets?.total_records || 267942;
+  return _rulesDenomKey === _rulesDenomKeyFor(f) ? _rulesDenomValue : null;
+}
+async function _rulesEnsureRailDenom() {
+  const f = _rulesRailFilter();
+  if (_railIsEmpty(f)) return;
+  const key = _rulesDenomKeyFor(f);
+  if (_rulesDenomKey === key) return;
+  try {
+    const r = await api.recordsCount(f, { scope: 'rules:denom' });
+    _rulesDenomKey = key;
+    _rulesDenomValue = r.total_records || 0;
+  } catch {
+    return;   // AbortError (superseded) or API error — cards stay on bare counts
+  }
+  for (const r of (state.rules.rules || [])) rulesPaintCount(r);
+}
+
 function rulesPaintCount(rule) {
   // In-place update of just the .rule-count element, no full re-render
   const el = document.querySelector(`[data-rule-id="${rule.id}"] .rule-count`);
@@ -478,14 +545,18 @@ function rulesPaintCount(rule) {
   if (c.error) { el.textContent = '⚠ invalid'; el.className = 'rule-count err'; el.title = c.error; return; }
   if (c.empty) { el.textContent = 'empty rule'; el.className = 'rule-count loading'; return; }
   const n = c.n || 0;
-  // Percentage denominator: rail hits if rail is active (so "% of Poland
-  // records matching") else the dataset total.
-  const denom = (!_railIsEmpty(state.filters) && state.totalHits)
-    ? state.totalHits
-    : 267942;
+  // Percentage denominator: the rail WITHOUT its keyword if the rail is
+  // active (so "% of Poland records matching") else the dataset total.
+  // Null while that count is still in flight — see _rulesRailDenom.
+  const denom = _rulesRailDenom();
+  el.className = 'rule-count ' + (n === 0 ? 'zero' : (n >= 50 && n <= 20000 ? 'ok' : 'warn'));
+  if (denom == null) {
+    el.textContent = fmt(n);
+    el.title = `${fmt(n)} records match · share of the current rail filter still counting · click card for details`;
+    return;
+  }
   const pct = (n / denom * 100).toFixed(n < 100 ? 2 : 1);
   el.textContent = `${fmt(n)} (${pct}%)`;
-  el.className = 'rule-count ' + (n === 0 ? 'zero' : (n >= 50 && n <= 20000 ? 'ok' : 'warn'));
   // The denominator shown in the tooltip mirrors the denom used for pct
   // above (rail total if filtered, dataset total if not).  Previous line
   // referenced an undefined `total` — crashed as pageerror each time a
@@ -494,7 +565,18 @@ function rulesPaintCount(rule) {
 }
 
 function rulesRefreshAllCounts() {
+  _rulesEnsureRailDenom();
   for (const r of (state.rules.rules || [])) rulesScheduleCount(r);
+}
+
+/* Rail-scope refresh, called from refreshCurrentView() when the Labels tab
+   is the live view. Deliberately NOT renderRules(): a full re-render blows
+   away a term input the user is mid-way through typing. Only the note that
+   describes the count scope and the counts themselves are stale. */
+function refreshRulesScope() {
+  const el = $('#rulesScopeNote');
+  if (el) el.innerHTML = _rulesScopeNoteHtml();
+  rulesRefreshAllCounts();
 }
 
 /* ------------- Apply rule as global filter -------------
@@ -507,7 +589,10 @@ function rulesRefreshAllCounts() {
    half-applied filter (FIG.* refresh, but rail stays at 100% of dataset). */
 function _applyRuleAsActiveFilter(rule, compiled) {
   state.filters.kw = compiled;
-  state.filters.activeLabel = { id: rule.id, name: rule.name || 'unnamed rule' };
+  /* `query` is the attribution proof: any later path that overwrites kw
+     without clearing this tag (⌘K palette, drawer-list keyword links) makes
+     activeLabelIfLive() stop claiming the label — see dashboard-helpers.js. */
+  state.filters.activeLabel = { id: rule.id, name: rule.name || 'unnamed rule', query: compiled };
   const inp = $('#kwInput');
   if (inp) {
     inp.value = compiled;
@@ -655,27 +740,40 @@ async function rulesExportCsv() {
   }
   if (!perRule) { toast('Coverage failed — can\'t export', true, 3000); return; }
 
-  // Build id → Set<ruleName>
+  // Build id → Set<ruleId>. Keyed by id, not name: rule names are free text
+  // with no uniqueness check (the default is literally 'New rule'), so two
+  // same-named rules used to collapse into one membership value and every
+  // record matching either was exported as matching both.
   const assign = new Map();
   for (const rule of rules) {
     const set = perRule[rule.id] || new Set();
     for (const id of set) {
       if (!assign.has(id)) assign.set(id, new Set());
-      assign.get(id).add(rule.name);
+      assign.get(id).add(rule.id);
     }
   }
   if (!assign.size) { toast('No records match any rule', true, 2500); return; }
 
+  // Column titles: duplicate names get a numeric suffix so the analyst can
+  // tell two identically named rules apart in the exported matrix.
+  const nameSeen = new Map();
+  const colNames = rules.map(r => {
+    const base = r.name || 'Untitled rule';
+    const nth = (nameSeen.get(base) || 0) + 1;
+    nameSeen.set(base, nth);
+    return nth === 1 ? base : `${base} (${nth})`;
+  });
+
   // CSV — one row per record, one column per rule + a joined "labels" column
-  const header = ['AnnotationId', 'labels', ...rules.map(r => r.name)];
+  const header = ['AnnotationId', 'labels', ...colNames];
   const escape = (s) => {
     const str = String(s ?? '');
     return /[",\n\r]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
   };
   const lines = [header.map(escape).join(',')];
-  for (const [id, ruleSet] of assign) {
-    const joined = Array.from(ruleSet).join('; ');
-    const cols = rules.map(r => ruleSet.has(r.name) ? '1' : '0');
+  for (const [id, ruleIds] of assign) {
+    const cols = rules.map(r => ruleIds.has(r.id) ? '1' : '0');
+    const joined = colNames.filter((_, i) => cols[i] === '1').join('; ');
     lines.push([id, joined, ...cols].map(escape).join(','));
   }
   const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -689,7 +787,49 @@ async function rulesExportCsv() {
 }
 
 /* ------------- Main render ------------- */
+/* Re-evaluated on every rail change by refreshRulesScope(), so it reads
+   state.filters live rather than taking a snapshot from renderRules(). */
+function _rulesScopeNoteHtml() {
+  return _railIsEmpty(state.filters)
+    ? 'Dataset-wide (no rail filter active)'
+    : `Counts scoped to current rail filter · <a href="#" data-nav="search" style="color:var(--accent)">clear rail</a>`;
+}
+
+/* View entry point (called from navigate('labels')). The render below builds
+   the whole tab in one template literal, so anything that throws mid-string
+   leaves root.innerHTML unassigned — a permanently blank #view-labels whose
+   set selector, the only in-app way off a bad set, is itself part of the
+   markup that never rendered (C-08). Degrade to a card that offers that
+   escape instead of leaving the tab dead. */
 function renderRules() {
+  try {
+    _renderRulesInner();
+  } catch (err) {
+    console.error('[rules] render failed:', err);
+    const root = $('#view-labels');
+    if (!root) return;
+    root.innerHTML = `
+      <div class="rules-wrap">
+        <div class="rules-empty">
+          <h2>This rule set couldn't be opened</h2>
+          <p>It contains a rule the workspace can't read: <code>${sanitize(String((err && err.message) || err))}</code>.</p>
+          <p class="dim">A hand-edited JSON import is the usual cause — check that every rule's MUST / AND / NOT is a list, not a bare string.</p>
+          <button class="add-first" id="rulesRecoverNew">Start a new set</button>
+        </div>
+      </div>`;
+    $('#rulesRecoverNew')?.addEventListener('click', () => {
+      state.rules.active = null;
+      state.rules.rules = [];
+      state.rules.counts = {};
+      state.rules.coverage = null;
+      try { localStorage.removeItem(RULES_ACTIVE_KEY); } catch {}
+      renderRules();
+    });
+    toast('Labels: that rule set is malformed — see the tab for how to recover.', true, 5000);
+  }
+}
+
+function _renderRulesInner() {
   const root = $('#view-labels');
   if (!root) return;
 
@@ -707,9 +847,6 @@ function renderRules() {
   const rules = state.rules.rules || [];
   const hasRules = rules.length > 0;
   const activeSet = sets.find(s => s.id === state.rules.active);
-
-  // Compute rail-scope hint
-  const railActive = !_railIsEmpty(state.filters);
 
   root.innerHTML = `
     <div class="rules-wrap">
@@ -769,7 +906,7 @@ function renderRules() {
           </label>
           <button id="rulesNewSet" title="Start a fresh rule set">+ New set</button>
           <button id="rulesImportJson" title="Import rules from a JSON file">⬆ Import</button>
-          ${railActive ? `<span class="rules-scope-note">Counts scoped to current rail filter · <a href="#" data-nav="search" style="color:var(--accent)">clear rail</a></span>` : `<span class="rules-scope-note">Dataset-wide (no rail filter active)</span>`}
+          <span class="rules-scope-note" id="rulesScopeNote">${_rulesScopeNoteHtml()}</span>
         </div>
 
         <div class="rules-cards" id="rulesCards">
@@ -797,7 +934,7 @@ function renderRuleCard(rule) {
   const validation = validateRule(rule);
   const errMsg = validation.ok ? '' : validation.error;
   const useRaw = !!(rule.rawQuery && rule.rawQuery.trim());
-  const isActiveFilter = state.filters?.activeLabel?.id === rule.id;
+  const isActiveFilter = activeLabelIfLive()?.id === rule.id;
   return `
     <div class="rule-card ${errMsg ? 'invalid' : ''} ${state.rules._peekOpen[rule.id] ? 'has-peek' : ''} ${isActiveFilter ? 'is-active-filter' : ''}" data-rule-id="${sanitize(rule.id)}">
       <div class="rule-head">
@@ -837,7 +974,7 @@ function renderRuleCard(rule) {
 }
 
 function renderRuleRow(rule, bucket, label, placeholder, color) {
-  const terms = rule[bucket] || [];
+  const terms = Array.isArray(rule[bucket]) ? rule[bucket] : [];   // C-08: see compileRule's clean()
   return `
     <div class="rule-row r-${bucket}">
       <div class="lbl" style="${color ? `color:${color}` : ''}">${label}</div>
@@ -878,6 +1015,7 @@ function rulesBindEvents() {
     state.rules.rules = JSON.parse(JSON.stringify(t.rules)).map(r => ({ ...r, id: ruleGenId() }));
     state.rules.active = null;     // force save-as flow
     state.rules.counts = {};
+    state.rules.coverage = null;   // fresh rule ids — the old coverage describes nothing here
     renderRules();
   }));
   $('#rulesAddFirst')?.addEventListener('click', () => {
@@ -914,17 +1052,22 @@ function rulesBindEvents() {
         // Accept either a single RuleSet or an array of them
         const incoming = Array.isArray(data) ? data : [data];
         const existing = rulesLoadSets();
+        let imported = 0;
         for (const s of incoming) {
-          if (!s || !Array.isArray(s.rules)) continue;
+          const norm = rulesNormalizeImportedSet(s);
+          if (!norm) continue;
           existing.unshift({
-            ...s,
+            ...norm,
             id: rulesGenId(),
             saved_at: Date.now(),
             version: RULES_SCHEMA_VERSION,
           });
+          imported++;
         }
         rulesSaveSets(existing);
-        toast(`Imported ${incoming.length} set${incoming.length === 1 ? '' : 's'}.`, false, 2400);
+        const skipped = incoming.length - imported;
+        toast(`Imported ${imported} set${imported === 1 ? '' : 's'}.` +
+              (skipped ? ` ${skipped} skipped — no rules array.` : ''), !imported, 2400);
         renderRules();
       } catch (e) {
         toast('Import failed — invalid JSON', true, 3000);
@@ -1049,6 +1192,7 @@ function rulesBindEvents() {
       let t = null;
       rawEl.addEventListener('input', () => {
         rule.rawQuery = rawEl.value;
+        _rulesInvalidateCoverage();   // same contract as the chip editors
         clearTimeout(t);
         t = setTimeout(() => rulesScheduleCount(rule), 200);
       });

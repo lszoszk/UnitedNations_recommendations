@@ -148,6 +148,12 @@ const state = {
 window.__state = state;
 
 /* ---------- API CLIENT ---------- */
+/* Country name the server cannot possibly hold, sent as `countries=` when a
+   geographic filter is active but resolves to no country at all. It makes
+   the query answer 0 records, which is what the filter means — see
+   buildParams() below. */
+const NO_MATCHING_COUNTRY = '__no_matching_country__';
+
 function buildParams(f) {
   const p = new URLSearchParams();
   if (f.kw && f.kw.trim()) p.set('text_query', f.kw.trim());
@@ -164,6 +170,17 @@ function buildParams(f) {
      flag is set by the rail toggle (see dashboard-rail.js). */
   const tax = (typeof state !== 'undefined' && state.regionTaxonomy) || 'm49';
   let effectiveCountries = f.country && f.country.size ? new Set(f.country) : null;
+  /* An active region filter that resolves to no country means "nothing
+     matches" — never "no geographic filter". Both branches below can reach
+     that state: an M49 expansion that is disjoint from the picked countries
+     (Country=Poland ∩ Region=Africa) or that only holds unknown region keys
+     (a stale `#region=GRULAC` link), and an unGroups selection of nothing
+     but blank strings (a malformed `#region=,,` hash). Left unflagged, the
+     `.size` guard below dropped BOTH the region and the user's explicit
+     country selection and the query ran against the whole corpus while the
+     rail still displayed the chips. Send the impossible-match sentinel
+     instead, so the answer is 0 records. */
+  let noGeoMatch = false;
   if (f.region && f.region.size) {
     if (tax === 'm49' && typeof expandM49RegionsToCountries === 'function') {
       const regionCountries = expandM49RegionsToCountries(f.region);
@@ -171,13 +188,20 @@ function buildParams(f) {
         effectiveCountries = effectiveCountries
           ? new Set([...effectiveCountries].filter(c => regionCountries.has(c)))
           : regionCountries;
+        if (!effectiveCountries.size) noGeoMatch = true;
       }
     } else {
-      // unGroups — pass through to server native `regions` param.
-      p.set('regions', Array.from(f.region).join(','));
+      /* unGroups — pass through to server native `regions` param. An empty
+         `regions=` reads as "no region filter" server-side, so blanks are
+         dropped and an all-blank selection falls to the sentinel. */
+      const regions = Array.from(f.region).filter(r => String(r).trim());
+      if (regions.length) p.set('regions', regions.join(','));
+      else noGeoMatch = true;
     }
   }
-  if (effectiveCountries && effectiveCountries.size) {
+  if (noGeoMatch) {
+    p.set('countries', NO_MATCHING_COUNTRY);
+  } else if (effectiveCountries && effectiveCountries.size) {
     p.set('countries', Array.from(effectiveCountries).join(','));
   }
   if (f.body && f.body.size) p.set('bodies', Array.from(f.body).join(','));
@@ -313,7 +337,22 @@ async function apiGet(path, params, opts = {}) {
       return hit;
     }
     const pending = pendingPromises.get(key);
-    if (pending) return pending.promise;
+    if (pending) {
+      // De-duplicating still has to CLAIM the scope. Returning the pending
+      // promise without superseding left the scope's previous request alive,
+      // and its late response repainted the newer view (audit 2026-07-28
+      // J1-01 — e.g. a hover-preload of Germany makes the Germany profile a
+      // de-dup hit, so the Poland request it replaced was never aborted and
+      // painted Poland's numbers into Germany's panels). Same abort as the
+      // memCache branch above; registering `inflight` makes this awaiter
+      // supersedable in turn.
+      if (inflight[scope] && inflight[scope].key !== key) {
+        try { inflight[scope].ctrl.abort(); } catch {}
+        pendingPromises.delete(inflight[scope].key);
+      }
+      inflight[scope] = { ctrl: pending.ctrl, key };
+      return pending.promise;
+    }
   }
 
   if (inflight[scope] && inflight[scope].key !== key) {
@@ -339,7 +378,13 @@ async function apiGet(path, params, opts = {}) {
       memSet(key, data);
       return data;
     } finally {
-      if (inflight[scope]?.ctrl === ctrl) delete inflight[scope];
+      // Every scope this request claimed, not just the one it was created
+      // under: the de-dup branch above registers the SAME controller under a
+      // second scope, and an entry left behind after settling would later
+      // evict a live pendingPromises entry that reused its key.
+      for (const s of Object.keys(inflight)) {
+        if (inflight[s].ctrl === ctrl) delete inflight[s];
+      }
       pendingPromises.delete(key);
     }
   })();
@@ -467,12 +512,24 @@ function _railIsEmpty(filter) {
 function _loadProfile(entityType, entityValue, scopeOverride) {
   const filter = _scopedFilter(scopeOverride || {});
   const railEmpty = _railIsEmpty();
+  /* Which of the three sections a caller must treat as missing. paint() in
+     dashboard-profiles.js renders the sections that arrived and marks these
+     as unavailable — see the `fresh` combiner below for why it is not enough
+     to hand back nulls and hope (J1-03 / B-03). */
+  const _failedSections = (analytics, mapD, count) =>
+    [['analytics', analytics], ['map', mapD], ['count', count]]
+      .filter(([, v]) => !v).map(([k]) => k);
+
   const norm = d => {
     if (!d) return null;
     // The bundled endpoint ships the sample rows inline, so when it is alive
     // there is nothing left to fetch lazily.
     const rec = d.records_sample || d.records || null;
-    return { analytics: d.analytics, mapD: d.map, count: rec, samples: (rec && rec.records) || null };
+    return {
+      analytics: d.analytics, mapD: d.map, count: rec,
+      samples: (rec && rec.records) || null,
+      failed: _failedSections(d.analytics, d.map, rec),
+    };
   };
 
   const loadSplitProfile = () => {
@@ -492,20 +549,31 @@ function _loadProfile(entityType, entityValue, scopeOverride) {
        _mountProfileSamples in dashboard-profiles.js. */
     const ctScope = `count:${entityType}:${entityValue}`;
     const ctSwr = swr(ctScope, filter, () => api.recordsCount(filter, { scope: ctScope }));
-    const combine = (analytics, mapD, count) => ({ analytics, mapD, count, samples: null });
+    const combine = (analytics, mapD, count) =>
+      ({ analytics, mapD, count, samples: null, failed: _failedSections(analytics, mapD, count) });
     return {
       filter,
       stale: (anSwr.stale && mpSwr.stale && ctSwr.stale) ? combine(anSwr.stale, mpSwr.stale, ctSwr.stale) : null,
       // allSettled, not all: one section 5xx-ing shouldn't blank the whole
-      // profile (the renderers already tolerate missing sections). Still reject
-      // on supersession (AbortError) so we don't paint stale partial data, and
-      // on total failure so the error path shows.
+      // profile. The claim this comment used to make — "the renderers already
+      // tolerate missing sections" — was false: every paint() bailed at
+      // `if (!analytics || !mapD || !count) return`, so one failed leg froze
+      // the profile on its "Loading…" placeholders with no toast and no error
+      // (J1-03 / B-03). The renderers now paint what arrived and mark the rest
+      // unavailable, using `failed`. Still reject on supersession (AbortError)
+      // so we don't paint stale partial data, and on total failure so the
+      // error path shows.
       fresh: Promise.allSettled([anSwr.fresh, mpSwr.fresh, ctSwr.fresh]).then((res) => {
         const aborted = res.find(x => x.status === 'rejected' && x.reason && x.reason.name === 'AbortError');
         if (aborted) throw aborted.reason;
         if (res.every(x => x.status === 'rejected')) throw res[0].reason;
         const val = x => x.status === 'fulfilled' ? x.value : null;
-        return combine(val(res[0]), val(res[1]), val(res[2]));
+        const out = combine(val(res[0]), val(res[1]), val(res[2]));
+        if (out.failed.length) {
+          console.warn('[profile] sections unavailable:', out.failed.join(', '),
+            res.filter(x => x.status === 'rejected').map(x => x.reason));
+        }
+        return out;
       }),
     };
   };

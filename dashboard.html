@@ -712,6 +712,19 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .panel.pending .rl-row .v,.panel.pending .tl-svg,.panel.pending .sk-spark{opacity:.35;transition:opacity .2s}
 .panel.pending::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:refreshSlide 1.4s infinite;pointer-events:none;z-index:11}
 
+/* Per-panel STALE indicator — the refresh for the current filter failed and
+   what is on screen belongs to the PREVIOUS one. Deliberately static (no
+   pulse) and red: `pending` says "wait", this says "do not cite this". */
+.panel.stale-failed{position:relative}
+.panel.stale-failed::after{content:"stale — failed to update for current filter";position:absolute;top:10px;right:12px;font:9px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:#b91c1c;padding:2px 7px;background:var(--paper);border:1px solid #b91c1c;z-index:10;white-space:nowrap}
+.panel.stale-failed::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:#b91c1c;pointer-events:none;z-index:11}
+.panel.stale-failed .rl-row .v,.panel.stale-failed .tl-svg,.panel.stale-failed .sk-spark{opacity:.45}
+/* Per-panel UNAVAILABLE state — this section's request failed and there is
+   nothing to show. Reuses .panel-loading's box but kills its animated dots
+   so it can't be mistaken for "still loading". */
+.panel-loading.is-unavailable{color:#b91c1c}
+.panel-loading.is-unavailable::after{content:none}
+
 /* Overview — vertical stack: map full-width, then timeline, then lists.
    Drawer always open and wider (460px) so previewed records are always
    within reach. Everything below the map scrolls naturally. */
@@ -1112,6 +1125,11 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .cp-stale-badge{display:inline-block;margin-left:10px;padding:1px 8px;background:var(--paper-2);border:1px solid var(--line);font:9px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;vertical-align:middle}
 .cp-stale-badge::before{content:"↻ ";display:inline-block;animation:spinSlow 1.6s linear infinite}
 @keyframes spinSlow{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+/* Same badge slot, opposite meaning: `stale` = refreshing, `failed` = part of
+   this profile never arrived and the panels below say which. */
+.cp-failed-badge{color:#b91c1c;border-color:#b91c1c}
+.cp-failed-badge::before{content:"! ";animation:none}
+.cp-na{color:#b91c1c;font-size:18px}
 .view.stale .cp-body .panel{opacity:.88;transition:opacity .25s}
 .cp-rail-note{margin-top:10px;padding:8px 12px;background:color-mix(in oklab, var(--accent) 10%, var(--paper));border-left:2px solid var(--accent);font:11px var(--mono);color:var(--ink-2);display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cp-rail-note .lbl{color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
@@ -3323,7 +3341,8 @@ async function renderOverview(opts = {}) {
   // while map + top countries update from the fast ~1s map endpoint)
   if (opts.keepPrevious) {
     ['.p-top-themes', '.p-time', '.p-sankey'].forEach(sel => {
-      const el = root.querySelector(sel); if (el) el.classList.add('pending');
+      const el = root.querySelector(sel);
+      if (el) { el.classList.add('pending'); el.classList.remove('stale-failed'); }
     });
   }
 
@@ -3341,11 +3360,23 @@ async function renderOverview(opts = {}) {
     renderOverviewAnalytics(d);
     // Clear pending state on the themes/groups/timeline panels
     ['.p-top-themes', '.p-time', '.p-sankey'].forEach(sel => {
-      const el = root.querySelector(sel); if (el) el.classList.remove('pending');
+      const el = root.querySelector(sel);
+      if (el) el.classList.remove('pending', 'stale-failed');
     });
     return d;
   }).catch(err => {
-    if (err.name !== 'AbortError') console.warn('analytics failed', err);
+    if (err.name === 'AbortError') return null;
+    console.warn('analytics failed', err);
+    /* A-03: `pending` used to stay on forever and state.analytics kept the
+       PREVIOUS filter's object, so the last filter's themes / groups /
+       timeline sat under a pulsing "recomputing…" badge as if they were the
+       current ones — and the DOM-scraping CSV export copied them verbatim.
+       Swap the badge for the static red "stale" marker and say it out loud. */
+    ['.p-top-themes', '.p-time', '.p-sankey'].forEach(sel => {
+      const el = root.querySelector(sel);
+      if (el) { el.classList.remove('pending'); el.classList.add('stale-failed'); }
+    });
+    toast('Analytics didn\'t update (' + err.message + ') — themes, groups and timeline still show the previous filter.', true, 7000);
     return null;
   });
 
@@ -4150,9 +4181,14 @@ async function boot() {
     return;
   }
 
+  /* _restoreUrlState() has run, so from here on we know whether this load
+     is a filtered deep link. The cached and baseline analytics slices are
+     both UNFILTERED — painting either into a filtered Overview is A-01. */
+  const deepLinkFiltered = hasActiveFilters();
+
   // If we have cached analytics, render them right away
   if (cachedAnalytics) {
-    renderOverviewAnalytics(cachedAnalytics);
+    if (!deepLinkFiltered) renderOverviewAnalytics(cachedAnalytics);
     if (!state.focusTheme) state.focusTheme = (cachedAnalytics.themes?.theme_counts||[])[0]?.theme || null;
     if (state.focusTheme) $('#tabTheme').textContent = state.focusTheme;
   }
@@ -4163,6 +4199,14 @@ async function boot() {
   // Navigate to the current view (restored from URL or 'overview')
   if (state.view && state.view !== 'overview') {
     await navigate(state.view);
+  } else if (deepLinkFiltered) {
+    /* Overview carries no `view` in the hash, so a shared `#country=Poland`
+       link lands here with the Overview section already visible — painted
+       by Phase 1 from api.map({}) and the unfiltered cache. Without this
+       branch nothing ever re-renders it, and the chips + hit count (which
+       DO apply the filter) contradict the charts beside them. keepPrevious
+       marks the analytics panels `pending` while they recompute. */
+    await renderOverview({ keepPrevious: true });
   }
 
   // Re-apply URL state on hash-only changes (browser back/forward, or any
@@ -4175,13 +4219,24 @@ async function boot() {
 
   // Phase 2: slow analytics in background — user can already interact
   try {
-    const analytics = await api.analytics({});
-    state.analytics = analytics;
+    /* Own request scope: this baseline is not the current view's slice, so
+       a user filter action inside the ~10s window must not abort it through
+       apiGet's per-scope race guard. That abort used to surface as a red
+       "Analytics didn't load" toast and skip buildRail() below, leaving the
+       rail's Theme and Group facets empty for the whole session (A-04). */
+    const analytics = await api.analytics({}, { scope: 'analytics:baseline' });
     state.baselineAnalytics = analytics;
     cacheSet('analytics:baseline', analytics);
 
-    // Re-render analytics panels in overview
-    if (state.view === 'overview') renderOverviewAnalytics(analytics);
+    /* The baseline is UNFILTERED. It stays the source for picker option
+       counts (buildRail below, state.baselineAnalytics) but must not become
+       the current slice or repaint the panels when a filter is active —
+       the filtered render above already owns them (A-01). */
+    if (!hasActiveFilters()) {
+      state.analytics = analytics;
+      // Re-render analytics panels in overview
+      if (state.view === 'overview') renderOverviewAnalytics(analytics);
+    }
 
     // Refresh year histogram with real data
     if (typeof window._syncYearHistogram === 'function') window._syncYearHistogram();
@@ -4221,9 +4276,17 @@ async function boot() {
 
     progressBar(100, 'READY');
   } catch (err) {
-    console.warn('Analytics failed', err);
-    progressBar(100, 'ANALYTICS OFFLINE');
-    toast('Analytics didn\'t load (' + err.message + '). Map + rail still work.', true, 6000);
+    /* A superseded request is not a failure — never toast an abort (A-04).
+       With the private scope above this should no longer be reachable from
+       a user filter action; the guard matches renderOverview's (3335/3348)
+       and covers any other caller that aborts us. */
+    if (err.name === 'AbortError') {
+      progressBar(100, 'READY');
+    } else {
+      console.warn('Analytics failed', err);
+      progressBar(100, 'ANALYTICS OFFLINE');
+      toast('Analytics didn\'t load (' + err.message + '). Map + rail still work.', true, 6000);
+    }
   }
 
   state.bootstrapDone = true;

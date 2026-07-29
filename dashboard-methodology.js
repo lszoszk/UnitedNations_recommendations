@@ -11,12 +11,24 @@ async function renderFreshnessCard() {
   const card = document.getElementById('freshness-card');
   if (!card) return;
   try {
-    const [status, health] = await Promise.all([
-      fetch(API_BASE + '/refresh_status.json', { cache: 'no-store' })
-        .then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(API_BASE + '/api/data/health', { cache: 'no-store' })
-        .then(r => r.ok ? r.json() : null).catch(() => null),
+    /* J2-02: both legs used to collapse every failure into `null`, which the
+       render below then read as "the pipeline has never run" — the card
+       stated "never run" / "unknown" as fact while the truth was that the
+       check itself never completed. This is the one place in the product
+       that answers "how current is this data?", so a failed check must not
+       be reported as a dated answer. Failures now carry a sentinel and the
+       card renders "couldn't check" for the leg that failed. */
+    const leg = (url) => fetch(url, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { __err: 'HTTP ' + r.status })
+      .catch(e => ({ __err: String((e && e.message) || e) }));
+    const [statusRes, healthRes] = await Promise.all([
+      leg(API_BASE + '/refresh_status.json'),
+      leg(API_BASE + '/api/data/health'),
     ]);
+    const statusErr = statusRes && statusRes.__err;
+    const healthErr = healthRes && healthRes.__err;
+    const status = statusErr ? null : statusRes;
+    const health = healthErr ? null : healthRes;
 
     const stages = (status && status.stages) || {};
     const fail = Number((status && status.fail_count) || 0);
@@ -30,8 +42,10 @@ async function renderFreshnessCard() {
     const nextStr = next.toISOString().slice(0, 10);
 
     let kind = 'is-ok', banner = '✓ healthy';
-    if (!finished) { kind = 'is-warn'; banner = '◷ no refresh yet'; }
+    if (statusErr) { kind = 'is-fail'; banner = '✗ status check failed'; }
+    else if (!finished) { kind = 'is-warn'; banner = '◷ no refresh yet'; }
     else if (fail > 0) { kind = 'is-fail'; banner = `✗ ${fail} stage failure${fail > 1 ? 's' : ''}`; }
+    else if (healthErr) { kind = 'is-warn'; banner = '◷ partial — dataset date unavailable'; }
 
     const fmtDays = (isoDate) => {
       if (!isoDate) return '—';
@@ -66,11 +80,11 @@ async function renderFreshnessCard() {
       <h3>Monthly refresh status · <span style="color:var(--ink)">${banner}</span></h3>
       <div class="row">
         <span class="lbl">Last refresh</span>
-        <span class="val">${finished ? new Date(finished).toISOString().slice(0, 16).replace('T', ' ') + ' UTC · ' + fmtDays(finished) : 'never run'}</span>
+        <span class="val">${statusErr ? `couldn't check — ${sanitize(statusErr)}` : finished ? new Date(finished).toISOString().slice(0, 16).replace('T', ' ') + ' UTC · ' + fmtDays(finished) : 'never run'}</span>
       </div>
       <div class="row">
         <span class="lbl">Dataset file modified</span>
-        <span class="val">${dsMod ? new Date(dsMod).toISOString().slice(0, 10) + ' · ' + fmtDays(dsMod) : 'unknown'}</span>
+        <span class="val">${healthErr ? `couldn't check — ${sanitize(healthErr)}` : dsMod ? new Date(dsMod).toISOString().slice(0, 10) + ' · ' + fmtDays(dsMod) : 'unknown'}</span>
       </div>
       <div class="row">
         <span class="lbl">Next scheduled</span>

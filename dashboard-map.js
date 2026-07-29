@@ -133,8 +133,15 @@ async function renderChoroplethMap(container, countryCounts) {
   try {
     libs = await loadMapLibs();
   } catch (err) {
-    console.warn('Choropleth libs failed, falling back to grid', err);
-    return renderGridMap(container, countryCounts);  // graceful fallback
+    /* D-02: this used to fall back to renderGridMap, whose MAP_LAYOUT covers
+       126 of the 199 states in HEX_LAYOUT — every missing country's counts
+       were dropped and its cell rendered indistinguishable from ocean, with
+       no indicator. Hex is the fallback this module's header documents and
+       the only layout that shows all 199. Clearing the memoized rejection
+       lets a later render retry the CDN once connectivity returns. */
+    console.warn('Choropleth libs failed, falling back to hex', err);
+    _mapLibsPromise = null;
+    return renderHexMap(container, countryCounts);  // graceful fallback
   }
   const { d3geo, topojson, world } = libs;
 
@@ -741,10 +748,13 @@ function getM49RegionCountries() {
   return _m49ByRegion;
 }
 /* Expand a region filter Set (from state.filters.region) to the union of
-   country names it represents under M49.  Unknown region keys are skipped,
-   so a stale server-side region ("GRULAC") from a saved view is ignored
-   rather than breaking the filter.  Returns null if the region filter is
-   empty (meaning: don't constrain by region at all). */
+   country names it represents under M49.  Unknown region keys contribute
+   nothing, so a stale server-side region ("GRULAC") from a saved view
+   yields an EMPTY Set — a constraint nothing can satisfy, not an absent
+   one.  Callers must keep the two apart: null means "no region filter at
+   all" (returned only for an empty region Set), an empty Set means "region
+   filter active, zero countries match" (see buildParams in
+   dashboard-data.js, which sends the impossible-match sentinel for it). */
 function expandM49RegionsToCountries(regionSet) {
   if (!regionSet || !regionSet.size) return null;
   const buckets = getM49RegionCountries();
@@ -765,29 +775,8 @@ function renderHexMap(container, countryCounts) {
     const iso = nameToIso[name];
     if (iso) byIso[iso] = (byIso[iso] || 0) + c.count;
   });
-  /* If the rail has a region filter active, the API returns records that
-     match the filter — but the country_counts aggregation on those records
-     includes every country listed on the record, not just the ones in the
-     filtered region.  A record "USA + Fiji" being pulled in by a rail
-     region=Oceania filter (because Fiji is Oceania) would otherwise light
-     up USA on the world map.  Drop non-region counts after aggregation
-     so the map only colours countries that actually belong to the filtered
-     region(s).  Only applies when the active taxonomy is M49 — the Treaty
-     Body electoral groups have country lists too but we'd need a different
-     lookup to derive them; for now 'unGroups' accepts the cross-listing
-     bleed as a known limitation. */
-  const activeTax = (typeof state !== 'undefined' && state.regionTaxonomy) || 'm49';
-  if (activeTax === 'm49' && state.filters?.region?.size
-      && typeof expandM49RegionsToCountries === 'function') {
-    const allowed = expandM49RegionsToCountries(state.filters.region);
-    if (allowed && allowed.size) {
-      const allowedIsos = new Set();
-      allowed.forEach(n => { const i = nameToIso[n]; if (i) allowedIsos.add(i); });
-      Object.keys(byIso).forEach(iso => {
-        if (!allowedIsos.has(iso)) delete byIso[iso];
-      });
-    }
-  }
+  /* The region-filter prune that used to live here now runs once for every
+     mode in renderMap — see pruneCountsToRegionFilter. */
   const MAX = Math.max(1, ...Object.values(byIso));
   const region = state.hexRegion || 'world';
 
@@ -1111,7 +1100,44 @@ function setMapMode(m) {
   try { localStorage.setItem('uhri_v2_map_mode', m); } catch {}
 }
 
+/* If the rail has a region filter active, the API returns records that match
+   the filter — but the country_counts aggregation on those records includes
+   every country listed on the record, not just the ones in the filtered
+   region. A record "USA + Fiji" pulled in by a rail region=Oceania filter
+   (because Fiji is Oceania) would otherwise light up the USA. Drop the
+   non-region rows so the map only colours and narrates countries that
+   actually belong to the filtered region(s).
+
+   This lived inside renderHexMap, so the two renderings of FIG.01 disagreed
+   over the same data: hex greyed the USA out while the DEFAULT choropleth
+   still shaded it, and the screen-reader text alternative — which runs in
+   both modes — listed the very countries the visible hex map had pruned.
+   Pruning once, here, keeps all four surfaces on one set.
+
+   Only applies when the active taxonomy is M49 — the Treaty Body electoral
+   groups have country lists too but we'd need a different lookup to derive
+   them; for now 'unGroups' accepts the cross-listing bleed as a known
+   limitation. Rows whose name resolves to no ISO are dropped as well: the
+   region filter is expressed in HEX_LAYOUT names, which all resolve, so an
+   unresolvable name is by construction a co-listed country from outside. */
+function pruneCountsToRegionFilter(countryCounts) {
+  const rows = countryCounts || [];
+  const activeTax = (typeof state !== 'undefined' && state.regionTaxonomy) || 'm49';
+  if (activeTax !== 'm49' || !state.filters?.region?.size
+      || typeof expandM49RegionsToCountries !== 'function') return rows;
+  const allowed = expandM49RegionsToCountries(state.filters.region);
+  if (!allowed || !allowed.size) return rows;
+  const nameToIso = getHexNameToIso();
+  const allowedIsos = new Set();
+  allowed.forEach(n => { const i = nameToIso[n]; if (i) allowedIsos.add(i); });
+  return rows.filter(c => {
+    const iso = nameToIso[cleanCountryName(c.country)];
+    return !!iso && allowedIsos.has(iso);
+  });
+}
+
 function renderMap(container, countryCounts) {
+  countryCounts = pruneCountsToRegionFilter(countryCounts);
   state._lastCountryCounts = countryCounts;
   // Migrate old localStorage value
   let mode = getMapMode();
