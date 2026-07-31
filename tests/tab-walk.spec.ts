@@ -84,7 +84,7 @@ test('landing — index.html boots without JS errors', async ({ page }) => {
   expect(errors, `JS errors on landing page:\n${errors.join('\n')}`).toEqual([]);
 });
 
-test('density control defaults to Cozy and changes visible spacing', async ({ page }) => {
+test('density control defaults to Cozy and changes visible spacing', async ({ page, isMobile }) => {
   const errors = collectConsoleErrors(page);
   await page.addInitScript(() => localStorage.removeItem('uhri_v2_tw'));
   await page.goto('/dashboard.html', { waitUntil: 'commit' });
@@ -133,7 +133,11 @@ test('density control defaults to Cozy and changes visible spacing', async ({ pa
   expect(metrics.cozy.panelPadTop).toBeGreaterThan(metrics.tight.panelPadTop);
   expect(metrics.roomy.panelPadTop).toBeGreaterThan(metrics.cozy.panelPadTop);
   expect(metrics.roomy.tilePadTop).toBeGreaterThan(metrics.tight.tilePadTop);
-  expect(metrics.cozy.optionHeight).toBeGreaterThan(metrics.tight.optionHeight);
+  /* Facet rows are the one metric density cannot move on a phone:
+     dashboard.html:2014 pins `.opt` to a 44px min-height for touch targets,
+     which is deliberate and outranks the density variable. The other five
+     metrics below still respond, and are asserted on every viewport. */
+  if (!isMobile) expect(metrics.cozy.optionHeight).toBeGreaterThan(metrics.tight.optionHeight);
   expect(metrics.roomy.rowHeight).toBeGreaterThan(metrics.cozy.rowHeight);
   expect(metrics.roomy.searchPadTop).toBeGreaterThan(metrics.tight.searchPadTop);
   expect(errors, `JS errors during density flow:\n${errors.join('\n')}`).toEqual([]);
@@ -309,7 +313,7 @@ test('overview mechanism tiles toggle family filters and active chips', async ({
   expect(errors).toEqual([]);
 });
 
-test('search result opens in resizable drawer without modal reader', async ({ page }) => {
+test('search result opens in resizable drawer without modal reader', async ({ page, isMobile }) => {
   const errors = collectConsoleErrors(page);
   const sampleRecord = {
     AnnotationId: 'search-drawer-0001',
@@ -382,15 +386,22 @@ test('search result opens in resizable drawer without modal reader', async ({ pa
   await expect(firstRow).toHaveClass(/\bis-open\b/);
   await expect(page.locator('#reader:not(.hidden)')).toHaveCount(0);
 
-  const before = await page.locator('#drawer').evaluate(el => el.getBoundingClientRect().width);
-  const handleBox = await page.locator('#drawerResizeHandle').boundingBox();
-  expect(handleBox, 'drawer resize handle should have a box').not.toBeNull();
-  await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + 80);
-  await page.mouse.down();
-  await page.mouse.move(handleBox!.x - 90, handleBox!.y + 80, { steps: 5 });
-  await page.mouse.up();
-  const after = await page.locator('#drawer').evaluate(el => el.getBoundingClientRect().width);
-  expect(after, 'dragging the left handle left should widen the drawer').toBeGreaterThan(before + 40);
+  /* Drag-resize is desktop-only by design: under 720px the drawer becomes a
+     fixed `min(340px,90vw)` overlay and dashboard.html:1954 hides the handle
+     outright, so there is nothing to drag. Everything above this point —
+     drawer opens, note field, row marked open, no modal reader — is the part
+     that matters on a phone, and still runs there. */
+  if (!isMobile) {
+    const before = await page.locator('#drawer').evaluate(el => el.getBoundingClientRect().width);
+    const handleBox = await page.locator('#drawerResizeHandle').boundingBox();
+    expect(handleBox, 'drawer resize handle should have a box').not.toBeNull();
+    await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + 80);
+    await page.mouse.down();
+    await page.mouse.move(handleBox!.x - 90, handleBox!.y + 80, { steps: 5 });
+    await page.mouse.up();
+    const after = await page.locator('#drawer').evaluate(el => el.getBoundingClientRect().width);
+    expect(after, 'dragging the left handle left should widen the drawer').toBeGreaterThan(before + 40);
+  }
 
   await page.locator('#drawerClear').click();
   await expect(page.locator('#app')).toHaveClass(/\bdrawer-closed\b/);

@@ -37,6 +37,19 @@ export default defineConfig({
     baseURL: 'http://localhost:8787',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    /* sw.js calls skipWaiting() + clients.claim(), so a few seconds into
+       every page it takes control of the client — and requests issued
+       through a service worker are NOT visible to page.route(). Tests would
+       start against their stubs and then silently switch to the live VM
+       mid-run: the first profile got mocked data, the one after the SW
+       activated got real records. That produced the whole WebKit/mobile red
+       block (mocked totals arriving as real ones, /records assertions seeing
+       no intercepted request, the update chip appearing and overlapping the
+       topbar) while Chromium stayed green, because its SW timing differed.
+       No suite here exercises the worker, so block it and let every request
+       stay interceptable. The live/audit/contracts configs deliberately do
+       NOT set this — there the worker is part of what is being tested. */
+    serviceWorkers: 'block',
   },
 
   /* Four projects — chromium is the default fast gate; the other three
