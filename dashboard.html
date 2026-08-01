@@ -443,7 +443,18 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
    live inside role="tablist"), so the wrap is the flex row that seats them. */
 .tabs-wrap{position:relative;display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--paper)}
 .tabs-wrap > .tabs{flex:1 1 auto;min-width:0;border-bottom:0}
-.tabs-chevron{display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:14px;line-height:1;cursor:pointer;z-index:11;align-items:center;justify-content:center}
+/* The chevron is absolute inside .tabs-wrap, and ⋯ is that wrap's last flex
+   item — so a plain `right:4px` parks the chevron directly ON TOP of ⋯.
+   At 375px that hid 40 of the button's 44px and elementFromPoint at its
+   centre returned the chevron, i.e. the Labels / Methodology menu could not
+   be tapped at all until the strip happened to be scrolled fully right.
+   Offset by the ⋯ column instead; --tabs-more-w is measured in
+   updateTabsOverflow, and the 44px fallback is .tab.tabs-more's own
+   min-width, which covers the window before that first runs. Kept absolute
+   on purpose: as a flex item the chevron would shrink #tabs when it appears,
+   which feeds straight back into the scrollWidth/clientWidth test below and
+   can oscillate at the threshold. */
+.tabs-chevron{display:none;position:absolute;right:calc(var(--tabs-more-w, 44px) + 4px);top:50%;transform:translateY(-50%);width:32px;height:32px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:14px;line-height:1;cursor:pointer;z-index:11;align-items:center;justify-content:center}
 .tabs-chevron:hover{border-color:var(--ink);background:var(--paper-2)}
 .tabs-wrap.has-overflow .tabs-chevron{display:flex}
 .tabs-wrap.scrolled-end .tabs-chevron{display:none}
@@ -3749,8 +3760,16 @@ async function boot() {
   const tabsWrap = $('#tabsWrap');
   const tabsNav = $('#tabs');
   const tabsChev = $('#tabsChevron');
+  const tabsMoreWrap = document.querySelector('.tabs-more-wrap');
   const updateTabsOverflow = () => {
     if (!tabsWrap || !tabsNav) return;
+    /* Park the chevron to the LEFT of the ⋯ column instead of on top of it
+       (see the .tabs-chevron rule). Measured rather than hard-coded because
+       .tab.tabs-more sets only a min-width, so the column grows with the
+       font. Skip zero — a display:none ancestor mid-boot would otherwise
+       write 0px and put the chevron back over the button. */
+    const moreW = tabsMoreWrap?.offsetWidth;
+    if (moreW) tabsWrap.style.setProperty('--tabs-more-w', moreW + 'px');
     const overflow = tabsNav.scrollWidth - tabsNav.clientWidth > 2;
     tabsWrap.classList.toggle('has-overflow', overflow);
     const scrolledEnd = tabsNav.scrollLeft + tabsNav.clientWidth >= tabsNav.scrollWidth - 4;

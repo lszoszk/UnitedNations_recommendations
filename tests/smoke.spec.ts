@@ -256,15 +256,11 @@ test.describe('UHRI Dashboard smoke', () => {
     // Overflow path: ⋯ opens the menu, Methodology navigates, the trigger
     // lights up as the active-nav marker for its hosted views.
     //
-    // On a phone the tab strip overflows, and `.tabs-chevron` sits absolutely
-    // at its right edge with z-index 11 — directly over ⋯, which is the last
-    // tab. The app only hides the chevron once the strip is scrolled to the
-    // end (`.scrolled-end`, dashboard.html:449). Playwright's own
-    // scroll-into-view raced that class and the click landed on the chevron
-    // instead, intermittently. Do what a user does — scroll the strip to the
-    // end and let the chevron retire — then click.
-    await page.locator('#tabs').evaluate((el) => { el.scrollLeft = el.scrollWidth; });
-    await expect(page.locator('#tabsChevron')).toBeHidden();
+    // This used to need a scroll-to-the-end workaround, because the scroll
+    // chevron was parked on top of ⋯ until the strip bottomed out. The
+    // chevron is now offset by the ⋯ column, so the click works from rest on
+    // every viewport — tests/tabs-overflow-overlap.spec.ts guards that
+    // directly, including the geometry this test cannot see.
     await page.locator('#tabsMore').click();
     await page.locator('.tabs-more-pop [data-nav="methodology"]').click();
     await expect(page.locator('#view-methodology')).toBeVisible({ timeout: 3000 });
