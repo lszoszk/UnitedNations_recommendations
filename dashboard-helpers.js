@@ -107,6 +107,20 @@ function cleanCountryList(names) {
 function sanitize(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 
+/* Publication year of a record, or NaN when it has no usable date.
+   The obvious `Number((r.PublicationDate || '').slice(0, 4))` does NOT do
+   this: Number('') is 0, not NaN, so an undated record passes every
+   Number.isFinite() guard and lands in "year 0" — which in Instant Mode
+   dragged the facet range down to 0–2026 and put a phantom column at the
+   left edge of the timeline (static audit H-04). Callers that filter on a
+   year range must decide for themselves what an unknown year means; the
+   two in this codebase exclude it, which is what they already did by
+   accident. */
+function parseRecordYear(rec) {
+  const s = String(rec?.PublicationDate ?? '').slice(0, 4);
+  return /^\d{4}$/.test(s) ? Number(s) : NaN;
+}
+
 /* =========================================================================
    LABEL CLEANERS — API data carries "- " prefixes and UUIDs in several
    fields. Strip them consistently wherever the value reaches the UI.

@@ -67,7 +67,11 @@ const offline = {
     }
     if (_hasSdgFilters(f) && !_recordMatchesSdgFilters(r.Sdgs || [], f)) return false;
     if (f.yearA || f.yearB) {
-      const y = Number((r.PublicationDate || '').slice(0, 4));
+      const y = parseRecordYear(r);
+      // An undated record cannot sit inside a year range. It was already
+      // excluded here, but only because Number('') is 0 and 0 < yearA —
+      // with a real NaN both comparisons below are false, so say it outright.
+      if (!Number.isFinite(y)) return false;
       if (f.yearA && y < f.yearA) return false;
       if (f.yearB && y > f.yearB) return false;
     }
@@ -113,7 +117,7 @@ const offline = {
       (r.Themes || []).forEach(t => themeMap.set(t, (themeMap.get(t) || 0) + 1));
       (r.AffectedPersons || []).forEach(g => apMap.set(g, (apMap.get(g) || 0) + 1));
       (r.Sdgs || []).forEach(s => sdgMap.set(String(s), (sdgMap.get(String(s)) || 0) + 1));
-      const y = Number((r.PublicationDate || '').slice(0, 4));
+      const y = parseRecordYear(r);   // NaN when undated — see helpers
       const b = r.Body || '';
       if (Number.isFinite(y)) {
         yearly.set(y, (yearly.get(y) || 0) + 1);
@@ -199,7 +203,7 @@ const offline = {
       if (r.Body) bodies.add(r.Body);
       (r.Regions || []).forEach(rg => regions.add(rg));
       if (r.AnnotationType) types.add(r.AnnotationType);
-      const y = Number((r.PublicationDate || '').slice(0, 4));
+      const y = parseRecordYear(r);   // undated records must not pull minY to 0
       if (Number.isFinite(y)) {
         if (y < minY) minY = y;
         if (y > maxY) maxY = y;

@@ -608,8 +608,8 @@ test.describe('UHRI Dashboard smoke', () => {
     await expect(page.locator('#cmdResults .cmd-result .kind').first()).toHaveText('SEARCH');
 
     // Click the Methodology *view* result specifically (not the search action).
-    // We click instead of pressing Enter because the Enter handler is inline's
-    // keydown on document reading `window.__cmdResults[0].action()`.
+    // Clicking keeps this test on the mouse path; Enter no longer hardcodes
+    // result [0] and is covered end to end in tests/palette-keyboard.spec.ts.
     await page.locator('#cmdResults .cmd-result')
       .filter({ has: page.locator('.kind', { hasText: 'VIEW' }) })
       .filter({ hasText: 'Methodology' })

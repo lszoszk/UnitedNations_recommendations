@@ -2491,10 +2491,14 @@ body.ga-consent-open .bug-report-fab{bottom:calc(var(--ga-consent-inset, 190px) 
   <div class="cmd-card">
     <div class="cmd-input-row">
       <span class="cmd-prompt">$</span>
-      <input id="cmdInput" aria-label="Command palette — search full text, or jump to a country, theme, body, or view" placeholder="Search full text, or jump to a country, theme, body…"/>
+      <!-- Combobox pattern: the input keeps focus and drives the list below
+           through aria-activedescendant, which is what lets ↑/↓ move the
+           selection without the results themselves needing to be tab stops
+           (they are not — Tab is trapped on this input on purpose). -->
+      <input id="cmdInput" role="combobox" aria-expanded="true" aria-controls="cmdResults" aria-autocomplete="list" aria-label="Command palette — search full text, or jump to a country, theme, body, or view" placeholder="Search full text, or jump to a country, theme, body…"/>
       <span class="cmd-esc">esc</span>
     </div>
-    <div class="cmd-results" id="cmdResults"></div>
+    <div class="cmd-results" id="cmdResults" role="listbox" aria-label="Command palette results"></div>
   </div>
 </div>
 
@@ -4068,9 +4072,12 @@ async function boot() {
       else if (readerOpen) closeReader();
       else if (!inInput && TW.drawer) closeDrawerPanelSafe();
     }
-    else if (e.key === 'Enter' && !$('#cmdPalette').classList.contains('hidden')) {
-      const first = window.__cmdResults && window.__cmdResults[0]; if (first) first.action();
-    } else if (e.key === '/' && !inInput) {
+    /* Enter inside the palette used to live here and always ran result [0],
+       which is why ↑/↓ had nothing to steer even once they existed. It now
+       belongs to openPalette's own handler (dashboard-ui.js), which knows
+       which row is selected; keeping this branch too would have run the
+       action twice, since keydown bubbles from the input up to document. */
+    else if (e.key === '/' && !inInput) {
       e.preventDefault(); $('#kwInput').focus();
     }
     // j/k — navigate between records in the drawer (Gmail-style)

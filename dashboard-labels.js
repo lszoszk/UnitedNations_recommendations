@@ -413,7 +413,9 @@ function labBuildSampleRows(max = 120) {
       }
       if (f.type.size && !f.type.has(r.AnnotationType)) return false;
       if (f.yearA || f.yearB) {
-        const yr = Number((r.PublicationDate || '').slice(0, 4));
+        const yr = parseRecordYear(r);
+        // Same as the Instant Mode filter: no date means it cannot be in range.
+        if (!Number.isFinite(yr)) return false;
         if (f.yearA && yr < f.yearA) return false;
         if (f.yearB && yr > f.yearB) return false;
       }

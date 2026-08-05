@@ -51,7 +51,32 @@ function openPalette() {
   state._cmdReturnFocus = document.activeElement;
   const pal = $('#cmdPalette');
   pal.classList.remove('hidden');
-  pal.onkeydown = (e) => { if (e.key === 'Tab') { e.preventDefault(); $('#cmdInput').focus(); } };
+  /* Every row renders a ↵ hint and the first one renders with `.focus`, but
+     nothing used to act on either: Tab was trapped back onto the input and
+     there was no Arrow or Enter handling anywhere in the module, so the
+     palette could be typed into and then only finished with a mouse
+     (static audit I-06). ↑/↓ move the selection, Enter runs it, and the
+     selection rides on the same `.focus` class the renderer already sets so
+     the two cannot disagree. Esc stays global. */
+  pal.onkeydown = (e) => {
+    if (e.key === 'Tab') { e.preventDefault(); $('#cmdInput').focus(); return; }
+    const items = $$('#cmdResults .cmd-result');
+    if (!items.length) return;
+    const cur = Math.max(0, items.findIndex(el => el.classList.contains('focus')));
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const next = (cur + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((el, i) => {
+        el.classList.toggle('focus', i === next);
+        el.setAttribute('aria-selected', String(i === next));
+      });
+      $('#cmdInput')?.setAttribute('aria-activedescendant', items[next].id);
+      items[next].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      items[cur].click();          // same path as a mouse click, incl. closePalette
+    }
+  };
   $('#cmdInput').value = '';
   $('#cmdInput').focus();
   renderPalette('');
@@ -179,12 +204,15 @@ function renderPalette(q) {
   results = results.slice(0, 14);
 
   $('#cmdResults').innerHTML = results.map((r,i) => `
-    <div class="cmd-result ${i===0?'focus':''}" data-i="${i}">
+    <div class="cmd-result ${i===0?'focus':''}" id="cmd-result-${i}" role="option" aria-selected="${i===0}" data-i="${i}">
       <div class="kind">${r.kind}</div>
       <div><div>${sanitize(r.label)}</div><div style="color:var(--dim);font-size:10px">${sanitize(r.sub||'')}</div></div>
       <div style="color:var(--dim)">↵</div>
     </div>`).join('');
   $$('#cmdResults .cmd-result').forEach((el,i) => el.addEventListener('click', () => results[i].action()));
+  // Re-rendering resets the selection to the first row, which is what the
+  // `.focus` class above already assumed — now say it to assistive tech too.
+  $('#cmdInput')?.setAttribute('aria-activedescendant', results.length ? 'cmd-result-0' : '');
   window.__cmdResults = results;
 }
 
