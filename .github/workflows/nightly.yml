@@ -59,7 +59,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20', cache: 'npm' }
       - run: npm ci
-      - run: npx playwright install --with-deps ${{ matrix.browser == 'mobile' && 'chromium' || matrix.browser }}
+      # The `mobile` project is devices['iPhone 13'], whose defaultBrowserType
+      # is WEBKIT — installing chromium for it left every mobile test failing
+      # at launch with "Executable doesn't exist at .../webkit-*/pw_run.sh",
+      # 12 annotations a night, for as long as the mapping has been here.
+      # continue-on-error above meant the run stayed amber rather than loud.
+      - run: npx playwright install --with-deps ${{ matrix.browser == 'mobile' && 'webkit' || matrix.browser }}
       - run: npm run test:${{ matrix.browser }}
       - name: Upload artefacts on failure
         if: failure()
