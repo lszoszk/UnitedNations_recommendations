@@ -246,7 +246,32 @@ async function _insertGaConsentBanner() {
     </div>`;
   document.body.appendChild(host);
 
-  const close = () => host.remove();
+  /* The banner is bottom-anchored and so is the bug-report button, and the
+     banner is wider AND later in the DOM at the same z-index — so until the
+     visitor answers, it covered the button completely: 44x44 of 44x44 at
+     1280px, 48x48 of 48x48 at 375px, with elementFromPoint at the button's
+     centre returning the banner both times. A first-time visitor on any
+     viewport could not report a bug, which is exactly who most needs to.
+     Publish how much room the banner takes so the button can step above it
+     (see .bug-report-fab). Measured, not hard-coded: the text reflows, so
+     the height changes with width and with the font swap. */
+  const syncConsentInset = () => {
+    const top = host.getBoundingClientRect().top;
+    document.body.style.setProperty('--ga-consent-inset', Math.max(0, Math.round(window.innerHeight - top)) + 'px');
+  };
+  syncConsentInset();
+  document.body.classList.add('ga-consent-open');
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(syncConsentInset) : null;
+  ro?.observe(host);
+  window.addEventListener('resize', syncConsentInset);
+
+  const close = () => {
+    ro?.disconnect();
+    window.removeEventListener('resize', syncConsentInset);
+    document.body.classList.remove('ga-consent-open');
+    document.body.style.removeProperty('--ga-consent-inset');
+    host.remove();
+  };
   host.querySelector('#gaAccept').addEventListener('click', () => {
     try { localStorage.setItem(_GA_CONSENT_KEY, 'granted'); } catch (_) {}
     if (typeof window.gtag === 'function') {

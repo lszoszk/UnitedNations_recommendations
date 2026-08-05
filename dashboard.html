@@ -2131,6 +2131,13 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
   display:inline-flex;align-items:center;justify-content:center;
   transition:transform .12s,background .12s;
 }
+/* Step above the privacy banner while it is up. Both are fixed to the
+   bottom-right at z-index 200 and the banner is later in the DOM, so it
+   won round the whole button on every viewport until the visitor answered.
+   --ga-consent-inset is how much room the banner occupies from the viewport
+   bottom, published by _insertGaConsentBanner and kept in sync on resize;
+   the fallback covers the frame before the first measurement lands. */
+body.ga-consent-open .bug-report-fab{bottom:calc(var(--ga-consent-inset, 190px) + 12px)}
 .bug-report-fab:hover{background:var(--accent);border-color:var(--accent);transform:translateY(-2px) scale(1.04)}
 .bug-report-fab:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .bug-report-modal{
