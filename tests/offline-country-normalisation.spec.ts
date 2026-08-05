@@ -70,15 +70,21 @@ test('a decorated country label still matches its own records in Instant Mode', 
       twoLetter: pick('PK'),
       // The fold means the canonical name reaches the "PK" record too.
       pakistanCanonical: pick('Pakistan'),
+      // CU/CY/RS/SI/UZ were absent from ISO2_TO_NAME, so they stayed
+      // unfolded on both sides. Pin one of the five.
+      lateAddedCode: pick('UZ'),
+      lateAddedCanonical: pick('Uzbekistan'),
       control: pick('Poland'),
       unrelated: pick('Germany'),
     };
-  }, [REC('State of Palestine*'), REC('Kosovo*'), REC('PK'), REC('Poland')]);
+  }, [REC('State of Palestine*'), REC('Kosovo*'), REC('PK'), REC('UZ'), REC('Poland')]);
 
   expect(counts.palestine).toBe(1);
   expect(counts.kosovo).toBe(1);
   expect(counts.twoLetter).toBe(1);
   expect(counts.pakistanCanonical).toBe(1);
+  expect(counts.lateAddedCode, 'UZ must match its own record').toBe(1);
+  expect(counts.lateAddedCanonical, 'Uzbekistan must reach the UZ record').toBe(1);
   expect(counts.control).toBe(1);
   // Normalisation must not turn the filter into a pass-through.
   expect(counts.unrelated).toBe(0);

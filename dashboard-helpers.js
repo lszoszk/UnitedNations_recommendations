@@ -147,10 +147,17 @@ function inferAnnotationType(rec) {
 }
 /* Normalize 2-letter ISO codes that leak into the Countries field as if
    they were separate countries. Maps PK → Pakistan, CZ → Czechia, etc. */
+/* Every bare code the live facets carry, each of which has a full-name twin
+   in the corpus. CU/CY/RS/SI/UZ were missing, so those five stayed unfolded
+   on both sides: the record kept the code and the filter could not reach it.
+   Kept in step with pipeline/normalize_metadata.py, which folds the same set
+   in the data — this map is the display-side safety net for anything that
+   slips through a future import. */
 const ISO2_TO_NAME = {
-  AU:'Australia', CA:'Canada', CO:'Colombia', CZ:'Czechia', ES:'Spain',
-  ET:'Ethiopia', GH:'Ghana', ID:'Indonesia', IQ:'Iraq', MV:'Maldives',
-  MY:'Malaysia', PK:'Pakistan', SG:'Singapore', SV:'El Salvador', WS:'Samoa',
+  AU:'Australia', CA:'Canada', CO:'Colombia', CU:'Cuba', CY:'Cyprus',
+  CZ:'Czechia', ES:'Spain', ET:'Ethiopia', GH:'Ghana', ID:'Indonesia',
+  IQ:'Iraq', MV:'Maldives', MY:'Malaysia', PK:'Pakistan', RS:'Serbia',
+  SG:'Singapore', SI:'Slovenia', SV:'El Salvador', UZ:'Uzbekistan', WS:'Samoa',
 };
 function cleanCountryName(s) {
   /* Normalises a country name from the API or upload to the form our
