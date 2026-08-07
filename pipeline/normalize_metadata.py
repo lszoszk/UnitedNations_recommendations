@@ -1,8 +1,32 @@
 #!/usr/bin/env python3
-"""Fold split metadata vocabularies in the UHRI export database.
+"""Fold split metadata vocabularies in the UHRI export DATABASE.
 
-WHY THIS EXISTS
----------------
+WHERE THIS SITS (corrected 2026-08-05)
+--------------------------------------
+An earlier version of this header claimed the pipeline's normaliser existed
+nowhere. That was wrong, and the mistake is worth recording: the search that
+"proved" it was a `sudo find` that failed silently on a password prompt, and
+an empty result was read as an answer.
+
+The real normaliser lives on the VM at
+`~/uhri/data/pipeline/normalize_metadata.py`. It carries 17 committee-name
+mappings (more than this file) and a country backfill from UN document
+symbols, and it patches the SOURCE export — the right place, because every
+SQLite rebuild then starts from canonical data.
+
+The actual gap was upstream of both: `uhri_monthly_sync.py` merges each
+month's new records and restarts the API to rebuild, but never called the
+normaliser. Its own docstring says to re-run it after every fresh download;
+nothing did. So each monthly merge silently re-split the vocabulary.
+
+This file stays as the BREAK-GLASS tool for the other direction: repairing a
+database that has already been built from un-normalised source, without
+re-downloading or rebuilding 1.5 GB. It is what fixed the live corpus on
+2026-08-05. For the durable fix, normalise the source and wire it into the
+sync.
+
+WHAT IT FOLDS
+-------------
 The upstream OHCHR export spells some entities two ways, and every split
 vocabulary silently hides records from anyone who filters by the canonical
 form. Two families have been found in production:
