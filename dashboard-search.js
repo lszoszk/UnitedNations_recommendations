@@ -88,6 +88,39 @@ function smartSnippet(text, kw) {
    preferred the server's tight FTS5 snippet (with <mark> already
    wrapped), and regenerating client-side produced a wider ~360-char
    window.  The expand↔collapse cycle was visibly growing the card. */
+/* Only fade a result whose text is ACTUALLY cut off.
+   The gradient at the foot of `.se-tx` used to be painted unconditionally,
+   so a two-line recommendation had its second line washed out for nothing —
+   the clamp is ~7 lines and, measured on the live corpus, 77% of rows never
+   reach it (30-row sample on "torture": 7 clipped, 23 not). That is what made
+   the result list look permanently half-erased. CSS cannot ask "did this
+   overflow?", so mark it here and let `.is-clipped` gate the gradient. */
+function _seMarkClipped(root) {
+  (root || document).querySelectorAll('#seList .se-item').forEach(el => {
+    const tx = el.querySelector('.se-tx');
+    if (!tx) return;
+    const clipped = !el.classList.contains('expanded') && tx.scrollHeight > tx.clientHeight + 1;
+    el.classList.toggle('is-clipped', clipped);
+  });
+}
+
+/* Re-measure on resize: a narrower column wraps the same text onto more
+   lines, so what fits at 1400px can clip at 900px. Attached once at module
+   scope — this file is a classic script, so this runs a single time. */
+window.addEventListener('resize', debounce(() => _seMarkClipped(), 150));
+
+/* …and again once the expand/collapse animation lands. `.se-tx` transitions
+   max-height over .25s, so a measurement taken immediately after the class
+   flips reads a height that is still moving — on collapse that made the row
+   look unclipped and the fade never came back. Keyed on the transition
+   itself rather than a duration copied from the stylesheet. */
+document.addEventListener('transitionend', (e) => {
+  if (e.propertyName === 'max-height' && e.target instanceof Element
+      && e.target.classList.contains('se-tx')) {
+    _seMarkClipped();
+  }
+}, true);
+
 function _seSwapExpansion(el, expanding) {
   const tx = el.querySelector('.se-tx');
   if (!tx || tx.dataset.mode !== 'kwic') return;
@@ -349,6 +382,7 @@ async function renderSearch() {
     document.querySelectorAll('#seList .se-more-btn').forEach(btn => {
       btn.textContent = on ? '↑ Collapse' : '↓ Show full text';
     });
+    _seMarkClipped();
   };
   $('#seExpandAll')?.addEventListener('click', () => flipExpansion(true));
   $('#seCollapseAll')?.addEventListener('click', () => flipExpansion(false));
@@ -577,6 +611,7 @@ async function loadNextSearchPage() {
     const html = newRows.map((rec, i) => _renderSearchItem(rec, startIdx + i, kw)).join('');
     const list = $('#seList');
     if (list) list.insertAdjacentHTML('beforeend', html);
+    _seMarkClipped(list);
 
     // Wire card click to the side drawer. Search is a scanning surface:
     // keep list context in the middle pane, inspect + note in the drawer.
@@ -610,6 +645,7 @@ async function loadNextSearchPage() {
         _seSwapExpansion(el, expanding);
         const on = el.classList.toggle('expanded');
         btn.textContent = on ? '↑ Collapse' : '↓ Show full text';
+        _seMarkClipped();
       });
       // Bulk-select checkbox (G) — syncs to state.searchSelection and the
       // sticky bulk bar. Checkbox click already has stopPropagation via

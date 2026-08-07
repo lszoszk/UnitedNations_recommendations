@@ -1284,12 +1284,16 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .se-item .se-tx{font-family:var(--ui);font-size:15px;line-height:1.7;color:var(--ink);max-height:12.8em;overflow:hidden;position:relative;transition:max-height .25s}
 @media (max-width: 900px){.se-item .se-tx{max-height:7.2em}}
 .se-item.expanded .se-tx{max-height:999em}
-.se-item .se-tx::after{content:"";position:absolute;bottom:0;left:0;right:0;height:2em;background:linear-gradient(to bottom, transparent, var(--se-row-bg) 85%);pointer-events:none}
-.se-item.expanded .se-tx::after{display:none}
+/* Gated on .is-clipped (set in dashboard-search.js) so the fade appears
+   only where text is genuinely cut off. Unconditional, it washed out the
+   last line of every short recommendation — ~77% of rows never reach the
+   clamp, so most of the list looked half-erased for no reason. The
+   .expanded and .is-kwic overrides that used to cancel it are gone: the
+   selector no longer matches those states in the first place. */
+.se-item.is-clipped:not(.expanded) .se-tx::after{content:"";position:absolute;bottom:0;left:0;right:0;height:2em;background:linear-gradient(to bottom, transparent, var(--se-row-bg) 85%);pointer-events:none}
 
 /* KWIC mode: the snippet is short and centred on the match, no fade-out */
 .se-item.is-kwic:not(.expanded) .se-tx{max-height:none;overflow:visible}
-.se-item.is-kwic:not(.expanded) .se-tx::after{display:none}
 
 /* KWIC indicator in the header */
 .se-item .se-hdr .kwic-badge{font:9px var(--mono);letter-spacing:.06em;color:var(--dim);border:1px dashed var(--line);padding:0 5px;background:var(--paper-2)}
