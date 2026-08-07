@@ -1281,8 +1281,14 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .se-item .se-hdr .region{font:9px var(--mono);color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-left:auto}
 .se-item .se-hdr .marks{display:inline-flex;gap:4px;align-items:center;font-size:11px}
 .se-item .se-hdr .kw{padding:2px 7px;border:1px solid var(--accent);background:color-mix(in oklab, var(--accent) 15%, var(--paper));color:var(--ink);font:9px var(--mono);letter-spacing:.08em;font-weight:700}
-.se-item .se-tx{font-family:var(--ui);font-size:15px;line-height:1.7;color:var(--ink);max-height:12.8em;overflow:hidden;position:relative;transition:max-height .25s}
-@media (max-width: 900px){.se-item .se-tx{max-height:7.2em}}
+/* Clamp measured in lines: line-height is 1.7, so N lines = N * 1.7em.
+   Was 12.8em (~7.5 lines) desktop / 7.2em (~4 lines) narrow. On a 30-row
+   sample of the live corpus that clipped 23% of results; at 10 lines it
+   clips 7%, for 16 extra lines across the whole page. Most
+   recommendations are 1-5 lines, so this mostly buys back the 8-10 line
+   tail that was being cut for no real saving. */
+.se-item .se-tx{font-family:var(--ui);font-size:15px;line-height:1.7;color:var(--ink);max-height:17em;overflow:hidden;position:relative;transition:max-height .25s}
+@media (max-width: 900px){.se-item .se-tx{max-height:10.2em}}
 .se-item.expanded .se-tx{max-height:999em}
 /* Gated on .is-clipped (set in dashboard-search.js) so the fade appears
    only where text is genuinely cut off. Unconditional, it washed out the
