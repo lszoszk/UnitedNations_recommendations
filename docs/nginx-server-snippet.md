@@ -162,3 +162,45 @@ its first directive.
 4. **`limit_req` is per-zone, not per-location.**  Each location that
    references `zone=uhri_api` shares the same per-IP counter.  If
    you want tighter per-endpoint limits, define additional zones.
+
+## CORS on the precomputed endpoints (2026-08-07)
+
+`/uhri-api/api/data/{facets,map,analytics,summary}` and `refresh_status.json`
+are served straight from disk, bypassing FastAPI — so nginx has to emit the
+CORS header itself. It used to hardcode a single origin:
+
+```nginx
+add_header Access-Control-Allow-Origin "https://lszoszk.github.io" always;
+```
+
+FastAPI's own `CORSMiddleware` (`~/uhri/api/main.py`) allows three:
+`https://lszoszk.github.io`, `http://localhost:8787`, `http://127.0.0.1:8787`.
+The mismatch meant the same endpoint answered differently depending on which
+layer served it — `?x=1` worked from localhost, no query string did not. The
+landing page and the dashboard's Phase 1 boot both call these endpoints
+without a query string, so local development always fell back to the
+hardcoded snapshot and showed the "⚠ fallback" chip. Production was never
+affected.
+
+The header now reads from an http-context map that mirrors the app's
+allowlist exactly — nginx must never be more permissive than the service it
+short-circuits:
+
+```nginx
+# in nginx.conf, http{} context
+map $http_origin $uhri_cors_origin {
+    default                     "https://lszoszk.github.io";
+    "https://lszoszk.github.io" "https://lszoszk.github.io";
+    "http://localhost:8787"     "http://localhost:8787";
+    "http://127.0.0.1:8787"     "http://127.0.0.1:8787";
+}
+```
+
+```nginx
+# in each precompute location
+add_header Access-Control-Allow-Origin $uhri_cors_origin always;
+```
+
+`Vary: Origin` was already emitted on these locations, so shared caches stay
+correct. **Dev servers must run on port 8787** — that is the only local port
+in the allowlist, on both sides.
