@@ -28,6 +28,8 @@ const YEARLY = [2016, 2017, 2018, 2019, 2020, 2021].flatMap((year, i) => [
 ]);
 
 async function stubApi(page: Page) {
+  // No web fonts in tests: the PNG path tries to embed them and must cope without.
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
   await page.route(/\/api\/data\//, (route) => route.fulfill(json({})));
   // The bundled profile endpoint 404s on the live VM; keep the three-leg path.
   await page.route(/\/api\/data\/profile/, (route) => route.fulfill({ status: 404, contentType: 'application/json', headers: CORS, body: '{"detail":"Not Found"}' }));
@@ -48,6 +50,8 @@ async function stubApi(page: Page) {
 }
 
 const readDownload = async (d: Download) => (await d.createReadStream()).toArray().then((c) => Buffer.concat(c).toString('utf8'));
+const readBytes = async (d: Download) => (await d.createReadStream()).toArray().then((c) => Buffer.concat(c));
+const pngSize = (b: Buffer) => ({ w: b.readUInt32BE(16), h: b.readUInt32BE(20) });   // IHDR
 
 /** Route the clipboard into a variable instead of trusting headless permissions. */
 async function captureClipboard(page: Page) {
@@ -94,6 +98,38 @@ test.describe('Overview', () => {
     await expect(page.locator('#toast')).toContainText('as SVG');
   });
 
+  test('⬇ PNG on the timeline rasterises the same document at 2×', async ({ page }) => {
+    const file = await clickForDownload(page, '#tlExportPng');
+    expect(file.suggestedFilename()).toMatch(/^uhri-volume-over-time-.+\.png$/);
+    const bytes = await readBytes(file);
+    expect(bytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    expect(pngSize(bytes).w).toBe(2400);
+    expect(bytes.length).toBeGreaterThan(20_000);
+    await expect(page.locator('#toast')).toContainText('as PNG');
+  });
+
+  test('⬇ SVG on the map is a document too: title, colour ramp with its bounds, source', async ({ page }) => {
+    await expect(page.locator('#mapWrap svg')).toBeVisible({ timeout: 20_000 });
+    const file = await clickForDownload(page, '#mapExport');
+    expect(file.suggestedFilename()).toMatch(/^uhri-where-the-recommendations-land-all-recommendations-(hex|choropleth)-.+\.svg$/);
+    const body = await readDownload(file);
+    expect(body).toContain('Where the recommendations land');
+    expect(body).toContain('>0</text>');
+    expect(body).toContain('>2,540</text>');                       // ramp upper bound = top country
+    expect(body).toContain('recommendations per state');
+    expect(body).toContain('Source: OHCHR Universal Human Rights Index');
+    expect(body, 'hex fills must be literal colours').not.toMatch(/var\(--|color-mix\(/);
+    await file.saveAs(`test-results/exports/map-${test.info().project.name}.svg`);
+  });
+
+  test('⬇ PNG on the map downloads a PNG', async ({ page }) => {
+    await expect(page.locator('#mapWrap svg')).toBeVisible({ timeout: 20_000 });
+    const file = await clickForDownload(page, '#mapExportPng');
+    expect(file.suggestedFilename()).toMatch(/\.png$/);
+    const bytes = await readBytes(file);
+    expect(pngSize(bytes).w).toBe(2400);
+  });
+
   test('📋 CSV on Top countries copies every row as rank,label,value', async ({ page }) => {
     const read = await captureClipboard(page);
     const btn = page.locator('.chart-export[data-export="topCountries"]');
@@ -123,6 +159,13 @@ test.describe('Country profile', () => {
     expect(body).toContain('Volume by year');
     expect(body).toContain('>Poland</text>');
     expect(body).toContain('Source: OHCHR Universal Human Rights Index');
+  });
+
+  test('every ⬇ SVG on the profile has a ⬇ PNG twin', async ({ page }) => {
+    const svgs = await page.locator('#view-country button[data-export-svg]').count();
+    const pngs = await page.locator('#view-country button[data-export-png]').count();
+    expect(svgs).toBe(1);
+    expect(pngs).toBe(svgs);
   });
 
   test('📋 CSV on FIG.B Themes copies the profile\'s theme list', async ({ page }) => {

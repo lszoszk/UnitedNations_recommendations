@@ -1268,49 +1268,30 @@ function renderGridMap(container, countryCounts) {
    moved to dashboard-timeline.js. */
 
 
-function exportMapAsSVG() {
-  const svg = $('#mapWrap svg');
-  if (!svg) { toast('No map to export yet', true); return; }
-  const clone = svg.cloneNode(true);
-  // Fix: hex fills use `fill="var(--accent)"` + `color-mix(...)` which
-  // are UNRESOLVED when the SVG is opened standalone (iOS preview,
-  // Chrome file://, etc.) — every hex rendered BLACK. Walk the clone
-  // and replace each fill attribute with its computed colour from the
-  // live page (getComputedStyle resolves the CSS vars). Uses a throw-
-  // away div to let the browser compute `color-mix(...)` → rgb().
-  const probe = document.createElement('div');
-  document.body.appendChild(probe);
-  const resolveColor = (raw) => {
-    if (!raw || raw === 'none' || raw === 'transparent') return raw;
-    probe.style.color = raw;
-    const c = getComputedStyle(probe).color;
-    return c || raw;
+/* Map export runs through the shared figure composer in dashboard.html
+   (title, scope, ramp legend, source footer, PNG twin). What the map alone
+   needs is registered here: class-styled fills resolved to literals — hex
+   fills use `fill="var(--accent)"` + `color-mix(...)`, unresolved when the
+   SVG is opened standalone, so every hex rendered BLACK — the stroke CSS
+   its classes carry, and the hex/geo mode for the filename. */
+FIGURE_EXPORT_HOOKS.mapWrap = (clone, resolve) => {
+  clone.querySelectorAll('.country.empty').forEach(el => el.setAttribute('fill', resolve('var(--paper-2)')));
+  return {
+    tag: getMapMode(),
+    css: `
+      text{font-family:'JetBrains Mono',Menlo,monospace;font-size:9px}
+      .region-lbl{font-size:10px;fill:#6B6863;letter-spacing:2px}
+      .country{stroke:#0F0F10;stroke-width:.4}
+      .sphere{fill:none;stroke:#0F0F10;stroke-width:.4}
+      .graticule{fill:none;stroke:rgba(0,0,0,.08);stroke-width:.3}
+      .hex polygon{stroke:${resolve('var(--paper)')};stroke-width:1.5}
+      .hex.on polygon{stroke:#0F0F10;stroke-width:2.5}`,
   };
-  clone.querySelectorAll('[fill]').forEach(el => {
-    el.setAttribute('fill', resolveColor(el.getAttribute('fill')));
-  });
-  clone.querySelectorAll('[stroke]').forEach(el => {
-    el.setAttribute('stroke', resolveColor(el.getAttribute('stroke')));
-  });
-  // Also pull computed colors of class-styled fills (for CSS rules like
-  // .country.empty{fill:var(--paper-2)}).
-  clone.querySelectorAll('.country.empty').forEach(el => el.setAttribute('fill', resolveColor('var(--paper-2)')));
-  probe.remove();
+};
 
-  // Inline static styles (non-var) as a safety net.
-  const css = `
-    text{font-family:monospace;font-size:9px}
-    .region-lbl{font-size:10px;fill:#6B6863;letter-spacing:2px}
-    .country{stroke:#0F0F10;stroke-width:.4}
-    .sphere{fill:none;stroke:#0F0F10;stroke-width:.4}
-    .graticule{fill:none;stroke:rgba(0,0,0,.08);stroke-width:.3}
-    .hex polygon{stroke:#F2EFE8;stroke-width:1.5}
-    .hex.on polygon{stroke:#0F0F10;stroke-width:2.5}`;
-  const style = document.createElementNS('http://www.w3.org/2000/svg','style');
-  style.textContent = css;
-  clone.insertBefore(style, clone.firstChild);
-  clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
-  const str = '<?xml version="1.0" encoding="UTF-8"?>\n' + clone.outerHTML;
-  downloadBlob(str, 'image/svg+xml', `uhri-map-${getMapMode()}-${new Date().toISOString().slice(0,10)}.svg`);
-  toast('Map exported as SVG', false, 2500);
+/* Kept for callers and the smoke test's API check; the button itself is
+   served by the delegated export handler. */
+function exportMapAsSVG() {
+  const btn = document.querySelector('button[data-export-svg="mapWrap"]');
+  if (btn) exportFigureSvg(btn); else toast('No map to export yet', true);
 }

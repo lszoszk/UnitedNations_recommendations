@@ -2788,10 +2788,38 @@ function _svgColorResolver() {
   return { resolve, done: () => probe.remove() };
 }
 
-function exportFigureSvg(btn) {
-  const host = document.getElementById(btn.dataset.exportSvg);
+/* Per-host adjustments a figure needs before it is exported, keyed by the
+   .tl-wrap / .map-wrap id. dashboard-map.js registers `mapWrap` (class-styled
+   fills, stroke CSS, the hex/geo mode for the filename). A hook receives the
+   cloned <svg> and the colour resolver and may return { css, tag }. */
+const FIGURE_EXPORT_HOOKS = {};
+
+/* Legend as the panel shows it: swatch items for the timeline, a colour
+   ramp with min/max labels for the map. Either may be absent. */
+function _readFigureLegend(host, panel, resolve) {
+  const items = Array.from(panel?.querySelectorAll('.legend-body:not(.off)') || []).map(el => ({
+    label: (el.getAttribute('title') || el.textContent || '').replace(/\s+—\s+click to.*$/, '').trim(),
+    color: resolve(el.querySelector('.swatch')?.style.background || 'var(--accent)'),
+  })).filter(l => l.label);
+  if (items.length) return { items };
+  const scale = host.querySelector('.map-scale');
+  if (scale) {
+    const kids = Array.from(scale.children);
+    const swatches = kids.filter(k => k.classList.contains('s')).map(k => resolve(k.style.background));
+    const labels = kids.filter(k => !k.classList.contains('s') && !k.style.marginLeft).map(k => k.textContent.trim()).filter(Boolean);
+    if (swatches.length) return { ramp: { colors: swatches, lo: labels[0] || '', hi: labels[1] || '' } };
+  }
+  return {};
+}
+
+/* Build the standalone document for the figure a button points at.
+   Returns { svgText, W, H, figTitle, base } or null (with a toast) when
+   there is nothing to export yet. `fontCss` is injected as a <style> so the
+   PNG path can embed the web fonts; the SVG path leaves fonts to the viewer. */
+function _composeFigure(btn, { fontCss = '' } = {}) {
+  const host = document.getElementById(btn.dataset.exportSvg || btn.dataset.exportPng);
   const svg = host?.querySelector('svg');
-  if (!svg) { toast('No chart to export yet', true); return; }
+  if (!svg) { toast('No chart to export yet', true); return null; }
   const panel = btn.closest('.panel');
   const figIdx = panel?.querySelector('.panel-title .idx')?.textContent.trim() || '';
   const figTitle = (panel?.querySelector('.panel-title .t')?.textContent || 'Chart').replace(/\s+/g, ' ').trim();
@@ -2802,8 +2830,8 @@ function exportFigureSvg(btn) {
   const MONO = "'JetBrains Mono', Menlo, Consolas, monospace";
   const SERIF = "'Instrument Serif', Georgia, 'Times New Roman', serif";
 
-  // Geometry mirrors the on-screen aspect, so the curve in the file is the
-  // curve the user was looking at (the chart is preserveAspectRatio="none").
+  // Geometry mirrors the on-screen aspect, so the shape in the file is the
+  // shape the user was looking at (the timeline is preserveAspectRatio="none").
   const W = 1200, M = 48, chartW = W - 2 * M, headerH = 96;
   const r = svg.getBoundingClientRect();
   const chartH = Math.round(chartW * ((r.width > 0 && r.height > 0) ? r.height / r.width : 0.3));
@@ -2811,16 +2839,14 @@ function exportFigureSvg(btn) {
   const years = Array.from(host.querySelector('.tl-years')?.children || [])
     .map(el => { const b = el.getBoundingClientRect(); return { label: el.textContent.trim(), x: hostRect.width ? (b.left + b.width / 2 - hostRect.left) / hostRect.width : 0 }; })
     .filter(y => y.label);
-  const legend = Array.from(panel?.querySelectorAll('.legend-body:not(.off)') || []).map(el => ({
-    label: (el.getAttribute('title') || el.textContent || '').replace(/\s+—\s+click to.*$/, '').trim(),
-    color: resolve(el.querySelector('.swatch')?.style.background || accent),
-  })).filter(l => l.label);
-  const yearsH = years.length ? 26 : 8, legendH = legend.length ? 32 : 0, footerH = 66;
+  const legend = _readFigureLegend(host, panel, resolve);
+  const yearsH = years.length ? 26 : 8, legendH = (legend.items || legend.ramp) ? 32 : 0, footerH = 66;
   const H = headerH + chartH + yearsH + legendH + footerH;
 
-  // The chart: a clone with every CSS variable resolved to a literal colour.
+  // The chart: a clone with every CSS variable resolved to a literal colour,
+  // plus whatever its host's hook needs (class-styled fills, stroke CSS).
   const clone = svg.cloneNode(true);
-  clone.removeAttribute('class');
+  clone.removeAttribute('class'); clone.removeAttribute('style');
   clone.querySelectorAll('*').forEach(el => {
     for (const a of ['fill', 'stroke']) {
       const v = el.getAttribute(a);
@@ -2828,6 +2854,18 @@ function exportFigureSvg(btn) {
     }
     if (el.hasAttribute('font-family')) el.setAttribute('font-family', MONO);
   });
+  const hook = FIGURE_EXPORT_HOOKS[host.id];
+  const extra = hook ? (hook(clone, resolve) || {}) : {};
+  if (extra.css) {
+    // A <style> inside a nested <svg> still applies to the WHOLE document —
+    // the map's `text{font-size:9px}` shrank the title and footer of the
+    // first export — so every selector is prefixed with the chart's id.
+    clone.setAttribute('id', 'uhri-chart');
+    const st = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    st.textContent = extra.css.replace(/([^{}]+)\{/g, (m, sel) =>
+      sel.split(',').map(x => `#uhri-chart ${x.trim()}`).join(', ') + '{');
+    clone.insertBefore(st, clone.firstChild);
+  }
   clone.setAttribute('x', M); clone.setAttribute('y', headerH);
   clone.setAttribute('width', chartW); clone.setAttribute('height', chartH);
   clone.removeAttribute('xmlns');
@@ -2837,19 +2875,31 @@ function exportFigureSvg(btn) {
   const yearsY = headerH + chartH + 18;
   const legendY = yearsY + (years.length ? 26 : 8);
   const footTop = H - footerH + 6;
-  let lx = M;
-  const legendSvg = legend.map(l => {
-    const g = `<rect x="${lx}" y="${legendY - 10}" width="11" height="11" fill="${esc(l.color)}"/>` +
-              `<text x="${lx + 16}" y="${legendY}" font-family="${MONO}" font-size="11" fill="${esc(ink)}">${esc(l.label)}</text>`;
-    lx += 16 + l.label.length * 6.9 + 22;
-    return g;
-  }).join('');
+  let legendSvg = '';
+  if (legend.items) {
+    let lx = M;
+    legendSvg = legend.items.map(l => {
+      const g = `<rect x="${lx}" y="${legendY - 10}" width="11" height="11" fill="${esc(l.color)}"/>` +
+                `<text x="${lx + 16}" y="${legendY}" font-family="${MONO}" font-size="11" fill="${esc(ink)}">${esc(l.label)}</text>`;
+      lx += 16 + l.label.length * 6.9 + 22;
+      return g;
+    }).join('');
+  } else if (legend.ramp) {
+    const { colors, lo, hi } = legend.ramp;
+    let lx = M;
+    legendSvg = `<text x="${lx}" y="${legendY}" font-family="${MONO}" font-size="11" fill="${esc(dim)}">${esc(lo)}</text>`;
+    lx += lo.length * 6.9 + 10;
+    colors.forEach(c => { legendSvg += `<rect x="${lx}" y="${legendY - 10}" width="22" height="11" fill="${esc(c)}"/>`; lx += 23; });
+    legendSvg += `<text x="${lx + 8}" y="${legendY}" font-family="${MONO}" font-size="11" fill="${esc(dim)}">${esc(hi)}</text>` +
+                 `<text x="${lx + 8 + hi.length * 6.9 + 18}" y="${legendY}" font-family="${MONO}" font-size="11" fill="${esc(dim)}">recommendations per state</text>`;
+  }
   const yearsSvg = years.map(y =>
     `<text x="${(M + y.x * chartW).toFixed(1)}" y="${yearsY}" text-anchor="middle" font-family="${MONO}" font-size="10" fill="${esc(dim)}">${esc(y.label)}</text>`).join('');
   const date = new Date().toISOString().slice(0, 10);
+  const fontStyle = fontCss ? `\n  <defs><style>${fontCss}</style></defs>` : '';
 
-  const out = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="uhri-t">
+  const svgText = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="uhri-t">${fontStyle}
   <title id="uhri-t">${esc(figTitle)} — ${esc(scope)}</title>
   <rect width="${W}" height="${H}" fill="${esc(paper)}"/>
   <rect width="${W}" height="6" fill="${esc(accent)}"/>
@@ -2865,8 +2915,71 @@ function exportFigureSvg(btn) {
 </svg>
 `;
   const entity = scope.split(' · ')[0];
-  downloadBlob(out, 'image/svg+xml', `uhri-${_exportSlug(figTitle)}-${_exportSlug(entity)}-${date}.svg`);
-  toast(`Exported “${figTitle}” as SVG`, false, 2500);
+  const base = ['uhri', _exportSlug(figTitle), _exportSlug(entity), extra.tag ? _exportSlug(extra.tag) : '', date].filter(Boolean).join('-');
+  return { svgText, W, H, figTitle, base };
+}
+
+function exportFigureSvg(btn) {
+  const doc = _composeFigure(btn);
+  if (!doc) return;
+  downloadBlob(doc.svgText, 'image/svg+xml', `${doc.base}.svg`);
+  toast(`Exported “${doc.figTitle}” as SVG`, false, 2500);
+}
+
+/* PNG — the same document rasterised at 2× through an <img> and a canvas.
+   An SVG drawn as an image cannot see the page's web fonts, so the two
+   families the figure uses are fetched from Google Fonts (CORS-enabled,
+   latin + latin-ext only, ~90 KB) and embedded as data URIs for the render.
+   If that fetch fails the PNG still ships, in the fallback faces. */
+let _figureFontCssPromise = null;
+function _figureFontCss() {
+  if (_figureFontCssPromise) return _figureFontCssPromise;
+  _figureFontCssPromise = (async () => {
+    const css = await (await fetch('https://fonts.googleapis.com/css2?family=Instrument+Serif&family=JetBrains+Mono:wght@400;500&display=swap', { mode: 'cors' })).text();
+    const blocks = Array.from(css.matchAll(/\/\* (latin|latin-ext) \*\/\s*(@font-face\s*\{[^}]*\})/g)).map(m => m[2]);
+    const b64 = (buf) => { const u = new Uint8Array(buf); let bin = ''; for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(bin); };
+    const inlined = await Promise.all(blocks.map(async b => {
+      const m = /url\((https:[^)]+)\)/.exec(b); if (!m) return '';
+      const buf = await (await fetch(m[1], { mode: 'cors' })).arrayBuffer();
+      return b.replace(m[1], `data:font/woff2;base64,${b64(buf)}`);
+    }));
+    return inlined.join('\n');
+  })().catch(() => '');
+  return _figureFontCssPromise;
+}
+
+function _svgToPngBlob(svgText, width, height, scale = 2) {
+  const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }));
+  return new Promise((ok, fail) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = Math.round(width * scale); c.height = Math.round(height * scale);
+        const ctx = c.getContext('2d');
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0, width, height);
+        c.toBlob(b => b ? ok(b) : fail(new Error('the browser could not encode the PNG')), 'image/png');
+      } catch (e) { fail(e); } finally { URL.revokeObjectURL(url); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); fail(new Error('the browser could not rasterise the chart')); };
+    img.src = url;
+  });
+}
+
+async function exportFigurePng(btn) {
+  const probe = _composeFigure(btn);
+  if (!probe) return;
+  toast('Rendering PNG…', false, 4000);
+  try {
+    const fontCss = await _figureFontCss();
+    const doc = _composeFigure(btn, { fontCss }) || probe;
+    const png = await _svgToPngBlob(doc.svgText, doc.W, doc.H, 2);
+    downloadBlob(png, 'image/png', `${doc.base}.png`);
+    toast(`Exported “${doc.figTitle}” as PNG`, false, 2500);
+  } catch (e) {
+    toast(`PNG export failed — ${e.message}. The SVG export still works.`, true, 6000);
+  }
 }
 
 function copyRowListCsv(btn) {
@@ -2892,7 +3005,7 @@ function copyRowListCsv(btn) {
 }
 
 function downloadBlob(content, mime, filename) {
-  const blob = new Blob([content], { type: mime });
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename;
@@ -3297,7 +3410,8 @@ function buildOverviewShell() {
               <button data-mode="hex"        title="Hex tiles — visual fairness, one cell per country">HEX</button>
               <button data-mode="choropleth" title="Geographic choropleth — real country shapes, pan + zoom">GEO</button>
             </div>
-            <button class="map-export" id="mapExport" title="Export current map as SVG">⬇ SVG</button>
+            <button class="map-export" id="mapExport" data-export-svg="mapWrap" title="Export current map as SVG">⬇ SVG</button>
+            <button class="map-export" id="mapExportPng" data-export-png="mapWrap" title="Export current map as PNG">⬇ PNG</button>
           </div>
         </div>
         <div class="map-wrap" id="mapWrap">${_skelMap()}</div>
@@ -3313,7 +3427,7 @@ function buildOverviewShell() {
       <div class="panel p-time">
         <div class="panel-head"><div class="panel-title"><span class="idx">FIG.04</span><span class="t">Volume over time</span></div>
           <div class="panel-actions">
-            <button class="chart-export small" id="tlExport" data-export-svg="tlWrap" title="Export chart as SVG">⬇ SVG</button>
+            <button class="chart-export small" id="tlExport" data-export-svg="tlWrap" title="Export chart as SVG">⬇ SVG</button><button class="chart-export small" id="tlExportPng" data-export-png="tlWrap" title="Export chart as PNG">⬇ PNG</button>
             <span id="tlLegend" style="margin-left:8px"></span>
           </div></div>
         <div class="tl-wrap" id="tlWrap">${_skelTimeline()}</div>
@@ -3360,11 +3474,6 @@ function _wireMapModeToggle() {
       announce('Map style switched to ' + mode);
     });
   });
-  const expBtn = $('#mapExport');
-  if (expBtn && !expBtn.dataset.wired) {
-    expBtn.dataset.wired = '1';
-    expBtn.addEventListener('click', exportMapAsSVG);
-  }
   // Also wire the Timeline mode toggle which lives in the same panel-head pattern
   _wireTimelineModeToggle();
 }
@@ -4080,9 +4189,11 @@ async function boot() {
   // ⬇ SVG / 📋 CSV button in every view, so a button works the moment it
   // is in the DOM and no render path has to remember to wire it.
   document.addEventListener('click', e => {
-    const svgBtn = e.target.closest('.chart-export[data-export-svg]');
+    const pngBtn = e.target.closest('button[data-export-png]');
+    if (pngBtn) { exportFigurePng(pngBtn); return; }
+    const svgBtn = e.target.closest('button[data-export-svg]');
     if (svgBtn) { exportFigureSvg(svgBtn); return; }
-    const csvBtn = e.target.closest('.chart-export[data-export]');
+    const csvBtn = e.target.closest('button[data-export]');
     if (csvBtn) copyRowListCsv(csvBtn);
   });
 
