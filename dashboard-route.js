@@ -57,7 +57,7 @@ function _syncRouteTabLabels() {
   // rule then hides the slot entirely, so inactive profile tabs stop
   // showing placeholder dashes / stale seeded entities (declutter 2026-07).
   const countryTab = $('#tabCountry');
-  if (countryTab) countryTab.textContent = state.focusCountry ? (ISO_TO_NAME[state.focusCountry] || state.focusCountry) : '';
+  if (countryTab) countryTab.textContent = state.focusCountry ? isoToCountryName(state.focusCountry) : '';
 
   const themeTab = $('#tabTheme');
   if (themeTab) themeTab.textContent = state.focusTheme || '';
@@ -163,7 +163,7 @@ function _restoreUrlState(hash = location.hash.slice(1)) {
   if (p.get('y2')) f.yearB = Number(p.get('y2'));
   if (_safeFocusParam(p.get('fc'))) {
     state.focusCountry = p.get('fc');
-    $('#tabCountry').textContent = ISO_TO_NAME[state.focusCountry] || state.focusCountry;
+    $('#tabCountry').textContent = isoToCountryName(state.focusCountry);
   }
   if (_safeFocusParam(p.get('ft'))) { state.focusTheme = p.get('ft'); $('#tabTheme').textContent = state.focusTheme; }
   if (_safeFocusParam(p.get('fg'))) { state.focusGroup = p.get('fg'); $('#tabGroup').textContent = state.focusGroup; }

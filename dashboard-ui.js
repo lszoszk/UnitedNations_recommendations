@@ -112,7 +112,7 @@ function renderPalette(q) {
     { kind:'VIEW', label:'Overview', sub:'map + top countries + themes + timeline', score: 100, action:()=>{closePalette();navigate('overview');} },
     { kind:'VIEW', label:'Search results', sub:'paginated full-text', score: 99, action:()=>{closePalette();navigate('search');} },
     { kind:'VIEW', label:'Compare countries', sub:'A vs B side-by-side', score: 98, action:()=>{closePalette();navigate('compare');} },
-    { kind:'VIEW', label:'Country profile', sub:`drill into ${ISO_TO_NAME[state.focusCountry]||'a country'}`, score: 97, action:()=>{closePalette();navigate('country');} },
+    { kind:'VIEW', label:'Country profile', sub:`drill into ${isoToCountryName(state.focusCountry)||'a country'}`, score: 97, action:()=>{closePalette();navigate('country');} },
     { kind:'VIEW', label:'Group profile', sub:`drill into ${state.focusGroup||'a concerned group'}`, score: 96.5, action:()=>{closePalette();navigate('group');} },
     { kind:'VIEW', label:'Theme profile', sub:`drill into ${state.focusTheme||'a theme'}`, score: 96, action:()=>{closePalette();navigate('theme');} },
     { kind:'VIEW', label:'SDG profile', sub:`drill into ${state.focusSdg||'an SDG target'}`, score: 95.5, action:()=>{closePalette();navigate('sdg');} },

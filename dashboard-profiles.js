@@ -359,7 +359,7 @@ async function renderCountry() {
   const gen = ++_profileRenderGen;
   const root = $('#view-country');
   const iso = state.focusCountry;
-  const name = iso ? (ISO_TO_NAME[iso] || iso) : null;
+  const name = iso ? isoToCountryName(iso) : null;
 
   if (!iso || !name) {
     const all = cleanCountryList(state.facets?.countries || []);

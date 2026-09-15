@@ -722,6 +722,37 @@ function getHexNameToIso() {
   return _hexNameToIso;
 }
 
+/* ISO3 → the name the API serves, for the other direction. ISO_TO_NAME is
+   derived from NAME_TO_ISO and so carries only 131 of the 196 tiles; the
+   profile resolved a clicked tile with `ISO_TO_NAME[iso] || iso`, so the
+   other 65 — Luxembourg, Malta, Chad, every Caribbean and Pacific state,
+   the State of Palestine, and the EU bloc tile — opened a profile headed
+   with the bare code that then filtered on `countries=LUX` and found
+   nothing. HEX_LAYOUT already holds the API name for all of them.
+   ISO_TO_NAME still wins where it has a row, so no existing name moves. */
+let _hexIsoToName = null;
+function getHexIsoToName() {
+  if (_hexIsoToName) return _hexIsoToName;
+  _hexIsoToName = {};
+  HEX_LAYOUT.forEach(([c, r, iso, name]) => { _hexIsoToName[iso] = name; });
+  Object.assign(_hexIsoToName, ISO_TO_NAME);
+  return _hexIsoToName;
+}
+
+/* The facet value to filter on for a tile's ISO, or the argument unchanged
+   when it isn't one (the pickers set state.focusCountry to a name, not a
+   code). OHCHR decorates two facet values with an observer-state asterisk —
+   "State of Palestine*", "Kosovo*" — which HEX_LAYOUT stores without, so
+   check the live facet list rather than hardcoding the pair. */
+function isoToCountryName(iso) {
+  if (!iso) return null;
+  const name = getHexIsoToName()[iso];
+  if (!name) return iso;
+  const facets = state?.facets?.countries;
+  if (Array.isArray(facets) && !facets.includes(name) && facets.includes(`${name}*`)) return `${name}*`;
+  return name;
+}
+
 /* M49 region membership — {africa: Set<countryName>, americas: Set<…>, …}.
    Built lazily from HEX_LAYOUT on first use.  Rail uses this to render the
    5 M49 region options and to expand a region filter into the list of
