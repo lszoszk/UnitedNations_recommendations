@@ -388,7 +388,17 @@ test.describe('UHRI Dashboard smoke', () => {
     await expect(page.locator('#seSort')).toHaveValue('relevance:asc');
     expect(kwSort, 'keyword search must FETCH relevance, not just display it').toBe('relevance:asc');
     // …and it survives the trip through api.records into the request URL.
-    expect(wireSorts).toContain('relevance:asc');
+    // Poll, don't assert: apiGet runs fetches through a concurrency gate, so
+    // the records request sits queued while the boot's facets/map fetches
+    // hold the slots. The api.records hook fires the moment the call is
+    // made; the wire request leaves only when a slot frees. From Poznań to
+    // a warm API that is the same millisecond; from a CI runner to a cold,
+    // just-restarted one it is not, and this line failed three retries in
+    // a row on 2026-09-15 for exactly that reason.
+    await expect.poll(() => wireSorts, {
+      timeout: 10_000,
+      message: 'the relevance sort must reach the request URL once the gate frees a slot',
+    }).toContain('relevance:asc');
 
     // An explicit pick beats the keyword default, in the dropdown and the fetch.
     const pickedSort = await sortSentBy(async () => {
