@@ -3209,22 +3209,29 @@ function _wireMapModeToggle() {
 }
 
 function _wireTimelineModeToggle() {
-  const modes = $('#tlModes'); if (!modes) return;
-  const current = getTimelineMode();
-  modes.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tlmode === current));
-  modes.querySelectorAll('button').forEach(btn => {
-    if (btn.dataset.wired) return;
-    btn.dataset.wired = '1';
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.tlmode;
-      setTimelineMode(mode);
-      modes.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tlmode === mode));
-      if (state.analytics) {
-        renderTimeline($('#tlWrap'), state.analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#tlLegend'), mode, stackBy: 'family' });
-      }
-      announce('Timeline mode switched to ' + mode);
+  // The mode toggle (#tlModes) left the Overview markup, but the early
+  // return it left behind — `if (!modes) return;` — stayed, and everything
+  // below it in this function went dead: the timeline ⬇ SVG button and every
+  // 📋 CSV button on the row lists rendered, hovered, and did nothing on
+  // click, with no toast and no console error. Wire what exists.
+  const modes = $('#tlModes');
+  if (modes) {
+    const current = getTimelineMode();
+    modes.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tlmode === current));
+    modes.querySelectorAll('button').forEach(btn => {
+      if (btn.dataset.wired) return;
+      btn.dataset.wired = '1';
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.tlmode;
+        setTimelineMode(mode);
+        modes.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tlmode === mode));
+        if (state.analytics) {
+          renderTimeline($('#tlWrap'), state.analytics?.trends?.yearly_body_counts || {}, { legendEl: $('#tlLegend'), mode, stackBy: 'family' });
+        }
+        announce('Timeline mode switched to ' + mode);
+      });
     });
-  });
+  }
 
   // Timeline SVG export
   const tlExp = $('#tlExport');
