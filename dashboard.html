@@ -2730,6 +2730,167 @@ function doExport(format) {
   toast(`Exporting ${format.toUpperCase()}… download will start shortly.`, false, 3000);
 }
 
+/* ---------- FIGURE EXPORTS — every chart and every row list exports itself ----------
+   One delegated click handler (wired at boot beside the rail's export menu)
+   serves every button in every view, present or future:
+     <button class="chart-export" data-export-svg="<id of the .tl-wrap>">  → standalone SVG
+     <button class="chart-export" data-export="<id of the .row-list>">      → CSV to the clipboard
+   Per-button wiring is what let the Overview's buttons sit dead behind a
+   stale early return for months (2026-09-15); delegation cannot rot that way.
+
+   The SVG is a document, not a fragment. On the page the <svg> holds only
+   the shapes and the y-axis — title, x-axis years, legend and source live in
+   HTML around it — so a bare clone opened in Illustrator or Word was a set
+   of coloured hills with no years, no legend and no attribution. */
+
+const EXPORT_SOURCE_LINE = 'Source: OHCHR Universal Human Rights Index (uhri.ohchr.org) · Chart: UHRI+ — Szoszkiewicz, Ł. (2026), lszoszk.github.io/UnitedNations_recommendations';
+
+function _exportSlug(s) {
+  return String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'chart';
+}
+
+/* "Poland · Treaty Bodies · 2010–2026" — what the figure is a figure OF. */
+function _exportScopeLine() {
+  const v = state.view;
+  let entity = '';
+  if (v === 'country') entity = state.focusCountry ? (isoToCountryName(state.focusCountry) || '') : '';
+  else if (v === 'theme') entity = state.focusTheme || '';
+  else if (v === 'group') entity = state.focusGroup || '';
+  else if (v === 'sdg') entity = state.focusSdg || '';
+  else if (v === 'mechanism') entity = cleanLabel(state.focusMechanism || '');
+  else if (v === 'compare') entity = (state.cmpA && state.cmpB) ? `${state.cmpA} vs ${state.cmpB}` : '';
+  const parts = [entity || 'All recommendations'];
+  const rail = _activeRailDescription();
+  if (rail) parts.push(rail);
+  if (!entity && Number.isFinite(state.totalHits)) parts.push(`${fmt(state.totalHits)} records`);
+  return parts.join(' · ');
+}
+
+/* var(--x) / color-mix() / oklch() → plain sRGB, so the file renders the
+   same in every viewer. A probe span resolves the variables against the
+   live page; a canvas normalises whatever colour space comes back. */
+function _svgColorResolver() {
+  const probe = document.createElement('span');
+  probe.style.cssText = 'position:absolute;left:-9999px;top:0';
+  document.body.appendChild(probe);
+  const ctx = document.createElement('canvas').getContext('2d');
+  const cache = new Map();
+  const resolve = (raw) => {
+    const c = String(raw == null ? '' : raw).trim();
+    if (!c || c === 'none' || c === 'transparent') return c;
+    if (cache.has(c)) return cache.get(c);
+    let out = c;
+    if (/var\(|color-mix\(|oklch\(|oklab\(|lab\(|lch\(/.test(c)) { probe.style.color = c; out = getComputedStyle(probe).color || c; }
+    if (ctx) { ctx.fillStyle = '#010203'; ctx.fillStyle = out; if (ctx.fillStyle !== '#010203' || out === '#010203') out = ctx.fillStyle; }
+    cache.set(c, out);
+    return out;
+  };
+  return { resolve, done: () => probe.remove() };
+}
+
+function exportFigureSvg(btn) {
+  const host = document.getElementById(btn.dataset.exportSvg);
+  const svg = host?.querySelector('svg');
+  if (!svg) { toast('No chart to export yet', true); return; }
+  const panel = btn.closest('.panel');
+  const figIdx = panel?.querySelector('.panel-title .idx')?.textContent.trim() || '';
+  const figTitle = (panel?.querySelector('.panel-title .t')?.textContent || 'Chart').replace(/\s+/g, ' ').trim();
+  const scope = _exportScopeLine();
+  const { resolve, done } = _svgColorResolver();
+  const paper = resolve('var(--paper)'), ink = resolve('var(--ink)'), dim = resolve('var(--dim)'),
+        rule = resolve('var(--line)'), accent = resolve('var(--accent)');
+  const MONO = "'JetBrains Mono', Menlo, Consolas, monospace";
+  const SERIF = "'Instrument Serif', Georgia, 'Times New Roman', serif";
+
+  // Geometry mirrors the on-screen aspect, so the curve in the file is the
+  // curve the user was looking at (the chart is preserveAspectRatio="none").
+  const W = 1200, M = 48, chartW = W - 2 * M, headerH = 96;
+  const r = svg.getBoundingClientRect();
+  const chartH = Math.round(chartW * ((r.width > 0 && r.height > 0) ? r.height / r.width : 0.3));
+  const hostRect = host.getBoundingClientRect();
+  const years = Array.from(host.querySelector('.tl-years')?.children || [])
+    .map(el => { const b = el.getBoundingClientRect(); return { label: el.textContent.trim(), x: hostRect.width ? (b.left + b.width / 2 - hostRect.left) / hostRect.width : 0 }; })
+    .filter(y => y.label);
+  const legend = Array.from(panel?.querySelectorAll('.legend-body:not(.off)') || []).map(el => ({
+    label: (el.getAttribute('title') || el.textContent || '').replace(/\s+—\s+click to.*$/, '').trim(),
+    color: resolve(el.querySelector('.swatch')?.style.background || accent),
+  })).filter(l => l.label);
+  const yearsH = years.length ? 26 : 8, legendH = legend.length ? 32 : 0, footerH = 66;
+  const H = headerH + chartH + yearsH + legendH + footerH;
+
+  // The chart: a clone with every CSS variable resolved to a literal colour.
+  const clone = svg.cloneNode(true);
+  clone.removeAttribute('class');
+  clone.querySelectorAll('*').forEach(el => {
+    for (const a of ['fill', 'stroke']) {
+      const v = el.getAttribute(a);
+      if (v && /var\(|color-mix\(|oklch\(|oklab\(|lab\(|lch\(/.test(v)) el.setAttribute(a, resolve(v));
+    }
+    if (el.hasAttribute('font-family')) el.setAttribute('font-family', MONO);
+  });
+  clone.setAttribute('x', M); clone.setAttribute('y', headerH);
+  clone.setAttribute('width', chartW); clone.setAttribute('height', chartH);
+  clone.removeAttribute('xmlns');
+  done();
+
+  const esc = sanitize;
+  const yearsY = headerH + chartH + 18;
+  const legendY = yearsY + (years.length ? 26 : 8);
+  const footTop = H - footerH + 6;
+  let lx = M;
+  const legendSvg = legend.map(l => {
+    const g = `<rect x="${lx}" y="${legendY - 10}" width="11" height="11" fill="${esc(l.color)}"/>` +
+              `<text x="${lx + 16}" y="${legendY}" font-family="${MONO}" font-size="11" fill="${esc(ink)}">${esc(l.label)}</text>`;
+    lx += 16 + l.label.length * 6.9 + 22;
+    return g;
+  }).join('');
+  const yearsSvg = years.map(y =>
+    `<text x="${(M + y.x * chartW).toFixed(1)}" y="${yearsY}" text-anchor="middle" font-family="${MONO}" font-size="10" fill="${esc(dim)}">${esc(y.label)}</text>`).join('');
+  const date = new Date().toISOString().slice(0, 10);
+
+  const out = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="uhri-t">
+  <title id="uhri-t">${esc(figTitle)} — ${esc(scope)}</title>
+  <rect width="${W}" height="${H}" fill="${esc(paper)}"/>
+  <rect width="${W}" height="6" fill="${esc(accent)}"/>
+  <text x="${M}" y="32" font-family="${MONO}" font-size="10" letter-spacing="2" fill="${esc(dim)}">${esc((figIdx ? figIdx + ' · ' : '') + 'UHRI+')}</text>
+  <text x="${M}" y="64" font-family="${SERIF}" font-size="30" fill="${esc(ink)}">${esc(figTitle)}</text>
+  <text x="${M}" y="86" font-family="${MONO}" font-size="12" fill="${esc(dim)}">${esc(scope)}</text>
+  ${clone.outerHTML}
+  ${yearsSvg}
+  ${legendSvg}
+  <line x1="${M}" y1="${footTop}" x2="${W - M}" y2="${footTop}" stroke="${esc(rule)}"/>
+  <text x="${M}" y="${footTop + 22}" font-family="${MONO}" font-size="10.5" fill="${esc(dim)}">${esc(EXPORT_SOURCE_LINE)}</text>
+  <text x="${M}" y="${footTop + 40}" font-family="${MONO}" font-size="10.5" fill="${esc(dim)}">Exported ${date} · Please credit OHCHR UHRI and UHRI+ when reusing this chart.</text>
+</svg>
+`;
+  const entity = scope.split(' · ')[0];
+  downloadBlob(out, 'image/svg+xml', `uhri-${_exportSlug(figTitle)}-${_exportSlug(entity)}-${date}.svg`);
+  toast(`Exported “${figTitle}” as SVG`, false, 2500);
+}
+
+function copyRowListCsv(btn) {
+  const which = btn.dataset.export;
+  const rows = Array.from(document.getElementById(which)?.querySelectorAll('.rl-row') || []).map((row, i) => {
+    const txt = row.querySelector('.txt');
+    return {
+      rank: i + 1,
+      label: (txt?.getAttribute('title') || txt?.textContent || '').trim(),
+      value: (row.querySelector('.v')?.textContent || '').trim().replace(/[,\s]/g, ''),
+    };
+  });
+  if (!rows.length) { toast('Nothing to copy yet', true); return; }
+  const panel = btn.closest('.panel');
+  const figTitle = (panel?.querySelector('.panel-title .t')?.textContent || which).replace(/\s+/g, ' ').trim();
+  const csv = 'rank,label,value\n' + rows.map(r => `${r.rank},"${r.label.replace(/"/g, '""')}",${r.value}`).join('\n');
+  const date = new Date().toISOString().slice(0, 10);
+  const file = `uhri-${_exportSlug(figTitle)}-${_exportSlug(_exportScopeLine().split(' · ')[0])}-${date}.csv`;
+  const write = navigator.clipboard?.writeText ? navigator.clipboard.writeText(csv) : Promise.reject(new Error('no clipboard'));
+  write
+    .then(() => toast(`Copied ${rows.length} rows as CSV — ${figTitle}`, false, 2500))
+    .catch(() => { downloadBlob(csv, 'text/csv', file); toast('Downloaded as CSV', false, 2500); });
+}
+
 function downloadBlob(content, mime, filename) {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -3152,7 +3313,7 @@ function buildOverviewShell() {
       <div class="panel p-time">
         <div class="panel-head"><div class="panel-title"><span class="idx">FIG.04</span><span class="t">Volume over time</span></div>
           <div class="panel-actions">
-            <button class="chart-export small" id="tlExport" title="Export timeline as SVG">⬇ SVG</button>
+            <button class="chart-export small" id="tlExport" data-export-svg="tlWrap" title="Export chart as SVG">⬇ SVG</button>
             <span id="tlLegend" style="margin-left:8px"></span>
           </div></div>
         <div class="tl-wrap" id="tlWrap">${_skelTimeline()}</div>
@@ -3232,46 +3393,6 @@ function _wireTimelineModeToggle() {
       });
     });
   }
-
-  // Timeline SVG export
-  const tlExp = $('#tlExport');
-  if (tlExp && !tlExp.dataset.wired) {
-    tlExp.dataset.wired = '1';
-    tlExp.addEventListener('click', () => {
-      const svg = $('#tlWrap svg');
-      if (!svg) return toast('No timeline to export yet', true);
-      const clone = svg.cloneNode(true);
-      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-      style.textContent = `text{font-family:monospace}polygon,polyline,path{stroke:#0F0F10}`;
-      clone.insertBefore(style, clone.firstChild);
-      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-      downloadBlob('<?xml version="1.0" encoding="UTF-8"?>\n' + clone.outerHTML, 'image/svg+xml', `uhri-timeline-${getTimelineMode()}-${new Date().toISOString().slice(0,10)}.svg`);
-      toast('Timeline exported as SVG', false, 2500);
-    });
-  }
-
-  // Row-list CSV copy
-  $$('.chart-export[data-export]').forEach(btn => {
-    if (btn.dataset.wired) return;
-    btn.dataset.wired = '1';
-    btn.addEventListener('click', async () => {
-      const which = btn.dataset.export;
-      const rows = $$(`#${which} .rl-row`).map((row, i) => {
-        const label = row.querySelector('.txt')?.textContent?.trim() || '';
-        const val = row.querySelector('.v')?.textContent?.trim() || '';
-        return { rank: i + 1, label, value: val.replace(/[,\s]/g, '') };
-      });
-      if (!rows.length) return toast('Nothing to copy yet', true);
-      const csv = 'rank,label,value\n' + rows.map(r => `${r.rank},"${r.label.replace(/"/g, '""')}",${r.value}`).join('\n');
-      try {
-        await navigator.clipboard.writeText(csv);
-        toast(`Copied ${rows.length} rows as CSV`, false, 2500);
-      } catch {
-        downloadBlob(csv, 'text/csv', `uhri-${which}-${new Date().toISOString().slice(0,10)}.csv`);
-        toast('Downloaded as CSV', false, 2500);
-      }
-    });
-  });
 }
 
 
@@ -3954,6 +4075,16 @@ async function boot() {
     $('#exportDropdown').classList.remove('open');
     doExport(fmt);
   }));
+
+  // Figure exports — see FIGURE EXPORTS above. One listener for every
+  // ⬇ SVG / 📋 CSV button in every view, so a button works the moment it
+  // is in the DOM and no render path has to remember to wire it.
+  document.addEventListener('click', e => {
+    const svgBtn = e.target.closest('.chart-export[data-export-svg]');
+    if (svgBtn) { exportFigureSvg(svgBtn); return; }
+    const csvBtn = e.target.closest('.chart-export[data-export]');
+    if (csvBtn) copyRowListCsv(csvBtn);
+  });
 
   // Upload-your-own-dataset button (#2 feature parity)
   $('#uploadBtn').addEventListener('click', () => {

@@ -324,6 +324,7 @@ async function renderSearch() {
       </label>
       <button id="seExpandAll" title="Expand all result texts on the current page">↓ Expand all</button>
       <button id="seCollapseAll" title="Collapse all result texts">↑ Collapse all</button>
+      <button id="seExport" title="Download every result of this search as an Excel file (up to 50,000 rows). CSV and JSON are in the rail's ⬇ export menu.">⬇ Export .xlsx</button>
     </div>
     ${kw ? `<div class="se-exhaustive-note" role="note" style="font-size:11px;color:var(--dim);padding:6px 2px 0;line-height:1.5">Results match word forms found in the text — a low or zero count is <strong>not proof none exists</strong>. Broaden with a trailing <code>*</code> (e.g. <code>detentio*</code>) or a synonym. <a href="#view=methodology" onclick="event.preventDefault();navigate('methodology')">How search works →</a></div>` : ''}
     <!-- Type-breakdown pills only: the "each row is one paragraph" prose and
@@ -391,6 +392,9 @@ async function renderSearch() {
   $('#seBulkBookmark')?.addEventListener('click', _seBulkBookmark);
   $('#seBulkExportMd')?.addEventListener('click', () => _seExportSelected('md'));
   $('#seBulkExportXlsx')?.addEventListener('click', () => _seExportSelected('xlsx'));
+  // Whole result set (not just the ticked rows): the rail's export, surfaced
+  // where the results are. Lawyers looked for it here and found nothing.
+  $('#seExport')?.addEventListener('click', () => doExport('xlsx'));
   $('#seBulkPin')?.addEventListener('click', _seBulkPin);
   $('#seBulkClear')?.addEventListener('click', () => {
     state.searchSelection.clear();
