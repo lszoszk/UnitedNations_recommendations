@@ -156,7 +156,8 @@ const NO_MATCHING_COUNTRY = '__no_matching_country__';
 
 function buildParams(f) {
   const p = new URLSearchParams();
-  if (f.kw && f.kw.trim()) p.set('text_query', f.kw.trim());
+  // normalizeBooleanQuery: `A AND NOT B` → `A NOT B` (see dashboard-helpers.js).
+  if (f.kw && f.kw.trim()) p.set('text_query', normalizeBooleanQuery(f.kw.trim()));
   /* Region filter — two taxonomies the user can toggle between:
        m49:       UN M49 statistical regions; we resolve to country names
                   client-side (server doesn't speak M49) and send as

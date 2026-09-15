@@ -2344,6 +2344,7 @@ body.ga-consent-open .bug-report-fab{bottom:calc(var(--ga-consent-inset, 190px) 
           <div><code>democra*</code> &nbsp; → matches democracy, democracies, democratic, democratisation</div>
           <div><code>torture OR abuse</code> &nbsp; → union — records with either word</div>
           <div><code>torture NOT detention</code> &nbsp; → torture records that don't mention detention</div>
+          <div><code>torture AND NOT detention</code> &nbsp; → the same thing — <code>AND NOT</code> is accepted and read as <code>NOT</code></div>
           <div><code>(child OR woman) AND trafficking</code> &nbsp; → grouped booleans</div>
           <div style="color:var(--dim);margin-top:6px">Note: operators are case-sensitive — <code>and</code> / <code>or</code> lowercased become plain words.</div>
           <div style="color:var(--dim);margin-top:4px"><strong>When to use <code>*</code></strong> — for acronyms and uncommon variants that the Porter stemmer can't collapse (LGBT*, SDG*, UNHCR*, pre-1990*, non-discriminat*). For regular English verbs and nouns you usually don't need <code>*</code>: the default stemmer already catches the common inflections.</div>
@@ -2385,9 +2386,9 @@ body.ga-consent-open .bug-report-fab{bottom:calc(var(--ga-consent-inset, 190px) 
         <button class="export-btn" id="btnExport">⬇ export</button>
         <div class="export-dropdown" id="exportDropdown">
           <div class="hd">Download filtered records</div>
-          <div class="export-item" data-format="xlsx"><span class="fmt">XLSX</span><span class="hint">Excel, up to 50k rows</span></div>
-          <div class="export-item" data-format="csv"><span class="fmt">CSV</span><span class="hint">Plain-text, any tool</span></div>
-          <div class="export-item" data-format="json"><span class="fmt">JSON</span><span class="hint">Full record objects</span></div>
+          <div class="export-item" data-format="xlsx"><span class="fmt">XLSX</span><span class="hint">Excel — built in your browser, up to 50k rows</span></div>
+          <div class="export-item" data-format="csv"><span class="fmt">CSV</span><span class="hint">Plain text — any tool</span></div>
+          <div class="export-item" data-format="json"><span class="fmt">JSON</span><span class="hint">Full record objects, every field</span></div>
         </div>
       </div>
       <button class="linkbtn" id="btnSaveView">☆ save view</button>
@@ -2697,37 +2698,62 @@ function _activeRailDescription(excludeKey) {
 }
 
 /* ---------- EXPORT (#26) — wire to /api/data/export ---------- */
-function doExport(format) {
-  if (offline.enabled) {
-    // Offline mode: build file client-side from the filtered data
-    const rows = offline.filter(state.filters);
-    const ts = new Date().toISOString().slice(0,10);
+/* One export path for both modes: fetch the rows, build the file here.
+
+   The VM branch used to point an <a download> at
+   `/api/data/export?format=xlsx`. Two things were wrong with that, both
+   found on 2026-09-15 by a user who got a wall of raw JSON in Safari:
+
+     * `/api/data/export` has no `format` parameter — never had — so it
+       answers every request with JSON. The file would have been JSON
+       named .xlsx even if it had downloaded.
+     * `download` on an <a> is IGNORED for a cross-origin URL unless the
+       server sends `Content-Disposition: attachment`, which this endpoint
+       does not. So the browser navigated to 13 MB of JSON instead.
+
+   Building client-side fixes both, needs no backend change, and collapses
+   the two modes onto the same code — the offline branch already did this,
+   and its files were the ones that worked. */
+async function doExport(format) {
+  const ts = new Date().toISOString().slice(0, 10);
+
+  const build = async (rows) => {
+    if (!rows.length) { toast('Nothing to export for this filter', true, 4000); return; }
+    const n = fmt(rows.length);
     if (format === 'json') {
       downloadBlob(JSON.stringify(rows, null, 2), 'application/json', `uhri-export-${ts}.json`);
-      toast(`Exported ${fmt(rows.length)} records (JSON)`, false, 3000);
+      toast(`Exported ${n} records (JSON)`, false, 3000);
     } else if (format === 'csv') {
       downloadBlob(toCSV(rows), 'text/csv', `uhri-export-${ts}.csv`);
-      toast(`Exported ${fmt(rows.length)} records (CSV)`, false, 3000);
+      toast(`Exported ${n} records (CSV)`, false, 3000);
     } else if (format === 'xlsx') {
-      toast(`Building XLSX for ${fmt(rows.length)} records… fetching SheetJS`, false, 3500);
-      exportXLSXFromRows(rows, `uhri-export-${ts}.xlsx`)
-        .then(() => toast(`Exported ${fmt(rows.length)} records (XLSX)`, false, 3000))
-        .catch(err => toast('XLSX export failed: ' + err.message, true, 6000));
+      toast(`Building XLSX for ${n} records…`, false, 8000);
+      try {
+        await exportXLSXFromRows(rows, `uhri-export-${ts}.xlsx`);
+        toast(`Exported ${n} records (XLSX)`, false, 3000);
+      } catch (err) {
+        toast('XLSX export failed: ' + err.message, true, 6000);
+      }
     }
-    return;
-  }
-  // VM-mode: hand off to the backend export endpoint, which already knows
-  // how to stream xlsx/csv/json for the current filter spec
+  };
+
+  if (offline.enabled) { await build(offline.filter(state.filters)); return; }
+
   const p = buildParams(state.filters);
-  p.set('format', format);
-  const url = API_BASE + '/api/data/export?' + p.toString();
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `uhri-export.${format}`;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => a.remove(), 100);
-  toast(`Exporting ${format.toUpperCase()}… download will start shortly.`, false, 3000);
+  p.set('limit', String(EXPORT_ROW_LIMIT));
+  toast('Fetching records to export…', false, 15000);
+  try {
+    const res = await fetch(API_BASE + '/api/data/export?' + p.toString());
+    if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
+    const data = await res.json();
+    const rows = data.records || [];
+    await build(rows);
+    if (Number(data.total_records) > rows.length) {
+      toast(`Note: ${fmt(data.total_records)} records match — the export is capped at ${fmt(rows.length)}. Narrow the filters, or take the full dataset from OHCHR.`, false, 9000);
+    }
+  } catch (err) {
+    toast(`Export failed — ${err.message}. Please try again, or narrow the filter.`, true, 7000);
+  }
 }
 
 /* ---------- FIGURE EXPORTS — every chart and every row list exports itself ----------
@@ -3003,6 +3029,9 @@ function copyRowListCsv(btn) {
     .then(() => toast(`Copied ${rows.length} rows as CSV — ${figTitle}`, false, 2500))
     .catch(() => { downloadBlob(csv, 'text/csv', file); toast('Downloaded as CSV', false, 2500); });
 }
+
+/* The API's own ceiling (DEFAULT_ANALYSIS_EXPORT_LIMIT); asking for more is rejected. */
+const EXPORT_ROW_LIMIT = 50000;
 
 function downloadBlob(content, mime, filename) {
   const blob = content instanceof Blob ? content : new Blob([content], { type: mime });

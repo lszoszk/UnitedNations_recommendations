@@ -179,26 +179,86 @@ test.describe('Country profile', () => {
   });
 });
 
-test('Search: ⬇ Export .xlsx downloads the whole result set for the current query', async ({ page }) => {
+test('Search: ⬇ Export .xlsx builds a real workbook from the whole result set', async ({ page }) => {
   await stubApi(page);
+  // SheetJS ships from a CDN under an SRI pin, so a routed stub would be
+  // rejected by the browser. Define window.XLSX before the page runs
+  // instead — ensureXLSX() returns it and never touches the network — and
+  // record what reached the workbook.
+  await page.addInitScript(() => {
+    (window as any).XLSX = {
+      utils: {
+        json_to_sheet: (rows: unknown[]) => ({ rows }),
+        book_new: () => ({ sheets: [] as any[] }),
+        book_append_sheet: (wb: any, ws: any, name: string) => { wb.sheets.push({ name, ws }); },
+      },
+      writeFile: (wb: any, filename: string) => {
+        (window as any).__wb = { filename, name: wb.sheets[0].name, rows: wb.sheets[0].ws.rows };
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob(['PK-stub'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+        a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      },
+    };
+  });
   const exportUrls: string[] = [];
   await page.route(/\/api\/data\/export/, (route) => {
     exportUrls.push(route.request().url());
-    return route.fulfill({ status: 200, headers: { ...CORS, 'Content-Disposition': 'attachment; filename="uhri-export.xlsx"' },
-      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', body: 'PK' });
+    return route.fulfill(json({
+      ok: true, total_records: 2, analysis_limit: 50_000,
+      records: [
+        { AnnotationId: 'a-1', Symbol: 'CCPR/C/POL/CO/7', PublicationDate: '2020-01-01', Body: '- CCPR',
+          AnnotationType: '- Recommendations', Countries: ['Poland'], Regions: [], Themes: ['Torture'],
+          AffectedPersons: [], Sdgs: [], TextPlainCleaned: 'Prohibit torture in all places of detention.' },
+        { AnnotationId: 'a-2', Symbol: 'CAT/C/POL/CO/7', PublicationDate: '2019-08-29', Body: '- CAT',
+          AnnotationType: '- Concerns/Observations', Countries: ['Poland'], Regions: [], Themes: [],
+          AffectedPersons: [], Sdgs: [], TextPlainCleaned: 'The Committee is concerned about overcrowding.' },
+      ],
+    }));
   });
   await page.goto('/dashboard.html#view=search&q=china');
   await expect(page.locator('#view-search .se-head .q')).toHaveText('"china"', { timeout: 20_000 });
 
-  // Assert on the request, not the download event: the export is a
-  // cross-origin <a download> that the server turns into an attachment, and
-  // WebKit does not surface that as a download event under automation. The
-  // contract we own is the URL the button asks for.
-  const hit = page.waitForRequest(/\/api\/data\/export/, { timeout: 10_000 });
+  const download = page.waitForEvent('download', { timeout: 15_000 });
   await page.locator('#seExport').click();
-  await hit;
+  const file = await download;
+
+  // The request: the current query, and the API's own row cap — never a
+  // `format` parameter, which this endpoint has never had.
   expect(exportUrls).toHaveLength(1);
-  const p = new URL(exportUrls[0]).searchParams;
-  expect(p.get('format')).toBe('xlsx');
-  expect(p.get('text_query')).toBe('china');
+  const params = new URL(exportUrls[0]).searchParams;
+  expect(params.get('text_query')).toBe('china');
+  expect(params.get('limit')).toBe('50000');
+  expect(params.get('format'), 'the endpoint has no format parameter').toBeNull();
+
+  // The file: built here, named .xlsx, carrying the rows the API returned.
+  expect(file.suggestedFilename()).toMatch(/^uhri-export-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  const wb = await page.evaluate(() => (window as any).__wb);
+  expect(wb.name).toBe('Records');
+  expect(wb.rows).toHaveLength(2);
+  expect(wb.rows[0]).toMatchObject({ Symbol: 'CCPR/C/POL/CO/7', Countries: 'Poland', Body: 'CCPR' });
+  await expect(page.locator('#toast')).toContainText('Exported 2 records (XLSX)');
+});
+
+test('Rail export: CSV is built in the browser, not requested from the server', async ({ page }) => {
+  await stubApi(page);
+  await page.route(/\/api\/data\/export/, (route) => route.fulfill(json({
+    ok: true, total_records: 1, records: [
+      { AnnotationId: 'c-1', Symbol: 'CRC/C/POL/CO/6', PublicationDate: '2021-03-02', Body: '- CRC',
+        AnnotationType: '- Recommendations', Countries: ['Poland'], Regions: [], Themes: ['Children, "rights of"'],
+        AffectedPersons: [], Sdgs: [], TextPlainCleaned: 'Raise the minimum age, and report back.' },
+    ],
+  })));
+  await page.goto('/dashboard.html#view=overview');
+  await page.waitForFunction(() => typeof (globalThis as any).doExport === 'function', null, { timeout: 20_000 });
+
+  const download = page.waitForEvent('download', { timeout: 15_000 });
+  await page.evaluate(() => (globalThis as any).doExport('csv'));
+  const file = await download;
+  expect(file.suggestedFilename()).toMatch(/^uhri-export-\d{4}-\d{2}-\d{2}\.csv$/);
+
+  const csv = await readDownload(file);
+  const [header, row] = csv.split('\n');
+  expect(header.split(',')).toContain('Symbol');
+  expect(row).toContain('CRC/C/POL/CO/6');
+  expect(row, 'a comma inside a theme must stay quoted').toContain('"Children, ""rights of"""');
 });

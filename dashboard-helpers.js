@@ -107,6 +107,19 @@ function cleanCountryList(names) {
 function sanitize(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 
+/* SQLite FTS5 has no unary NOT: `NOT` is a BINARY operator, so `A NOT B`
+   means "A but not B" and `A AND NOT B` is a syntax error — the backend
+   answered it with HTTP 500 (found 2026-09-15 while checking the launch
+   claim "search with AND, OR and NOT"). `AND NOT` is how most people write
+   exclusion, and the two forms mean exactly the same thing in FTS5, so
+   rewrite it before the query leaves the browser. The server does the same
+   for anyone calling the API directly. Left alone deliberately:
+   `OR NOT` and a leading `NOT` have no FTS5 equivalent — the backend
+   answers those with a 400 the UI can show, not a 500. */
+function normalizeBooleanQuery(q) {
+  return String(q == null ? '' : q).replace(/\bAND\s+NOT\b/g, 'NOT');
+}
+
 /* Publication year of a record, or NaN when it has no usable date.
    The obvious `Number((r.PublicationDate || '').slice(0, 4))` does NOT do
    this: Number('') is 0, not NaN, so an undated record passes every
