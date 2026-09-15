@@ -89,6 +89,18 @@ DEFAULT_DB = "/data/uhri-export.sqlite3"
 BODY_FOLD = {
     "Committee on the Elimination of Discrimination against Women": "CEDAW",
     "Committee on the Elimination of Racial Discrimination": "CERD",
+    # Added 2026-09-15. Raising the sync's lookback from 60 to 365 days pulled
+    # in 4,560 records OHCHR had published late, and five of their body names
+    # arrived spelled out because the FilterList carries no acronym for them.
+    # "Universal Periodic Review" alone held 3,245 records sitting apart from
+    # the 100k+ under "UPR" — and it slipped the VM normaliser's report, which
+    # only flagged names that LOOK like a mandate ("Committee …", "Special
+    # Rapporteur …"). That report now tests membership of the canonical 70.
+    "Universal Periodic Review": "UPR",
+    "Special Rapporteur on the promotion and protection of human rights and fundamental freedoms while countering terrorism": "SR Countering terrorism",
+    "Special Rapporteur on adequate housing as a component of the right to an adequate standard of living": "SR Housing",
+    "Special Rapporteur on the rights of persons with disabilities": "SR Persons with disability",
+    "Special Rapporteur on the negative impact of unilateral coercive measures on the enjoyment of human rights": "SR Unilateral coercive measures",
 }
 
 # Bare ISO-2 code -> the full name the corpus uses elsewhere. This is the
@@ -100,6 +112,19 @@ ISO2_TO_NAME = {
     "GH": "Ghana",       "ID": "Indonesia",  "IQ": "Iraq",      "MV": "Maldives",
     "MY": "Malaysia",    "PK": "Pakistan",   "RS": "Serbia",    "SG": "Singapore",
     "SI": "Slovenia",    "SV": "El Salvador", "UZ": "Uzbekistan", "WS": "Samoa",
+    # Added 2026-09-15: the same catch-up carried 3,881 links under 28 further
+    # bare codes. Each target was checked against the live country facet
+    # before being added — "PS" keeps OHCHR's observer-state asterisk, which
+    # is the spelling the corpus and the API filter actually use.
+    "AD": "Andorra",     "AR": "Argentina",  "BG": "Bulgaria",  "BH": "Bahrain",
+    "BY": "Belarus",     "GE": "Georgia",    "GT": "Guatemala", "HN": "Honduras",
+    "HR": "Croatia",     "JM": "Jamaica",    "KE": "Kenya",     "LR": "Liberia",
+    "LS": "Lesotho",     "LY": "Libya",      "MN": "Mongolia",  "MW": "Malawi",
+    "MD": "Republic of Moldova",             "MH": "Marshall Islands",
+    "NL": "Netherlands", "PA": "Panama",     "PS": "State of Palestine*",
+    "SK": "Slovakia",    "SO": "Somalia",    "TD": "Chad",      "UY": "Uruguay",
+    "US": "United States of America",        "VN": "Viet Nam",
+    "VE": "Venezuela (Bolivarian Republic of)",
 }
 
 
@@ -218,7 +243,9 @@ def main() -> int:
         return 1
 
     leftover_bodies = conn.execute(
-        "SELECT COUNT(*) FROM records WHERE Body LIKE '%Committee on the Elimination%'"
+        "SELECT COUNT(*) FROM records WHERE " + " OR ".join(
+            ["Body LIKE ?"] * len(BODY_FOLD)),
+        [f"%{name}%" for name in BODY_FOLD],
     ).fetchone()[0]
     leftover_codes = conn.execute(
         "SELECT COUNT(*) FROM record_country WHERE LENGTH(value) = 2 AND value = UPPER(value)"
