@@ -17,7 +17,7 @@
 
 <meta property="og:type"        content="website">
 <meta property="og:site_name"   content="UN Human Rights Analytics Dashboard">
-<meta property="og:title"       content="267,942 UN human-rights recommendations, searchable">
+<meta property="og:title"       content="More than 270,000 UN human-rights recommendations, searchable">
 <meta property="og:description" content="Cleaned OHCHR UHRI dataset. Boolean + wildcard + stemmed search. Per-country profiles. Reproducible methodology. Free, open, no login.">
 <meta property="og:url"         content="https://lszoszk.github.io/UnitedNations_recommendations/">
 <meta property="og:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/social-card.png">
@@ -27,7 +27,7 @@
 <meta property="og:locale"      content="en_GB">
 
 <meta name="twitter:card"        content="summary_large_image">
-<meta name="twitter:title"       content="UN Human Rights Analytics — 267,942 recommendations">
+<meta name="twitter:title"       content="UN Human Rights Analytics — more than 270,000 recommendations">
 <meta name="twitter:description" content="Cleaned OHCHR UHRI data, interactive dashboard, reproducible methodology.">
 <meta name="twitter:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/social-card.png">
 
@@ -810,6 +810,13 @@
   .how-lede a:hover {
     background: var(--accent-soft);
   }
+  /* FIG 05 — MCP band. Same grammar as the how-lede: mono, hairline, one accent. */
+  .mcp-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 28px; }
+  .mcp-url {
+    flex: 1 1 360px; min-width: 0; max-width: 100%;
+    font: 500 14px/1.5 var(--mono); white-space: normal; word-break: break-all;
+    background: var(--paper-2); border: 1px solid var(--line); padding: 12px 14px; user-select: all;
+  }
 
   /* -------- hex tile map (Fig 03) -------- */
   /* Figure-with-caption-rail (July 2026): narrative text, region tabs
@@ -1345,7 +1352,8 @@
     <button class="nav-item"        data-to="#themes">    <span class="n">02</span><span class="lbl">What</span></button>
     <button class="nav-item"        data-to="#countries"> <span class="n">03</span><span class="lbl">Where</span></button>
     <button class="nav-item"        data-to="#how">       <span class="n">04</span><span class="lbl">How</span></button>
-    <button class="nav-item"        data-to="#dashboard"> <span class="n">05</span><span class="lbl">Open</span></button>
+    <button class="nav-item"        data-to="#assistant"> <span class="n">05</span><span class="lbl">Ask</span></button>
+    <button class="nav-item"        data-to="#dashboard"> <span class="n">06</span><span class="lbl">Open</span></button>
   </nav>
   <div class="right">
     <a href="#methodology">Methodology</a>
@@ -1591,6 +1599,30 @@
     <p class="how-lede">
       <strong>Nothing is locked in</strong> — a header toggle flips everything back to the <strong>raw OHCHR text</strong>, or drop your own UHRI export via <strong>↑ Upload</strong>. <a href="./dashboard.html#view=methodology">Full methodology — stage-by-stage stats, irregular plurals, citing caveats →</a>
     </p>
+  </div>
+</section>
+
+<!-- AI assistant / MCP. One action here — copy the address — and one
+     link to ai.html, which carries the per-client steps and a section
+     written for the assistant itself, so a non-technical user can paste
+     that page into Claude/ChatGPT and be walked through. -->
+<section class="band" id="assistant">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="no">FIG 05 / MCP</div>
+      <h2 class="t">Ask it from <em style="color:var(--accent)">your AI assistant</em> — verbatim, with the UN document symbol.</h2>
+      <div class="ctx">hosted connector · nothing to install · free</div>
+    </div>
+    <p class="how-why">
+      UHRI+ is also a <strong>Model Context Protocol</strong> server. Add one address to Claude, ChatGPT or any
+      MCP-capable assistant and it can search the recommendations and quote them exactly, instead of
+      reconstructing them from memory. Not sure how? <a href="./ai.html" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none">Paste the guide into your assistant</a> and let it connect you.
+    </p>
+    <div class="mcp-row">
+      <code class="mcp-url" id="mcpUrl">https://150.254.115.204/unhrdb-mcp-rpc/mcp</code>
+      <button class="btn ghost" type="button" id="mcpCopy">Copy address</button>
+      <a class="btn" href="./ai.html">How to connect <span class="arrow">→</span></a>
+    </div>
   </div>
 </section>
 
@@ -3740,6 +3772,17 @@
     document.addEventListener('mouseout',  function (e) { const b = e.target.closest('.gloss'); if (b && !b.contains(e.relatedTarget)) close(b); });
   }
 })();
+</script>
+<script>
+  // FIG 05 copy button. Clipboard API first; selection fallback for older WebKit.
+  (function(){
+    var b=document.getElementById('mcpCopy'), u=document.getElementById('mcpUrl'); if(!b||!u) return;
+    b.addEventListener('click', function(){
+      var t=u.textContent.trim(), ok=function(){ b.textContent='Copied'; setTimeout(function(){ b.textContent='Copy address'; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, fb); else fb();
+      function fb(){ var r=document.createRange(); r.selectNodeContents(u); var sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); try{ document.execCommand('copy'); ok(); }catch(e){} }
+    });
+  })();
 </script>
 </body>
 </html>

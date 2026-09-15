@@ -23,6 +23,7 @@ licences ([NOTICE](NOTICE)).
 
 ## What is included
 - `index.html`: landing page
+- `ai.html`: how to use the dataset from an AI assistant (hosted MCP connector), written for both the reader and the assistant
 - `dashboard.html`: the dashboard application + 20 sibling `dashboard-*.js` modules (no bundler, classic `<script defer>` load order)
 - `sw.js`: service worker (app-shell cache)
 - `tests/`: Playwright suites — `smoke.spec.ts` (22 scenarios) plus `a11y`, `user-flows`, `contracts`, `tab-walk`, and others
@@ -51,6 +52,21 @@ VM API base: `https://150.254.115.204/uhri-api`. Main endpoints
 Admin-only operations (`POST /mv/rebuild`, `DELETE /cache_status`) require an
 `X-Admin-Key` header. The machine-readable `/openapi.json` is public; the
 interactive Swagger UI is disabled in production.
+
+## Query it from an AI assistant (MCP)
+The dataset is also served over the Model Context Protocol by the companion
+[`mcp-unhrdb`](https://github.com/lszoszk/mcp-unhrdb) server. The hosted
+endpoint (Streamable HTTP, no token) is `https://150.254.115.204/unhrdb-mcp-rpc/mcp`; add it as a
+custom connector in Claude or ChatGPT, or in Claude Code:
+
+```bash
+claude mcp add --transport http unhrdb https://150.254.115.204/unhrdb-mcp-rpc/mcp --scope user
+```
+
+Tools: `search_recommendations`, `lookup_recommendation`, `list_uhri_facets`
+(this dataset) plus `search_paragraphs`, `lookup_by_citation` (General Comments,
+jurisprudence, Special Procedures reports). `ai.html` is the non-technical
+guide — paste its address into an assistant and it walks the user through.
 
 ## Deploy with GitHub Pages
 1. Push this folder as its own GitHub repository.

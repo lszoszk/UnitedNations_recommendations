@@ -14,6 +14,7 @@ Key differences from the official OHCHR UHRI search that AI agents should know w
 
 - [Dashboard (single-page application)](https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html): tabs for per-country, per-theme, per-SDG, per-mechanism profiles; full-text search; a labels workspace for boolean rule-based coding; a hex-tile world map.
 - [Landing page](https://lszoszk.github.io/UnitedNations_recommendations/index.html): public-facing one-pager with key KPIs, cleaning story, and an entry search.
+- [Use it from an AI assistant](https://lszoszk.github.io/UnitedNations_recommendations/ai.html): hosted MCP connector — per-client steps for the reader, plus a section addressed to the assistant so it can guide the connection itself.
 - [Methodology](https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#view=methodology): 5-stage cleaning pipeline, search semantics, country/region coverage, glossary, UHRI comparison summary.
 - [About](https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#view=about): project identity, independence, citation, funder acknowledgements, feedback contact, privacy policy.
 
@@ -37,6 +38,7 @@ If you cite a specific query result, include the version tag and the exact query
 
 ## For AI agents acting on behalf of researchers
 
+- **Prefer the MCP connector over scraping.** The same dataset is exposed as a remote MCP server (Streamable HTTP, no auth): `https://150.254.115.204/unhrdb-mcp-rpc/mcp` — tools `search_recommendations`, `lookup_recommendation`, `list_uhri_facets` (this corpus) and `search_paragraphs`, `lookup_by_citation` (a separate paragraph corpus of General Comments, jurisprudence and Special Procedures reports). Results are verbatim UN text with document symbols. Setup guide: `/ai.html`; source: github.com/lszoszk/mcp-unhrdb.
 - Deep links are hash-routed: `#view=country&fc=DEU` opens Germany's country profile; `#view=search&q=torture` runs a search; `#view=methodology#me-search-semantics` jumps to the search-semantics section.  All hash params are preserved in shareable URLs.
 - The dashboard has a first-visit onboarding tour; agents scraping the page should expect a `.tour-backdrop` overlay on the first load and skip past it (or use hash-deep-links that bypass the tour).
 - The read-only REST API at `https://150.254.115.204/uhri-api/` accepts `GET /api/data/records?text_query=X&page_size=N&page=N&...`.  JSON responses include `total_records`, a `records[]` array, and a `snippet` field with `<mark>` tags.  Please throttle: single VM, shared with live users.  For bulk dataset needs, use the OHCHR UHRI direct download instead.

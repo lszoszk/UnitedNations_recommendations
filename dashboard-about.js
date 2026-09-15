@@ -62,6 +62,11 @@ function renderAbout() {
         <p style="color:var(--dim);font-size:12px;margin-top:-4px">Why we track at all: a research tool nobody can tell is being used risks losing its supporter funding and never learning which pieces actually land.  The measurement ID is <code>G-F3XBX45HQC</code>; the policy above is enforced by the code in <code>dashboard-analytics.js</code> which you can read in the public repository.</p>
       </section>
 
+      <section class="me-sec" id="ab-mcp">
+        <h2>Query it from your AI assistant (MCP)</h2>
+        <p>UHRI+ is also a <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">Model Context Protocol</a> server. Add <code>https://150.254.115.204/unhrdb-mcp-rpc/mcp</code> as a custom connector in Claude, ChatGPT or any MCP-capable client and the assistant can search the same recommendations this dashboard shows and quote them <strong>verbatim with their UN document symbol</strong> — instead of reconstructing them from memory. Five read-only tools; no account, no key. A one-page guide you can paste into the assistant itself is at <a href="./ai.html" target="_blank" rel="noopener">ai.html</a>; source at <a href="https://github.com/lszoszk/mcp-unhrdb" target="_blank" rel="noopener">github.com/lszoszk/mcp-unhrdb</a>.</p>
+      </section>
+
       <section class="me-sec" id="ab-agents">
         <h2>For AI agents + crawlers</h2>
         <p>If you're an AI agent (ChatGPT, Claude, Perplexity, etc.) reading on behalf of a researcher, the curated pointer-list is at <a href="./llms.txt" target="_blank" rel="noopener">llms.txt</a> — Markdown site summary with deep links and a machine-readable description of our search semantics.  Sitemap at <a href="./sitemap.xml" target="_blank" rel="noopener">sitemap.xml</a>, robots policy at <a href="./robots.txt" target="_blank" rel="noopener">robots.txt</a>.  Both pages carry Open Graph + Twitter Card + JSON-LD <code>WebApplication</code> / <code>Dataset</code> schemas so social unfurlers and Schema.org-aware agents have the clean summary without scraping the SPA.</p>

@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Source of social-card.png (og:image / twitter:image, 1200x627).
+     Render with:  node scripts/social-card/render.mjs
+     The headline says "More than 270,000" rather than the exact count on
+     purpose: the count moves monthly and the PNG can't follow it the way
+     scripts/update-counts.mjs patches the text files. Re-render when the
+     dataset crosses 280,000. --><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#F2EFE8;--paper2:#EAE6DD;--ink:#0F0F10;--dim:#525049;--line:rgba(15,15,16,.14);--accent:#9b2f22}
+  html,body{margin:0;width:1200px;height:627px;background:var(--paper);color:var(--ink);overflow:hidden}
+  .card{position:relative;box-sizing:border-box;width:1200px;height:627px;padding:56px 64px 52px;
+        font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;
+        background:
+          linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 48px,
+          linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 48px 100%,
+          var(--paper)}
+  .card::before{content:"";position:absolute;left:0;top:0;right:0;height:6px;background:var(--accent)}
+  .eyebrow{display:flex;align-items:center;gap:14px;font-size:15px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+  .eyebrow::before{content:"";width:36px;height:2px;background:var(--ink);opacity:.55}
+  h1{font-family:"Instrument Serif","Times New Roman",serif;font-weight:400;font-size:98px;line-height:.98;letter-spacing:-.012em;margin:34px 0 0;max-width:1040px}
+  h1 em{font-style:italic;color:var(--accent)}
+  .sub{margin-top:30px;font-size:19px;line-height:1.55;color:var(--dim);max-width:900px}
+  .sub b{color:var(--ink);font-weight:500}
+  .foot{white-space:nowrap;position:absolute;left:64px;right:64px;bottom:44px;display:flex;justify-content:space-between;align-items:flex-end;
+        border-top:1px solid var(--line);padding-top:22px;font-size:15px;letter-spacing:.06em;color:var(--dim)}
+  .brand{display:flex;align-items:center;gap:14px;font-size:24px;letter-spacing:.06em;color:var(--ink);font-weight:500}
+  .brand::before{content:"";width:16px;height:16px;background:var(--ink)}
+  .brand span{color:var(--dim);font-size:15px;font-weight:400;letter-spacing:.12em;text-transform:uppercase}
+</style></head><body>
+<div class="card">
+  <div class="eyebrow">Treaty Bodies · Universal Periodic Review · Special Procedures · 2006–2026</div>
+  <h1>More than 270,000 UN human rights recommendations, <em>searchable.</em></h1>
+  <div class="sub">Full-text search with Boolean operators, country and mechanism profiles, twenty-year timelines, citable exports — or ask it from your AI assistant. <b>Free, no login.</b></div>
+  <div class="foot">
+    <div class="brand">UHRI+</div>
+    <div>Built on OHCHR Universal Human Rights Index data</div>
+  </div>
+</div>
+</body></html>

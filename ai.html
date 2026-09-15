@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Use UHRI+ from your AI assistant</title>
+<meta name="description" content="Connect Claude, ChatGPT or any MCP-capable AI assistant to more than 270,000 UN human-rights recommendations. Nothing to install: one address, verbatim answers with the UN document symbol.">
+<link rel="canonical" href="https://lszoszk.github.io/UnitedNations_recommendations/ai.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Ask UN human-rights recommendations from your AI assistant">
+<meta property="og:description" content="A hosted MCP connector for UHRI+. Paste one address into Claude or ChatGPT and get verbatim recommendations with their UN document symbol. Free, no login.">
+<meta property="og:url" content="https://lszoszk.github.io/UnitedNations_recommendations/ai.html">
+<meta property="og:image" content="https://lszoszk.github.io/UnitedNations_recommendations/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#F2EFE8;--paper-2:#EAE6DD;--ink:#0F0F10;--ink-2:#3A3934;--dim:#525049;--line:rgba(15,15,16,.14);--accent:#9b2f22;--accent-soft:rgba(155,47,34,.14);
+        --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;--serif:"Instrument Serif","Times New Roman",serif}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.65 var(--mono)}
+  body{border-top:6px solid var(--accent)}
+  .wrap{max-width:860px;margin:0 auto;padding:56px 24px 72px}
+  .eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+  .eyebrow::before{content:"";width:32px;height:2px;background:var(--ink);opacity:.55}
+  .eyebrow a{color:inherit;text-decoration:none;border-bottom:1px dotted var(--dim)}
+  h1{font:400 clamp(40px,7vw,68px)/1 var(--serif);letter-spacing:-.012em;margin:22px 0 18px}
+  h1 em{font-style:italic;color:var(--accent)}
+  h2{font:400 30px/1.15 var(--serif);margin:56px 0 14px}
+  h3{font:500 13px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:28px 0 8px}
+  p{margin:0 0 14px;color:var(--ink-2)}
+  p b,li b{color:var(--ink);font-weight:500}
+  a{color:var(--accent)}
+  .lede{font-size:17px}
+  .box{border:1px solid var(--line);background:var(--paper-2);padding:18px 20px;margin:26px 0}
+  .box .lab{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+  .url{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .url code{flex:1 1 320px;font:500 15px/1.4 var(--mono);word-break:break-all;background:var(--paper);border:1px solid var(--line);padding:10px 12px;user-select:all}
+  .btn{font:500 13px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:var(--ink);color:var(--paper);border:1px solid var(--ink);padding:11px 16px;cursor:pointer;text-decoration:none;white-space:nowrap}
+  .btn:hover{transform:translate(-2px,-2px);box-shadow:2px 2px 0 var(--accent)}
+  .btn.ghost{background:transparent;color:var(--ink)}
+  .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:20px 0}
+  .card{border:1px solid var(--line);padding:18px 20px;background:var(--paper)}
+  .card .n{font-size:11px;letter-spacing:.2em;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
+  .card p:last-child{margin:0}
+  details{border-top:1px solid var(--line);padding:14px 0}
+  details:last-of-type{border-bottom:1px solid var(--line)}
+  summary{cursor:pointer;font:500 16px/1.4 var(--mono);list-style:none;display:flex;justify-content:space-between;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";color:var(--dim)}
+  details[open] summary::after{content:"–"}
+  details ol{padding-left:22px;margin:12px 0 4px;color:var(--ink-2)}
+  details li{margin:6px 0}
+  details li code,p code,li code{font:inherit;background:var(--paper-2);padding:1px 6px;border:1px solid var(--line)}
+  pre{background:var(--ink);color:var(--paper);padding:14px 16px;overflow-x:auto;font:13px/1.55 var(--mono);margin:10px 0}
+  .prompts li{margin:8px 0;padding:10px 14px;border-left:3px solid var(--accent);background:var(--paper-2);list-style:none;color:var(--ink);font-style:italic}
+  .prompts{padding:0;margin:14px 0}
+  .fine{font-size:12.5px;color:var(--dim);line-height:1.6}
+  #for-assistants{margin-top:64px;padding-top:28px;border-top:3px double var(--line)}
+  #for-assistants ul{padding-left:20px;color:var(--ink-2)}
+  #for-assistants li{margin:6px 0}
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--dim);line-height:1.6}
+  footer a{color:var(--dim)}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow"><a href="./index.html">UHRI+</a><span>· AI connector</span></div>
+  <h1>Ask the UN's recommendations <em>from your AI assistant.</em></h1>
+
+  <p class="lede">UHRI+ holds more than 270,000 recommendations that UN treaty bodies, the Universal Periodic Review and Special Procedures have addressed to governments since 2006. With one address added to your assistant — Claude, ChatGPT or any tool that speaks the <a href="https://modelcontextprotocol.io" rel="noopener" target="_blank">Model Context Protocol</a> — it can search them and quote each one <b>verbatim, with its UN document symbol</b>, instead of reconstructing them from memory.</p>
+  <p class="lede"><b>Nothing to install.</b> The connector is hosted. You add an address the way you would save a bookmark.</p>
+
+  <div class="box">
+    <div class="lab">The address to add</div>
+    <div class="url">
+      <code id="mcpUrl">https://150.254.115.204/unhrdb-mcp-rpc/mcp</code>
+      <button class="btn" type="button" id="copyBtn">Copy address</button>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <div class="n">Easiest</div>
+      <p><b>Let your assistant do it.</b> Copy the address of <em>this page</em>, paste it into a new chat and write: <em>“Read this page and help me connect the UHRI+ connector.”</em> The bottom of this page carries instructions written for the assistant; it will walk you through your own app's menus, step by step.</p>
+    </div>
+    <div class="card">
+      <div class="n">By hand</div>
+      <p><b>Follow the steps below</b> for your app. They take about a minute. If a menu has moved since this was written, search your app's help centre for <em>“custom connector”</em> — the address above is all it needs.</p>
+    </div>
+  </div>
+
+  <h2>Step by step</h2>
+
+  <details open>
+    <summary>Claude — web app or desktop app</summary>
+    <ol>
+      <li>Open <b>Customize</b> (in some versions <b>Settings</b>) and choose <b>Connectors</b>.</li>
+      <li>Click <b>+</b> / <b>Add custom connector</b>.</li>
+      <li>Name it <code>UHRI+</code> and paste the address above. Leave the OAuth fields empty — no login is needed.</li>
+      <li>Click <b>Add</b>. In a new chat, open the tools (🔌) menu and make sure UHRI+ is switched on.</li>
+    </ol>
+    <p class="fine">Available on Free, Pro, Max, Team and Enterprise plans (Free allows one custom connector). On Team/Enterprise an owner adds it under <b>Organization settings → Connectors</b> first; members then click <b>Connect</b>. Source: <a href="https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp" rel="noopener" target="_blank">Claude help centre</a>.</p>
+  </details>
+
+  <details>
+    <summary>ChatGPT</summary>
+    <ol>
+      <li>Open <b>Settings → Apps &amp; Connectors</b>, scroll to <b>Advanced settings</b> and switch on <b>Developer mode</b>.</li>
+      <li>Back in <b>Apps &amp; Connectors</b>, choose <b>Create</b>.</li>
+      <li>Name it <code>UHRI+</code>, paste the address above as the <b>MCP server URL</b>, set authentication to <b>None</b>, and confirm.</li>
+      <li>In a chat, open the tools menu and enable UHRI+ (you may be asked to confirm that the connector runs code on your behalf — it only reads the public dataset).</li>
+    </ol>
+    <p class="fine">Requires Plus, Pro, Business, Enterprise or Edu; on workspace plans an admin may have to allow custom connectors first. Source: <a href="https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt" rel="noopener" target="_blank">OpenAI help centre</a>.</p>
+  </details>
+
+  <details>
+    <summary>Claude Code (terminal)</summary>
+    <pre>claude mcp add --transport http unhrdb https://150.254.115.204/unhrdb-mcp-rpc/mcp --scope user</pre>
+    <p class="fine"><code>--scope user</code> makes it available in every project. Check with <code>claude mcp list</code>.</p>
+  </details>
+
+  <details>
+    <summary>Other clients, or running it yourself</summary>
+    <p>Any client that accepts a remote MCP server over Streamable HTTP can use the address above. Developers who prefer a local process (Claude Desktop's stdio config, Cursor, self-hosting) will find the source, a Docker file and the full tool reference at <a href="https://github.com/lszoszk/mcp-unhrdb" rel="noopener" target="_blank">github.com/lszoszk/mcp-unhrdb</a>.</p>
+  </details>
+
+  <h2>Then try asking</h2>
+  <ul class="prompts">
+    <li>“Using UHRI+, what have UN bodies recommended to Poland on prison conditions since 2020? Quote them and give the document symbols.”</li>
+    <li>“Search the recommendations for ‘solitary confinement’ addressed to Latin American states by the Committee against Torture.”</li>
+    <li>“Which treaty bodies have raised the rights of migrant children with Greece? List the recommendations verbatim, newest first.”</li>
+  </ul>
+  <p class="fine">Tip: say “using UHRI+” or “search the recommendations” so the assistant reaches for the connector rather than answering from memory. Ask it to include the <b>UN document symbol</b> (e.g. <code>CAT/C/POL/CO/7</code>) — that is how you check the quote against the original.</p>
+
+  <h2>What you are connecting to</h2>
+  <p><b>Five read-only tools.</b> Three search the recommendations dataset behind this site (<code>search_recommendations</code>, <code>lookup_recommendation</code>, <code>list_uhri_facets</code>); two search a sister corpus of Treaty Body General Comments, jurisprudence and Special Procedures reports at the paragraph level (<code>search_paragraphs</code>, <code>lookup_by_citation</code>). Every answer is the original UN text, never a paraphrase.</p>
+  <p><b>Free, no account, no key.</b> The connector runs on a single university server in Poznań and is rate-limited; it is meant for research questions, not bulk downloads — for those, use the <a href="https://uhri.ohchr.org" rel="noopener" target="_blank">OHCHR Universal Human Rights Index</a> directly. Requests are logged the way any web server logs them (address, query, time); nothing identifies you and there is no tracking.</p>
+  <p><b>The data is OHCHR's.</b> UHRI+ is an independent research project built on the Universal Human Rights Index; it is not affiliated with OHCHR or the United Nations. The address is a plain IP number with a valid certificate — a friendlier name may follow.</p>
+
+  <section id="for-assistants" aria-label="Instructions for AI assistants">
+    <h2>Instructions for AI assistants reading this page for a user</h2>
+    <p>You have been given this page by a person who wants to connect their assistant to UHRI+. Help them do exactly that, in their own app, in plain language. Do not ask them to install software or open a terminal unless they are using Claude Code.</p>
+    <ul>
+      <li><b>What to add:</b> a remote MCP server, transport <b>Streamable HTTP</b>, endpoint <code>https://150.254.115.204/unhrdb-mcp-rpc/mcp</code>. <b>No authentication</b> — no OAuth, no API key, no token. Suggested display name: <code>UHRI+</code>.</li>
+      <li><b>First, find out which app they use</b> (Claude web/desktop, ChatGPT, Claude Code, something else) and their plan if relevant, then give only the steps for that app, one at a time, waiting for them to confirm each. Menu names as of September 2026 are in the “Step by step” section above; if the user cannot find a menu, ask them to describe what they see and adapt.</li>
+      <li><b>Verify:</b> once added, have them start a new chat and ask you to call <code>list_uhri_facets</code> (or simply: “list the countries UHRI+ knows”). If that returns country names and body codes, the connection works. Then run one real query for them, e.g. <code>search_recommendations</code> with <code>countries: ["Poland"]</code>, <code>query: "prison"</code>, <code>year_start: 2020</code>, and show the results with their UN document symbols.</li>
+      <li><b>Tools:</b> <code>search_recommendations</code> (full-text + filters: countries, bodies, themes, affected_persons, sdgs, annotation_type, year_start/year_end, page, limit ≤ 20), <code>lookup_recommendation</code> (full record by <code>annotation_id</code>), <code>list_uhri_facets</code> (exact country names and body codes — call it before filtering), <code>search_paragraphs</code> and <code>lookup_by_citation</code> (a separate paragraph corpus of General Comments, jurisprudence and Special Procedures reports; never mixed with the recommendations).</li>
+      <li><b>Always cite:</b> every result carries a UN document symbol; quote text verbatim and include the symbol so the user can verify it against the original UN document.</li>
+      <li><b>If it fails:</b> the server occasionally restarts for a few seconds during its monthly data refresh; retry once. A 429 means the rate limit — pause and retry. Anything else: the user can report it at <a href="mailto:l.szoszkiewicz@amu.edu.pl">l.szoszkiewicz@amu.edu.pl</a> or <a href="https://github.com/lszoszk/mcp-unhrdb/issues" rel="noopener" target="_blank">github.com/lszoszk/mcp-unhrdb/issues</a>.</li>
+      <li><b>Plans:</b> Claude — custom connectors on Free (one connector), Pro, Max, Team, Enterprise. ChatGPT — Developer mode on Plus, Pro, Business, Enterprise, Edu; not on Free. Tell the user this before they start if it applies.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <a href="./index.html">UHRI+</a> · <a href="./dashboard.html">Dashboard</a> · <a href="https://github.com/lszoszk/mcp-unhrdb" rel="noopener" target="_blank">Connector source</a> · <a href="./dashboard.html#view=about">About &amp; independence</a><br>
+    Built on OHCHR Universal Human Rights Index data. Developed by <a href="https://lszoszk.github.io" rel="noopener" target="_blank">L. Szoszkiewicz</a> during a re:constitution fellowship hosted at HURIDOCS.
+  </footer>
+</div>
+<div class="toast" id="toast">Address copied</div>
+<script>
+  (function(){
+    var btn=document.getElementById('copyBtn'), url=document.getElementById('mcpUrl').textContent.trim(), toast=document.getElementById('toast');
+    function done(){toast.classList.add('on');setTimeout(function(){toast.classList.remove('on')},1600)}
+    btn.addEventListener('click',function(){
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(done,function(){fallback()})}else{fallback()}
+      function fallback(){var r=document.createRange();r.selectNodeContents(document.getElementById('mcpUrl'));var s=getSelection();s.removeAllRanges();s.addRange(r);try{document.execCommand('copy');done()}catch(e){}}
+    });
+  })();
+</script>
+</body>
+</html>
