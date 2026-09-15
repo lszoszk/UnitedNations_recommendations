@@ -1101,7 +1101,7 @@ async function renderMechanism() {
            than a third round-trip (perf 2026-07). trends.yearly_counts is
            exact — unlike the `text` section it is never sampled — and its
            sum matches records.total_records to the record across the whole
-           dataset (267,942) and every filter shape we checked (country,
+           dataset (272,502) and every filter shape we checked (country,
            body, theme). Dropping the count call removed the slowest request
            on this view: the SP family enumerates ~46 mandate names, a
            1.2 kB query string that took ~1.9 s on its own. */

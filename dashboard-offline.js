@@ -88,7 +88,7 @@ const offline = {
      link hits the same wall via the 2-letter fold.
 
      Normalise once per query rather than inside _matches, which runs per
-     record (267,942 of them) — and do it here rather than caching on the
+     record (272,502 of them) — and do it here rather than caching on the
      Set, because several call sites mutate state.filters.country in place
      (dashboard-drawer-list.js:299, dashboard-utils.js:280) and an identity
      cache would go stale. Body already normalises both sides inline; this

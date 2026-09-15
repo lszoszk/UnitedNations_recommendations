@@ -519,7 +519,7 @@ function _rulesRailFilter() { return { ...state.filters, kw: '' }; }
 function _rulesDenomKeyFor(f) { return cacheKey('rules:denom', buildParams(f)); }
 function _rulesRailDenom() {
   const f = _rulesRailFilter();
-  if (_railIsEmpty(f)) return state.facets?.total_records || 267942;
+  if (_railIsEmpty(f)) return state.facets?.total_records || 272502;
   return _rulesDenomKey === _rulesDenomKeyFor(f) ? _rulesDenomValue : null;
 }
 async function _rulesEnsureRailDenom() {
