@@ -247,8 +247,8 @@ function renderDrawer() {
     <div class="dr-nav">
       <button id="drPrev" ${idx <= 0 ? 'disabled' : ''} title="Previous record (k)">↑ prev</button>
       <button id="drNext" ${idx >= list.length - 1 ? 'disabled' : ''} title="Next record (j)">↓ next</button>
-      <span class="dr-nav-pos">${idx + 1} / ${list.length}</span>
-      <span style="margin-left:auto">press <kbd>j</kbd>/<kbd>k</kbd></span>
+      <span class="dr-nav-pos">${idx + 1} of ${list.length}</span>
+      <span style="margin-left:auto" title="Keyboard: j = next · k = previous"><kbd>j</kbd> <kbd>k</kbd></span>
     </div>` : '';
   el.dataset.hasNav = navHtml ? '1' : '0';
   const yr = (r.PublicationDate || '').slice(0, 4);
@@ -263,24 +263,22 @@ function renderDrawer() {
   const starred = bmHas(r.AnnotationId);
   const kw = state.filters.kw?.trim();
   const kwCount = kw ? countMatches(txt, kw) : 0;
+  const region = (r.Regions || [])[0] || '';
   el.innerHTML = `
     ${navHtml}
-    <div class="dr-id-row">
-      <div class="dr-id">${sanitize(r.AnnotationId || '')}</div>
-      <button class="bm-star ${starred ? 'on' : ''}" id="drStar" title="${starred ? 'Remove bookmark' : 'Bookmark this record'} (b)" aria-label="Toggle bookmark">${starred ? '★' : '☆'}</button>
-    </div>
-    <div class="dr-yr">${sanitize(yr || '—')}</div>
-    <!-- Metadata + actions sit ABOVE the (often long) text so the record's
-         identity (symbol/body/country) and the primary actions — above all
-         Cite, the expert's most-used action — are reachable without
-         scrolling to the bottom of the paragraph. -->
-    <dl class="dr-meta">
-      <dt>Country</dt><dd>${sanitize(country)}</dd>
-      <dt>Region</dt><dd>${sanitize((r.Regions || [])[0] || '—')}</dd>
-      <dt>Body</dt><dd>${sanitize(body)}</dd>
-      <dt>Symbol</dt><dd>${sanitize(r.Symbol || '—')}</dd>
-      <dt>Type</dt><dd>${sanitize(type)}</dd>
-    </dl>
+    <!-- Identity first, in the order a lawyer reads a citation: the State,
+         then body · symbol · year · type on one line. The card used to open
+         with the UUID and a 38px year — neither says anything a reader needs
+         before the text, and the symbol is what actually gets cited. -->
+    <header class="dr-head">
+      <h3 class="dr-title">${sanitize(country)}</h3>
+      <div class="dr-byline">
+        <span class="b">${sanitize(body)}</span><span class="sep">·</span><span class="sym">${sanitize(r.Symbol || '—')}</span><span class="sep">·</span><span>${sanitize(yr || '—')}</span><span class="sep">·</span><span>${sanitize(type)}</span>
+      </div>
+    </header>
+    <!-- Four choices, in order of use: cite, keep, read, everything else.
+         Pin-for-compare, report and the record id are real but rare, so
+         they sit behind ··· instead of competing with the text. -->
     <div class="dr-actions">
       <div class="cite-picker">
         <button class="dr-btn primary" id="drCite" aria-haspopup="menu" aria-expanded="false" aria-controls="citeDropdown">Cite ▾</button>
@@ -297,29 +295,57 @@ function renderDrawer() {
           </div>
         </div>
       </div>
-      <button class="dr-btn" id="drOpen">Focus reader →</button>
-      <button class="dr-btn" id="drPin" title="Pin for side-by-side compare">${diffIsPinned(r.AnnotationId) ? '📌 Pinned' : '📌 Pin'}</button>
-      <button class="dr-btn report" id="drReport" title="Report a data-quality issue with this record">🚩 Report</button>
+      <button class="dr-btn ${starred ? 'on' : ''}" id="drStar" aria-pressed="${starred ? 'true' : 'false'}" title="${starred ? 'Remove bookmark' : 'Bookmark this record'} (b)">${starred ? '★ Saved' : '☆ Save'}</button>
+      <button class="dr-btn" id="drOpen" title="Open the full text in the reader">Reader →</button>
+      <div class="more-picker">
+        <button class="dr-btn" id="drMore" aria-haspopup="menu" aria-expanded="false" aria-controls="drMoreMenu" aria-label="More actions" title="More actions">···</button>
+        <div class="dr-menu" id="drMoreMenu" role="menu" aria-label="More actions">
+          <button role="menuitem" id="drPin" title="Pin for side-by-side compare">${diffIsPinned(r.AnnotationId) ? '📌 Pinned for compare' : '📌 Pin for compare'}</button>
+          <button role="menuitem" id="drCopyId" title="Copy the UHRI annotation id">⎘ Copy record ID</button>
+          <button role="menuitem" class="report" id="drReport" title="Report a data-quality issue with this record">🚩 Report an issue</button>
+          <div class="dr-menu-id" title="UHRI annotation id">${sanitize(r.AnnotationId || '')}</div>
+        </div>
+      </div>
     </div>
-    ${kwCount ? `<div class="rd-kw-hint" style="margin-top:-6px;margin-bottom:8px"><kbd>${sanitize(kw)}</kbd> matched ${kwCount}× in this text</div>` : ''}
+    ${kwCount ? `<div class="dr-match"><span class="n">${kwCount}×</span> <span class="q">“${sanitize(kw)}”</span> in this text</div>` : ''}
     <div class="dr-text">${highlightKeyword(txt, kw)}</div>
-    <div class="dr-tags">
-      ${themes.slice(0, 4).map(t => `<span class="dr-tag theme" role="button" tabindex="0" data-tag-kind="theme" data-tag-value="${sanitize(t)}" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}
-      ${groups.slice(0, 4).map(g => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}
-      ${sdgs.slice(0, 3).map(s => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="sdg" data-tag-value="${sanitize(s)}">${sanitize(s)}</span>`).join('')}
-    </div>
+    <dl class="dr-facets">
+      ${themes.length ? `<dt>Themes</dt><dd>${themes.slice(0, 4).map(t => `<span class="dr-tag theme" role="button" tabindex="0" data-tag-kind="theme" data-tag-value="${sanitize(t)}" data-theme="${sanitize(t)}">${sanitize(t)}</span>`).join('')}</dd>` : ''}
+      ${groups.length ? `<dt>Groups</dt><dd>${groups.slice(0, 4).map(g => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="group" data-tag-value="${sanitize(g)}">${sanitize(g)}</span>`).join('')}</dd>` : ''}
+      ${sdgs.length ? `<dt>SDGs</dt><dd>${sdgs.slice(0, 3).map(sd => `<span class="dr-tag" role="button" tabindex="0" data-tag-kind="sdg" data-tag-value="${sanitize(sd)}">${sanitize(sd)}</span>`).join('')}</dd>` : ''}
+      ${region ? `<dt>Region</dt><dd class="plain">${sanitize(region)}</dd>` : ''}
+    </dl>
     <div class="dr-note-block">
       <label class="dr-note-label" for="drNote">📝 Your note <span class="hint">private · saved in this browser</span></label>
-      <textarea id="drNote" placeholder="Drop a thought, a quote, a todo — stays on this device, never sent anywhere." rows="3">${sanitize(noteGet(r.AnnotationId || ''))}</textarea>
+      <textarea id="drNote" placeholder="Drop a thought, a quote, a todo — stays on this device, never sent anywhere." rows="2">${sanitize(noteGet(r.AnnotationId || ''))}</textarea>
       <div class="dr-note-status" id="drNoteStatus"></div>
     </div>`;
 
+  // ··· menu: open/close, close after any choice, close on outside click
+  // (the outside-click closer in dashboard.html knows .more-picker).
+  const _moreClose = () => {
+    $('#drMoreMenu')?.classList.remove('open');
+    $('#drMore')?.setAttribute('aria-expanded', 'false');
+  };
+  $('#drMore')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = $('#drMoreMenu').classList.toggle('open');
+    $('#drMore').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) $('#drMoreMenu button', el)?.focus();
+  });
+  $('#drMoreMenu')?.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); _moreClose(); $('#drMore')?.focus(); } });
+  $('#drCopyId')?.addEventListener('click', () => {
+    navigator.clipboard?.writeText(r.AnnotationId || '').then(() => toast('Record ID copied', false, 1600), () => toast('Could not copy', true));
+    _moreClose();
+  });
+
   $('#drOpen').addEventListener('click', () => openReader(r));
-  $('#drReport').addEventListener('click', () => openReportModal(r));
+  $('#drReport').addEventListener('click', () => { _moreClose(); openReportModal(r); });
   $('#drPin')?.addEventListener('click', (e) => {
     const outcome = diffPinToggle(r);
     const btn = e.currentTarget;
-    btn.textContent = outcome === 'added' ? '📌 Pinned' : '📌 Pin';
+    btn.textContent = outcome === 'added' ? '📌 Pinned for compare' : '📌 Pin for compare';
+    _moreClose();
     toast(outcome === 'added' ? `Pinned ${state.diffPins.length}/2 for compare` : 'Unpinned', false, 1400);
   });
 

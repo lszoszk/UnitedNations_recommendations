@@ -958,13 +958,33 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .app.drawer-closed .drawer-resize-handle,
 .app.reading-mode .drawer-resize-handle{display:none}
 .drawer-body{padding:var(--density-drawer-pad)}
-.dr-meta{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:12px;font-size:11px}
-.dr-meta dt{color:var(--dim);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
-.dr-meta dd{margin:0}
-.dr-id{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.08em;border:1px dotted var(--line);padding:3px 6px;margin-bottom:10px;display:inline-block;word-break:break-all}
-.dr-yr{font-family:var(--serif);font-size:38px;line-height:1;margin:6px 0 14px}
-.dr-text{font-family:var(--ui);font-size:15px;line-height:1.7;color:var(--ink);padding:var(--density-callout-pad);background:var(--paper-2);border-left:2px solid var(--accent);margin-bottom:14px;max-height:260px;overflow-y:auto}
+.dr-text{font-family:var(--ui);font-size:15px;line-height:1.7;color:var(--ink);padding:var(--density-callout-pad);background:var(--paper-2);border-left:2px solid var(--accent);margin-bottom:14px}
 .dr-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}
+/* Record view (drawer): identity → actions → text → facets → note. */
+.dr-head{margin:8px 0 12px}
+.dr-title{font-family:var(--serif);font-size:26px;line-height:1.1;letter-spacing:-.01em;margin:0 0 6px;font-weight:400}
+.dr-byline{font:11px var(--mono);color:var(--dim);letter-spacing:.04em;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 7px;line-height:1.6}
+.dr-byline .sym{color:var(--ink)}
+.dr-byline .sep{color:var(--dimmer)}
+.dr-actions{margin:0 0 12px;align-items:center}
+.dr-btn.on{color:#b45309;border-color:#b45309}
+.dr-btn.on:hover{background:#b45309;color:var(--paper);border-color:#b45309}
+.more-picker{position:relative;display:inline-block;margin-left:auto}
+.dr-menu{position:absolute;top:100%;right:0;margin-top:2px;background:var(--paper);border:1px solid var(--ink);box-shadow:0 4px 20px rgba(0,0,0,.15);min-width:230px;z-index:15;display:none;padding:4px 0}
+.dr-menu.open{display:block}
+.dr-menu button{display:block;width:100%;text-align:left;padding:8px 12px;font:11px var(--mono);letter-spacing:.04em;border:0;background:transparent;color:var(--ink);cursor:pointer}
+.dr-menu button:hover,.dr-menu button:focus-visible{background:var(--paper-2);outline:none}
+.dr-menu button.report{color:#b91c1c}
+.dr-menu-id{padding:6px 12px 8px;font:9px var(--mono);color:var(--dimmer);letter-spacing:.04em;border-top:1px dotted var(--line);word-break:break-all;user-select:all}
+/* Match count: a caption over the text, not a banner wedged between the
+   buttons and the text — the highlights below already carry the emphasis. */
+.dr-match{font:10px var(--mono);color:var(--dim);letter-spacing:.08em;text-transform:uppercase;text-align:right;margin:0 0 4px}
+.dr-match .n{color:var(--paper);background:var(--accent);padding:0 5px;border-radius:1px;letter-spacing:0;margin-right:2px}
+.dr-match .q{text-transform:none;letter-spacing:.02em;color:var(--ink)}
+.dr-facets{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;margin:0 0 14px;font-size:11px;align-items:baseline}
+.dr-facets dt{color:var(--dim);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding-top:3px}
+.dr-facets dd{margin:0;display:flex;flex-wrap:wrap;gap:4px}
+.dr-facets dd.plain{color:var(--ink);font-size:11px}
 .dr-tag{font-size:10px;letter-spacing:.06em;padding:2px 6px;border:1px solid var(--ink);color:var(--ink);cursor:pointer;user-select:none;transition:background .12s,color .12s}
 .dr-tag::after{content:' +';opacity:0;font-size:9px;transition:opacity .12s}
 .dr-tag:hover{background:var(--ink);color:var(--paper)}
@@ -1538,8 +1558,6 @@ body.offline-mode .offline-btn{background:#1a7a3e;color:#fff;border-color:#1a7a3
 .bm-star{border:0;background:transparent;color:var(--dim);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;transition:color .15s,transform .15s}
 .bm-star:hover{color:#d97706;transform:scale(1.12)}
 .bm-star.on{color:#d97706}
-.dr-id-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.dr-id-row .dr-id{margin-bottom:0}
 .rd-eyebrow .bm-star{margin-left:auto;font-size:20px}
 
 /* Bookmark tab badge */
@@ -2480,7 +2498,10 @@ body.ga-consent-open .bug-report-fab{bottom:calc(var(--ga-consent-inset, 190px) 
   <div class="drawer-resize-handle" id="drawerResizeHandle" role="separator" aria-orientation="vertical" aria-label="Resize details panel" tabindex="0" title="Drag to resize the details panel · double-click to reset"></div>
   <aside class="drawer" id="drawer" aria-label="Selected recommendation details">
     <div class="drawer-head">
-      <h2 class="drawer-title">SELECTED · RECOMMENDATION</h2>
+      <!-- The record itself now carries its identity (country title + symbol
+           byline), so the panel no longer shouts a generic label above it. The
+           heading stays for screen readers and the landmark outline. -->
+      <h2 class="drawer-title sr-only">Details</h2>
       <div style="display:flex;gap:4px;align-items:center">
         <!-- N2: reading-mode A-/A+ buttons. Visible only in reading-mode
              (CSS below). Desktop users keep +/- keyboard shortcuts; this
@@ -4207,6 +4228,7 @@ async function boot() {
   document.addEventListener('click', e => {
     if (!e.target.closest('.export-menu')) $('#exportDropdown').classList.remove('open');
     if (!e.target.closest('.cite-picker')) $('#citeDropdown')?.classList.remove('open');
+    if (!e.target.closest('.more-picker')) { $('#drMoreMenu')?.classList.remove('open'); $('#drMore')?.setAttribute('aria-expanded', 'false'); }
   });
   $$('.export-item').forEach(el => el.addEventListener('click', () => {
     const fmt = el.dataset.format;
