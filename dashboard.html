@@ -2735,6 +2735,58 @@ function _activeRailDescription(excludeKey) {
    Building client-side fixes both, needs no backend change, and collapses
    the two modes onto the same code — the offline branch already did this,
    and its files were the ones that worked. */
+
+/* Keep one toast on screen and rewrite it, so a long export reports
+   progress instead of stacking notifications. */
+function _exportProgress(msg) { toast(msg, false, 60000); }
+
+/* The server's own words beat "HTTP 400" — it says exactly how many
+   records matched and what to do about it. */
+async function _exportErrorText(res) {
+  try {
+    const body = await res.json();
+    if (typeof body?.detail === 'string') return body.detail;
+    if (Array.isArray(body?.detail) && body.detail[0]?.msg) return body.detail[0].msg;
+  } catch { /* not JSON — fall through to the status line */ }
+  return `the server answered HTTP ${res.status}`;
+}
+
+/* Assemble a filtered set larger than the API's single-request ceiling by
+   walking the paged records endpoint. Pages are fetched POOL at a time and
+   written into their own slot, so the file keeps the server's ordering.
+   Note the endpoint CLAMPS an out-of-range page to the last one rather than
+   returning empty, so the loop is bounded by total_pages and never by an
+   "empty page means done" assumption. */
+async function _fetchRowsByPaging(params, total) {
+  const pages = Math.ceil(total / EXPORT_PAGE_SIZE);
+  const out = new Array(pages);
+  let done = 0;
+  let next = 0;
+  const worker = async () => {
+    while (true) {
+      const i = next++;
+      if (i >= pages) return;
+      const p = new URLSearchParams(params);
+      p.set('page', String(i + 1));
+      p.set('page_size', String(EXPORT_PAGE_SIZE));
+      // One retry per page: an export of 97 pages should not die because a
+      // single request lost a race with the VM's monthly restart or a
+      // momentary 429. A second consecutive failure is real — let it throw.
+      let res = await fetch(API_BASE + '/api/data/records?' + p.toString()).catch(() => null);
+      if (!res || !res.ok) {
+        await new Promise(r => setTimeout(r, 1200));
+        res = await fetch(API_BASE + '/api/data/records?' + p.toString());
+      }
+      if (!res.ok) throw new Error(await _exportErrorText(res));
+      out[i] = (await res.json()).records || [];
+      done += out[i].length;
+      _exportProgress(`Fetching ${fmt(total)} records — ${fmt(done)} so far…`);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(EXPORT_PAGE_POOL, pages) }, worker));
+  return out.flat().slice(0, total);
+}
+
 async function doExport(format) {
   const ts = new Date().toISOString().slice(0, 10);
 
@@ -2748,7 +2800,7 @@ async function doExport(format) {
       downloadBlob(toCSV(rows), 'text/csv', `uhri-export-${ts}.csv`);
       toast(`Exported ${n} records (CSV)`, false, 3000);
     } else if (format === 'xlsx') {
-      toast(`Building XLSX for ${n} records…`, false, 8000);
+      _exportProgress(`Building XLSX for ${n} records…`);
       try {
         await exportXLSXFromRows(rows, `uhri-export-${ts}.xlsx`);
         toast(`Exported ${n} records (XLSX)`, false, 3000);
@@ -2760,20 +2812,36 @@ async function doExport(format) {
 
   if (offline.enabled) { await build(offline.filter(state.filters)); return; }
 
-  const p = buildParams(state.filters);
-  p.set('limit', String(EXPORT_ROW_LIMIT));
-  toast('Fetching records to export…', false, 15000);
+  const params = buildParams(state.filters);
   try {
-    const res = await fetch(API_BASE + '/api/data/export?' + p.toString());
-    if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
-    const data = await res.json();
-    const rows = data.records || [];
-    await build(rows);
-    if (Number(data.total_records) > rows.length) {
-      toast(`Note: ${fmt(data.total_records)} records match — the export is capped at ${fmt(rows.length)}. Narrow the filters, or take the full dataset from OHCHR.`, false, 9000);
+    // Fast path: one request, up to the API's ceiling.
+    const one = new URLSearchParams(params);
+    one.set('limit', String(EXPORT_ROW_LIMIT));
+    _exportProgress('Fetching records to export…');
+    const res = await fetch(API_BASE + '/api/data/export?' + one.toString());
+    if (res.ok) { await build((await res.json()).records || []); return; }
+
+    // Over the ceiling the endpoint refuses and names the count. Page instead.
+    const detail = await _exportErrorText(res);
+    const matched = Number((/matches\s+([\d,]+)\s+record/i.exec(detail)?.[1] || '').replace(/,/g, ''))
+      || Number(state.totalHits) || 0;
+    if (res.status !== 400 || !matched) { toast(`Export failed — ${detail}`, true, 8000); return; }
+
+    if (matched > EXPORT_PAGED_MAX) {
+      toast(`${fmt(matched)} records is more than a browser can turn into one file. `
+          + `Narrow the filter to ${fmt(EXPORT_PAGED_MAX)} or fewer, or take the whole corpus from OHCHR UHRI.`, true, 11000);
+      return;
     }
+    if (format === 'xlsx' && matched > EXPORT_ROW_LIMIT) {
+      toast(`Fetching ${fmt(matched)} records — a big XLSX takes a minute. CSV is quicker if you only need the data.`, false, 7000);
+    }
+    const rows = await _fetchRowsByPaging(params, matched);
+    if (rows.length < matched) {
+      toast(`Fetched ${fmt(rows.length)} of ${fmt(matched)} records — exporting what arrived.`, false, 7000);
+    }
+    await build(rows);
   } catch (err) {
-    toast(`Export failed — ${err.message}. Please try again, or narrow the filter.`, true, 7000);
+    toast(`Export failed — ${err.message}. Please try again, or narrow the filter.`, true, 8000);
   }
 }
 
@@ -3051,8 +3119,19 @@ function copyRowListCsv(btn) {
     .catch(() => { downloadBlob(csv, 'text/csv', file); toast('Downloaded as CSV', false, 2500); });
 }
 
-/* The API's own ceiling (DEFAULT_ANALYSIS_EXPORT_LIMIT); asking for more is rejected. */
-const EXPORT_ROW_LIMIT = 50000;
+/* The export endpoint answers in one shot up to DEFAULT_ANALYSIS_EXPORT_LIMIT
+   rows. Past that it does not truncate — it REFUSES with 400 and a message
+   naming the count, which is what a 77k-record search hit on 2026-09-21.
+   So above the ceiling we assemble the file from the paged records endpoint
+   instead (page_size caps at 1000 there), in a small concurrent pool so the
+   single university VM is not hammered. The second ceiling is the browser's:
+   a few hundred thousand records turned into one string and one workbook is
+   where a tab starts dying, and the whole corpus belongs in Instant Mode or
+   an OHCHR bulk download anyway. */
+const EXPORT_ROW_LIMIT  = 50000;    // API's single-request ceiling
+const EXPORT_PAGE_SIZE  = 1000;     // records endpoint's max page_size
+const EXPORT_PAGE_POOL  = 4;        // concurrent page fetches
+const EXPORT_PAGED_MAX  = 150000;   // beyond this, point at the bulk paths
 
 function downloadBlob(content, mime, filename) {
   const blob = content instanceof Blob ? content : new Blob([content], { type: mime });

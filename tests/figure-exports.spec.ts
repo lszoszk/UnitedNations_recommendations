@@ -262,3 +262,109 @@ test('Rail export: CSV is built in the browser, not requested from the server', 
   expect(row).toContain('CRC/C/POL/CO/6');
   expect(row, 'a comma inside a theme must stay quoted').toContain('"Children, ""rights of"""');
 });
+
+/**
+ * Exports larger than the API's single-request ceiling.
+ *
+ * `/api/data/export` caps at 50,000 rows and does NOT truncate above it —
+ * it answers 400 with "The current filter matches 77,412 records. Narrow
+ * the selection to 50,000 records or fewer…". The client used to swallow
+ * that and say "the server answered HTTP 400", so a 77k-record search
+ * (reported 2026-09-21) simply could not be exported. Now the file is
+ * assembled from the paged records endpoint, and any error the server
+ * does send is shown in the server's own words.
+ */
+const REC_AT = (i: number) => ({
+  AnnotationId: `p-${i}`, Symbol: `CCPR/C/POL/CO/${i}`, PublicationDate: '2020-01-01', Body: '- CCPR',
+  AnnotationType: '- Recommendations', Countries: ['Poland'], Regions: [], Themes: [], AffectedPersons: [],
+  Sdgs: [], TextPlainCleaned: `Recommendation number ${i}.`,
+});
+
+test.describe('export above the API ceiling', () => {
+  const TOTAL = 2_300;          // > the stubbed ceiling, so paging must kick in
+  const CEILING = 1_000;
+
+  async function stubBigCorpus(page: Page, seen: { export: number; pages: number[] }) {
+    await stubApi(page);
+    await page.route(/\/api\/data\/export/, (route) => {
+      seen.export += 1;
+      return route.fulfill({
+        status: 400, contentType: 'application/json', headers: CORS,
+        body: JSON.stringify({ detail: `The current filter matches ${TOTAL.toLocaleString('en-US')} records. Narrow the selection to ${CEILING.toLocaleString('en-US')} records or fewer for in-browser analytics.` }),
+      });
+    });
+    await page.route(/\/api\/data\/records\?/, (route) => {
+      const q = new URL(route.request().url()).searchParams;
+      const size = Number(q.get('page_size') || 30);
+      const pageNo = Number(q.get('page') || 1);
+      if (size < 500) return route.fulfill(json({ ok: true, page: pageNo, page_size: size, total_records: TOTAL, total_pages: Math.ceil(TOTAL / size), records: [REC_AT(1)] }));
+      seen.pages.push(pageNo);
+      const first = (pageNo - 1) * size;
+      const n = Math.max(0, Math.min(size, TOTAL - first));
+      // The live endpoint clamps an out-of-range page to the last one; mimic
+      // that, so the test would catch a loop that trusts "empty page = done".
+      const rows = n > 0 ? Array.from({ length: n }, (_, k) => REC_AT(first + k + 1)) : [REC_AT(TOTAL)];
+      return route.fulfill(json({ ok: true, page: pageNo, page_size: size, total_records: TOTAL, total_pages: Math.ceil(TOTAL / size), records: rows }));
+    });
+  }
+
+  test('a filter over the ceiling is exported by paging, in order and without duplicates', async ({ page }) => {
+    const seen = { export: 0, pages: [] as number[] };
+    await stubBigCorpus(page, seen);
+    await page.goto('/dashboard.html#view=overview');
+    await page.waitForFunction(() => typeof (globalThis as any).doExport === 'function', null, { timeout: 20_000 });
+
+    const download = page.waitForEvent('download', { timeout: 30_000 });
+    await page.evaluate(() => (globalThis as any).doExport('csv'));
+    const csv = await readDownload(await download);
+
+    const lines = csv.trim().split('\n');
+    expect(lines).toHaveLength(TOTAL + 1);                    // header + every row, no clamped duplicates
+    expect(lines[1]).toContain('CCPR/C/POL/CO/1');            // server order preserved
+    expect(lines[TOTAL]).toContain(`CCPR/C/POL/CO/${TOTAL}`);
+    expect(seen.export, 'the one-shot endpoint is still tried first').toBe(1);
+    expect(seen.pages.sort((a, b) => a - b)).toEqual(Array.from({ length: Math.ceil(TOTAL / 1000) }, (_, i) => i + 1));
+    await expect(page.locator('#toast')).toContainText(`Exported ${TOTAL.toLocaleString('en-US')} records (CSV)`);
+  });
+
+  test('an error the paging cannot fix is reported in the server\'s own words', async ({ page }) => {
+    await stubApi(page);
+    await page.route(/\/api\/data\/export/, (route) => route.fulfill({
+      status: 503, contentType: 'application/json', headers: CORS,
+      body: JSON.stringify({ detail: 'Dataset is rebuilding — try again in a minute.' }),
+    }));
+    await page.goto('/dashboard.html#view=overview');
+    await page.waitForFunction(() => typeof (globalThis as any).doExport === 'function', null, { timeout: 20_000 });
+    await page.evaluate(() => (globalThis as any).doExport('csv'));
+    await expect(page.locator('#toast')).toContainText('Dataset is rebuilding — try again in a minute.');
+    await expect(page.locator('#toast')).toHaveClass(/error/);
+  });
+});
+
+test('a page that fails once is retried, not fatal', async ({ page }) => {
+  const TOTAL = 2_300;
+  let failedOnce = false;
+  await stubApi(page);
+  await page.route(/\/api\/data\/export/, (route) => route.fulfill({
+    status: 400, contentType: 'application/json', headers: CORS,
+    body: JSON.stringify({ detail: `The current filter matches ${TOTAL.toLocaleString('en-US')} records. Narrow the selection to 1,000 records or fewer for in-browser analytics.` }),
+  }));
+  await page.route(/\/api\/data\/records\?/, (route) => {
+    const q = new URL(route.request().url()).searchParams;
+    const size = Number(q.get('page_size') || 30);
+    const pageNo = Number(q.get('page') || 1);
+    if (size < 500) return route.fulfill(json({ ok: true, total_records: TOTAL, total_pages: 1, records: [REC_AT(1)] }));
+    if (pageNo === 2 && !failedOnce) { failedOnce = true; return route.fulfill({ status: 429, contentType: 'application/json', headers: CORS, body: '{"detail":"slow down"}' }); }
+    const first = (pageNo - 1) * size;
+    const n = Math.max(0, Math.min(size, TOTAL - first));
+    return route.fulfill(json({ ok: true, page: pageNo, page_size: size, total_records: TOTAL, total_pages: Math.ceil(TOTAL / size), records: Array.from({ length: n }, (_, k) => REC_AT(first + k + 1)) }));
+  });
+  await page.goto('/dashboard.html#view=overview');
+  await page.waitForFunction(() => typeof (globalThis as any).doExport === 'function', null, { timeout: 20_000 });
+
+  const download = page.waitForEvent('download', { timeout: 30_000 });
+  await page.evaluate(() => (globalThis as any).doExport('csv'));
+  const csv = await readDownload(await download);
+  expect(failedOnce, 'the 429 must actually have been served').toBe(true);
+  expect(csv.trim().split('\n')).toHaveLength(TOTAL + 1);
+});
