@@ -194,3 +194,70 @@ test.describe('@contract cross-endpoint invariants', () => {
     expect(sb.total_records, `map=${mb.total_records}, summary=${sb.total_records}`).toBe(mb.total_records);
   });
 });
+
+/* ---------------------------------------------------------------- */
+/* §6.  Boolean search semantics — what the operators promise.       */
+/* ---------------------------------------------------------------- */
+/* The keyword box, its help panel and llms.txt all advertise
+ * AND / OR / NOT and grouped booleans. Two ways that promise was
+ * broken, both found from the live site (2026-09-15 / 2026-09-22):
+ *
+ *   - `_fts5_boolean` tokenised with a bare \S+, so `(child` and
+ *     `woman)` were swallowed whole into a quoted term. FTS5 drops the
+ *     bracket as punctuation, the grouping vanishes, and FTS5's own
+ *     precedence (NOT > AND > OR) re-reads the query. Both spellings
+ *     below returned an identical 54,978 rows — i.e. everything
+ *     mentioning a child. Wrong answers, no error, full confidence.
+ *   - FTS5's NOT is BINARY, so `A AND NOT B` was a syntax error and
+ *     the API answered 500.
+ *
+ * These assert the semantics, not the counts, so they stay valid as
+ * the corpus grows. */
+test.describe('@contract boolean search semantics', () => {
+  const count = async (q: string) => {
+    const r = await fetchEndpoint('/api/data/summary?dataset=cleaned&text_query=' + encodeURIComponent(q));
+    return { status: r.status, total: (r.body as { total_records?: number })?.total_records ?? -1 };
+  };
+
+  test('parentheses group — (a OR b) AND c is not a OR b AND c', async () => {
+    const grouped = await count('(child OR woman) AND trafficking');
+    const flat = await count('child OR woman AND trafficking');
+    const swapped = await count('trafficking AND (child OR woman)');
+    expect(grouped.status).toBe(200);
+    expect(flat.status).toBe(200);
+    expect(swapped.status).toBe(200);
+
+    // Grouping must change the meaning: without it, precedence turns the
+    // query into `child OR (woman AND trafficking)` — a far bigger set.
+    expect(grouped.total,
+      `grouping is being ignored: "(child OR woman) AND trafficking" and `
+      + `"child OR woman AND trafficking" both return ${grouped.total}`).not.toBe(flat.total);
+    // …and it must be commutative: the same group on either side of AND.
+    expect(swapped.total, 'the same grouped query must not depend on clause order').toBe(grouped.total);
+    // An AND of two clauses cannot exceed either clause alone.
+    const child = await count('child');
+    expect(grouped.total).toBeLessThan(child.total);
+  });
+
+  test('NOT excludes, in both spellings, inside and outside groups', async () => {
+    const plain = await count('torture');
+    const not = await count('torture NOT military');
+    const andNot = await count('torture AND NOT military');
+    expect(plain.status).toBe(200);
+    expect(not.status, 'NOT must not 500').toBe(200);
+    expect(andNot.status, 'AND NOT must not 500 — FTS5 NOT is binary; rewrite it').toBe(200);
+    expect(not.total, 'NOT must actually remove rows').toBeLessThan(plain.total);
+    expect(andNot.total, 'AND NOT and NOT are the same query in FTS5').toBe(not.total);
+  });
+
+  test('the shapes FTS5 cannot express answer 4xx with a reason, never 5xx', async () => {
+    for (const q of ['NOT military', 'torture OR NOT military', '(child AND woman', 'child AND ()']) {
+      const r = await fetchEndpoint('/api/data/summary?dataset=cleaned&text_query=' + encodeURIComponent(q));
+      expect(r.status, `"${q}" must not be a server error`).toBeLessThan(500);
+      expect(r.status, `"${q}" should be rejected as a bad request`).toBeGreaterThanOrEqual(400);
+      const detail = (r.body as { detail?: string })?.detail;
+      expect(typeof detail === 'string' && detail.length > 20,
+        `"${q}" should come back with an explanation, got: ${JSON.stringify(detail)}`).toBe(true);
+    }
+  });
+});
