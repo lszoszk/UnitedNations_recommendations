@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>UHRI+ · Analytics Dashboard</title>
+<title>UHRI+ Dashboard — UN Human Rights Recommendations</title>
 
 <!-- Agent-friendly metadata (2026-04-24).  Every tag here serves a
      specific indexer: Open Graph for social unfurl (LinkedIn / Slack
@@ -18,8 +18,8 @@
 <link rel="alternate" type="text/markdown" href="./llms.txt" title="LLM-friendly site summary">
 
 <meta property="og:type"        content="website">
-<meta property="og:site_name"   content="UN Human Rights Analytics Dashboard">
-<meta property="og:title"       content="UN Human Rights Analytics Dashboard — more than 270,000 recommendations across Treaty Bodies, Special Procedures, UPR">
+<meta property="og:site_name"   content="UHRI+">
+<meta property="og:title"       content="UHRI+ — more than 270,000 UN human rights recommendations across Treaty Bodies, Special Procedures, UPR">
 <meta property="og:description" content="Cleaned OHCHR UHRI dataset. Boolean + wildcard + stemmed search. Per-country profiles. Reproducible methodology. Free, open, no login.">
 <meta property="og:url"         content="https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html">
 <meta property="og:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/social-card.png">
@@ -29,7 +29,7 @@
 <meta property="og:locale"      content="en_GB">
 
 <meta name="twitter:card"        content="summary_large_image">
-<meta name="twitter:title"       content="UN Human Rights Analytics Dashboard">
+<meta name="twitter:title"       content="UHRI+ — UN Human Rights Recommendations Dashboard">
 <meta name="twitter:description" content="Search more than 270,000 UN human-rights recommendations. Cleaned UHRI data, reproducible methodology.">
 <meta name="twitter:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/social-card.png">
 
@@ -40,8 +40,11 @@
     {
       "@type": "WebApplication",
       "@id": "https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#webapp",
-      "name": "UN Human Rights Analytics Dashboard",
-      "alternateName": "UHRI+ Dashboard",
+      "name": "UHRI+ — UN Human Rights Recommendations Dashboard",
+      "alternateName": [
+        "UHRI+",
+        "UN Human Rights Analytics Dashboard"
+      ],
       "url": "https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html",
       "description": "Interactive analytics and full-text search across 272,502 observations and recommendations from UN Treaty Bodies, Special Procedures, and the Universal Periodic Review (2006–2026).",
       "applicationCategory": "ResearchApplication",
@@ -51,7 +54,9 @@
       "inLanguage": "en",
       "creator": {
         "@type": "Person",
-        "name": "L. Szoszkiewicz",
+        "name": "Łukasz Szoszkiewicz",
+        "url": "https://lszoszk.github.io",
+        "sameAs": "https://orcid.org/0000-0001-6671-2893",
         "affiliation": {
           "@type": "CollegeOrUniversity",
           "name": "Adam Mickiewicz University, Poznań"
@@ -63,26 +68,95 @@
       },
       "isBasedOn": {
         "@id": "https://uhri.ohchr.org/#dataset"
-      }
+      },
+      "identifier": {
+        "@type": "PropertyValue",
+        "propertyID": "DOI",
+        "value": "10.5281/zenodo.21319464",
+        "url": "https://doi.org/10.5281/zenodo.21319464"
+      },
+      "sameAs": [
+        "https://doi.org/10.5281/zenodo.21319464",
+        "https://github.com/lszoszk/UnitedNations_recommendations"
+      ],
+      "citation": "Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.09]. Zenodo. https://doi.org/10.5281/zenodo.21319464"
     },
     {
       "@type": "Dataset",
       "@id": "https://lszoszk.github.io/UnitedNations_recommendations/#dataset",
-      "name": "UHRI Cleaned Dataset",
-      "alternateName": "OHCHR Universal Human Rights Index — cleaned pipeline v2026.04",
-      "description": "272,502 observations and recommendations (as of dataset version v2026.04; the corpus refreshes monthly) from UN Treaty Bodies, Special Procedures, and the Universal Periodic Review, cleaned via a transparent 5-stage pipeline (OCR & HTML repair, LLM-assisted residue review, AnnotationType normalisation, country backfill from document symbols, artefact drop).",
+      "name": "UHRI+ cleaned dataset of UN human rights recommendations",
+      "alternateName": "OHCHR Universal Human Rights Index — cleaned pipeline v2026.09",
+      "description": "272,502 observations and recommendations (as of dataset version v2026.09; the corpus refreshes monthly) from UN Treaty Bodies, Special Procedures, and the Universal Periodic Review, cleaned via a transparent 5-stage pipeline (OCR & HTML repair, LLM-assisted residue review, AnnotationType normalisation, country backfill from document symbols, artefact drop).",
       "url": "https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html",
-      "keywords": ["human rights", "UN Treaty Bodies", "Special Procedures", "Universal Periodic Review", "OHCHR", "UHRI"],
+      "sameAs": "https://doi.org/10.5281/zenodo.21319464",
+      "citation": "Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.09]. Zenodo. https://doi.org/10.5281/zenodo.21319464",
+      "version": "v2026.09",
+      "datePublished": "2026-07-12",
+      "dateModified": "2026-09-15",
+      "keywords": [
+        "human rights",
+        "UN Treaty Bodies",
+        "Special Procedures",
+        "Universal Periodic Review",
+        "OHCHR",
+        "UHRI"
+      ],
       "temporalCoverage": "2006/2026",
-      "creator": { "@type": "Organization", "name": "OHCHR" },
+      "spatialCoverage": {
+        "@type": "Place",
+        "name": "Worldwide — all UN Member States and observer States"
+      },
+      "creator": {
+        "@type": "Person",
+        "name": "Łukasz Szoszkiewicz",
+        "url": "https://lszoszk.github.io",
+        "sameAs": "https://orcid.org/0000-0001-6671-2893",
+        "affiliation": {
+          "@type": "CollegeOrUniversity",
+          "name": "Adam Mickiewicz University, Poznań"
+        }
+      },
       "maintainer": {
         "@type": "Person",
-        "name": "L. Szoszkiewicz",
-        "affiliation": "Adam Mickiewicz University, Poznań"
+        "name": "Łukasz Szoszkiewicz",
+        "url": "https://lszoszk.github.io",
+        "sameAs": "https://orcid.org/0000-0001-6671-2893",
+        "affiliation": {
+          "@type": "CollegeOrUniversity",
+          "name": "Adam Mickiewicz University, Poznań"
+        }
+      },
+      "isBasedOn": {
+        "@type": "Dataset",
+        "name": "Universal Human Rights Index (UHRI)",
+        "url": "https://uhri.ohchr.org",
+        "creator": {
+          "@type": "Organization",
+          "name": "Office of the United Nations High Commissioner for Human Rights (OHCHR)",
+          "url": "https://www.ohchr.org"
+        }
       },
       "license": "https://uhri.ohchr.org/en/terms-of-usage",
       "isAccessibleForFree": true,
-      "variableMeasured": ["country", "recommending body", "theme", "concerned groups", "SDG", "annotation type", "publication date"]
+      "variableMeasured": [
+        "country",
+        "recommending body",
+        "theme",
+        "concerned groups",
+        "SDG",
+        "annotation type",
+        "publication date"
+      ],
+      "distribution": [
+        {
+          "@type": "DataDownload",
+          "name": "Cleaned dataset — Parquet snapshot on Hugging Face (June 2026)",
+          "encodingFormat": "application/vnd.apache.parquet",
+          "contentUrl": "https://huggingface.co/datasets/lszoszk/uhri-recommendations",
+          "dateModified": "2026-06-11",
+          "license": "https://creativecommons.org/licenses/by-nc/4.0/"
+        }
+      ]
     }
   ]
 }
@@ -2297,7 +2371,7 @@ body.ga-consent-open .bug-report-fab{bottom:calc(var(--ga-consent-inset, 190px) 
         </div>
         <div class="ds-foot">
           Shareable URL includes <code>?dataset=raw</code> · <a href="#methodology" data-nav="methodology">what's the difference?</a>
-          <div class="ds-foot-meta" title="Beta release · monthly OHCHR sync · feedback: l.szoszkiewicz@amu.edu.pl">β · v2026.04 · monthly OHCHR sync</div>
+          <div class="ds-foot-meta" title="Beta release · monthly OHCHR sync · feedback: l.szoszkiewicz@amu.edu.pl">β · v2026.09 · monthly OHCHR sync</div>
         </div>
       </div>
     </span>
@@ -2552,6 +2626,8 @@ body.ga-consent-open .bug-report-fab{bottom:calc(var(--ga-consent-inset, 190px) 
     <span>Built on <b style="color:var(--ink);font-weight:500">OHCHR UHRI</b> data · 272,502 records</span>
     <span class="df-sep">·</span>
     <span>Developed by <b style="color:var(--ink);font-weight:500">L. Szoszkiewicz</b></span>
+    <span class="df-sep">·</span>
+    <a href="https://doi.org/10.5281/zenodo.21319464" target="_blank" rel="noopener" title="Persistent identifier — always resolves to the latest release">DOI 10.5281/zenodo.21319464</a>
     <span class="df-sep">·</span>
     <a class="disclaimer" data-nav="about" title="Independence, citation, acknowledgements, feedback">about this project</a>
   </div>

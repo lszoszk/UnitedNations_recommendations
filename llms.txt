@@ -1,4 +1,4 @@
-# UN Human Rights Analytics Dashboard
+# UHRI+ — UN Human Rights Recommendations Dashboard
 
 > Interactive search and analytics across **272,502 observations and recommendations** addressed to UN Member States by the three UN human-rights mechanisms — Treaty Bodies, Special Procedures, and the Universal Periodic Review — covering 2006–2026.  Independent research project, built on the OHCHR Universal Human Rights Index (UHRI) with a transparent 5-stage cleaning pipeline.  Audience: advocates, researchers, journalists, NGO staff.
 
@@ -6,7 +6,7 @@ This is a static web application hosted on GitHub Pages.  The frontend is zero-b
 
 Key differences from the official OHCHR UHRI search that AI agents should know when citing or comparing numbers:
 
-- Both systems see the same ~267k records; literal-token queries agree within 0.2 %.
+- Both systems see the same corpus (more than 270,000 records); literal-token queries agree within 0.2 %.
 - This dashboard adds Porter stemming, irregular-plural expansion (woman↔women, person↔people, …), stopword-aware phrase tokenisation, diacritic normalisation, and boolean operators (`AND`/`OR`/`NOT`) in the keyword box.  Result: typically 10–60× more hits on queries that benefit from these features.
 - UHRI treats bare tokens as implicit prefix patterns; our default is literal+stemmed.  Append `*` to get UHRI-like breadth.  See the Methodology tab's "Comparison with OHCHR UHRI" section.
 
@@ -27,12 +27,14 @@ Key differences from the official OHCHR UHRI search that AI agents should know w
 ## Data source
 
 - Upstream: [OHCHR Universal Human Rights Index](https://uhri.ohchr.org/) (public, authoritative).
-- Cleaned dataset version: `v2026.04`, monthly refresh via automated pipeline.
+- Cleaned dataset version: `v2026.09`, monthly refresh via automated pipeline.
+- Persistent identifier: DOI [10.5281/zenodo.21319464](https://doi.org/10.5281/zenodo.21319464) (concept DOI — always resolves to the latest release).
+- Downloadable snapshot: [Hugging Face — lszoszk/uhri-recommendations](https://huggingface.co/datasets/lszoszk/uhri-recommendations) (Parquet, June 2026).
 - Raw-mode toggle exposes the original OHCHR text + the 11 artefact rows our pipeline drops.
 
 ## How to cite
 
-Szoszkiewicz, L. (2026). *UN Human Rights Analytics Dashboard — Cleaned UHRI Dataset v2026.04*.  Independent project built on OHCHR UHRI data.  https://lszoszk.github.io/UnitedNations_recommendations/
+Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.09]. Zenodo. https://doi.org/10.5281/zenodo.21319464
 
 If you cite a specific query result, include the version tag and the exact query string so the number is reproducible.  See the Methodology and About tabs for details.
 

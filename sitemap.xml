@@ -3,7 +3,7 @@
   <!-- UN Human Rights Analytics Dashboard — sitemap.
        Covers the primary surfaces: landing, dashboard shell, and the
        docs that are truly first-class URLs.  Hash-routed SPA views
-       (dashboard.html#view=search etc.) are NOT listed individually —
+       (dashboard.html#view=…) are NOT listed —
        they're all the same document and listing them would just
        confuse rank aggregation.  Agents can drill into specific tabs
        via the patterns documented in llms.txt. -->
@@ -16,16 +16,6 @@
     <loc>https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html</loc>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#view=methodology</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://lszoszk.github.io/UnitedNations_recommendations/dashboard.html#view=about</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://lszoszk.github.io/UnitedNations_recommendations/docs/uhri-comparison.md</loc>

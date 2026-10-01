@@ -1,6 +1,6 @@
 {
-  "name": "UHRI Analytics Dashboard v2",
-  "short_name": "UHRI v2",
+  "name": "UHRI+ — UN Human Rights Recommendations",
+  "short_name": "UHRI+",
   "description": "Explore 272,502 UN human rights recommendations — filter, compare, and annotate across Treaty Bodies, Special Procedures, and UPR cycles.",
   "start_url": "./dashboard.html",
   "scope": "./",

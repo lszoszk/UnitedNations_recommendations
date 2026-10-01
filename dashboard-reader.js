@@ -136,12 +136,21 @@ function citePlainURL(r) {
   return f.sourceUrl || f.shareUrl;
 }
 
+/* Citing the TOOL, as distinct from citing a recommendation. Every other
+   format cites the UN document — the primary source, which is right — but
+   until now there was no way to get the tool's own citation from the place
+   people reach for one, and the DOI appeared nowhere on the site. The
+   version tag is bumped by scripts/update-counts.mjs when the data changes. */
+const UHRI_TOOL_CITATION = 'Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.09]. Zenodo. https://doi.org/10.5281/zenodo.21319464';
+function citeTool() { return UHRI_TOOL_CITATION; }
+
 const CITE_FORMATS = [
   { key: 'apa',     name: 'APA (7th ed.)',  fmt: 'APA',     build: citeAPA },
   { key: 'chicago', name: 'Chicago notes',  fmt: 'CHICAGO', build: citeChicago },
   { key: 'bibtex',  name: 'BibTeX',         fmt: '.BIB',    build: citeBibTeX },
   { key: 'ris',     name: 'RIS',            fmt: '.RIS',    build: citeRIS },
   { key: 'url',     name: 'Plain URL',      fmt: 'LINK',    build: citePlainURL },
+  { key: 'tool',    name: 'UHRI+ (the tool)', fmt: 'DOI',   build: citeTool },
 ];
 
 /* =========================================================================
@@ -433,7 +442,9 @@ function renderDrawer() {
     _citeCurrentKey = fmt.key;
     if (_citePreview) _citePreview.textContent = fmt.build(r);
     const noSymbol = !_citeBaseFields(r).symbol;
-    if (_citeWarn) _citeWarn.hidden = !noSymbol;
+    // The missing-symbol warning is about the RECORD; it does not apply
+    // when the user is citing the tool itself.
+    if (_citeWarn) _citeWarn.hidden = !noSymbol || fmt.key === 'tool';
   };
   paintCitePreview(_citeCurrentKey);   // prime default
   $('#citePreviewCopy', el)?.addEventListener('click', () => {

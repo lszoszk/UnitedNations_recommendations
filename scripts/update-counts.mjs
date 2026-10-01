@@ -15,6 +15,12 @@
  *   • cleaned total    (e.g. 267,537) — from /api/data/facets#total_records
  *   • raw total        (e.g. 267,548) — cleaned + artefacts_dropped (sentinel)
  *   All format variants: "267,537" · "267537" · "267 548" (space-sep)
+ *   • dataset version  (e.g. v2026.09) — set to vYYYY.MM of the day the data
+ *                       changed. It is what the site tells people to cite, so
+ *                       it must move with the data: it sat at v2026.04 for
+ *                       five months while the corpus grew by 4,560 records.
+ *   • JSON-LD dateModified — same trigger, same reason (Google Dataset Search
+ *                       reads it).
  *
  * WHAT IT LEAVES ALONE
  *   Pipeline methodology numbers (~56,000 edited, 3,294 type fixes, etc.)
@@ -65,7 +71,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 async function main() {
   // 1. Load sentinel ─ source of truth for current counts
   const sentinel = JSON.parse(readFileSync(SENTINEL, 'utf8'));
-  const { cleaned: OLD_CLEANED, artefacts_dropped } = sentinel;
+  const { cleaned: OLD_CLEANED, artefacts_dropped, version: OLD_VERSION, last_updated: OLD_DATE } = sentinel;
   if (!Number.isInteger(OLD_CLEANED) || !Number.isInteger(artefacts_dropped)) {
     throw new Error('counts.json must have integer "cleaned" and "artefacts_dropped" fields.');
   }
@@ -80,6 +86,8 @@ async function main() {
   }
   const NEW_RAW = NEW_CLEANED + artefacts_dropped;
   const delta   = NEW_CLEANED - OLD_CLEANED;
+  const NEW_DATE    = today();
+  const NEW_VERSION = 'v' + NEW_DATE.slice(0, 4) + '.' + NEW_DATE.slice(5, 7);
 
   if (delta === 0 && !DRY) {
     console.log(`✓ Already current — ${comma(NEW_CLEANED)} records. Nothing to do.`);
@@ -89,6 +97,7 @@ async function main() {
   const sign = delta >= 0 ? '+' : '';
   console.log(`Dataset: ${comma(OLD_CLEANED)} → ${comma(NEW_CLEANED)} (${sign}${delta})`);
   console.log(`Raw:     ${comma(OLD_RAW)} → ${comma(NEW_RAW)} (includes ${artefacts_dropped} dropped artefacts)`);
+  if (OLD_VERSION && OLD_VERSION !== NEW_VERSION) console.log(`Version: ${OLD_VERSION} → ${NEW_VERSION}`);
   if (DRY) console.log('(dry run — no files written)\n');
 
   // 3. Build replacement pairs  (longer/more-specific forms first to avoid
@@ -102,6 +111,12 @@ async function main() {
     [spaceNbsp(OLD_RAW),     spaceNbsp(NEW_RAW)],
     // Also patch "X → Y" pipeline notation in methodology (e.g. "267,548 → 267,537")
     [`${comma(OLD_RAW)} → ${comma(OLD_CLEANED)}`, `${comma(NEW_RAW)} → ${comma(NEW_CLEANED)}`],
+    // Version + freshness move with the data (see header).
+    // Only when the data actually changed: NEW_VERSION is derived from
+    // today, so without this gate a dry run on an unchanged corpus would
+    // propose bumping the version to the current month.
+    ...(delta !== 0 && OLD_VERSION ? [[OLD_VERSION, NEW_VERSION]] : []),
+    ...(delta !== 0 && OLD_DATE ? [[`"dateModified": "${OLD_DATE}"`, `"dateModified": "${NEW_DATE}"`]] : []),
   ].filter(([a, b]) => a !== b);
 
   if (pairs.length === 0) {
@@ -161,7 +176,7 @@ async function main() {
 
   // 5. Write updated sentinel
   if (!DRY) {
-    const updated = { ...sentinel, cleaned: NEW_CLEANED, raw: NEW_RAW, last_updated: today() };
+    const updated = { ...sentinel, cleaned: NEW_CLEANED, raw: NEW_RAW, version: NEW_VERSION, last_updated: NEW_DATE };
     writeFileSync(SENTINEL, JSON.stringify(updated, null, 2) + '\n', 'utf8');
     console.log(`\nSentinel updated → scripts/counts.json`);
   }

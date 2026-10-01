@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>UN Human Rights Analytics — Landing</title>
+<title>UHRI+ — Search UN Human Rights Recommendations by Country</title>
 
 <!-- Agent-friendly metadata (2026-04-24).  Curated agent summary
      lives in /llms.txt.  Canonical points at the landing itself so
      this URL is the one cited in AI-generated answers; the dashboard
      page has its own canonical. -->
-<meta name="description" content="Landing page for the UN Human Rights Analytics Dashboard — free interactive access to 272,502 observations and recommendations from OHCHR UHRI, cleaned and searchable with boolean + wildcard + stemmed queries.">
+<meta name="description" content="UHRI+ — free interactive access to 272,502 UN human rights observations and recommendations from OHCHR UHRI, cleaned and searchable with boolean + wildcard + stemmed queries.">
 <meta name="author" content="L. Szoszkiewicz (Adam Mickiewicz University, Poznań)">
 <meta name="keywords" content="human rights, OHCHR, UHRI, Treaty Bodies, Universal Periodic Review, UPR, Special Procedures, SDG, research dashboard, UN recommendations">
 <link rel="canonical" href="https://lszoszk.github.io/UnitedNations_recommendations/index.html">
 <link rel="alternate" type="text/markdown" href="./llms.txt" title="LLM-friendly site summary">
 
 <meta property="og:type"        content="website">
-<meta property="og:site_name"   content="UN Human Rights Analytics Dashboard">
+<meta property="og:site_name"   content="UHRI+">
 <meta property="og:title"       content="More than 270,000 UN human-rights recommendations, searchable">
 <meta property="og:description" content="Cleaned OHCHR UHRI dataset. Boolean + wildcard + stemmed search. Per-country profiles. Reproducible methodology. Free, open, no login.">
 <meta property="og:url"         content="https://lszoszk.github.io/UnitedNations_recommendations/">
@@ -27,7 +27,7 @@
 <meta property="og:locale"      content="en_GB">
 
 <meta name="twitter:card"        content="summary_large_image">
-<meta name="twitter:title"       content="UN Human Rights Analytics — more than 270,000 recommendations">
+<meta name="twitter:title"       content="UHRI+ — more than 270,000 UN human rights recommendations, searchable">
 <meta name="twitter:description" content="Cleaned OHCHR UHRI data, interactive dashboard, reproducible methodology.">
 <meta name="twitter:image"       content="https://lszoszk.github.io/UnitedNations_recommendations/social-card.png">
 
@@ -35,7 +35,8 @@
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "name": "UN Human Rights Analytics Dashboard",
+  "name": "UHRI+ — UN Human Rights Recommendations Dashboard",
+  "alternateName": ["UHRI+", "UN Human Rights Analytics Dashboard"],
   "url": "https://lszoszk.github.io/UnitedNations_recommendations/",
   "description": "Search and analytics across 272,502 UN human-rights observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review.",
   "inLanguage": "en",
@@ -46,9 +47,15 @@
   },
   "creator": {
     "@type": "Person",
-    "name": "L. Szoszkiewicz",
-    "affiliation": "Adam Mickiewicz University, Poznań"
-  }
+    "name": "Łukasz Szoszkiewicz",
+    "url": "https://lszoszk.github.io",
+    "sameAs": "https://orcid.org/0000-0001-6671-2893",
+    "affiliation": {"@type": "CollegeOrUniversity", "name": "Adam Mickiewicz University, Poznań"}
+  },
+  "sameAs": [
+    "https://doi.org/10.5281/zenodo.21319464",
+    "https://github.com/lszoszk/UnitedNations_recommendations"
+  ]
 }
 </script>
 
@@ -1066,6 +1073,10 @@
   footer a { color: inherit; text-decoration: none; }
   footer a.sup:hover { border-color: var(--ink); color: var(--ink); }
   footer .credit a { border-bottom: 1px solid var(--line); }
+  /* The DOI (10.5281/zenodo.21319464) is one unbreakable token; in a `1fr auto`
+     grid it set the column's minimum width and pushed the supporters off a
+     320px screen. `anywhere` (unlike break-word) lowers that minimum. */
+  footer .credit { overflow-wrap: anywhere; }
   footer .credit a:hover { border-bottom-color: var(--ink); color: var(--ink); }
   footer .hr { height: 1px; background: var(--line); margin-bottom: 24px; }
 
@@ -1202,6 +1213,12 @@
     transition: width .1s linear;
   }
 
+  /* The descriptor after the UHRI+ wordmark only fits beside the six-stop
+     section nav on wide screens; below that it pushed Methodology and
+     Open Dashboard off the right edge (measured: 924px page at 768px).
+     Targeted by class, not nth-child — the positional rules below were
+     written for spans that no longer exist. */
+  @media (max-width: 1279px) { .topbar .wm-sub { display: none; } }
   @media (max-width: 760px) {
     .section-nav .nav-item .lbl { display: none; }
     .section-nav .nav-item { padding: 4px 7px; }
@@ -1342,7 +1359,8 @@
 <div class="topbar">
   <div class="left">
     <span class="dot" title="live"></span>
-    <span style="color:var(--ink);letter-spacing:.14em;font-weight:500">UN HUMAN RIGHTS ANALYTICS</span>
+    <span style="color:var(--ink);letter-spacing:.14em;font-weight:500">UHRI+</span>
+    <span class="wm-sub" style="color:var(--dim);letter-spacing:.08em">/ UN human rights recommendations</span>
     <!-- v2: dataset version demoted to the footer — the topbar sells the
          product, not the build metadata. -->
   </div>
@@ -1675,7 +1693,7 @@
     <div>
       <div class="hr"></div>
       <div style="display:flex; gap:32px; flex-wrap:wrap;">
-        <div class="credit">Built on OHCHR UHRI data · Developed by <a href="https://lszoszk.github.io" target="_blank" rel="noopener">L. Szoszkiewicz</a></div>
+        <div class="credit">Built on OHCHR UHRI data · Developed by <a href="https://lszoszk.github.io" target="_blank" rel="noopener">L. Szoszkiewicz</a> · Cite: <a href="https://doi.org/10.5281/zenodo.21319464" target="_blank" rel="noopener" title="Persistent identifier — always resolves to the latest release">DOI 10.5281/zenodo.21319464</a></div>
       </div>
       <div style="margin-top:12px; color:var(--dim);">
         This dashboard is an independent project. It reuses publicly-available OHCHR data under its Universal Human Rights Index — data use does not imply endorsement by OHCHR or the United Nations. Supporters listed at right fund, host, or advise the project; they do not speak for it.
