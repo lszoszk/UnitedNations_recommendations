@@ -29,7 +29,7 @@ Key differences from the official OHCHR UHRI search that AI agents should know w
 - Upstream: [OHCHR Universal Human Rights Index](https://uhri.ohchr.org/) (public, authoritative).
 - Cleaned dataset version: `v2026.09`, monthly refresh via automated pipeline.
 - Persistent identifier: DOI [10.5281/zenodo.21319464](https://doi.org/10.5281/zenodo.21319464) (concept DOI — always resolves to the latest release).
-- Downloadable snapshot: [Hugging Face — lszoszk/uhri-recommendations](https://huggingface.co/datasets/lszoszk/uhri-recommendations) (Parquet, June 2026).
+- Downloadable snapshot: [Hugging Face — lszoszk/uhri-recommendations](https://huggingface.co/datasets/lszoszk/uhri-recommendations) (Parquet; snapshot of 1 October 2026 — the live dashboard refreshes monthly).
 - Raw-mode toggle exposes the original OHCHR text + the 11 artefact rows our pipeline drops.
 
 ## How to cite
