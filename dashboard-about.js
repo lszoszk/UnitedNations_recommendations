@@ -50,7 +50,7 @@ function renderAbout() {
 
       <section class="me-sec" id="ab-privacy">
         <h2>Privacy</h2>
-        <p>This dashboard uses <strong>Google Analytics 4</strong> to understand which features get used — nothing more.  It is <strong>consent-gated</strong>: a banner on your first visit lets you accept or reject; the default is "off".  Your choice persists in <code>localStorage</code>.  You can change it any time by clearing site data.</p>
+        <p>This dashboard uses two tools to understand how it is used. <strong>Google Analytics 4</strong> measures which features get used; it is described first, below. A second, much simpler tool, <strong>GoatCounter</strong>, only counts visits — see <em>Visit counting</em> after the lists. Google Analytics is <strong>consent-gated</strong>: a banner on your first visit lets you accept or reject; the default is "off".  Your choice persists in <code>localStorage</code>.  You can change it any time by clearing site data.</p>
         <p><strong>What is sent</strong> (only after you accept):</p>
         <ul>
           <li>Which tab you opened — <code>overview</code>, <code>country</code>, <code>search</code>, <code>methodology</code>, etc.</li>
@@ -59,6 +59,12 @@ function renderAbout() {
           <li>Anonymised aggregates Google collects by default — approximate country (from truncated IP), device type, referrer.</li>
         </ul>
         <p><strong>What is never sent</strong>: the text of your keyword queries, the specific records you open in the reader, your saved notes or bookmarks, rule names in the Labels workspace, the contents of an uploaded dataset, your IP address in clear.  Ad personalisation and Google signals are disabled by configuration.  If your browser sends the <code>Do Not Track</code> header, Google Analytics is not loaded at all — not even in default-denied mode.</p>
+        <p><strong>Visit counting</strong> (GoatCounter, added 2026-10-06). The landing page, this dashboard and the AI-connector guide are counted by <a href="https://www.goatcounter.com" target="_blank" rel="noopener">GoatCounter</a>, an open-source, cookieless counter. Unlike Google Analytics it does not wait for the banner above, because it sets no cookie, stores nothing on your device, and keeps no IP address and no tracker ID (see its <a href="https://www.goatcounter.com/privacy" target="_blank" rel="noopener">privacy policy</a>). Whether that is enough to need no consent is a legal judgement, not a technical fact — GoatCounter itself says only that notices are "probably not" required — so it is switched off whenever your browser sends <code>Do Not Track</code>, exactly as Google Analytics is.</p>
+        <ul>
+          <li><strong>Sent</strong>: only the name of the page or tab — <code>/dashboard/country</code>, never which country; <code>/dashboard/search</code>, never what you searched — and the site you arrived from. The dashboard's address (which can hold your query, filters and the record you are reading) is never read or sent.</li>
+          <li><strong>Stored</strong>: those page names and referrers; browser and operating-system <em>name</em>; screen width; country (and region, for the US, Russia and China only); and a short-lived anonymous session marker (up to 8 hours) so a reload is not counted as a new visitor. Not stored: individual pageviews, IP addresses, language, any identifier that persists on your device.</li>
+          <li><strong>Where</strong>: GoatCounter's hosted service, on servers in Finland and Germany. Not loaded at all on a local or self-hosted copy.</li>
+        </ul>
         <p style="color:var(--dim);font-size:12px;margin-top:-4px">Why we track at all: a research tool nobody can tell is being used risks losing its supporter funding and never learning which pieces actually land.  The measurement ID is <code>G-F3XBX45HQC</code>; the policy above is enforced by the code in <code>dashboard-analytics.js</code> which you can read in the public repository.</p>
       </section>
 

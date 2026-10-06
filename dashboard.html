@@ -205,6 +205,11 @@
     });
   }
 </script>
+<!-- GoatCounter: cookieless page counter, production host only, Do-Not-Track respected.
+     The dashboard is one document, so each tab is reported by navigate() as a
+     fixed "/dashboard/<view>" path — never the entity, the query or the hash.
+     Independent of the GA consent banner. See analytics-goatcounter.js. -->
+<script src="./analytics-goatcounter.js"></script>
 <!-- Core Web Vitals (RUM) — measures LCP, INP, CLS, FCP, TTFB on real
      users and forwards each metric to GA4 via window.trackWebVital
      (consent-gated, bucketed; see dashboard-analytics.js).  Loaded as
@@ -3975,6 +3980,13 @@ async function navigate(view) {
   // consent banner; we intentionally do NOT pass filter/keyword state —
   // only the anonymous tab name.
   if (typeof trackView === 'function') trackView(view);
+  // GoatCounter (cookieless, no consent needed — see analytics-goatcounter.js).
+  // Known views only, and only the view's fixed path: `view` can come straight
+  // from the URL hash, so an unknown value must never be forwarded.
+  if (typeof window.uhriCount === 'function' && typeof _VIEW_LABELS === 'object') {
+    const _gcl = _VIEW_LABELS[String(view).toLowerCase()];
+    if (_gcl) window.uhriCount(_gcl.path, _gcl.title);
+  }
   if (view === 'overview') await renderOverview();
   else if (view === 'country') await renderCountry();
   else if (view === 'theme') await renderTheme();
