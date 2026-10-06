@@ -5,8 +5,8 @@
  * is consent-gated and measures feature use: this one answers only "is anyone
  * using it, and from where", on every public page.
  *
- * WHAT LEAVES THE BROWSER, per view: a fixed path and title — "/dashboard/country",
- * never which country; "/dashboard/search", never what was searched — plus the
+ * WHAT LEAVES THE BROWSER, per view: a fixed path and title — ".../dashboard/country",
+ * never which country; ".../dashboard/search", never what was searched — plus the
  * referring site on the first view. The script is told the path explicitly and
  * never reads the URL itself: the dashboard keeps queries, filters and the
  * record being read in the URL hash, and none of that may reach a third party.
@@ -16,8 +16,13 @@
  * Do-Not-Track, the same rule the GA bootstrap follows. An ad-blocker that
  * blocks gc.zgo.at simply turns this into a no-op.
  *
+ * PATHS are prefixed with the project folder, like the other tools that report to
+ * the same GoatCounter site (/hrc-voting/overview, /generalcomments/about): the
+ * counter is shared, and a bare "/landing" or "/dashboard/search" would be
+ * ambiguous beside them.
+ *
  * USAGE: <script src="./analytics-goatcounter.js" data-path="/landing"></script>
- * counts that page once on load. The dashboard omits data-path and calls
+ * counts that page once on load (as /UnitedNations_recommendations/landing). The dashboard omits data-path and calls
  * window.uhriCount(path, title) from navigate() instead — it is one document,
  * so a pageview per tab has to be reported by hand.
  */
@@ -26,6 +31,7 @@
   var PRODUCTION_HOST = 'lszoszk.github.io';
   var ENDPOINT = 'https://lszoszk.goatcounter.com/count';
   var SCRIPT = 'https://gc.zgo.at/count.js';
+  var PREFIX = '/UnitedNations_recommendations';
 
   var script = document.currentScript;
   var noop = function () {};
@@ -40,7 +46,9 @@
   var queue = [], ready = false, first = true, last = null;
 
   window.uhriCount = function (path, title) {
-    if (!path || path === last) return;          // re-rendering the same view is not a new pageview
+    if (!path) return;
+    path = PREFIX + path;
+    if (path === last) return;                    // re-rendering the same view is not a new pageview
     last = path;
     var vars = { path: path, title: title || path };
     // Only the first view has a real referrer. Later ones are in-app hops; passing

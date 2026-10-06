@@ -59,19 +59,19 @@ test('a local copy never contacts GoatCounter', async ({ page }) => {
   expect(await page.evaluate(() => typeof (window as any).uhriCount), 'still a callable no-op').toBe('function');
 });
 
-test('the landing page is counted once, as /landing', async ({ page }) => {
+test('the landing page is counted once, under the project prefix', async ({ page }) => {
   await asProduction(page);
   await page.goto(`${PROD}index.html`);
   await expect.poll(async () => (await calls(page)).length, { timeout: 15_000 }).toBe(1);
   const [c] = await calls(page);
-  expect(c.path).toBe('/landing');
+  expect(c.path).toBe('/UnitedNations_recommendations/landing');
   expect(c).not.toHaveProperty('referrer');          // the first view keeps the real referrer
 });
 
-test('the AI-connector guide is counted as /ai', async ({ page }) => {
+test('the AI-connector guide is counted under the project prefix', async ({ page }) => {
   await asProduction(page);
   await page.goto(`${PROD}ai.html`);
-  await expect.poll(async () => (await calls(page)).map((c) => c.path), { timeout: 15_000 }).toEqual(['/ai']);
+  await expect.poll(async () => (await calls(page)).map((c) => c.path), { timeout: 15_000 }).toEqual(['/UnitedNations_recommendations/ai']);
 });
 
 test('the dashboard reports each tab once, by fixed path — never the entity, the query or the hash', async ({ page }) => {
@@ -85,7 +85,7 @@ test('the dashboard reports each tab once, by fixed path — never the entity, t
   await page.evaluate(() => (globalThis as any).navigate('methodology'));
 
   const seen = await calls(page);
-  expect(seen.map((c) => c.path)).toEqual(['/dashboard/search', '/dashboard/country', '/dashboard/methodology']);
+  expect(seen.map((c) => c.path)).toEqual(['/dashboard/search', '/dashboard/country', '/dashboard/methodology'].map((p) => `/UnitedNations_recommendations${p}`));
   expect(seen[0]).not.toHaveProperty('referrer');
   expect(seen.slice(1).every((c) => c.referrer === ''), 'in-app hops are not referrals').toBe(true);
 
