@@ -237,6 +237,8 @@ async function _insertGaConsentBanner() {
         We'd like to use <strong>Google Analytics</strong> to see which features get used —
         page views and a few discrete actions only.  <strong>Your search queries, the
         specific records you open, and your IP address in clear are never sent.</strong>
+        Separately — whatever you choose here — <strong>GoatCounter</strong>, a cookieless
+        visit counter, records which page or tab you open. It stores no cookies and no IP address.
         <a href="#view=about" data-nav="about" class="ga-consent-more">Privacy details</a>
       </div>
       <div class="ga-consent-actions">
