@@ -11,6 +11,11 @@ UHRI+ is served together with a sister corpus of paragraph-level text: Treaty Bo
 
 Call `lookup_by_citation` with the citation as the user wrote it: `CRC/C/GC/25 ¶12`, `A/HRC/61/42 para 10`, or just `CEDAW/C/GC/30` for document metadata. It matches the **printed paragraph number**. If nothing comes back, report "not found in this corpus" — the corpus covers several thousand documents, not every UN document, so that is not proof the citation is wrong.
 
+- **Check the label in the reply.** It starts with `SYMBOL ¶n`. If `n` is not the paragraph you asked for, that label was not found and the text is another paragraph: do not use it.
+- Informal names ("GC 34", "GR 35") do not resolve, and older General Comments are filed under compilation or report symbols (e.g. `HRI/GEN/1/Rev.9 (Vol. I) p. 191`). Find the symbol with `search_paragraphs` first.
+- Decimal labels (`¶8.2`, common in decisions) may not resolve. Read the document page `https://lszoszk.github.io/generalcomments/d/<doc_id>/#p8.2.` (`doc_id` comes with every search result) or the official text at `https://docs.un.org/en/<symbol>`.
+- To check every UN citation in a text, use the `un-citation-check` skill of the unhrdb plugin.
+
 ## Pair a recommendation with standards
 
 1. Fetch the recommendation with `search_recommendations` (see `uhri-plus`). Note its issuing body and issue.
