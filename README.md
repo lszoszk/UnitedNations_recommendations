@@ -24,6 +24,7 @@ licences ([NOTICE](NOTICE)).
 ## What is included
 - `index.html`: landing page
 - `ai.html`: how to use the dataset from an AI assistant (hosted MCP connector), written for both the reader and the assistant
+- `skills/`: four Claude skills for working with UHRI+ (search and quote, country brief, legal grounding, dashboard links), with downloadable zips — see [`skills/README.md`](skills/README.md)
 - `dashboard.html`: the dashboard application + 20 sibling `dashboard-*.js` modules (no bundler, classic `<script defer>` load order)
 - `sw.js`: service worker (app-shell cache)
 - `tests/`: Playwright suites — `smoke.spec.ts` (22 scenarios) plus `a11y`, `user-flows`, `contracts`, `tab-walk`, and others
@@ -67,6 +68,22 @@ Tools: `search_recommendations`, `lookup_recommendation`, `list_uhri_facets`
 (this dataset) plus `search_paragraphs`, `lookup_by_citation` (General Comments,
 jurisprudence, Special Procedures reports). `ai.html` is the non-technical
 guide — paste its address into an assistant and it walks the user through.
+
+## Claude skills
+Four small [skills](skills/README.md) teach Claude to use UHRI+ carefully —
+verbatim quotes with UN document symbols, honest counts, and no answers from
+memory:
+
+| Skill | Purpose |
+|---|---|
+| `uhri-plus` | find and quote recommendations by country, body, theme, year |
+| `uhri-plus-country-brief` | sourced brief on one country and topic across UPR, treaty bodies and Special Procedures |
+| `uhri-plus-legal-grounding` | tie a recommendation to the General Comment, case or report paragraph behind it; verify a citation |
+| `uhri-plus-dashboard-link` | build shareable deep links into the dashboard |
+
+The first three need the MCP connector above. Install steps for Claude (web,
+desktop) and Claude Code are in [`skills/README.md`](skills/README.md) and on
+[`ai.html`](ai.html); `sh skills/build-zips.sh` rebuilds the zips after an edit.
 
 ## Deploy with GitHub Pages
 1. Push this folder as its own GitHub repository.
