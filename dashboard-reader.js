@@ -141,7 +141,7 @@ function citePlainURL(r) {
    until now there was no way to get the tool's own citation from the place
    people reach for one, and the DOI appeared nowhere on the site. The
    version tag is bumped by scripts/update-counts.mjs when the data changes. */
-const UHRI_TOOL_CITATION = 'Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.09]. Zenodo. https://doi.org/10.5281/zenodo.21319464';
+const UHRI_TOOL_CITATION = 'Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.10]. Zenodo. https://doi.org/10.5281/zenodo.21319464';
 function citeTool() { return UHRI_TOOL_CITATION; }
 
 const CITE_FORMATS = [
@@ -197,7 +197,7 @@ function renderDrawer() {
     const mechCounts = _computeMechCounts();
     const hasMech = mechCounts && (mechCounts.upr + mechCounts.treaty + mechCounts.sp) > 0;
     const facets = state.facets || {};
-    const total = facets.total_records || (mechCounts?._total) || 272502;
+    const total = facets.total_records || (mechCounts?._total) || 275711;
     // Use cleanCountryList — same canonical filter the rail uses for its
     // "02 COUNTRY 199" badge.  Raw facets.countries from the API contains
     // ~13 dirty entries (2-letter ISO leaks like "PK", "CZ"; OHCHR

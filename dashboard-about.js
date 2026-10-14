@@ -16,7 +16,7 @@ function renderAbout() {
   root.innerHTML = `
     <div class="me">
       <h1>About <em style="color:var(--accent)">·</em> this project</h1>
-      <p>This dashboard is an <strong>independent research tool</strong> that aggregates <strong>272,502 observations and recommendations</strong> issued by UN human-rights mechanisms — Treaty Bodies, Special Procedures and the Universal Periodic Review — in their review of States, covering the twenty-year period <strong>2006 – 2026</strong>. It is built for human-rights advocates, researchers, journalists and civil-society practitioners who need to <em>search, cite and compare</em> the primary material — not a substitute for reading the underlying reports.</p>
+      <p>This dashboard is an <strong>independent research tool</strong> that aggregates <strong>275,711 observations and recommendations</strong> issued by UN human-rights mechanisms — Treaty Bodies, Special Procedures and the Universal Periodic Review — in their review of States, covering the twenty-year period <strong>2006 – 2026</strong>. It is built for human-rights advocates, researchers, journalists and civil-society practitioners who need to <em>search, cite and compare</em> the primary material — not a substitute for reading the underlying reports.</p>
 
       <section class="me-sec" id="ab-independence">
         <h2>Independence</h2>
@@ -33,8 +33,8 @@ function renderAbout() {
       <section class="me-sec" id="ab-citation">
         <h2>Citation</h2>
         <p>Please cite this dashboard if you use it in research or reporting:</p>
-        <pre style="background:var(--paper-2);padding:10px 12px;border-left:3px solid var(--accent);font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;margin:0 0 8px">Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.09]. Zenodo. https://doi.org/10.5281/zenodo.21319464</pre>
-        <p style="color:var(--dim);font-size:12px;margin-top:-4px">If you cite the cleaned dataset specifically, please add the version tag (<code>v2026.09</code>) so readers can reproduce your counts — a monthly pipeline refresh increments it. Full data lineage is documented in the <a data-nav="methodology" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;cursor:pointer">Methodology tab</a>.</p>
+        <pre style="background:var(--paper-2);padding:10px 12px;border-left:3px solid var(--accent);font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;margin:0 0 8px">Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.10]. Zenodo. https://doi.org/10.5281/zenodo.21319464</pre>
+        <p style="color:var(--dim);font-size:12px;margin-top:-4px">If you cite the cleaned dataset specifically, please add the version tag (<code>v2026.10</code>) so readers can reproduce your counts — a monthly pipeline refresh increments it. Full data lineage is documented in the <a data-nav="methodology" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;cursor:pointer">Methodology tab</a>.</p>
       </section>
 
       <section class="me-sec" id="ab-ack">
