@@ -2261,6 +2261,11 @@ body.uploaded-mode .offline-btn:hover{background:#a16207;color:#fff;border-color
    bottom, published by _insertGaConsentBanner and kept in sync on resize;
    the fallback covers the frame before the first measurement lands. */
 body.ga-consent-open .bug-report-fab{bottom:calc(var(--ga-consent-inset, 190px) + 12px)}
+/* While the banner is open it covers the bottom of the scroll area, and on a
+   phone (~250px) the last screenful of a view — the final result rows, the
+   pager — could not be scrolled above it until the visitor answered. A
+   spacer of the banner's measured height lets any content clear it. */
+body.ga-consent-open .main::after{content:"";display:block;height:var(--ga-consent-inset, 0px)}
 .bug-report-fab:hover{background:var(--accent);border-color:var(--accent);transform:translateY(-2px) scale(1.04)}
 .bug-report-fab:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .bug-report-modal{

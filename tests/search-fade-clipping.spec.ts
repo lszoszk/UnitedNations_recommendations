@@ -34,6 +34,10 @@ const REC = (id: string, text: string) => ({
 });
 
 async function stubApi(page: import('@playwright/test').Page) {
+  // Answer the analytics banner up front. It appears after a delay and, on the
+  // mobile project, sits over the long row's button — so whether a click landed
+  // depended on timing. The banner is not what these tests are about.
+  await page.addInitScript(() => { try { localStorage.setItem('uhri-ga-consent', 'denied'); } catch (_) {} });
   await page.route(/\/api\/data\//, (route) => route.fulfill(json({})));
   await page.route(/\/api\/data\/facets/, (route) =>
     route.fulfill(json({

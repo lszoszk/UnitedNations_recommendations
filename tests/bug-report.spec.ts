@@ -159,3 +159,28 @@ test('the privacy banner never swallows the bug-report button', async ({ page })
   await expect(page.locator('body')).not.toHaveClass(/ga-consent-open/);
   await expect(page.locator('#bugReportFab')).toBeVisible();
 });
+
+test('the privacy banner never hides the end of a view', async ({ page }) => {
+  /* The banner is fixed over the bottom of the scroll area (~250px on a
+     phone). Without room to scroll past it, the last screenful of any view
+     — the final result rows, the pager, the About footer — stayed under it
+     until the visitor answered. Found as a flaky mobile test whose click on
+     a result's "more" button landed on the banner instead. */
+  await page.route(/\/api\/data\//, (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: '{}' }));
+  await page.goto('/dashboard.html#view=about', { waitUntil: 'commit' });
+  await expect(page.locator('#gaConsent')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('#ab-feedback')).toBeVisible({ timeout: 15_000 });
+
+  const last = await page.evaluate(async () => {
+    const main = document.getElementById('main')!;
+    main.scrollTop = main.scrollHeight;                     // as far as a visitor can drag
+    await new Promise((r) => setTimeout(r, 200));
+    const end = document.querySelector('#ab-feedback p')!.getBoundingClientRect();
+    return { contentBottom: Math.round(end.bottom), bannerTop: Math.round(document.getElementById('gaConsent')!.getBoundingClientRect().top) };
+  });
+  expect(last.contentBottom, 'the last paragraph can be scrolled clear of the banner').toBeLessThanOrEqual(last.bannerTop);
+
+  await page.locator('#gaReject').click();
+  const spacer = await page.evaluate(() => getComputedStyle(document.getElementById('main')!, '::after').content);
+  expect(spacer, 'the spacer goes with the banner').toBe('none');
+});
