@@ -822,6 +822,21 @@
   .how-lede a:hover {
     background: var(--accent-soft);
   }
+  /* FIG 06 — support. Reuses the how-grid cards; three columns, actions pinned to the card foot. */
+  .support-grid { grid-template-columns: repeat(3, 1fr); }
+  .support-grid .how-card .how-d { flex: 0 0 auto; }
+  .support-cite {
+    display: block; font: 11px/1.55 var(--mono); color: var(--ink-2);
+    background: var(--paper-2); border-left: 2px solid var(--accent); padding: 8px 10px;
+    overflow-wrap: anywhere;
+  }
+  .support-act { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: auto; padding-top: 8px; }
+  .support-act .btn { padding: 11px 14px; font-size: 11px; }
+  .support-link {
+    font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim);
+    background: none; border: 0; border-bottom: 1px dotted var(--dim); padding: 0; cursor: pointer;
+  }
+  .support-link:hover { color: var(--ink); border-color: var(--ink); }
   /* FIG 05 — MCP band. Same grammar as the how-lede: mono, hairline, one accent. */
   .mcp-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 28px; }
   .mcp-url {
@@ -1259,6 +1274,7 @@
     .section-head .ctx { text-align: left; }
     .bar-grid { grid-template-columns: 1fr; gap: 32px; }
     .how-grid { grid-template-columns: repeat(2, 1fr); }
+    .support-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 540px) {
     .how-grid { grid-template-columns: 1fr; }
@@ -1376,7 +1392,8 @@
     <button class="nav-item"        data-to="#countries"> <span class="n">03</span><span class="lbl">Where</span></button>
     <button class="nav-item"        data-to="#how">       <span class="n">04</span><span class="lbl">How</span></button>
     <button class="nav-item"        data-to="#assistant"> <span class="n">05</span><span class="lbl">Ask</span></button>
-    <button class="nav-item"        data-to="#dashboard"> <span class="n">06</span><span class="lbl">Open</span></button>
+    <button class="nav-item"        data-to="#support">   <span class="n">06</span><span class="lbl">Help</span></button>
+    <button class="nav-item"        data-to="#dashboard"> <span class="n">07</span><span class="lbl">Open</span></button>
   </nav>
   <div class="right">
     <a href="#methodology">Methodology</a>
@@ -1645,6 +1662,59 @@
       <code class="mcp-url" id="mcpUrl">https://150.254.115.204/unhrdb-mcp-rpc/mcp</code>
       <button class="btn ghost" type="button" id="mcpCopy">Copy address</button>
       <a class="btn" href="./ai.html">How to connect <span class="arrow">→</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- FIG 06 — support. Three asks, one action each, none involving money:
+     a citation, a problem report, a story of use. The citation and BibTeX
+     carry the dataset version, which scripts/update-counts.mjs rewrites in
+     this file along with the rest of the site. -->
+<section class="band" id="support">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="no">FIG 06 / SUPPORT</div>
+      <h2 class="t">Free to use. <em style="color:var(--accent)">Three ways to help keep it going.</em></h2>
+      <div class="ctx">cite · report · tell us · two minutes each</div>
+    </div>
+    <div class="how-grid support-grid">
+      <div class="how-card">
+        <div class="how-n">01 · CITE</div>
+        <div class="how-t">Cite it in your work</div>
+        <div class="how-d">A citation is how a free research tool shows it is used. Keep the version tag, so readers can reproduce your counts.</div>
+        <code class="support-cite" id="supportCite">Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.10]. Zenodo. https://doi.org/10.5281/zenodo.21319464</code>
+        <pre hidden id="supportBib">@software{szoszkiewicz_uhri_2026,
+  author    = {Szoszkiewicz, Łukasz},
+  title     = {{UHRI+} --- {UN} Human Rights Recommendations Dashboard},
+  year      = {2026},
+  version   = {v2026.10},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.21319464},
+  url       = {https://doi.org/10.5281/zenodo.21319464}
+}</pre>
+        <div class="support-act">
+          <button class="btn" type="button" data-copy="supportCite" data-label="Copy citation">Copy citation</button>
+          <button class="support-link" type="button" data-copy="supportBib" data-label="Copy BibTeX">Copy BibTeX</button>
+        </div>
+      </div>
+      <div class="how-card">
+        <div class="how-n">02 · REPORT</div>
+        <div class="how-t">Report a problem</div>
+        <div class="how-d">A mis-classified record, a filter that returns too much, a count that looks wrong. Send the address-bar URL — your filters are in it — and one line on what you expected.</div>
+        <div class="support-act">
+          <a class="btn ghost" href="mailto:l.szoszkiewicz@amu.edu.pl?subject=UHRI%2B%20problem%20report&amp;body=Address-bar%20URL%20%28your%20filters%20are%20in%20it%29%3A%0A%0AWhat%20I%20expected%3A%0A%0AWhat%20I%20got%3A%0A">Email a report</a>
+        </div>
+        <div class="how-w"><strong>Faster:</strong> in the dashboard, the bug button at the bottom right fills in the page details for you.</div>
+      </div>
+      <div class="how-card">
+        <div class="how-n">03 · TELL US</div>
+        <div class="how-t">Tell us how you use it</div>
+        <div class="how-d">A report, a UPR submission, a course, a thesis. Two lines are enough.</div>
+        <div class="support-act">
+          <a class="btn ghost" href="mailto:l.szoszkiewicz@amu.edu.pl?subject=How%20I%20use%20UHRI%2B&amp;body=What%20I%20used%20UHRI%2B%20for%20%28a%20report%2C%20a%20submission%2C%20a%20course%2C%20a%20thesis...%29%3A%0A%0ALink%2C%20if%20it%20is%20public%3A%0A%0AMay%20we%20mention%20it%20when%20we%20report%20to%20the%20project%27s%20funders%3F%0A%5B%20%5D%20yes%2C%20with%20my%20name%20%20%20%5B%20%5D%20yes%2C%20without%20my%20name%20%20%20%5B%20%5D%20no%0A">Write two lines</a>
+        </div>
+        <div class="how-w"><strong>Why:</strong> examples of real use are what keeps a free tool funded. The email asks whether we may mention yours; nothing is named without a yes.</div>
+      </div>
     </div>
   </div>
 </section>
@@ -3804,6 +3874,17 @@
       var t=u.textContent.trim(), ok=function(){ b.textContent='Copied'; setTimeout(function(){ b.textContent='Copy address'; }, 1600); };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, fb); else fb();
       function fb(){ var r=document.createRange(); r.selectNodeContents(u); var sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); try{ document.execCommand('copy'); ok(); }catch(e){} }
+    });
+  })();
+  // FIG 06: copy the citation or the BibTeX (same fallback as the MCP address above).
+  (function(){
+    document.querySelectorAll('#support [data-copy]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var src=document.getElementById(b.getAttribute('data-copy')); if(!src) return;
+        var label=b.getAttribute('data-label'), ok=function(){ b.textContent='Copied'; setTimeout(function(){ b.textContent=label; }, 1600); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(src.textContent.trim()).then(ok, fb); else fb();
+        function fb(){ var t=document.createElement('textarea'); t.value=src.textContent.trim(); t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); try{ document.execCommand('copy'); ok(); }catch(e){} t.remove(); }
+      });
     });
   })();
 </script>

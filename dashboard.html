@@ -1476,6 +1476,18 @@ body[data-view="compare"] .facet[data-facet="country"] .fh-toggle{display:none}
 .me p{font-family:var(--serif);font-size:16px;line-height:1.55;color:var(--ink-2);max-width:64ch}
 .me a{color:var(--accent);border-bottom:1px solid var(--accent-soft)}
 .me .me-sec{scroll-margin-top:18px}
+.me .me-support{border:1px solid var(--line);margin:12px 0 4px}
+.me .me-support-row{display:grid;grid-template-columns:1fr auto;gap:8px 20px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.me .me-support-row:first-child{border-top:0}
+.me .me-support-row p{margin:0;font-size:15px}
+.me .me-support-act{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.me .me-support-act button,.me .me-support-act a{border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:6px 10px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;text-decoration:none;white-space:nowrap}
+.me .me-support-act button:hover,.me .me-support-act a:hover{border-color:var(--ink);background:var(--paper-3)}
+.me .me-support-act :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.me .me-bibtex{margin:0 0 8px}
+.me .me-bibtex summary{font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);cursor:pointer}
+.me .me-bibtex pre{background:var(--paper-2);padding:10px 12px;border-left:3px solid var(--accent);font:12px/1.5 var(--mono);white-space:pre-wrap;margin:8px 0 0}
+@media (max-width:640px){.me .me-support-row{grid-template-columns:1fr}.me .me-support-act{justify-content:flex-start}}
 .me .me-toc{margin:20px 0 28px;padding:14px 16px;border:1px solid var(--line);background:var(--paper-2)}
 .me .me-toc-title{font:10px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
 .me .me-toc-sub{margin-top:6px;font:11px var(--mono);line-height:1.5;color:var(--ink-2);max-width:72ch}

@@ -30,10 +30,38 @@ function renderAbout() {
         <p style="color:var(--dim);font-size:12px;margin-top:-6px">Not a scoring instrument. Record volume per country reflects <em>review frequency and substantive scope</em>, not human-rights performance. Counts per theme may double-count where a recommendation addresses multiple issues. Use the dashboard to find trends and primary sources — not to rank states.</p>
       </section>
 
+      <section class="me-sec" id="ab-support">
+        <h2>Support this project</h2>
+        <p>UHRI+ is free to use. Three things help keep it going — none of them involves money.</p>
+        <div class="me-support">
+          <div class="me-support-row">
+            <p><strong>Cite it</strong> in your work. The full reference is in the next section; keep the version tag so readers can reproduce your counts.</p>
+            <div class="me-support-act"><button type="button" data-ab-copy="abCiteText">Copy citation</button><button type="button" data-ab-copy="abBibtex">Copy BibTeX</button></div>
+          </div>
+          <div class="me-support-row">
+            <p><strong>Report a problem</strong> — a mis-classified record, a filter that returns too much, a count that looks wrong. The form fills in the page details for you.</p>
+            <div class="me-support-act"><button type="button" data-ab-report>Report a problem</button></div>
+          </div>
+          <div class="me-support-row">
+            <p><strong>Tell us how you use it</strong> — a report, a UPR submission, a course, a thesis; two lines are enough. Examples of real use are what keeps a free tool funded. The email asks whether we may mention yours; nothing is named without a yes.</p>
+            <div class="me-support-act"><a href="mailto:l.szoszkiewicz@amu.edu.pl?subject=How%20I%20use%20UHRI%2B&amp;body=What%20I%20used%20UHRI%2B%20for%20%28a%20report%2C%20a%20submission%2C%20a%20course%2C%20a%20thesis...%29%3A%0A%0ALink%2C%20if%20it%20is%20public%3A%0A%0AMay%20we%20mention%20it%20when%20we%20report%20to%20the%20project%27s%20funders%3F%0A%5B%20%5D%20yes%2C%20with%20my%20name%20%20%20%5B%20%5D%20yes%2C%20without%20my%20name%20%20%20%5B%20%5D%20no%0A" data-ab-tell>Write two lines</a></div>
+          </div>
+        </div>
+      </section>
+
       <section class="me-sec" id="ab-citation">
         <h2>Citation</h2>
         <p>Please cite this dashboard if you use it in research or reporting:</p>
-        <pre style="background:var(--paper-2);padding:10px 12px;border-left:3px solid var(--accent);font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;margin:0 0 8px">Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.10]. Zenodo. https://doi.org/10.5281/zenodo.21319464</pre>
+        <pre id="abCiteText" style="background:var(--paper-2);padding:10px 12px;border-left:3px solid var(--accent);font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;margin:0 0 8px">Szoszkiewicz, Ł. (2026). UHRI+ — UN Human Rights Recommendations Dashboard [Computer software and dataset, version v2026.10]. Zenodo. https://doi.org/10.5281/zenodo.21319464</pre>
+        <details class="me-bibtex"><summary>BibTeX</summary><pre id="abBibtex">@software{szoszkiewicz_uhri_2026,
+  author    = {Szoszkiewicz, Łukasz},
+  title     = {{UHRI+} --- {UN} Human Rights Recommendations Dashboard},
+  year      = {2026},
+  version   = {v2026.10},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.21319464},
+  url       = {https://doi.org/10.5281/zenodo.21319464}
+}</pre></details>
         <p style="color:var(--dim);font-size:12px;margin-top:-4px">If you cite the cleaned dataset specifically, please add the version tag (<code>v2026.10</code>) so readers can reproduce your counts — a monthly pipeline refresh increments it. Full data lineage is documented in the <a data-nav="methodology" style="color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none;cursor:pointer">Methodology tab</a>.</p>
       </section>
 
@@ -86,6 +114,18 @@ function renderAbout() {
         <p>Spotted a mis-classified record, a cleaning regression, a country that should have a hex, or a missing feature? Email <a href="mailto:l.szoszkiewicz@amu.edu.pl">l.szoszkiewicz@amu.edu.pl</a> or open an issue on the <a href="https://github.com/lszoszk/UnitedNations_recommendations" target="_blank" rel="noopener">GitHub repository</a>. Bug reports with a URL (copy the address bar — filter state is encoded in the hash) plus a one-line description of what you expected are the fastest to triage.</p>
       </section>
     </div>`;
+  // Support section: copy the citation / BibTeX, open the bug-report form.
+  root.querySelectorAll('[data-ab-copy]').forEach(b => b.addEventListener('click', () => {
+    const src = document.getElementById(b.dataset.abCopy);
+    if (!src) return;
+    const write = navigator.clipboard?.writeText ? navigator.clipboard.writeText(src.textContent.trim()) : Promise.reject(new Error('no clipboard'));
+    write.then(() => toast(b.textContent.replace('Copy ', '') + ' copied', false, 1800),
+               () => toast('Could not copy — select the text in the Citation section instead', true));
+  }));
+  root.querySelector('[data-ab-report]')?.addEventListener('click', () => {
+    if (window.__bugReport?.open) window.__bugReport.open();
+    else location.href = 'mailto:l.szoszkiewicz@amu.edu.pl?subject=' + encodeURIComponent('UHRI+ problem report');
+  });
   // data-nav links inside the page (e.g. "Methodology tab") are handled
   // by the global delegated click handler in dashboard.html, so we don't
   // wire per-link listeners here.
