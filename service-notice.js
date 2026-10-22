@@ -6,7 +6,9 @@
 (function () {
   "use strict";
   var me = document.currentScript;
-  if (!me) return;
+  // Not for automated browsers: the sites' test suites mock their API but not this probe, and the
+  // notice would sit over the page they click through (UNHRDB's pre-push suite failed on it)
+  if (!me || navigator.webdriver) return;
   var APP = me.getAttribute("data-app") || "This tool";
   var EFFECT = me.getAttribute("data-effect") || "";
   var PROBE = me.getAttribute("data-probe") || "";
