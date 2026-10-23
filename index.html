@@ -9,7 +9,7 @@
      lives in /llms.txt.  Canonical points at the landing itself so
      this URL is the one cited in AI-generated answers; the dashboard
      page has its own canonical. -->
-<meta name="description" content="UHRI+ — free interactive access to 275,711 UN human rights observations and recommendations from OHCHR UHRI, cleaned and searchable with boolean + wildcard + stemmed queries.">
+<meta name="description" content="UHRI+ — free interactive access to 275,737 UN human rights observations and recommendations from OHCHR UHRI, cleaned and searchable with boolean + wildcard + stemmed queries.">
 <meta name="author" content="L. Szoszkiewicz (Adam Mickiewicz University, Poznań)">
 <meta name="keywords" content="human rights, OHCHR, UHRI, Treaty Bodies, Universal Periodic Review, UPR, Special Procedures, SDG, research dashboard, UN recommendations">
 <link rel="canonical" href="https://lszoszk.github.io/UnitedNations_recommendations/index.html">
@@ -38,7 +38,7 @@
   "name": "UHRI+ — UN Human Rights Recommendations Dashboard",
   "alternateName": ["UHRI+", "UN Human Rights Analytics Dashboard"],
   "url": "https://lszoszk.github.io/UnitedNations_recommendations/",
-  "description": "Search and analytics across 275,711 UN human-rights observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review.",
+  "description": "Search and analytics across 275,737 UN human-rights observations and recommendations from Treaty Bodies, Special Procedures, and the Universal Periodic Review.",
   "inLanguage": "en",
   "potentialAction": {
     "@type": "SearchAction",
@@ -1408,7 +1408,7 @@
 <section class="hero" id="hero">
   <div class="grid">
     <div>
-      <div class="eyebrow"><span><span class="ebn" id="ebTotal">275,711</span> records · <span class="ebn" id="ebCountries">198</span> countries · <span class="ebn" id="ebBodies">70</span> UN bodies · 2006 — 2026</span></div>
+      <div class="eyebrow"><span><span class="ebn" id="ebTotal">275,737</span> records · <span class="ebn" id="ebCountries">198</span> countries · <span class="ebn" id="ebBodies">70</span> UN bodies · 2006 — 2026</span></div>
 
       <h1 class="headline">
         What has the UN<br>
@@ -1452,7 +1452,7 @@
            the retired FIG 01 variant, kept hidden. -->
       <div class="field fig-alt-active" id="field">
         <div class="corner tl">FIG 01 / LIVE</div>
-        <div class="corner tr"><span id="fieldCounter">0</span> / 275,711</div>
+        <div class="corner tr"><span id="fieldCounter">0</span> / 275,737</div>
         <div class="corner bl" id="fieldNote">1 DOT ≈ 15 RECOMMENDATIONS</div>
         <div class="corner br">YR <span id="fieldYear">2006</span></div>
         <canvas id="dotCanvas"></canvas>
@@ -1484,7 +1484,7 @@
     <div class="section-head">
       <div class="no">FIG 02 / WHAT</div>
       <h2 class="t">The recommendations cluster around a handful of persistent themes.</h2>
-      <div class="ctx">Top 10 of 100 tags · n=275,711</div>
+      <div class="ctx">Top 10 of 100 tags · n=275,737</div>
     </div>
 
     <!-- Full-text search / jump bar. The hero's country picker handles "find
@@ -2001,7 +2001,7 @@
       console.info('[landing] live data loaded in', (performance.now() - t0).toFixed(0), 'ms · total:', facets.total_records);
 
       /* KPIs — overwrite the [data-counter] attrs BEFORE the counter
-         observer fires. 275,711 real vs 275,722 fake is an 11-record
+         observer fires. 275,737 real vs 275,748 fake is an 11-record
          difference (Stage 5 artefacts removed during cleaning).
          Country count: the facets endpoint returns ~214 entries, but
          ~15 of those are bogus 2-letter ISO codes (AU/CA/CO/CZ/ES/ET/
@@ -2018,7 +2018,7 @@
         if (!el || target == null) return;
         el.dataset.counter = String(target);
       };
-      patchCounter('[data-counter="275711"]', facets.total_records);
+      patchCounter('[data-counter="275737"]', facets.total_records);
       patchCounter('[data-counter="198"]',    realCountries.length);
       patchCounter('[data-counter="70"]',     (facets.bodies || []).length);
 
@@ -2368,7 +2368,7 @@
   function buildDots() {
     dots = [];
     const density = tw.dotDensity || 1.0;
-    /* v2: 10× finer scale — 1 dot ≈ 15 records (18,000 dots for 275,711).
+    /* v2: 10× finer scale — 1 dot ≈ 15 records (18,000 dots for 275,737).
        Affordable because draw() below paints incrementally (new dots only,
        no per-frame clear), so the reveal stays ~1 ms/frame at any N. */
     const N = Math.floor(18000 * density);
@@ -2427,7 +2427,7 @@
     // reveal pace scaled with the 10× dot count → same ~1s total reveal
     const revealPer = 60.0; // dots per ms (÷3 below)
     const revealed = Math.min(dots.length, Math.floor(elapsed * revealPer / 3));
-    fieldCounter.textContent = fmt(Math.round(275711 * (revealed / dots.length)));
+    fieldCounter.textContent = fmt(Math.round(275737 * (revealed / dots.length)));
     if (dots.length) {
       const lastYr = dots[Math.min(revealed, dots.length - 1)]?.yr ?? 2006;
       fieldYear.textContent = lastYr;
@@ -3434,7 +3434,7 @@
     /* same 18,000-dot scale as the base field (1 dot ≈ 15 records) so the
        red share stays an honest proportion. Halo rings only when the
        country is small enough that single dots need help being seen. */
-    const M = Math.max(3, Math.round(18000 * count / 275711));
+    const M = Math.max(3, Math.round(18000 * count / 275737));
     const rings = M <= 40;
     const padX = 28, padY = 28;
     for (let i = 0; i < M; i++) {
@@ -3449,7 +3449,7 @@
     }
     field.classList.add('country-active');
     const note = $id('fieldNote');
-    if (note) note.textContent = `${name.toUpperCase()} = ${count.toLocaleString('en-US')} OF 275,711`;
+    if (note) note.textContent = `${name.toUpperCase()} = ${count.toLocaleString('en-US')} OF 275,737`;
     lastHL = { name, count };
   }
   window.addEventListener('resize', () => { if (lastHL) highlightCountry(lastHL.name, lastHL.count); });
