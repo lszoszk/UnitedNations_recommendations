@@ -716,11 +716,17 @@ function bindKwInput() {
   const kwHintMore = $('#kwHintMore');
   const kwExamples = $('#kwExamples');
   if (kwHintMore && kwExamples) {
+    // The hint is shown only while the keyword box has focus (CSS :focus-within).
+    // Safari does not move focus to a link on click, so pressing the mouse on
+    // "examples" blurred the box, the hint vanished, and the click landed on
+    // nothing. Keeping focus where it is on mousedown lets the click arrive.
+    kwHintMore.addEventListener('mousedown', (e) => e.preventDefault());
     kwHintMore.addEventListener('click', (e) => {
       e.preventDefault();
       const open = kwExamples.style.display === 'block';
       kwExamples.style.display = open ? 'none' : 'block';
       kwHintMore.textContent = open ? 'examples ▾' : 'hide examples ▴';
+      kwExamples.closest('.facet-body')?.classList.toggle('kw-examples-open', !open);
     });
   }
 

@@ -437,6 +437,10 @@ a{color:inherit;text-decoration:none}
    tutorial before the first query. The examples ▾ disclosure still works. */
 .facet[data-facet="kw"] .kw-hint{display:none}
 .facet[data-facet="kw"] .facet-body:focus-within .kw-hint{display:block}
+/* Keep the hint (and its "hide examples" link) while the examples are open,
+   wherever focus has gone. Safari does not focus a link on click, so without
+   this the open list had no visible way to close it. */
+.facet[data-facet="kw"] .facet-body.kw-examples-open .kw-hint{display:block}
 
 /* Country facet on Country / Compare tabs: a dedicated picker is shown
    above the chart, so the rail filter would be redundant + confusing.
